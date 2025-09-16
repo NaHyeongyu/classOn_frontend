@@ -1,0 +1,14 @@
+<svg width="360" height="96" viewBox="0 0 360 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <title>ClassOn Logo (Horizontal, Dark)</title>
+  <rect x="0" y="0" width="360" height="96" rx="16" fill="#0F172A"/>
+  <!-- Icon -->
+  <g transform="translate(12,12) scale(0.5)">
+    <path d="M86 102.1 A44 44 0 1 1 86 25.9" stroke="#FFFFFF" stroke-width="16" stroke-linecap="round" fill="none"/>
+    <circle cx="102.1" cy="42" r="10" fill="#22C55E"/>
+  </g>
+  <!-- Wordmark -->
+  <text x="96" y="64" font-family="Inter, Pretendard, 'Noto Sans KR', system-ui, -apple-system, 'Segoe UI', Roboto, 'Apple SD Gothic Neo', 'Malgun Gothic', Arial, sans-serif"
+        font-size="40" font-weight="800" fill="#FFFFFF">
+    Class<tspan fill="#22C55E">On</tspan>
+  </text>
+</svg>

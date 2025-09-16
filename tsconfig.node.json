@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "tsBuildInfoFile": "./.tscache/tsconfig.node.tsbuildinfo",
+
+    "target": "ES2020",
+    "lib": ["ES2020"],
+    "module": "ESNext",
+
+    /* Node용 해석 */
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+
+    /* 출력 없음 */
+    "noEmit": true,
+
+    /* 린트/엄격도: 빌드 방해 최소화 */
+    "strict": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "noFallthroughCasesInSwitch": true
+  },
+  "include": ["vite.config.ts", "vitest.config.ts"]
+}

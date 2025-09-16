@@ -1,0 +1,592 @@
+import { useNavigate, useParams } from "react-router-dom";
+import CalendarDetailHeader from "../components/calendar/detail/CalendarDetailHeader";
+import ClassList from "../components/calendar/detail/ClassList";
+import CounselList from "../components/calendar/detail/CounselList";
+import TodoList from "../components/calendar/detail/TodoList";
+import { useEffect, useMemo, useState } from "react";
+import type { FormEvent } from "react";
+import styled from "styled-components";
+import { GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "../components/common/UI";
+import { formatYMD } from "../features/calendar/dateUtils";
+import { createTodo, deleteTodo, updateTodo } from "../api/todos";
+import { listCourses, createCourseRecord, type Course } from "../api/courses";
+import { invalidateCacheByPrefix } from "../lib/fetcher";
+import type { ClassItem, TaskItem } from "../types/calendarDetail";
+import { useCalendarDetail } from "../hooks/useCalendarDetail";
+import { getClassesOn } from "../api/calendar";
+import { useTodosByDate } from "../features/todos/useTodosByDate";
+import { listStudents, type Student } from "../api/students";
+import { createCounsel, listCounsels, type Counsel, type PageResult as PageCounsel } from "../api/counsels";
+import { invalidateTodosCache } from "../features/todos/cache";
+import { formatPhone } from "../lib/format";
+import {
+  DetailPage,
+  DetailColumns,
+  DetailLeft,
+  DetailRight,
+} from "../components/calendar/detail/DetailLayout";
+
+export default function CalendarDetail() {
+  const navigate = useNavigate();
+  const { ymd } = useParams();
+  const ymdSafe = ymd ?? formatYMD(new Date());
+  const { label, classes: classesDerived, counsels, prevYMD, nextYMD, todayYMD } =
+    useCalendarDetail(ymdSafe);
+  const [classes, setClasses] = useState<ClassItem[]>([]);
+  const [counselItems, setCounselItems] = useState<typeof counsels>([]);
+  // Add-class modal state
+  const [addOpen, setAddOpen] = useState(false);
+  const [courseRows, setCourseRows] = useState<Course[]>([]);
+  const [courseFilter, setCourseFilter] = useState("");
+  const [courseBusy, setCourseBusy] = useState(false);
+  const [courseErr, setCourseErr] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [timeStart, setTimeStart] = useState(""); // HH:mm
+  const [timeEnd, setTimeEnd] = useState("");   // HH:mm
+  const [savingClass, setSavingClass] = useState(false);
+  const [addErr, setAddErr] = useState<string | null>(null);
+  function numOr<T>(...vals: any[]): number {
+    for (const v of vals) {
+      if (typeof v === 'number' && Number.isFinite(v)) return v as number;
+    }
+    return 0;
+  }
+  function mapRows(list: any[]): ClassItem[] {
+    return list.map((r: any) => {
+      const s = r.startTime ?? r.start_at ?? r.startAt ?? r.start ?? null;
+      const e = r.endTime ?? r.end_at ?? r.endAt ?? r.end ?? null;
+      const present = numOr(r.attPresent, r.presentCount, r.attendancePresent, r?.attendance?.present);
+      const absent = numOr(r.attAbsent, r.absentCount, r.attendanceAbsent, r?.attendance?.absent);
+      return {
+        subject: r.courseTitle || '수업',
+        time: formatRange(s, e),
+        room: '-',
+        teacher: '-',
+        student: '-',
+        done: false,
+        courseId: r.courseId || undefined,
+        date: r.recordDate || r.date || ymdSafe,
+        recordId: r.recordId || r.id,
+        notes: r.topic || r.notes || r.content || null,
+        attPresent: present,
+        attAbsent: absent,
+      } as ClassItem;
+    });
+  }
+
+  // Load classes via unified API (same as dashboard)
+  useMemo(() => { void 0; }, []);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const list = await getClassesOn(ymdSafe);
+        if (cancelled) return;
+        setClasses(mapRows(list));
+      } catch (e: any) {
+        if (!cancelled) {
+          // fallback to derived client-side list to avoid blank
+          setClasses(classesDerived);
+        }
+      }
+    }
+    void load();
+    return () => { cancelled = true; };
+  }, [ymdSafe, classesDerived]);
+
+  // Lightweight auto-refresh to catch mobile/other updates
+  useEffect(() => {
+    let cancelled = false;
+    const t = setInterval(async () => {
+      try {
+        const list = await getClassesOn(ymdSafe);
+        if (cancelled) return;
+        setClasses(mapRows(list));
+      } catch {}
+    }, 15000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [ymdSafe]);
+
+  // Keep local counselItems in sync with hook
+  useEffect(() => { setCounselItems(counsels); }, [counsels]);
+
+  // Refresh immediately when the tab becomes visible (e.g., after editing attendance)
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState === 'visible') {
+        getClassesOn(ymdSafe).then((list) => setClasses(mapRows(list))).catch(() => {});
+      }
+    }
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, [ymdSafe]);
+
+  const { data, error, refresh } = useTodosByDate(ymdSafe);
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [formTitle, setFormTitle] = useState("");
+  const [formNotes, setFormNotes] = useState("");
+
+  // 데이터 로딩은 useTodosByDate 훅으로 일원화됨
+
+  async function onAdd() {
+    setEditingId(null);
+    setFormTitle("");
+    setFormNotes("");
+    setOpen(true);
+  }
+
+  function onEdit(id: number) {
+    const t = (data || []).find((x) => x.id === id);
+    if (!t) return;
+    setEditingId(id);
+    setFormTitle(t.title);
+    setFormNotes(t.notes || "");
+    setOpen(true);
+  }
+
+  async function onSubmitModal(e: FormEvent) {
+    e.preventDefault();
+    if (!formTitle.trim()) return;
+    const calendarDate = ymdSafe;
+    try {
+      if (editingId == null) {
+        const created = await createTodo({
+          title: formTitle.trim(),
+          notes: formNotes || undefined,
+          calendarDate,
+        });
+        void created; // suppress unused var in no-op since we refresh
+        invalidateTodosCache(ymdSafe);
+        await refresh();
+      } else {
+        const updated = await updateTodo(editingId, {
+          title: formTitle.trim(),
+          notes: formNotes || undefined,
+        });
+        void updated;
+        invalidateTodosCache(ymdSafe);
+        await refresh();
+      }
+      setOpen(false);
+    } catch (e: any) {
+      setMutationError(e?.message || "저장에 실패했습니다.");
+    }
+  }
+  // Toggle removed in UI; status changes handled in detail edit or future bulk actions
+
+  async function onDelete(id: number) {
+    try {
+      await deleteTodo(id);
+      invalidateTodosCache(ymdSafe);
+      await refresh();
+    } catch (e: any) {
+      setMutationError(e?.message || "삭제에 실패했습니다.");
+    }
+  }
+
+  // Launch add-class modal
+  async function onAddClass() {
+    setAddOpen(true);
+    setAddErr(null);
+    if (courseRows.length === 0) {
+      setCourseBusy(true); setCourseErr(null);
+      try {
+        const res = await listCourses({ status: "IN_PROGRESS", size: 200 });
+        setCourseRows(res.content);
+      } catch (e: any) {
+        setCourseErr(e?.message || "수업 목록을 불러오지 못했습니다.");
+      } finally {
+        setCourseBusy(false);
+      }
+    }
+  }
+  function onPickCourse(c: Course) {
+    setSelectedCourse(c);
+    const s = toHHMM(c.startTime) || '00:00';
+    const e = toHHMM(c.endTime) || '00:00';
+    setTimeStart(s);
+    setTimeEnd(e);
+    try { const [sh, sm] = s.split(":"); setStartHour(sh); setStartMin(sm); } catch {}
+    try { const [eh, em] = e.split(":"); setEndHour(eh); setEndMin(em); } catch {}
+    setAddErr(null);
+  }
+  async function onSaveClass() {
+    if (!selectedCourse) { alert("수업 템플릿을 선택해 주세요."); return; }
+    const start = toHHMMSS(`${(startHour||'00').padStart(2,'0')}:${(startMin||'00').padStart(2,'0')}`);
+    const end = toHHMMSS(`${(endHour||'00').padStart(2,'0')}:${(endMin||'00').padStart(2,'0')}`);
+    setSavingClass(true);
+    setAddErr(null);
+    try {
+      await createCourseRecord(selectedCourse.id, { recordDate: ymdSafe, startTime: start, endTime: end });
+      invalidateCacheByPrefix('/api/calendar/classes');
+      const list = await getClassesOn(ymdSafe);
+      setClasses(mapRows(list));
+      setAddOpen(false);
+      setSelectedCourse(null);
+    } catch (e: any) {
+      const msg = String(e?.message || '');
+      if (msg.includes('HTTP 409')) setAddErr('이미 등록된 수업이 있습니다.');
+      else setAddErr('수업 추가에 실패했습니다.');
+    } finally {
+      setSavingClass(false);
+    }
+  }
+
+  const inProgress: TaskItem[] = useMemo(
+    () =>
+      (data || [])
+        .filter((t) => t.status !== "DONE")
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          content: t.notes,
+          done: false,
+        })),
+    [data]
+  );
+  const done: TaskItem[] = useMemo(
+    () =>
+      (data || [])
+        .filter((t) => t.status === "DONE")
+        .map((t) => ({
+          id: t.id,
+          title: t.title,
+          content: t.notes,
+          done: true,
+        })),
+    [data]
+  );
+
+  // Counsel add modal state
+  const [counselOpen, setCounselOpen] = useState(false);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [studFilter, setStudFilter] = useState("");
+  const [studBusy, setStudBusy] = useState(false);
+  const [studErr, setStudErr] = useState<string | null>(null);
+  const [selStudent, setSelStudent] = useState<Student | null>(null);
+  const [counselTime, setCounselTime] = useState(""); // HH:mm
+  const [counselNote, setCounselNote] = useState("");
+  const [savingCounsel, setSavingCounsel] = useState(false);
+  const [counselErr, setCounselErr] = useState<string | null>(null);
+  // Time pickers: hours (00-23) and minutes (00,05,...,55)
+  const hours24 = useMemo(() => Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')), []);
+  const mins5 = useMemo(() => ['00','05','10','15','20','25','30','35','40','45','50','55'], []);
+  // Counsel time (split)
+  const [counselHour, setCounselHour] = useState<string>("");
+  const [counselMin, setCounselMin] = useState<string>("");
+  // Class add time (split)
+  const [startHour, setStartHour] = useState<string>("");
+  const [startMin, setStartMin] = useState<string>("");
+  const [endHour, setEndHour] = useState<string>("");
+  const [endMin, setEndMin] = useState<string>("");
+
+  async function onAddCounsel() {
+    setCounselOpen(true);
+    setCounselErr(null);
+    if (!counselTime) {
+      const now = nowHHMM5();
+      setCounselTime(now);
+      try { const [hh, mm] = now.split(":"); setCounselHour(hh); setCounselMin(mm); } catch {}
+    } else {
+      try { const [hh, mm] = counselTime.split(":"); setCounselHour(hh); setCounselMin(mm); } catch {}
+    }
+    if (students.length === 0) {
+      setStudBusy(true); setStudErr(null);
+      try {
+        const res = await listStudents({ status: 'ENROLLED', size: 200 });
+        setStudents(res.content);
+      } catch (e: any) {
+        setStudErr(e?.message || '학생 목록을 불러오지 못했습니다.');
+      } finally { setStudBusy(false); }
+    }
+  }
+  function onPickStudent(s: Student) { setSelStudent(s); setCounselErr(null); }
+  function isoFromYmdHm(ymd: string, hm: string) {
+    if (!hm || !/^\d{2}:\d{2}$/.test(hm)) return `${ymd}T00:00:00`;
+    return `${ymd}T${hm}:00`;
+  }
+  async function onSaveCounsel() {
+    if (!selStudent) { setCounselErr('학생을 선택해 주세요.'); return; }
+    const iso = isoFromYmdHm(ymdSafe, counselTime);
+    setSavingCounsel(true);
+    setCounselErr(null);
+    try {
+      await createCounsel({ studentId: selStudent.id, counselTime: iso, content: counselNote || undefined });
+      // Refresh counsel list for the day
+      const res: PageCounsel<Counsel> = await listCounsels({ onYmd: ymdSafe, size: 50 });
+      const items = (res.content || []).map(c => ({ id: c.id, studentId: c.studentId, time: c.counselTime.replace('T',' ').slice(11,16), title: (c.content||'').split(/\r?\n/)[0] || '상담', with: c.studentName, owner: '-', done: c.status === 'CONVERTED' }));
+      setCounselItems(items);
+      setCounselOpen(false);
+      setSelStudent(null); setCounselTime(""); setCounselNote("");
+    } catch (e: any) {
+      setCounselErr(e?.message || '상담 추가에 실패했습니다.');
+    } finally { setSavingCounsel(false); }
+  }
+
+  return (
+    <DetailPage>
+      <CalendarDetailHeader
+        label={label}
+        onBack={() => navigate(-1)}
+        onPrev={() => navigate(`/calendar/${prevYMD()}`)}
+        onNext={() => navigate(`/calendar/${nextYMD()}`)}
+        onToday={() => navigate(`/calendar/${todayYMD()}`)}
+      />
+      <DetailColumns>
+        <DetailLeft>
+          <ClassList items={classes} titleMode="subject" showNotes={false} onAdd={onAddClass} />
+          <CounselList items={counselItems} onAdd={onAddCounsel} onDetail={(studentId) => navigate(`/students/${studentId}/counsels`)} />
+        </DetailLeft>
+        <DetailRight>
+          <TodoList
+            inProgress={inProgress}
+            done={done}
+            onAdd={onAdd}
+            onDelete={onDelete}
+            onEdit={onEdit}
+          />
+          {open && (
+            <ModalBackdrop onClick={() => setOpen(false)}>
+              <ModalCard onClick={(e) => e.stopPropagation()}>
+                <ModalTitle>
+                  {editingId == null ? "할 일 추가" : "할 일 수정"}
+                </ModalTitle>
+                <form onSubmit={onSubmitModal}>
+                  <Label>제목</Label>
+                  <Input
+                    value={formTitle}
+                    onChange={(e) => setFormTitle(e.target.value)}
+                    placeholder="예: 상담 준비"
+                  />
+                  <Label>메모 (선택)</Label>
+                  <TextArea
+                    rows={4}
+                    value={formNotes}
+                    onChange={(e) => setFormNotes(e.target.value)}
+                    placeholder="세부 내용 또는 참고사항"
+                  />
+                  <BtnRow>
+                    <UIGhostBtn as={"button" as any} onClick={() => setOpen(false)}>취소</UIGhostBtn>
+                    <UIPrimaryBtn as={"button" as any} type="submit">저장</UIPrimaryBtn>
+                  </BtnRow>
+                </form>
+              </ModalCard>
+            </ModalBackdrop>
+          )}
+          {counselOpen && (
+            <ModalBackdrop onClick={() => setCounselOpen(false)}>
+              <ModalCard onClick={(e) => e.stopPropagation()}>
+                <ModalTitle>상담 추가</ModalTitle>
+                <Label>학생 선택</Label>
+                <Input placeholder="학생 검색…" value={studFilter} onChange={(e)=>setStudFilter(e.target.value)} />
+                <StudentList>
+                  {studBusy && <Muted>불러오는 중…</Muted>}
+                  {studErr && <Err>{studErr}</Err>}
+                  {!studBusy && !studErr && (
+                    (students||[])
+                      .filter(s => !studFilter || s.name.toLowerCase().includes(studFilter.toLowerCase()) || (s.code||'').toLowerCase().includes(studFilter.toLowerCase()))
+                      .map(s => (
+                        <StudentRow key={s.id} type="button" data-selected={selStudent?.id===s.id}
+                          onClick={()=>onPickStudent(s)} onKeyDown={(e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); onPickStudent(s);} }}>
+                          <div>
+                            <strong>{s.name}</strong>
+                            <SmallText style={{ marginLeft: 8 }}>{s.code}</SmallText>
+                          </div>
+                          <SmallText>{formatPhone(s.phoneNumber)}</SmallText>
+                        </StudentRow>
+                      ))
+                  )}
+                </StudentList>
+                <div style={{ marginTop: 8 }}>
+                  {selStudent ? (
+                    <SelectedBox>
+                      <span className="label">선택된 학생</span>
+                      <span className="name">{selStudent.name}</span>
+                      {selStudent.code && <SmallText style={{ marginLeft: 6 }}>{selStudent.code}</SmallText>}
+                    </SelectedBox>
+                  ) : (
+                    <Muted>학생을 선택해 주세요.</Muted>
+                  )}
+                </div>
+                <Label style={{ marginTop: 10 }}>시간</Label>
+                <Row>
+                  <Select aria-label="시" value={counselHour} onChange={(e)=>setCounselHour(e.target.value)}>
+                    {hours24.map(h => (<option key={h} value={h}>{h}</option>))}
+                  </Select>
+                  <span>:</span>
+                  <Select aria-label="분" value={counselMin} onChange={(e)=>setCounselMin(e.target.value)}>
+                    {mins5.map(m => (<option key={m} value={m}>{m}</option>))}
+                  </Select>
+                </Row>
+                <Label style={{ marginTop: 10 }}>메모 (선택)</Label>
+                <TextArea rows={3} value={counselNote} onChange={(e)=>setCounselNote(e.target.value)} placeholder="상담 메모" />
+                {counselErr && <Err>{counselErr}</Err>}
+                <BtnRow>
+                  <UIGhostBtn as={"button" as any} onClick={() => setCounselOpen(false)}>취소</UIGhostBtn>
+                  <UIPrimaryBtn as={"button" as any} disabled={savingCounsel} onClick={onSaveCounsel}>{savingCounsel ? '저장 중…' : '저장'}</UIPrimaryBtn>
+                </BtnRow>
+              </ModalCard>
+            </ModalBackdrop>
+          )}
+          {addOpen && (
+            <ModalBackdrop onClick={() => setAddOpen(false)}>
+              <ModalCard onClick={(e) => e.stopPropagation()}>
+                <ModalTitle>수업 추가</ModalTitle>
+                <Label>수업 템플릿 선택</Label>
+                <Input
+                  placeholder="검색어로 필터…"
+                  value={courseFilter}
+                  onChange={(e) => setCourseFilter(e.target.value)}
+                />
+                <CourseList>
+                  {courseBusy && <Muted>불러오는 중…</Muted>}
+                  {courseErr && <Err>{courseErr}</Err>}
+                  {!courseBusy && !courseErr && (
+                    (courseRows || [])
+                      .filter(c => !courseFilter || (c.title?.toLowerCase().includes(courseFilter.toLowerCase()) || c.code?.toLowerCase().includes(courseFilter.toLowerCase())))
+                      .map(c => (
+                        <CourseRow key={c.id} data-selected={selectedCourse?.id === c.id} onClick={() => onPickCourse(c)}>
+                          <div>
+                            <strong>{c.title}</strong>
+                            <SmallText style={{ marginLeft: 8 }}>{c.code}</SmallText>
+                          </div>
+                          <SmallText>{formatRange(c.startTime, c.endTime)}</SmallText>
+                        </CourseRow>
+                      ))
+                  )}
+                </CourseList>
+                <Label style={{ marginTop: 10 }}>시간</Label>
+                <Row>
+                  <Select aria-label="시" value={startHour} onChange={(e) => { const v=e.target.value; setStartHour(v); setTimeStart(`${v}:${(startMin||'00').padStart(2,'0')}`); }}>
+                    {hours24.map(h => (<option key={h} value={h}>{h}</option>))}
+                  </Select>
+                  <span>:</span>
+                  <Select aria-label="분" value={startMin} onChange={(e) => { const v=e.target.value; setStartMin(v); setTimeStart(`${(startHour||'00').padStart(2,'0')}:${v}`); }}>
+                    {mins5.map(m => (<option key={m} value={m}>{m}</option>))}
+                  </Select>
+                  <span>~</span>
+                  <Select aria-label="시" value={endHour} onChange={(e) => { const v=e.target.value; setEndHour(v); setTimeEnd(`${v}:${(endMin||'00').padStart(2,'0')}`); }}>
+                    {hours24.map(h => (<option key={h} value={h}>{h}</option>))}
+                  </Select>
+                  <span>:</span>
+                  <Select aria-label="분" value={endMin} onChange={(e) => { const v=e.target.value; setEndMin(v); setTimeEnd(`${(endHour||'00').padStart(2,'0')}:${v}`); }}>
+                    {mins5.map(m => (<option key={m} value={m}>{m}</option>))}
+                  </Select>
+                </Row>
+                {addErr && <Err>{addErr}</Err>}
+                <BtnRow>
+                  <UIGhostBtn as={"button" as any} onClick={() => setAddOpen(false)}>취소</UIGhostBtn>
+                  <UIPrimaryBtn as={"button" as any} disabled={savingClass} onClick={onSaveClass}>{savingClass ? '저장 중…' : '저장'}</UIPrimaryBtn>
+                </BtnRow>
+              </ModalCard>
+            </ModalBackdrop>
+          )}
+          {(error || mutationError) && (
+            <div style={{ color: "#b91c1c", marginTop: 8 }}>
+              {mutationError || error}
+            </div>
+          )}
+        </DetailRight>
+      </DetailColumns>
+    </DetailPage>
+  );
+}
+
+const ModalBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: grid;
+  place-items: center;
+  z-index: 50;
+`;
+const ModalCard = styled.div`
+  width: 520px;
+  max-width: calc(100% - 32px);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 16px;
+`;
+  const ModalTitle = styled.h3`
+  margin: 0 0 10px;
+  font-size: 18px;
+  color: #111827;
+`;
+const Row = styled.div` display:flex; align-items:center; gap:8px; `;
+const CourseList = styled.div` max-height: 220px; overflow: auto; border: 1px solid #f1f5f9; border-radius: 10px; margin-top: 6px; `;
+const CourseRow = styled.div`
+  padding: 8px 10px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+  border-bottom: 1px solid #f1f5f9;
+  &[data-selected='true']{ background:#eef2ff; }
+  &:hover{ background:#f9fafb; }
+`;
+// Separate list styles for student picker (use button for better accessibility)
+const StudentList = styled(CourseList)``;
+const StudentRow = styled.button`
+  width: 100%; text-align: left; background: transparent; border: 0; padding: 8px 10px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;
+  border-bottom: 1px solid #f1f5f9;
+  &[data-selected='true']{ background:#eef2ff; }
+  &:hover{ background:#f9fafb; }
+`;
+const Err = styled.div` color:#b91c1c; font-size:12px; margin-top:6px; `;
+
+function hhmm(s?: string | null) {
+  if (!s) return "--:--";
+  try {
+    const str = String(s);
+    const m = str.match(/(\d{2}):(\d{2})/);
+    return m ? `${m[1]}:${m[2]}` : "--:--";
+  } catch { return "--:--"; }
+}
+function formatRange(start?: string | null, end?: string | null) {
+  return `${hhmm(start)} ~ ${hhmm(end)}`;
+}
+function toHHMM(s?: string | null) { if (!s) return ""; try { const str = String(s); const m = str.match(/(\d{2}):(\d{2})/); return m ? `${m[1]}:${m[2]}` : ""; } catch { return ""; } }
+function toHHMMSS(s: string) { if (!s) return undefined as any; const [h,m] = s.split(":"); return `${h?.padStart(2,'0')}:${m?.padStart(2,'0')}:00`; }
+function buildTimes5() { const out: string[] = []; for (let h=0; h<24; h++) { for (let m=0; m<60; m+=5) { out.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`); } } return out; }
+function nowHHMM5() { const d=new Date(); let h=d.getHours(), m=d.getMinutes(); const r=Math.round(m/5)*5; if (r===60) { h=(h+1)%24; m=0; } else m=r; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
+const Label = styled.label`
+  display: block;
+  margin: 8px 0 6px;
+  font-size: 12px;
+  color: #6b7280;
+`;
+const Input = styled.input`
+  width: 100%;
+  height: 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 12px;
+`;
+const Select = styled.select`
+  width: 100%;
+  height: 40px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 8px;
+  background: #fff;
+`;
+const TextArea = styled.textarea`
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 12px;
+  resize: vertical;
+`;
+const BtnRow = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+`;
+// Buttons from common UI
+const SmallText = styled.span` color:#9ca3af; font-size:12px; `;
+const Muted = styled.div` color:#6b7280; font-size:12px; `;
+const SelectedBox = styled.div`
+  display: inline-flex; align-items: center; gap: 8px; padding: 6px 10px; border:1px solid #c7d2fe; background:#eef2ff; color:#1f2937; border-radius: 8px; font-size: 13px;
+  .label { color:#4f46e5; font-weight: 800; }
+  .name { font-weight: 800; }
+`;

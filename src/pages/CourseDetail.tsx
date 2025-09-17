@@ -385,15 +385,16 @@ export default function CourseDetail() {
                       <strong>{h.dateLabel}</strong>
                       <SmallMuted style={{ marginLeft: 8 }}>{h.time}</SmallMuted>
                       <SmallMuted style={{ marginLeft: 8 }}>{h.type}</SmallMuted>
-                      {h.id && (
-                        <RecBadge>
-                          {(() => {
-                            const m = attByRec[h.id!] || localAttendanceMap(h.id!);
-                            const cnt = Object.keys(m).length;
-                            return cnt > 0 ? `처리 ${cnt}명` : '미처리';
-                          })()}
-                        </RecBadge>
-                      )}
+                      {h.id && (() => {
+                        const m = attByRec[h.id!] || localAttendanceMap(h.id!);
+                        const processed = Object.keys(m).length;
+                        const unprocessed = Math.max(0, students.length - processed);
+                        return (
+                          <RecBadge>
+                            {`처리 ${processed}명 · 미처리 ${unprocessed}명`}
+                          </RecBadge>
+                        );
+                      })()}
                     </div>
                     <div>
                       {h.id ? (
@@ -406,12 +407,14 @@ export default function CourseDetail() {
                   <BlockTitle>출석</BlockTitle>
                   {(() => {
                     const map = h.id ? (attByRec[h.id!] || localAttendanceMap(h.id!)) : {} as Record<number, boolean>;
-                    const present = Object.values(map).filter(Boolean).length;
-                    const absent = Math.max(0, students.length - present);
+                    const present = Object.values(map).filter(v => v === true).length;
+                    const absent = Object.values(map).filter(v => v === false).length;
+                    const unprocessed = Math.max(0, students.length - (present + absent));
                     return (
                       <div style={{ display:'flex', gap:12, alignItems:'center' }}>
                         <CountPill data-variant='present'>출석 {present}명</CountPill>
                         <CountPill data-variant='absent'>결석 {absent}명</CountPill>
+                        <CountPill data-variant='none'>미처리 {unprocessed}명</CountPill>
                       </div>
                     );
                   })()}
@@ -570,4 +573,5 @@ const CountPill = styled.span`
   display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:999px; border:1px solid #e5e7eb; font-size:12px; font-weight:800; color:#374151; background:#fff;
   &[data-variant='present']{ background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
   &[data-variant='absent']{ background:#fee2e2; color:#7f1d1d; border-color:#fecaca; }
+  &[data-variant='none']{ background:#f3f4f6; color:#6b7280; border-color:#e5e7eb; }
 `;

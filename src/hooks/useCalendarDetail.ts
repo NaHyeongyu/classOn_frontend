@@ -8,7 +8,7 @@ export function useCalendarDetail(ymd?: string) {
   const date = useMemo(() => (ymd ? parseYMD(ymd) : stripTime(new Date())), [ymd]);
   const label = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEK_LABELS[date.getDay()]})`;
 
-  const { classesForDate } = useCoursesCalendar();
+  const { classesForDate } = useCoursesCalendar({ dates: [[date]] });
   const classes = useMemo<ClassItem[]>(() => classesForDate(date), [classesForDate, date]);
 
   // Load counsels for this date from backend

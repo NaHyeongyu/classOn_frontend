@@ -15,6 +15,7 @@ export interface ClassItem {
   notes?: string | null; // 수업 내용 텍스트
   attPresent?: number;   // 출석 인원 수
   attAbsent?: number;    // 결석 인원 수
+  attUnprocessed?: number; // 미처리 인원 수
 }
 
 export interface CounselItem {

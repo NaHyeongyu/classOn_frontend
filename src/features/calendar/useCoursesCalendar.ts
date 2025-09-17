@@ -1,18 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import { listCourses, type Course } from "../../api/courses";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CalendarEvent } from "../../types/calendar";
 import type { ClassItem } from "../../types/calendarDetail";
 import { formatYMD } from "./dateUtils";
-
-const DOW_MAP: Record<string, number> = {
-  SUN: 0,
-  MON: 1,
-  TUE: 2,
-  WED: 3,
-  THU: 4,
-  FRI: 5,
-  SAT: 6,
-};
+import { getClassesRange } from "../../api/calendar";
 
 function hhmm(t?: string) {
   if (!t) return "";
@@ -20,75 +10,84 @@ function hhmm(t?: string) {
   return `${h}:${m}`;
 }
 
-function matchesDate(c: Course, d: Date) {
-  if (!c || c.status === "STOPPED") return false;
-  const dow = d.getDay();
-  const days = (c.recurrenceDays || "")
-    .split(",")
-    .map((s) => s.trim().toUpperCase())
-    .filter(Boolean)
-    .map((s) => DOW_MAP[s])
-    .filter((n) => typeof n === "number");
-  if (days.length === 0) return false;
-  return days.includes(dow);
-}
-
-function toClassItem(c: Course): ClassItem {
-  const time = c.startTime && c.endTime ? `${hhmm(c.startTime)} ~ ${hhmm(c.endTime)}` : c.courseTime || "-";
+function toClassItemFromDto(r: any): ClassItem {
+  const time = r.startTime && r.endTime ? `${hhmm(r.startTime)} ~ ${hhmm(r.endTime)}` : "-";
   return {
-    subject: c.title,
+    subject: r.courseTitle,
     time,
     room: "-",
     teacher: "-",
     student: "-",
     done: false,
+    courseId: r.courseId,
+    recordId: r.id,
+    date: r.recordDate,
   };
 }
 
-export function useCoursesCalendar() {
-  const [courses, setCourses] = useState<Course[]>([]);
+function minmaxFromMatrix(matrix?: Date[][] | null) {
+  const flat = (matrix || []).flat();
+  if (!flat.length) return null as null | { from: Date; to: Date };
+  const ys = flat.map((d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+  ys.sort((a, b) => a.getTime() - b.getTime());
+  return { from: ys[0], to: ys[ys.length - 1] };
+}
+
+export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
+  const datesMatrix = opts?.dates;
+  const [byYmd, setByYmd] = useState<Record<string, ClassItem[]>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const range = useMemo(() => {
+    if (Array.isArray(datesMatrix)) {
+      let mm: { from: Date; to: Date } | null = null;
+      if (Array.isArray((datesMatrix as any[])[0])) {
+        mm = minmaxFromMatrix(datesMatrix as Date[][]);
+      } else {
+        const arr = (datesMatrix as Date[]).slice().sort((a,b)=>a.getTime()-b.getTime());
+        if (arr.length) mm = { from: arr[0], to: arr[arr.length-1] };
+      }
+      if (mm) return { from: formatYMD(mm.from), to: formatYMD(mm.to) };
+    }
+    const y = formatYMD(new Date());
+    return { from: y, to: y };
+  }, [datesMatrix]);
+
   useEffect(() => {
     let cancelled = false;
-    async function loadAll() {
+    async function loadRange() {
       setLoading(true); setError(null);
       try {
-        const size = 100;
-        let page = 0;
-        let acc: Course[] = [];
-        while (true) {
-          const res = await listCourses({ page, size, status: "IN_PROGRESS" });
-          acc = acc.concat(res.content || []);
-          if (res.last || (res.content || []).length === 0 || page > 200) break;
-          page += 1;
+        const rows = await getClassesRange(range.from, range.to);
+        if (cancelled) return;
+        const grouped: Record<string, ClassItem[]> = {};
+        for (const r of (rows || []) as any[]) {
+          const ymd = r.recordDate as string;
+          if (!grouped[ymd]) grouped[ymd] = [];
+          grouped[ymd].push(toClassItemFromDto(r));
         }
-        if (!cancelled) setCourses(acc);
+        setByYmd(grouped);
       } catch (e: any) {
-        if (!cancelled) setError(e?.message || "수업 목록을 불러오지 못했습니다.");
+        if (!cancelled) setError(e?.message || "수업 데이터를 불러오지 못했습니다.");
       } finally { if (!cancelled) setLoading(false); }
     }
-    void loadAll();
+    void loadRange();
     return () => { cancelled = true; };
-  }, []);
+  }, [range.from, range.to]);
 
   const classesForDate = useCallback((d: Date): ClassItem[] => {
-    const list = courses.filter((c) => matchesDate(c, d))
-      .sort((a, b) => (a.startTime || "").localeCompare(b.startTime || ""))
-      .map((c) => {
-        const base = toClassItem(c);
-        return { ...base, courseId: c.id, date: formatYMD(d) } as ClassItem;
-      });
+    const ymd = formatYMD(d);
+    const list = (byYmd[ymd] || []).slice().sort((a, b) => (a.time || "").localeCompare(b.time || ""));
     return list;
-  }, [courses]);
+  }, [byYmd]);
 
   const eventsForDate = useCallback((d: Date): CalendarEvent[] => {
-    const n = classesForDate(d).length;
+    const n = (byYmd[formatYMD(d)] || []).length;
     const events: CalendarEvent[] = [];
     if (n > 0) events.push({ type: "class", label: `수업 ${n}개` });
     return events;
-  }, [classesForDate]);
+  }, [byYmd]);
 
-  return { courses, loading, error, classesForDate, eventsForDate };
+  return { loading, error, classesForDate, eventsForDate };
 }

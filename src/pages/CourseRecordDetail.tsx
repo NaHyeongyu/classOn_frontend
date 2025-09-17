@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
-import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "../components/common/UI";
+import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn } from "../components/common/UI";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { KPI, UsersIcon, CheckIcon, ClassIcon, DeltaPill } from "../components/dashboard/KPI";
 import { getCourse, type Course, type CourseRecord, listCourseRecords, listCourseStudents, updateCourseRecord, createCourseRecord, listRecordAttendance, upsertAttendance, listRecordAttachments, uploadRecordAttachments, deleteRecordAttachment, deleteCourseRecord, type Attachment } from "../api/courses";
@@ -312,6 +312,7 @@ export default function CourseRecordDetail() {
       setRecord(updated);
       // Reflect updated record immediately in dashboard classes
       invalidateCacheByPrefix('/api/calendar/classes');
+      invalidateCacheByPrefix('/api/calendar/classes-range');
     } catch (e: any) {
       alert(e?.message || '저장에 실패했습니다.');
     } finally {
@@ -344,6 +345,7 @@ export default function CourseRecordDetail() {
       setEditingWhen(false);
       // New record may appear in dashboard classes
       invalidateCacheByPrefix('/api/calendar/classes');
+      invalidateCacheByPrefix('/api/calendar/classes-range');
     } catch (e: any) {
       const msg = String(e?.message || '');
       if (msg.includes('HTTP 409')) setWhenError('이미 등록된 수업이 있습니다.');
@@ -365,7 +367,6 @@ export default function CourseRecordDetail() {
         </HeadTitle>
         <HeadRight>
           <UIGhostBtn to={`/classes/${courseId}`} title="수업으로">수업으로</UIGhostBtn>
-          <UIPrimaryBtn to={`/classes/${courseId}/history`} title="수업 내역">수업 내역</UIPrimaryBtn>
           {record?.id && (
             <UIGhostBtn as={"button" as any} onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostBtn>
           )}

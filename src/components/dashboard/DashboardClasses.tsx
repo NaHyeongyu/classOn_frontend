@@ -36,6 +36,7 @@ export default function DashboardClasses() {
     const e = r.endTime ?? r.end_at ?? r.endAt ?? r.end ?? null;
     const present = numOr(r.attPresent, r.presentCount, r.attendancePresent, r?.attendance?.present);
     const absent = numOr(r.attAbsent, r.absentCount, r.attendanceAbsent, r?.attendance?.absent);
+    const unprocessed = numOr(r.attUnprocessed);
     return {
       subject: r.courseTitle || '수업',
       time: formatTimeRange(s, e),
@@ -49,6 +50,7 @@ export default function DashboardClasses() {
       notes: r.topic || r.notes || r.content || null,
       attPresent: present,
       attAbsent: absent,
+      attUnprocessed: unprocessed,
     } as ClassItem;
   });
 

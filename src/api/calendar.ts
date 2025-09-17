@@ -10,9 +10,15 @@ export type TodayClass = {
   topic?: string | null;
   attPresent?: number; // aggregated present count
   attAbsent?: number;  // aggregated absent count
+  attUnprocessed?: number; // aggregated unprocessed count
 };
 
 export async function getClassesOn(ymd: string): Promise<TodayClass[]> {
   const q = new URLSearchParams({ on: ymd });
   return await fetchJSON<TodayClass[]>(`/api/calendar/classes?${q}`);
+}
+
+export async function getClassesRange(fromYmd: string, toYmd: string): Promise<TodayClass[]> {
+  const q = new URLSearchParams({ from: fromYmd, to: toYmd });
+  return await fetchJSON<TodayClass[]>(`/api/calendar/classes-range?${q}`);
 }

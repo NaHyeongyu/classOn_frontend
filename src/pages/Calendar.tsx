@@ -9,7 +9,7 @@ import { useCoursesCalendar } from "../features/calendar/useCoursesCalendar";
 import { useTodoEvents } from "../features/todos/useTodoEvents";
 import { useCounselEvents } from "../features/counsels/useCounselEvents";
 import { useEffect, useMemo, useState } from "react";
-import { getClassesOn } from "../api/calendar";
+import { getClassesRange } from "../api/calendar";
 import { listCounsels } from "../api/counsels";
 import { listTodosByDate } from "../api/todos";
 
@@ -28,7 +28,7 @@ export default function Calendar() {
   const navigate = useNavigate();
   const { viewDate, matrix, prevMonth, nextMonth } = useMonthCalendar();
   const label = `${viewDate.getFullYear()}년 ${viewDate.getMonth() + 1}월`;
-  const { eventsForDate } = useCoursesCalendar();
+  const { eventsForDate } = useCoursesCalendar({ dates: matrix });
   const { eventsForDate: todoEventsForDate } = useTodoEvents(matrix);
   const { eventsForDate: counselEventsForDate } = useCounselEvents(matrix);
 
@@ -42,7 +42,7 @@ export default function Calendar() {
     async function load() {
       try {
         const [classes, todos, counsels] = await Promise.all([
-          getClassesOn(today),
+          getClassesRange(today, today),
           listTodosByDate(today),
           listCounsels({ onYmd: today, size: 1 }),
         ]);

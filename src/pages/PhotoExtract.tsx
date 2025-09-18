@@ -26,8 +26,9 @@ export default function PhotoExtract() {
     try {
       setBusy(true);
       setPhase("업로드"); setPercent(0);
-      // Chunk upload to avoid 413; 32MB per request
-      const MAX_BYTES = 32 * 1024 * 1024;
+      // Chunk upload to avoid 413; default 1MB per request (configurable)
+      const CHUNK_MB = Number((import.meta as any).env?.VITE_UPLOAD_CHUNK_MB ?? 1);
+      const MAX_BYTES = Math.max(1, Math.floor(CHUNK_MB * 1024 * 1024 * 0.9));
       let job_id: string | null = null;
       let total = files.reduce((s, f) => s + (f.size || 0), 0);
       let sent = 0;

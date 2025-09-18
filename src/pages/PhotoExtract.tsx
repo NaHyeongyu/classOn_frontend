@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
-import { getProgress, getResult, uploadPhotosChunk, type ResultCluster, type ResultOriginal } from "../api/photos";
+import { getProgress, getResult, uploadBlobChunk, type ResultCluster, type ResultOriginal } from "../api/photos";
 
 export default function PhotoExtract() {
   const [files, setFiles] = useState<File[]>([]);
@@ -30,24 +30,23 @@ export default function PhotoExtract() {
       const CHUNK_MB = Number((import.meta as any).env?.VITE_UPLOAD_CHUNK_MB ?? 1);
       const MAX_BYTES = Math.max(1, Math.floor(CHUNK_MB * 1024 * 1024 * 0.9));
       let job_id: string | null = null;
-      let total = files.reduce((s, f) => s + (f.size || 0), 0);
+      const total = files.reduce((s, f) => s + (f.size || 0), 0);
       let sent = 0;
-      const batches: File[][] = [];
-      let cur: File[] = []; let curSize = 0;
-      for (const f of files) {
-        if (curSize + f.size > MAX_BYTES && cur.length) {
-          batches.push(cur); cur = [f]; curSize = f.size;
-        } else { cur.push(f); curSize += f.size; }
-      }
-      if (cur.length) batches.push(cur);
-
-      for (let i = 0; i < batches.length; i++) {
-        const final = i === batches.length - 1;
-        const res: any = await uploadPhotosChunk(batches[i], { jobId: job_id || undefined, final });
-        job_id = res.job_id || job_id;
-        sent += batches[i].reduce((s, f) => s + (f.size || 0), 0);
-        const pct = Math.max(0, Math.min(99, Math.round((sent / Math.max(1, total)) * 100)));
-        setPercent(pct);
+      for (let fi = 0; fi < files.length; fi++) {
+        const f = files[fi];
+        const parts = Math.max(1, Math.ceil(f.size / MAX_BYTES));
+        for (let pi = 0; pi < parts; pi++) {
+          const start = pi * MAX_BYTES;
+          const end = Math.min(f.size, start + MAX_BYTES);
+          const blob = f.slice(start, end);
+          const isLastChunkOfFile = pi === parts - 1;
+          const isLastOverall = fi === files.length - 1 && isLastChunkOfFile;
+          const res: any = await uploadBlobChunk(blob, { fileName: f.name, index: pi, total: parts, jobId: job_id || undefined, final: isLastOverall });
+          job_id = res.job_id || job_id;
+          sent += blob.size;
+          const pct = Math.max(0, Math.min(99, Math.round((sent / Math.max(1, total)) * 100)));
+          setPercent(pct);
+        }
       }
       if (!job_id) throw new Error("job_id 없음");
       setJobId(job_id);

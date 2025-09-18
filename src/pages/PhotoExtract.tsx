@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
-import { getProgress, getResult, uploadPhotos, type ResultCluster, type ResultOriginal } from "../api/photos";
+import { getProgress, getResult, uploadPhotosChunk, type ResultCluster, type ResultOriginal } from "../api/photos";
 
 export default function PhotoExtract() {
   const [files, setFiles] = useState<File[]>([]);
@@ -26,7 +26,29 @@ export default function PhotoExtract() {
     try {
       setBusy(true);
       setPhase("업로드"); setPercent(0);
-      const { job_id } = await uploadPhotos(files);
+      // Chunk upload to avoid 413; 32MB per request
+      const MAX_BYTES = 32 * 1024 * 1024;
+      let job_id: string | null = null;
+      let total = files.reduce((s, f) => s + (f.size || 0), 0);
+      let sent = 0;
+      const batches: File[][] = [];
+      let cur: File[] = []; let curSize = 0;
+      for (const f of files) {
+        if (curSize + f.size > MAX_BYTES && cur.length) {
+          batches.push(cur); cur = [f]; curSize = f.size;
+        } else { cur.push(f); curSize += f.size; }
+      }
+      if (cur.length) batches.push(cur);
+
+      for (let i = 0; i < batches.length; i++) {
+        const final = i === batches.length - 1;
+        const res: any = await uploadPhotosChunk(batches[i], { jobId: job_id || undefined, final });
+        job_id = res.job_id || job_id;
+        sent += batches[i].reduce((s, f) => s + (f.size || 0), 0);
+        const pct = Math.max(0, Math.min(99, Math.round((sent / Math.max(1, total)) * 100)));
+        setPercent(pct);
+      }
+      if (!job_id) throw new Error("job_id 없음");
       setJobId(job_id);
       poll(job_id);
     } catch (e: any) {
@@ -202,4 +224,3 @@ const Toast = styled.div`
   &.success { border-left-color: #16a34a; }
   &.error { border-left-color: #e11d48; }
 `;
-

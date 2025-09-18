@@ -12,7 +12,6 @@ export default function Sidebar() {
       { key: "calendar", label: "일정", sub: "Calendar", to: "/calendar" },
       { key: "students", label: "원생관리", sub: "Student Management", to: "/students" },
       { key: "classes", label: "수업관리", sub: "Class Management", to: "/classes" },
-      { key: "photos", label: "사진 추출", sub: "Photo Extract", to: "/photo-extract" },
       { key: "billing", label: "결제관리", sub: "Payments", to: "/payments" },
     ],
     []
@@ -174,13 +173,6 @@ function renderIcon(key: string) {
           <rect x="14" y="3" width="7" height="7" />
           <rect x="14" y="14" width="7" height="7" />
           <rect x="3" y="14" width="7" height="7" />
-        </svg>
-      );
-    case "photos":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h3l2-3h8l2 3h3a2 2 0 0 1 2 2z" />
-          <circle cx="12" cy="13" r="3" />
         </svg>
       );
     case "counsels":

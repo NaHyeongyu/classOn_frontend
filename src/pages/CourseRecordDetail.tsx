@@ -129,11 +129,18 @@ export default function CourseRecordDetail() {
   const durationMin = useMemo(() => getDurationMinutes(record?.startTime || course?.startTime, record?.endTime || course?.endTime), [record?.startTime, record?.endTime, course?.startTime, course?.endTime]);
   // participation metrics removed
 
-  const whenLabel = useMemo(() => {
-    const date = record?.recordDate ? `${record.recordDate} (${"일월화수목금토"[new Date(record.recordDate).getDay()]})` : '-';
-    const time = formatRange(record?.startTime || course?.startTime, record?.endTime || course?.endTime);
-    return `${date} · ${time}`;
-  }, [record?.recordDate, record?.startTime, record?.endTime, course?.startTime, course?.endTime]);
+  const whenInfo = useMemo(() => {
+    const rawDate = record?.recordDate || ymd || '';
+    const range = formatRange(record?.startTime || course?.startTime, record?.endTime || course?.endTime);
+    const dateLabel = rawDate ? formatDateBadge(rawDate) : '일자 미지정';
+    const timeLabel = range || '시간 미지정';
+    return {
+      dateLabel,
+      timeLabel,
+      hasDate: Boolean(record?.recordDate || ymd),
+      hasTime: Boolean(range),
+    };
+  }, [record?.recordDate, record?.startTime, record?.endTime, course?.startTime, course?.endTime, ymd]);
 
   // Load attendance from server when record id is available
   useEffect(() => {
@@ -269,40 +276,6 @@ export default function CourseRecordDetail() {
     }
   }
 
-  // Create a text file from the content textarea and attach it
-  async function createContentFile() {
-    const el = document.getElementById('contentArea') as HTMLTextAreaElement | null;
-    if (!el) { alert('내용 입력 영역을 찾을 수 없습니다.'); return; }
-    const text = el.value || '';
-    if (!text.trim()) { alert('수업 내용이 비어 있습니다.'); return; }
-    // Build filename: 수업내용_YYYY-MM-DD.txt
-    const dateLabel = (record?.recordDate || ymd || new Date().toISOString().slice(0,10));
-    const filename = `수업내용_${dateLabel}.txt`;
-    try {
-      // Size check for generated content file
-      const previewBlob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-      if (previewBlob.size > MAX_FILE_SIZE) {
-        alert(`내용이 너무 큽니다. 최대 ${MAX_FILE_SIZE_MB}MB 까지만 첨부할 수 있습니다.`);
-        return;
-      }
-      if (courseId && record?.id) {
-        const file = new File([text], filename, { type: 'text/plain;charset=utf-8' });
-        const uploaded = await uploadRecordAttachments(courseId, record.id, [file]);
-        setFiles(prev => [...uploaded, ...prev]);
-      } else {
-        // local fallback (no server record)
-        const blob = previewBlob;
-        const prev = getLocalAttachments();
-        const next = [{ name: filename, size: blob.size }, ...prev];
-        setLocalAttachments(next);
-        setFiles(next.map((x, i) => ({ id: i, filename: x.name, size: x.size, createdAt: new Date().toISOString() } as any)));
-      }
-      alert('내용 파일을 생성하여 첨부했습니다.');
-    } catch (e: any) {
-      alert(e?.message || '파일 생성에 실패했습니다.');
-    }
-  }
-
   // Save helpers
   async function saveField(patch: Partial<Pick<CourseRecord, 'content'|'recordDate'|'startTime'|'endTime'>>, key: keyof typeof saving) {
     if (!courseId || !record?.id) return;
@@ -363,7 +336,10 @@ export default function CourseRecordDetail() {
         <BackBtn type="button" onClick={() => navigate(`/classes/${courseId}`)}>{leftIcon} 뒤로</BackBtn>
         <HeadTitle>
           <h2 style={{ margin: 0 }}>{course?.title || '수업 내역 상세'}</h2>
-          <SmallMuted>{whenLabel}</SmallMuted>
+          <WhenMeta>
+            <DateBadge data-empty={String(!whenInfo.hasDate)}>{whenInfo.dateLabel}</DateBadge>
+            <TimePill data-empty={String(!whenInfo.hasTime)}>{whenInfo.timeLabel}</TimePill>
+          </WhenMeta>
         </HeadTitle>
         <HeadRight>
           <UIGhostBtn to={`/classes/${courseId}`} title="수업으로">수업으로</UIGhostBtn>
@@ -427,8 +403,8 @@ export default function CourseRecordDetail() {
             </SectionHeader>
             {!editingWhen ? (
               <InfoList>
-                <li><Label>수업일</Label><Value>{record?.recordDate || '-'}</Value></li>
-                <li><Label>수업시간</Label><Value>{formatRange(record?.startTime || course?.startTime, record?.endTime || course?.endTime) || '-'}</Value></li>
+                <li><Label>수업일</Label><StrongValue>{record?.recordDate || '-'}</StrongValue></li>
+                <li><Label>수업시간</Label><StrongValue>{formatRange(record?.startTime || course?.startTime, record?.endTime || course?.endTime) || '-'}</StrongValue></li>
               </InfoList>
             ) : (
               <InfoList>
@@ -464,7 +440,6 @@ export default function CourseRecordDetail() {
                     const el = document.getElementById('contentArea') as HTMLTextAreaElement | null;
                     if (el) void saveField({ content: el.value }, 'content');
                   }} disabled={!!saving.content}>저장</SmallBtn>
-                  <SmallBtn onClick={() => void createContentFile()}>내용 파일 생성</SmallBtn>
                   {saving.content && <SmallMuted>저장 중...</SmallMuted>}
                 </div>
               ) : null}
@@ -594,6 +569,19 @@ export default function CourseRecordDetail() {
 
 function hhmm(t?: string) { if (!t) return ''; const [h,m] = t.split(':'); return `${h}:${m}`; }
 function formatRange(s?: string, e?: string) { return s && e ? `${hhmm(s)} ~ ${hhmm(e)}` : ''; }
+function formatDateBadge(ymd?: string) {
+  if (!ymd) return '일자 미지정';
+  try {
+    const d = new Date(ymd);
+    if (Number.isNaN(d.getTime())) return ymd;
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const date = String(d.getDate()).padStart(2, '0');
+    const day = '일월화수목금토'[d.getDay()];
+    return `${month}월 ${date}일 (${day})`;
+  } catch {
+    return ymd;
+  }
+}
 function getDurationMinutes(s?: string, e?: string) {
   if (!s || !e) return null; const [sh,sm] = s.split(':'), [eh,em] = e.split(':');
   const start = Number(sh) * 60 + Number(sm); const end = Number(eh) * 60 + Number(em);
@@ -602,8 +590,40 @@ function getDurationMinutes(s?: string, e?: string) {
 
 const Wrap = styled.div` display:grid; gap:12px; `;
 const Head = styled.div` display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; `;
-const HeadRight = styled.div` display:inline-flex; gap:8px; `;
-const HeadTitle = styled.div` display:flex; align-items:baseline; gap:12px; `;
+const HeadRight = styled.div` display:inline-flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; `;
+const HeadTitle = styled.div` display:flex; align-items:center; gap:16px; flex-wrap:wrap; `;
+const WhenMeta = styled.div` display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; `;
+const DateBadge = styled.span`
+  display:inline-flex;
+  align-items:center;
+  padding:6px 14px;
+  border-radius:999px;
+  background:linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  color:#312e81;
+  font-weight:800;
+  font-size:13px;
+  white-space:nowrap;
+  &[data-empty='true']{
+    background:#f3f4f6;
+    color:#6b7280;
+  }
+`;
+const TimePill = styled.span`
+  display:inline-flex;
+  align-items:center;
+  padding:4px 12px;
+  border-radius:999px;
+  background:#f9fafb;
+  color:#1f2937;
+  font-weight:700;
+  font-size:12px;
+  border:1px solid #e5e7eb;
+  white-space:nowrap;
+  &[data-empty='true']{
+    color:#6b7280;
+    border-color:#e5e7eb;
+  }
+`;
 const Sub = styled.div` color:#6b7280; font-size:12px; margin-top:-8px; `;
 const KPIGrid = styled.div` display:grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap:12px; `;
 const Columns = styled.div`
@@ -621,6 +641,10 @@ const InfoList = styled.ul`
 `;
 const Label = styled.span` color:#6b7280; font-size:12px; font-weight:700; `;
 const Value = styled.span` color:#111827; font-size:14px; `;
+const StrongValue = styled(Value)`
+  font-weight:800;
+  font-size:15px;
+`;
 const Input = styled.input` height:32px; padding:0 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; `;
 const RowHelp = styled.div` grid-column: 1 / -1; display:flex; gap:8px; align-items:center; margin-top:2px; `;
 const List = styled.div` display:grid; gap:8px; `;

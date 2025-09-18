@@ -23,7 +23,6 @@ import { useAuth } from "./hooks/useAuth";
 import StudentDetail from "./pages/StudentDetail";
 import StudentForm from "./pages/StudentForm";
 import DevTools from "./pages/DevTools";
-import PhotoExtract from "./pages/PhotoExtract";
 // 상담 전역 페이지는 학생 상세 내 탭으로 통합됨
 
 const AppContainer = styled.div`
@@ -71,7 +70,6 @@ export default function App() {
           <Route path="/payments/success" element={<PaymentSuccess />} />
           <Route path="/payments/fail" element={<PaymentFail />} />
           <Route path="/dev-tools" element={<DevTools />} />
-          <Route path="/photo-extract" element={<PhotoExtract />} />
           { /* Todos page removed; manage todos within Calendar Detail */ }
         </Route>
       </Route>

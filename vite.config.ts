@@ -15,11 +15,6 @@ export default defineConfig({
         secure: false,
       },
       // Proxy output/static served by Spring if needed
-      '/out': {
-        target: 'http://localhost:8080',
-        changeOrigin: true,
-        secure: false,
-      },
     },
   },
 })

@@ -25,6 +25,7 @@ function getCache(url: string) {
     const ts = localStorage.getItem(`ts:${url}`);
     return { body, etag, ts: ts ? Number(ts) : 0 };
   } catch {
+    // noop: localStorage may be unavailable
     return { body: null, etag: null, ts: 0 };
   }
 }
@@ -34,7 +35,9 @@ function setCache(url: string, etag: string | null, body: string) {
     if (etag) localStorage.setItem(`etag:${url}`, etag);
     localStorage.setItem(`cache:${url}`, body);
     localStorage.setItem(`ts:${url}`, String(Date.now()));
-  } catch {}
+  } catch {
+    // noop: storage write may fail
+  }
 }
 
 export function invalidateCache(paths: string | string[]) {
@@ -45,7 +48,9 @@ export function invalidateCache(paths: string | string[]) {
       localStorage.removeItem(`etag:${url}`);
       localStorage.removeItem(`cache:${url}`);
       localStorage.removeItem(`ts:${url}`);
-    } catch {}
+    } catch {
+      // noop
+    }
   }
 }
 
@@ -62,11 +67,13 @@ export function invalidateCacheByPrefix(prefixes: string | string[]) {
     for (const k of keys) {
       for (const base of list) {
         if (k.startsWith(`cache:${base}`) || k.startsWith(`etag:${base}`) || k.startsWith(`ts:${base}`)) {
-          try { localStorage.removeItem(k); } catch {}
+          try { localStorage.removeItem(k); } catch { /* noop */ }
         }
       }
     }
-  } catch {}
+  } catch {
+    // noop
+  }
 }
 
 // EN: Read cached JSON for a given path without triggering a network request
@@ -101,11 +108,11 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
       return JSON.parse(cachedBody) as T;
     } catch {}
   }
-  const isFormData = (init as any)?.body instanceof FormData;
+  const isFormData = init?.body instanceof FormData;
   const headers: Record<string, string> = {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    ...(init?.headers as any),
+    ...normalizeHeaders(init?.headers),
   };
   // For real-time endpoints, always fetch a fresh payload (avoid 304 with stale cache)
   if (isGet && cachedEtag && !noCache) headers["If-None-Match"] = cachedEtag;
@@ -120,7 +127,7 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
   }
   const timeoutMs = init?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const timer = setTimeout(() => {
-    try { controller.abort(); } catch {}
+    try { controller.abort(); } catch { /* noop */ }
   }, Math.max(1000, timeoutMs));
 
   let res: Response;
@@ -150,5 +157,20 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
     const etag = res.headers.get("ETag");
     if (etag) setCache(url, etag, text);
   }
-  return (text ? JSON.parse(text) : ({} as any)) as T;
+  return (text ? (JSON.parse(text) as T) : ({} as unknown as T));
+
+  function normalizeHeaders(h?: HeadersInit): Record<string, string> {
+    if (!h) return {};
+    if (h instanceof Headers) {
+      const out: Record<string, string> = {};
+      h.forEach((v, k) => { out[k] = v; });
+      return out;
+    }
+    if (Array.isArray(h)) {
+      const out: Record<string, string> = {};
+      for (const [k, v] of h) out[k] = v as string;
+      return out;
+    }
+    return { ...(h as Record<string, string>) };
+  }
 }

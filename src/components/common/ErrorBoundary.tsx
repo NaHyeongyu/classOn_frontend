@@ -1,7 +1,7 @@
 import React from "react";
 
 type Props = { children: React.ReactNode };
-type State = { hasError: boolean; error?: any };
+type State = { hasError: boolean; error?: unknown };
 
 export default class ErrorBoundary extends React.Component<Props, State> {
   private onUnhandledRejection = (e: PromiseRejectionEvent) => {
@@ -14,13 +14,12 @@ export default class ErrorBoundary extends React.Component<Props, State> {
     this.state = { hasError: false };
   }
 
-  static getDerivedStateFromError(error: any): State {
+  static getDerivedStateFromError(error: unknown): State {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error: any, info: any) {
+  componentDidCatch(error: unknown, info: React.ErrorInfo) {
     // Log for debugging in dev tools
-    // eslint-disable-next-line no-console
     console.error("[ErrorBoundary] Caught error:", error, info);
   }
 
@@ -65,7 +64,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
         </div>
       );
     }
-    return this.props.children as any;
+    return this.props.children;
   }
 }
 
@@ -86,4 +85,3 @@ function summarize(msg: string) {
   const first = msg.split("\n")[0]?.trim() || msg.trim();
   return first.length > 300 ? first.slice(0, 300) + "…" : first;
 }
-

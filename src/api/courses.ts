@@ -153,7 +153,7 @@ export async function listRecordAttachments(courseId: number, recordId: number):
 export async function uploadRecordAttachments(courseId: number, recordId: number, files: File[]): Promise<Attachment[]> {
   const form = new FormData();
   files.forEach(f => form.append('files', f));
-  return await fetchJSON<Attachment[]>(`/api/courses/${courseId}/records/${recordId}/attachments`, { method: 'POST', body: form as any });
+  return await fetchJSON<Attachment[]>(`/api/courses/${courseId}/records/${recordId}/attachments`, { method: 'POST', body: form });
 }
 
 export async function deleteRecordAttachment(courseId: number, recordId: number, fileId: number): Promise<void> {

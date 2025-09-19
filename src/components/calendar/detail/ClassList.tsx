@@ -37,10 +37,18 @@ export default function ClassList({
       </SectionHeader>
       <Grid>
         {records.length === 0 ? (
-          <EmptyState>등록된 수업 내역이 없습니다.</EmptyState>
+          <EmptyState>
+            <p>등록된 수업 내역이 없습니다.</p>
+            {canAdd && (
+              <EmptyActionBtn type="button" onClick={onAdd}>
+                {actionLabel.replace(/^\+\s*/, "")}
+              </EmptyActionBtn>
+            )}
+          </EmptyState>
         ) : (
           records.map((c, i) => {
             const statusLabel = typeLabel(c.date, c.time);
+            const statusTone = statusVariant(statusLabel);
             return (
               <RecordCard key={`cls-${i}`}>
                 <RecordHead>
@@ -53,7 +61,12 @@ export default function ClassList({
                     {(c.time || statusLabel) && (
                       <MetaRow>
                         {c.time && <SmallMuted>{c.time}</SmallMuted>}
-                        {statusLabel && <SmallMuted>{statusLabel}</SmallMuted>}
+                        {statusLabel && (
+                          <StatusChip data-variant={statusTone}>
+                            <span aria-hidden>{statusIcon(statusTone)}</span>
+                            {statusLabel}
+                          </StatusChip>
+                        )}
                       </MetaRow>
                     )}
                   </div>
@@ -159,6 +172,22 @@ function typeLabel(ymd?: string, timeRange?: string) {
     return "";
   }
 }
+type StatusVariant = "past" | "upcoming" | "default";
+function statusVariant(label?: string | null): StatusVariant {
+  if (label === "지난 수업") return "past";
+  if (label === "예정") return "upcoming";
+  return "default";
+}
+function statusIcon(tone: StatusVariant) {
+  switch (tone) {
+    case "past":
+      return "⌛";
+    case "upcoming":
+      return "🗓";
+    default:
+      return "•";
+  }
+}
 
 const Section = styled.section`
   border: 1px solid #e5e7eb;
@@ -228,8 +257,32 @@ const EmptyState = styled.div`
   text-align: center;
   border: 1px dashed #e5e7eb;
   border-radius: 10px;
-  padding: 12px;
+  padding: 18px 12px;
   background: #fafafa;
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+  p {
+    margin: 0;
+  }
+`;
+const EmptyActionBtn = styled.button`
+  height: 34px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+  color: #fff;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
+  &:hover {
+    filter: brightness(1.05);
+  }
+  &:active {
+    transform: translateY(1px);
+  }
 `;
 // Unified "수업 내역" look
 const RecordCard = styled.div`
@@ -253,6 +306,25 @@ const MetaRow = styled.div`
   gap: 8px;
   margin-top: 4px;
   flex-wrap: wrap;
+`;
+const StatusChip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #f3f4f6;
+  color: #4b5563;
+  &[data-variant='past'] {
+    background: #fee2e2;
+    color: #b91c1c;
+  }
+  &[data-variant='upcoming'] {
+    background: #d1fae5;
+    color: #047857;
+  }
 `;
 const HeadRight = styled.div`
   display: flex;

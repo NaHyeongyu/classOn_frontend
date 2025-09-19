@@ -41,18 +41,27 @@ export default function CalendarDetail() {
   const [courseBusy, setCourseBusy] = useState(false);
   const [courseErr, setCourseErr] = useState<string | null>(null);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [timeStart, setTimeStart] = useState(""); // HH:mm
-  const [timeEnd, setTimeEnd] = useState("");   // HH:mm
+  // Selected time parts are managed by startHour/min, endHour/min
   const [savingClass, setSavingClass] = useState(false);
   const [addErr, setAddErr] = useState<string | null>(null);
-  function numOr<T>(...vals: any[]): number {
+  function numOr(...vals: unknown[]): number {
     for (const v of vals) {
       if (typeof v === 'number' && Number.isFinite(v)) return v as number;
     }
     return 0;
   }
-  function mapRows(list: any[]): ClassItem[] {
-    return list.map((r: any) => {
+  type RawRow = {
+    startTime?: string; start_at?: string; startAt?: string; start?: string;
+    endTime?: string; end_at?: string; endAt?: string; end?: string;
+    courseTitle?: string; courseId?: number; recordDate?: string; date?: string; recordId?: number; id?: number;
+    topic?: string; notes?: string; content?: string;
+    attPresent?: number; presentCount?: number; attendancePresent?: number;
+    attAbsent?: number; absentCount?: number; attendanceAbsent?: number;
+    attUnprocessed?: number;
+    attendance?: { present?: number; absent?: number };
+  };
+  function mapRows(list: RawRow[]): ClassItem[] {
+    return list.map((r) => {
       const s = r.startTime ?? r.start_at ?? r.startAt ?? r.start ?? null;
       const e = r.endTime ?? r.end_at ?? r.endAt ?? r.end ?? null;
       const present = numOr(r.attPresent, r.presentCount, r.attendancePresent, r?.attendance?.present);
@@ -85,7 +94,7 @@ export default function CalendarDetail() {
         const list = await getClassesOn(ymdSafe);
         if (cancelled) return;
         setClasses(mapRows(list));
-      } catch (e: any) {
+      } catch (e) {
         if (!cancelled) {
           // fallback to derived client-side list to avoid blank
           setClasses(classesDerived);
@@ -104,7 +113,7 @@ export default function CalendarDetail() {
         const list = await getClassesOn(ymdSafe);
         if (cancelled) return;
         setClasses(mapRows(list));
-      } catch {}
+      } catch { /* noop */ }
     }, 15000);
     return () => { cancelled = true; clearInterval(t); };
   }, [ymdSafe]);
@@ -116,7 +125,7 @@ export default function CalendarDetail() {
   useEffect(() => {
     function onVis() {
       if (document.visibilityState === 'visible') {
-        getClassesOn(ymdSafe).then((list) => setClasses(mapRows(list))).catch(() => {});
+        getClassesOn(ymdSafe).then((list) => setClasses(mapRows(list))).catch(() => { /* noop */ });
       }
     }
     document.addEventListener('visibilitychange', onVis);
@@ -172,8 +181,8 @@ export default function CalendarDetail() {
         await refresh();
       }
       setOpen(false);
-    } catch (e: any) {
-      setMutationError(e?.message || "저장에 실패했습니다.");
+    } catch (e) {
+      setMutationError(readableError(e, "저장에 실패했습니다."));
     }
   }
   // Toggle removed in UI; status changes handled in detail edit or future bulk actions
@@ -183,8 +192,8 @@ export default function CalendarDetail() {
       await deleteTodo(id);
       invalidateTodosCache(ymdSafe);
       await refresh();
-    } catch (e: any) {
-      setMutationError(e?.message || "삭제에 실패했습니다.");
+    } catch (e) {
+      setMutationError(readableError(e, "삭제에 실패했습니다."));
     }
   }
 
@@ -197,8 +206,8 @@ export default function CalendarDetail() {
       try {
         const res = await listCourses({ status: "IN_PROGRESS", size: 200 });
         setCourseRows(res.content);
-      } catch (e: any) {
-        setCourseErr(e?.message || "수업 목록을 불러오지 못했습니다.");
+      } catch (e) {
+        setCourseErr(readableError(e, "수업 목록을 불러오지 못했습니다."));
       } finally {
         setCourseBusy(false);
       }
@@ -208,10 +217,8 @@ export default function CalendarDetail() {
     setSelectedCourse(c);
     const s = toHHMM(c.startTime) || '00:00';
     const e = toHHMM(c.endTime) || '00:00';
-    setTimeStart(s);
-    setTimeEnd(e);
-    try { const [sh, sm] = s.split(":"); setStartHour(sh); setStartMin(sm); } catch {}
-    try { const [eh, em] = e.split(":"); setEndHour(eh); setEndMin(em); } catch {}
+    try { const [sh, sm] = s.split(":"); setStartHour(sh); setStartMin(sm); } catch { /* noop */ }
+    try { const [eh, em] = e.split(":"); setEndHour(eh); setEndMin(em); } catch { /* noop */ }
     setAddErr(null);
   }
   async function onSaveClass() {
@@ -228,8 +235,8 @@ export default function CalendarDetail() {
       setClasses(mapRows(list));
       setAddOpen(false);
       setSelectedCourse(null);
-    } catch (e: any) {
-      const msg = String(e?.message || '');
+    } catch (e) {
+      const msg = readableError(e, '');
       if (msg.includes('HTTP 409')) setAddErr('이미 등록된 수업이 있습니다.');
       else setAddErr('수업 추가에 실패했습니다.');
     } finally {
@@ -291,17 +298,17 @@ export default function CalendarDetail() {
     if (!counselTime) {
       const now = nowHHMM5();
       setCounselTime(now);
-      try { const [hh, mm] = now.split(":"); setCounselHour(hh); setCounselMin(mm); } catch {}
+      try { const [hh, mm] = now.split(":"); setCounselHour(hh); setCounselMin(mm); } catch { /* noop */ }
     } else {
-      try { const [hh, mm] = counselTime.split(":"); setCounselHour(hh); setCounselMin(mm); } catch {}
+      try { const [hh, mm] = counselTime.split(":"); setCounselHour(hh); setCounselMin(mm); } catch { /* noop */ }
     }
     if (students.length === 0) {
       setStudBusy(true); setStudErr(null);
       try {
         const res = await listStudents({ status: 'ENROLLED', size: 200 });
         setStudents(res.content);
-      } catch (e: any) {
-        setStudErr(e?.message || '학생 목록을 불러오지 못했습니다.');
+      } catch (e) {
+        setStudErr(readableError(e, '학생 목록을 불러오지 못했습니다.'));
       } finally { setStudBusy(false); }
     }
   }
@@ -323,8 +330,8 @@ export default function CalendarDetail() {
       setCounselItems(items);
       setCounselOpen(false);
       setSelStudent(null); setCounselTime(""); setCounselNote("");
-    } catch (e: any) {
-      setCounselErr(e?.message || '상담 추가에 실패했습니다.');
+    } catch (e) {
+      setCounselErr(readableError(e, '상담 추가에 실패했습니다.'));
     } finally { setSavingCounsel(false); }
   }
 
@@ -371,8 +378,8 @@ export default function CalendarDetail() {
                     placeholder="세부 내용 또는 참고사항"
                   />
                   <BtnRow>
-                    <UIGhostBtn as={"button" as any} onClick={() => setOpen(false)}>취소</UIGhostBtn>
-                    <UIPrimaryBtn as={"button" as any} type="submit">저장</UIPrimaryBtn>
+                    <UIGhostBtn as="button" onClick={() => setOpen(false)}>취소</UIGhostBtn>
+                    <UIPrimaryBtn as="button" type="submit">저장</UIPrimaryBtn>
                   </BtnRow>
                 </form>
               </ModalCard>
@@ -427,8 +434,8 @@ export default function CalendarDetail() {
                 <TextArea rows={3} value={counselNote} onChange={(e)=>setCounselNote(e.target.value)} placeholder="상담 메모" />
                 {counselErr && <Err>{counselErr}</Err>}
                 <BtnRow>
-                  <UIGhostBtn as={"button" as any} onClick={() => setCounselOpen(false)}>취소</UIGhostBtn>
-                  <UIPrimaryBtn as={"button" as any} disabled={savingCounsel} onClick={onSaveCounsel}>{savingCounsel ? '저장 중…' : '저장'}</UIPrimaryBtn>
+                  <UIGhostBtn as="button" onClick={() => setCounselOpen(false)}>취소</UIGhostBtn>
+                  <UIPrimaryBtn as="button" disabled={savingCounsel} onClick={onSaveCounsel}>{savingCounsel ? '저장 중…' : '저장'}</UIPrimaryBtn>
                 </BtnRow>
               </ModalCard>
             </ModalBackdrop>
@@ -480,8 +487,8 @@ export default function CalendarDetail() {
                 </Row>
                 {addErr && <Err>{addErr}</Err>}
                 <BtnRow>
-                  <UIGhostBtn as={"button" as any} onClick={() => setAddOpen(false)}>취소</UIGhostBtn>
-                  <UIPrimaryBtn as={"button" as any} disabled={savingClass} onClick={onSaveClass}>{savingClass ? '저장 중…' : '저장'}</UIPrimaryBtn>
+                  <UIGhostBtn as="button" onClick={() => setAddOpen(false)}>취소</UIGhostBtn>
+                  <UIPrimaryBtn as="button" disabled={savingClass} onClick={onSaveClass}>{savingClass ? '저장 중…' : '저장'}</UIPrimaryBtn>
                 </BtnRow>
               </ModalCard>
             </ModalBackdrop>
@@ -548,8 +555,7 @@ function formatRange(start?: string | null, end?: string | null) {
   return `${hhmm(start)} ~ ${hhmm(end)}`;
 }
 function toHHMM(s?: string | null) { if (!s) return ""; try { const str = String(s); const m = str.match(/(\d{2}):(\d{2})/); return m ? `${m[1]}:${m[2]}` : ""; } catch { return ""; } }
-function toHHMMSS(s: string) { if (!s) return undefined as any; const [h,m] = s.split(":"); return `${h?.padStart(2,'0')}:${m?.padStart(2,'0')}:00`; }
-function buildTimes5() { const out: string[] = []; for (let h=0; h<24; h++) { for (let m=0; m<60; m+=5) { out.push(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`); } } return out; }
+function toHHMMSS(s: string): string | undefined { if (!s) return undefined; const [h,m] = s.split(":"); return `${h?.padStart(2,'0')}:${m?.padStart(2,'0')}:00`; }
 function nowHHMM5() { const d=new Date(); let h=d.getHours(), m=d.getMinutes(); const r=Math.round(m/5)*5; if (r===60) { h=(h+1)%24; m=0; } else m=r; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
 const Label = styled.label`
   display: block;
@@ -593,3 +599,11 @@ const SelectedBox = styled.div`
   .label { color:#4f46e5; font-weight: 800; }
   .name { font-weight: 800; }
 `;
+
+function readableError(e: unknown, fallback: string) {
+  if (typeof e === 'string') return e;
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message?: string }).message || fallback;
+  }
+  return fallback;
+}

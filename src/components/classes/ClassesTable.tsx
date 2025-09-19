@@ -53,13 +53,15 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
     const map: Record<string,string> = { MON:"월", TUE:"화", WED:"수", THU:"목", FRI:"금", SAT:"토", SUN:"일" };
     return map[code.toUpperCase()] || code;
   }
+  const dayOrder: Record<'MON'|'TUE'|'WED'|'THU'|'FRI'|'SAT'|'SUN', number> = { MON:0, TUE:1, WED:2, THU:3, FRI:4, SAT:5, SUN:6 };
   function buildDays(r: Course) {
     if (r.recurrenceDays) {
-      return r.recurrenceDays
+      const codes = r.recurrenceDays
         .split(',')
-        .map((s) => dayLabel(s.trim()))
-        .filter(Boolean)
-        .join('/');
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean) as (keyof typeof dayOrder)[];
+      codes.sort((a,b) => dayOrder[a] - dayOrder[b]);
+      return codes.map((c) => dayLabel(c)).join('/');
     }
     return '-';
   }
@@ -100,8 +102,8 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
           {error && <Err>{error}</Err>}
         </div>
         <HeadActions>
-          <UIGhostBtn as={"button" as any}>엑셀로 다운받기</UIGhostBtn>
-          <UIPrimaryBtn as={"button" as any} onClick={() => navigate('/classes/new')}>수업 추가하기</UIPrimaryBtn>
+          <UIGhostBtn as="button">엑셀로 다운받기</UIGhostBtn>
+          <UIPrimaryBtn as="button" onClick={() => navigate('/classes/new')}>수업 추가하기</UIPrimaryBtn>
         </HeadActions>
       </Head>
       <Scroller>

@@ -4,7 +4,7 @@ import styled from "styled-components";
 import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn } from "../components/common/UI";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { KPI, UsersIcon, CheckIcon, ClassIcon, DeltaPill } from "../components/dashboard/KPI";
-import { getCourse, type Course, type CourseRecord, listCourseRecords, listCourseStudents, updateCourseRecord, createCourseRecord, listRecordAttendance, upsertAttendance, listRecordAttachments, uploadRecordAttachments, deleteRecordAttachment, deleteCourseRecord, type Attachment } from "../api/courses";
+import { getCourse, type Course, type CourseRecord, listCourseRecords, listCourseStudents, updateCourseRecord, createCourseRecord, listRecordAttendance, upsertAttendance, listRecordAttachments, uploadRecordAttachments, deleteRecordAttachment, deleteCourseRecord, type Attachment, type Attendance } from "../api/courses";
 import { invalidateCacheByPrefix } from "../lib/fetcher";
 import type { Student } from "../api/students";
 // KPIs removed from this view for a simpler layout
@@ -21,6 +21,7 @@ export default function CourseRecordDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState<{ content?: boolean; when?: boolean }>({});
+  const [contentFeedback, setContentFeedback] = useState<'idle' | 'success'>('idle');
   const [editingWhen, setEditingWhen] = useState(false);
   const [whenError, setWhenError] = useState<string | null>(null);
   const [attVersion, setAttVersion] = useState(0);
@@ -30,6 +31,8 @@ export default function CourseRecordDetail() {
   const [attLoading, setAttLoading] = useState(false);
   const [attError, setAttError] = useState<string | null>(null);
   const [attSavingMap, setAttSavingMap] = useState<Record<number, boolean>>({});
+  // Preserve names of attendees no longer enrolled to display historical attendance properly
+  const [attStudentNames, setAttStudentNames] = useState<Record<number, string>>({});
   // editable date/time
   const [editDate, setEditDate] = useState<string>("");
   const [editStart, setEditStart] = useState<string>("");
@@ -38,6 +41,7 @@ export default function CourseRecordDetail() {
   const [files, setFiles] = useState<Attachment[]>([]);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState<string | null>(null);
+  const [contentValue, setContentValue] = useState<string>('');
   const [fileBusy, setFileBusy] = useState<Record<number, boolean>>({});
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
@@ -64,8 +68,8 @@ export default function CourseRecordDetail() {
           setRecord(byId || byDate || null);
           setStudents(studs);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "수업 내역을 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "수업 내역을 불러오지 못했습니다."));
       } finally { if (!cancelled) setLoading(false); }
     }
     void load();
@@ -90,6 +94,10 @@ export default function CourseRecordDetail() {
     }
   }, [loading, ymd, record?.id]);
 
+  useEffect(() => {
+    setContentValue(record?.content || '');
+  }, [record?.content]);
+
   // Attendance local storage (unified with CourseDetail)
   function getLocalAttendanceKey() {
     if (!courseId) return `attendance::`;
@@ -98,9 +106,9 @@ export default function CourseRecordDetail() {
     return `attendance:${courseId}:`;
   }
   const localAttMap = useMemo(() => {
-    if (!courseId) return {} as Record<number, boolean>;
+    if (!courseId) return {} as Record<string, boolean>;
     const key = getLocalAttendanceKey();
-    try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; }
+    try { return JSON.parse(localStorage.getItem(key) || '{}') as Record<string, boolean>; } catch { return {}; }
   }, [courseId, recId, ymd, attVersion]);
   const presentMap = useMemo(() => {
     // Prefer server map when record exists; fallback to local when not available
@@ -110,22 +118,29 @@ export default function CourseRecordDetail() {
   function setAttendance(studentId: number, present: boolean) {
     if (!courseId) return;
     const key = getLocalAttendanceKey();
-    const map = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } })();
-    map[studentId] = present;
+    const map: Record<string, boolean> = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}') as Record<string, boolean>; } catch { return {}; } })();
+    map[String(studentId)] = present;
     try { localStorage.setItem(key, JSON.stringify(map)); } catch {}
     setAttVersion(v => v + 1);
   }
   function clearAttendanceLocal(studentId: number) {
     if (!courseId) return;
     const key = getLocalAttendanceKey();
-    const map = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}'); } catch { return {}; } })();
+    const map: Record<string, boolean> = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}') as Record<string, boolean>; } catch { return {}; } })();
     if (Object.prototype.hasOwnProperty.call(map, String(studentId))) delete map[String(studentId)];
-    if (Object.prototype.hasOwnProperty.call(map, studentId as any)) delete (map as any)[studentId];
     try { localStorage.setItem(key, JSON.stringify(map)); } catch {}
     setAttVersion(v => v + 1);
   }
   const presentCount = useMemo(() => Object.values(presentMap).filter(Boolean).length, [presentMap]);
-  const attendanceRate = useMemo(() => students.length ? Math.round((presentCount / students.length) * 100) : null, [presentCount, students.length]);
+  const isPastRecord = useMemo(() => {
+    const recDateStr = record?.recordDate || ymd || '';
+    return recDateStr ? (new Date(recDateStr) < new Date(new Date().toDateString())) : false;
+  }, [record?.recordDate, ymd]);
+  const denom = useMemo(() => {
+    if (isPastRecord) return Object.keys(presentMap).length; // processed only for past
+    return students.length;
+  }, [isPastRecord, presentMap, students.length]);
+  const attendanceRate = useMemo(() => denom ? Math.round((presentCount / denom) * 100) : null, [presentCount, denom]);
   const durationMin = useMemo(() => getDurationMinutes(record?.startTime || course?.startTime, record?.endTime || course?.endTime), [record?.startTime, record?.endTime, course?.startTime, course?.endTime]);
   // participation metrics removed
 
@@ -153,12 +168,18 @@ export default function CourseRecordDetail() {
         if (!cancelled) {
           const m: Record<number, boolean> = {};
           const notes: Record<number, string> = {};
-          list.forEach(a => { m[a.studentId] = !!a.present; if (a.reason) notes[a.studentId] = a.reason; });
+          const names: Record<number, string> = {};
+          (list as Attendance[]).forEach(a => {
+            m[a.studentId] = !!a.present;
+            if (a.reason) notes[a.studentId] = a.reason;
+            if (a.studentName) names[a.studentId] = a.studentName;
+          });
           setAttMap(m);
           setAttNoteMap(notes);
+          setAttStudentNames(names);
         }
-      } catch (e: any) {
-        if (!cancelled) setAttError(e?.message || '출석 정보를 불러오지 못했습니다.');
+      } catch (e) {
+        if (!cancelled) setAttError(readableError(e, '출석 정보를 불러오지 못했습니다.'));
       } finally { if (!cancelled) setAttLoading(false); }
     }
     void loadAttendance();
@@ -179,8 +200,8 @@ export default function CourseRecordDetail() {
         setAttMap(m => ({ ...m, [studentId]: target }));
         // Invalidate dashboard classes/summary caches to reflect latest attendance
         invalidateCacheByPrefix(['/api/calendar/classes', '/api/dashboard/summary']);
-      } catch (e: any) {
-        alert(e?.message || '출석 처리에 실패했습니다.');
+      } catch (e) {
+        alert(readableError(e, '출석 처리에 실패했습니다.'));
       } finally {
         setAttSavingMap(m => ({ ...m, [studentId]: false }));
       }
@@ -194,9 +215,15 @@ export default function CourseRecordDetail() {
   useEffect(() => {
     if (!courseId || record?.id) return;
     const key = getLocalAttendanceKey().replace('attendance', 'attendanceNote');
-    try { const parsed = JSON.parse(localStorage.getItem(key) || '{}'); setAttNoteMap(parsed || {}); } catch {}
+    try { const parsed = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, string>; setAttNoteMap(parsed || {}); } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId, recId, ymd]);
+
+  useEffect(() => {
+    if (contentFeedback !== 'success') return;
+    const t = window.setTimeout(() => setContentFeedback('idle'), 2500);
+    return () => window.clearTimeout(t);
+  }, [contentFeedback]);
 
   // Attachments helpers: server if record exists; otherwise local fallback keyed by date
   function localAttachKey() {
@@ -249,13 +276,13 @@ export default function CourseRecordDetail() {
       try {
         const uploaded = await uploadRecordAttachments(courseId!, record!.id, accepted);
         setFiles(prev => [...uploaded, ...prev]);
-      } catch (e: any) { alert(e?.message || '업로드에 실패했습니다.'); }
+      } catch (e) { alert(readableError(e, '업로드에 실패했습니다.')); }
     } else {
       // local
       const prev = getLocalAttachments();
       const next = [...prev, ...accepted.map(f => ({ name: f.name, size: f.size }))];
       setLocalAttachments(next);
-      setFiles(next.map((x, i) => ({ id: i, filename: x.name, size: x.size, createdAt: new Date().toISOString() } as any)));
+      setFiles(toAttachmentRows(next));
     }
   }
   async function onDeleteFile(fileId: number, name?: string) {
@@ -266,19 +293,20 @@ export default function CourseRecordDetail() {
       try {
         await deleteRecordAttachment(courseId!, record!.id, fileId);
         setFiles(prev => prev.filter(f => f.id !== fileId));
-      } catch (e: any) { alert(e?.message || '삭제에 실패했습니다.'); }
+      } catch (e) { alert(readableError(e, '삭제에 실패했습니다.')); }
       finally { setFileBusy(m => ({ ...m, [fileId]: false })); }
     } else {
       const prev = getLocalAttachments();
       const next = prev.filter(x => x.name !== name);
       setLocalAttachments(next);
-      setFiles(next.map((x, i) => ({ id: i, filename: x.name, size: x.size, createdAt: new Date().toISOString() } as any)));
+      setFiles(toAttachmentRows(next));
     }
   }
 
   // Save helpers
   async function saveField(patch: Partial<Pick<CourseRecord, 'content'|'recordDate'|'startTime'|'endTime'>>, key: keyof typeof saving) {
     if (!courseId || !record?.id) return;
+    if (key === 'content') setContentFeedback('idle');
     setSaving(s => ({ ...s, [key]: true }));
     try {
       const updated = await updateCourseRecord(courseId!, record!.id, patch);
@@ -286,8 +314,9 @@ export default function CourseRecordDetail() {
       // Reflect updated record immediately in dashboard classes
       invalidateCacheByPrefix('/api/calendar/classes');
       invalidateCacheByPrefix('/api/calendar/classes-range');
-    } catch (e: any) {
-      alert(e?.message || '저장에 실패했습니다.');
+      if (key === 'content') setContentFeedback('success');
+    } catch (e) {
+      alert(readableError(e, '저장에 실패했습니다.'));
     } finally {
       setSaving(s => ({ ...s, [key]: false }));
     }
@@ -302,7 +331,7 @@ export default function CourseRecordDetail() {
   }
   async function saveWhen() {
     if (!courseId) return;
-    const payload = { recordDate: editDate || (ymd || ''), startTime: toHHMMSS(editStart), endTime: toHHMMSS(editEnd) } as any;
+    const payload: { recordDate: string; startTime?: string; endTime?: string } = { recordDate: editDate || (ymd || ''), startTime: toHHMMSS(editStart), endTime: toHHMMSS(editEnd) };
     // If server record exists, update; otherwise create and set state
     setWhenError(null);
     if (record?.id) {
@@ -319,8 +348,8 @@ export default function CourseRecordDetail() {
       // New record may appear in dashboard classes
       invalidateCacheByPrefix('/api/calendar/classes');
       invalidateCacheByPrefix('/api/calendar/classes-range');
-    } catch (e: any) {
-      const msg = String(e?.message || '');
+    } catch (e) {
+      const msg = readableError(e, '');
       if (msg.includes('HTTP 409')) setWhenError('이미 등록된 수업이 있습니다.');
       else setWhenError('기록 생성에 실패했습니다.');
     } finally {
@@ -344,7 +373,7 @@ export default function CourseRecordDetail() {
         <HeadRight>
           <UIGhostBtn to={`/classes/${courseId}`} title="수업으로">수업으로</UIGhostBtn>
           {record?.id && (
-            <UIGhostBtn as={"button" as any} onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostBtn>
+            <UIGhostBtn as="button" onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostBtn>
           )}
         </HeadRight>
       </Head>
@@ -377,7 +406,7 @@ export default function CourseRecordDetail() {
 
       {/* Compact KPIs for quick glance */}
       <KPIGrid>
-        <KPI title="참석" icon={<UsersIcon />} iconAccent="indigo" value={<>{presentCount}명</>} footerLeft={<span>총 {students.length}명</span>} />
+        <KPI title="참석" icon={<UsersIcon />} iconAccent="indigo" value={<>{presentCount}명</>} footerLeft={<span>총 {denom}명</span>} />
         <KPI title="출석률" icon={<CheckIcon />} iconAccent="green" value={<>{attendanceRate != null ? `${attendanceRate}%` : '—'}</>} footerLeft={<DeltaPill $tone={attendanceRate != null && attendanceRate >= 75 ? 'positive' : attendanceRate != null && attendanceRate < 50 ? 'negative' : 'neutral'}>{attendanceRate != null ? `${attendanceRate}%` : '—'}</DeltaPill>} />
         <KPI title="수업 시간" icon={<ClassIcon />} iconAccent="violet" value={<>{durationMin != null ? `${durationMin}분` : '—'}</>} footerLeft={<span>{formatRange(record?.startTime || course?.startTime, record?.endTime || course?.endTime) || '-'}</span>} />
         <KPI title="일자" icon={<ClassIcon />} iconAccent="emerald" value={<>{record?.recordDate || ymd || '—'}</>} />
@@ -422,6 +451,17 @@ export default function CourseRecordDetail() {
                     <Input type="time" step={300} value={editEnd || ''} onChange={(e) => setEditEnd(e.currentTarget.value)} />
                   </Value>
                 </li>
+                <PreviewRow>
+                  <PreviewLabel>미리보기</PreviewLabel>
+                  <PreviewMeta>
+                    <DateBadge data-empty={String(!(editDate || record?.recordDate || ymd))}>
+                      {formatDateBadge(editDate || record?.recordDate || ymd || '')}
+                    </DateBadge>
+                    <TimePill data-empty={String(!(editStart && editEnd))}>
+                      {editStart && editEnd ? formatRange(editStart, editEnd) : '시간 미지정'}
+                    </TimePill>
+                  </PreviewMeta>
+                </PreviewRow>
                 <RowHelp>
                   {!record?.id && <Hint>저장 시 새 수업 내역을 생성합니다.</Hint>}
                   {saving.when && <SmallMuted>저장 중...</SmallMuted>}
@@ -435,17 +475,28 @@ export default function CourseRecordDetail() {
             <SectionHeader>
               <Title>수업 내용</Title>
               {record?.id ? (
-                <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
-                  <SmallBtn onClick={() => {
-                    const el = document.getElementById('contentArea') as HTMLTextAreaElement | null;
-                    if (el) void saveField({ content: el.value }, 'content');
-                  }} disabled={!!saving.content}>저장</SmallBtn>
+                <ContentActions>
+                  {contentFeedback === 'success' && !saving.content && (
+                    <SuccessBadge role="status">저장 완료!</SuccessBadge>
+                  )}
+                  <SmallBtn
+                    onClick={() => {
+                      void saveField({ content: contentValue }, 'content');
+                    }}
+                    disabled={!!saving.content}
+                  >저장</SmallBtn>
                   {saving.content && <SmallMuted>저장 중...</SmallMuted>}
-                </div>
+                </ContentActions>
               ) : null}
             </SectionHeader>
             {record?.id ? (
-              <TextArea rows={8} defaultValue={record?.content || ''} placeholder="수업 내용을 입력하세요" id="contentArea" />
+              <TextArea
+                rows={8}
+                value={contentValue}
+                onChange={(e) => { setContentValue(e.currentTarget.value); setContentFeedback('idle'); }}
+                placeholder="수업 내용을 입력하세요"
+                id="contentArea"
+              />
             ) : (
               <Muted>서버 기록이 없는 일정입니다. 생성 후 편집 가능합니다.</Muted>
             )}
@@ -463,16 +514,16 @@ export default function CourseRecordDetail() {
             {filesError && <AlertError>{filesError}</AlertError>}
             {filesLoading && <Muted>불러오는 중...</Muted>}
             <AttachList>
-              {files.length === 0 ? (
+            {files.length === 0 ? (
                 <SmallMuted>첨부 없음</SmallMuted>
               ) : (
-                files.map(f => (
+                files.map((f) => (
                   <AttachRow key={f.id}>
                     <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
-                      <span>{(f as any).filename || (f as any).name}</span>
-                      <SmallMuted>({Math.round((f as any).size / 1024)} KB)</SmallMuted>
+                      <span>{f.filename}</span>
+                      <SmallMuted>({Math.round(f.size / 1024)} KB)</SmallMuted>
                     </div>
-                    <SmallBtn data-variant='danger' disabled={!!fileBusy[f.id]} onClick={() => void onDeleteFile(f.id, (f as any).filename || (f as any).name)}>삭제</SmallBtn>
+                    <SmallBtn data-variant='danger' disabled={!!fileBusy[f.id]} onClick={() => void onDeleteFile(f.id, f.filename)}>삭제</SmallBtn>
                   </AttachRow>
                 ))
               )}
@@ -490,75 +541,90 @@ export default function CourseRecordDetail() {
             {attLoading && <Muted>출석 불러오는 중...</Muted>}
             {attError && <AlertError>{attError}</AlertError>}
             <List>
-              {students.map(s => {
-                const has = Object.prototype.hasOwnProperty.call(presentMap, s.id);
-                const present = has ? !!(presentMap as any)[s.id] : null as null | boolean;
-                const status: 'present' | 'absent' | 'none' = has ? (present ? 'present' : 'absent') : 'none';
-                return (
-                  <Item key={s.id}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <strong>{s.name}</strong>
-                      <Processed data-type={status}>
-                        {status === 'present' ? '출석' : status === 'absent' ? '결석' : '미처리'}
-                      </Processed>
-                    </div>
-                    <RowRight>
-                      <NoteInput
-                        placeholder="메모"
-                        value={attNoteMap[s.id] || ''}
-                        onChange={(e) => {
-                          const v = e.currentTarget.value;
-                          setAttNoteMap(prev => ({ ...prev, [s.id]: v }));
-                          // Persist locally for fallback
-                          if (courseId) {
-                            const key = getLocalAttendanceKey().replace('attendance', 'attendanceNote');
-                            try {
-                              const obj = JSON.parse(localStorage.getItem(key) || '{}');
-                              obj[String(s.id)] = v;
-                              localStorage.setItem(key, JSON.stringify(obj));
-                            } catch {}
-                          }
-                          // Auto-save to server (debounced) when server record exists and this student already has an attendance row
-                          if (courseId && record?.id && has) {
-                            const timers = noteTimersRef.current;
-                            if (timers[s.id]) window.clearTimeout(timers[s.id]);
-                            timers[s.id] = window.setTimeout(async () => {
-                              setAttSavingMap(m => ({ ...m, [s.id]: true }));
+              {(() => {
+                type RowStudent = { id: number; name: string; isExtra?: boolean };
+                const baseRows: RowStudent[] = students.map(s => ({ id: s.id, name: s.name }));
+                const baseIds = new Set(baseRows.map(r => r.id));
+                const extraRows: RowStudent[] = Object.keys(presentMap)
+                  .map(Number)
+                  .filter(id => !baseIds.has(id))
+                  .map(id => ({ id, name: attStudentNames[id] || `학생#${id}`, isExtra: true }));
+                // Hide newly-added students on past records: only show attendees with rows
+                const recDateStr = record?.recordDate || ymd || '';
+                const isPast = recDateStr ? (new Date(recDateStr) < new Date(new Date().toDateString())) : false;
+                const rows: RowStudent[] = isPast ? extraRows : [...baseRows, ...extraRows];
+                return rows.map(s => {
+                  const has = Object.prototype.hasOwnProperty.call(presentMap, s.id);
+                  const present = has ? !!(presentMap as Record<number, boolean>)[s.id] : null as null | boolean;
+                  const status: 'present' | 'absent' | 'none' = has ? (present ? 'present' : 'absent') : 'none';
+                  return (
+                    <Item key={s.id}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <strong>{s.name}</strong>
+                        {s.isExtra && <SmallMuted style={{ marginLeft: 8 }}>(과거 수강생)</SmallMuted>}
+                        <Processed data-type={status}>
+                          {status === 'present' ? '출석' : status === 'absent' ? '결석' : '미처리'}
+                        </Processed>
+                      </div>
+                      <RowRight>
+                        <NoteInput
+                          placeholder="메모"
+                          value={attNoteMap[s.id] || ''}
+                          onChange={(e) => {
+                            const v = e.currentTarget.value;
+                            setAttNoteMap(prev => ({ ...prev, [s.id]: v }));
+                            // Persist locally for fallback
+                            if (courseId) {
+                              const key = getLocalAttendanceKey().replace('attendance', 'attendanceNote');
                               try {
-                                const reason = (v || '').trim() || undefined;
-                                await upsertAttendance(courseId!, record!.id, s.id, { present: present === true, reason, source: 'MANUAL' });
-                              } catch (err: any) {
-                                console.error('메모 자동 저장 실패', err);
-                              } finally {
-                                setAttSavingMap(m => ({ ...m, [s.id]: false }));
-                              }
-                            }, 600);
-                          }
-                        }}
-                      />
-                      <AttSeg>
-                        <AttBtn
-                          data-active={String(present === true)}
-                          onClick={() => { if (present !== true && !attSavingMap[s.id]) void confirmAndSetAttendance(s.id, true); }}
-                          disabled={!!attSavingMap[s.id]}
-                        >출석</AttBtn>
-                        <AttBtn
-                          data-variant="danger"
-                          data-active={String(has && present === false)}
-                          onClick={() => { if (present !== false && !attSavingMap[s.id]) void confirmAndSetAttendance(s.id, false); }}
-                          disabled={!!attSavingMap[s.id]}
-                        >결석</AttBtn>
-                      </AttSeg>
-                      <SmallBtn
-                        title={record?.id ? '서버 기록은 미처리로 되돌릴 수 없습니다.' : '미처리로 초기화'}
-                        onClick={() => { if (!record?.id) clearAttendanceLocal(s.id); }}
-                        disabled={!!record?.id}
-                      >미처리</SmallBtn>
-                      {attSavingMap[s.id] && <SmallMuted>저장 중...</SmallMuted>}
-                    </RowRight>
-                  </Item>
-                );
-              })}
+                                const obj = JSON.parse(localStorage.getItem(key) || '{}');
+                                obj[String(s.id)] = v;
+                                localStorage.setItem(key, JSON.stringify(obj));
+                              } catch {}
+                            }
+                            // Auto-save to server (debounced) when server record exists and this student already has an attendance row
+                            if (!s.isExtra && courseId && record?.id && has) {
+                              const timers = noteTimersRef.current;
+                              if (timers[s.id]) window.clearTimeout(timers[s.id]);
+                              timers[s.id] = window.setTimeout(async () => {
+                                setAttSavingMap(m => ({ ...m, [s.id]: true }));
+                                try {
+                                  const reason = (v || '').trim() || undefined;
+                                  await upsertAttendance(courseId!, record!.id, s.id, { present: present === true, reason, source: 'MANUAL' });
+                                } catch (err) {
+                                  console.error('메모 자동 저장 실패', err);
+                                } finally {
+                                  setAttSavingMap(m => ({ ...m, [s.id]: false }));
+                                }
+                              }, 600);
+                            }
+                          }}
+                          disabled={!!s.isExtra}
+                        />
+                        <AttSeg>
+                          <AttBtn
+                            data-active={String(present === true)}
+                            onClick={() => { if (!s.isExtra && present !== true && !attSavingMap[s.id]) void confirmAndSetAttendance(s.id, true); }}
+                            disabled={!!attSavingMap[s.id] || !!s.isExtra}
+                          >출석</AttBtn>
+                          <AttBtn
+                            data-variant="danger"
+                            data-active={String(has && present === false)}
+                            onClick={() => { if (!s.isExtra && present !== false && !attSavingMap[s.id]) void confirmAndSetAttendance(s.id, false); }}
+                            disabled={!!attSavingMap[s.id] || !!s.isExtra}
+                          >결석</AttBtn>
+                        </AttSeg>
+                        <SmallBtn
+                          title={record?.id ? '서버 기록은 미처리로 되돌릴 수 없습니다.' : '미처리로 초기화'}
+                          onClick={() => { if (!record?.id) clearAttendanceLocal(s.id); }}
+                          disabled={!!record?.id}
+                        >미처리</SmallBtn>
+                        {attSavingMap[s.id] && <SmallMuted>저장 중...</SmallMuted>}
+                      </RowRight>
+                    </Item>
+                  );
+                });
+              })()}
             </List>
           </Section>
         </Right>
@@ -569,6 +635,13 @@ export default function CourseRecordDetail() {
 
 function hhmm(t?: string) { if (!t) return ''; const [h,m] = t.split(':'); return `${h}:${m}`; }
 function formatRange(s?: string, e?: string) { return s && e ? `${hhmm(s)} ~ ${hhmm(e)}` : ''; }
+function readableError(err: unknown, fallback: string) {
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object' && 'message' in err && typeof (err as { message?: unknown }).message === 'string') {
+    return (err as { message?: string }).message || fallback;
+  }
+  return fallback;
+}
 function formatDateBadge(ymd?: string) {
   if (!ymd) return '일자 미지정';
   try {
@@ -624,7 +697,7 @@ const TimePill = styled.span`
     border-color:#e5e7eb;
   }
 `;
-const Sub = styled.div` color:#6b7280; font-size:12px; margin-top:-8px; `;
+// removed unused Sub
 const KPIGrid = styled.div` display:grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap:12px; `;
 const Columns = styled.div`
   display:flex; gap:12px; align-items:flex-start;
@@ -645,6 +718,18 @@ const StrongValue = styled(Value)`
   font-weight:800;
   font-size:15px;
 `;
+const PreviewRow = styled.div`
+  grid-column: 1 / -1;
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:6px 10px;
+  border:1px dashed #e5e7eb;
+  border-radius:10px;
+  background:#f9fafb;
+`;
+const PreviewLabel = styled.span` color:#6b7280; font-size:12px; font-weight:700; `;
+const PreviewMeta = styled.div` display:flex; gap:8px; flex-wrap:wrap; align-items:center; `;
 const Input = styled.input` height:32px; padding:0 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:13px; `;
 const RowHelp = styled.div` grid-column: 1 / -1; display:flex; gap:8px; align-items:center; margin-top:2px; `;
 const List = styled.div` display:grid; gap:8px; `;
@@ -652,6 +737,21 @@ const Item = styled.div` display:flex; align-items:center; justify-content:space
 const RowRight = styled.div` display:flex; align-items:center; gap:8px; `;
 const NoteInput = styled.input` height:28px; width: 180px; padding:0 8px; border:1px solid #e5e7eb; border-radius:8px; font-size:12px; background:#fff; `;
 const AttSeg = styled.div` display:inline-flex; gap:6px; `;
+const ContentActions = styled.div` display:inline-flex; gap:8px; align-items:center; flex-wrap:wrap; `;
+const SuccessBadge = styled.span`
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:2px 8px;
+  border-radius:999px;
+  background:#d1fae5;
+  color:#047857;
+  font-size:11px;
+  font-weight:700;
+  &:before {
+    content:'✔';
+  }
+`;
 const AttBtn = styled.button`
   height:28px; padding:0 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#111827; font-size:12px; font-weight:800;
   &[data-active='true']{ background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }

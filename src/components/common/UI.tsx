@@ -31,7 +31,7 @@ export const TableBase = styled.table`
 export const PrimaryBtn = styled(Link)`
   height:32px; padding:0 10px; border-radius:8px; border:1px solid ${fg}; background:${fg}; color:#fff; font-weight:800; font-size:12px; text-decoration:none;
   display:inline-flex; align-items:center; gap:6px;
-` as any;
+`;
 
 // Taller primary button for hero forms (e.g., Login/Register)
 export const PrimaryBtnLg = styled(PrimaryBtn)`
@@ -39,17 +39,17 @@ export const PrimaryBtnLg = styled(PrimaryBtn)`
   padding: 0 16px;
   border-radius: 12px;
   font-size: 14px;
-` as any;
+`;
 
 export const GhostBtn = styled(Link)`
   height:32px; padding:0 10px; border-radius:8px; border:1px solid ${bd}; background:${bg}; color:${fg}; font-weight:800; font-size:12px; text-decoration:none;
   display:inline-flex; align-items:center; gap:6px;
-` as any;
+`;
 
 export const GhostBtnSmall = styled(Link)`
   height:28px; padding:0 10px; border-radius:8px; border:1px solid ${bd}; background:${bg}; color:${fg}; font-weight:700; font-size:12px; text-decoration:none;
   display:inline-flex; align-items:center; gap:6px;
-` as any;
+`;
 
 export const SmallBtn = styled.button`
   height:28px; padding:0 10px; border-radius:8px; border:1px solid ${bd}; background:${bg}; color:${fg}; font-size:12px;

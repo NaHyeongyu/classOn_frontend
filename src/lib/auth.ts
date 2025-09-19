@@ -21,13 +21,17 @@ export function getToken(): string | null {
 export function setToken(token: string) {
   try {
     localStorage.setItem(TOKEN_KEY, token);
-  } catch {}
+  } catch {
+    // noop: storage might be unavailable (private mode)
+  }
 }
 
 export function clearToken() {
   try {
     localStorage.removeItem(TOKEN_KEY);
-  } catch {}
+  } catch {
+    // noop
+  }
 }
 
 // Removed unused isAuthenticated helper; prefer explicit auth state via context

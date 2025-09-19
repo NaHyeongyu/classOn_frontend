@@ -10,7 +10,16 @@ function hhmm(t?: string) {
   return `${h}:${m}`;
 }
 
-function toClassItemFromDto(r: any): ClassItem {
+type RangeRow = {
+  courseTitle: string;
+  startTime?: string;
+  endTime?: string;
+  courseId?: number;
+  id?: number;
+  recordDate: string;
+};
+
+function toClassItemFromDto(r: RangeRow): ClassItem {
   const time = r.startTime && r.endTime ? `${hhmm(r.startTime)} ~ ${hhmm(r.endTime)}` : "-";
   return {
     subject: r.courseTitle,
@@ -42,7 +51,8 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
   const range = useMemo(() => {
     if (Array.isArray(datesMatrix)) {
       let mm: { from: Date; to: Date } | null = null;
-      if (Array.isArray((datesMatrix as any[])[0])) {
+      const first = (datesMatrix as unknown[])[0];
+      if (Array.isArray(first)) {
         mm = minmaxFromMatrix(datesMatrix as Date[][]);
       } else {
         const arr = (datesMatrix as Date[]).slice().sort((a,b)=>a.getTime()-b.getTime());
@@ -59,17 +69,17 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
     async function loadRange() {
       setLoading(true); setError(null);
       try {
-        const rows = await getClassesRange(range.from, range.to);
+        const rows = await getClassesRange(range.from, range.to) as RangeRow[];
         if (cancelled) return;
         const grouped: Record<string, ClassItem[]> = {};
-        for (const r of (rows || []) as any[]) {
-          const ymd = r.recordDate as string;
+        for (const r of (rows || [])) {
+          const ymd = r.recordDate;
           if (!grouped[ymd]) grouped[ymd] = [];
           grouped[ymd].push(toClassItemFromDto(r));
         }
         setByYmd(grouped);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "수업 데이터를 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "수업 데이터를 불러오지 못했습니다."));
       } finally { if (!cancelled) setLoading(false); }
     }
     void loadRange();
@@ -90,4 +100,12 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
   }, [byYmd]);
 
   return { loading, error, classesForDate, eventsForDate };
+}
+
+function readableError(e: unknown, fallback: string) {
+  if (typeof e === 'string') return e;
+  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+    return (e as { message?: string }).message || fallback;
+  }
+  return fallback;
 }

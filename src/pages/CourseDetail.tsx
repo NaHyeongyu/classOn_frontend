@@ -33,6 +33,13 @@ export default function CourseDetail() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
   const [attByRec, setAttByRec] = useState<Record<number, Record<number, boolean>>>({});
+  function readableError(e: unknown, fallback: string) {
+    if (typeof e === 'string') return e;
+    if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
+      return (e as { message?: string }).message || fallback;
+    }
+    return fallback;
+  }
 
   useEffect(() => {
     if (!numericId) return;
@@ -42,8 +49,8 @@ export default function CourseDetail() {
       try {
         const c = await getCourse(numericId!);
         if (!cancelled) setCourse(c);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "수업 정보를 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "수업 정보를 불러오지 못했습니다."));
       } finally { if (!cancelled) setLoading(false); }
     }
     void load();
@@ -78,9 +85,9 @@ export default function CourseDetail() {
         }
         const list = await listCourseRecords(numericId!, { from, to });
         if (!cancelled) setRecords(list);
-      } catch (e: any) {
+      } catch (e) {
         if (!cancelled) {
-          const msg = e?.message || '';
+          const msg = readableError(e, '');
           if (!msg.includes('404')) setRecError(msg || '수업 내역을 불러오지 못했습니다.');
           else setRecords([]);
         }
@@ -158,8 +165,9 @@ export default function CourseDetail() {
   }, [numericId]);
 
   const info = useMemo(() => course ? buildInfo(course) : null, [course]);
-  const history = useMemo(() => {
-    if (!course) return [] as any[];
+  type HistoryItem = { id?: number; date: Date; dateLabel: string; time: string; type: '지난 수업' | '예정'; notes?: string | null };
+  const history: HistoryItem[] = useMemo(() => {
+    if (!course) return [];
     return records.map(r => ({
       id: r.id,
       date: new Date(r.recordDate),
@@ -178,14 +186,14 @@ export default function CourseDetail() {
   // derived helpers removed (unused)
 
   // Attachments local storage helpers
-  function getAttachments(recordId: number): { name: string; size: number }[] {
-    try { return JSON.parse(localStorage.getItem(`attachments:${numericId}:${recordId}`) || '[]'); } catch { return []; }
-  }
+function getAttachments(recordId: number): { name: string; size: number }[] {
+  try { return JSON.parse(localStorage.getItem(`attachments:${numericId}:${recordId}`) || '[]') as { name: string; size: number }[]; } catch { return []; }
+}
 
   // Attendance helpers (server-preferred, local fallback)
-  function localAttendanceMap(recordId: number): Record<number, boolean> {
-    try { return JSON.parse(localStorage.getItem(`attendance:${numericId}:${recordId}`) || '{}'); } catch { return {}; }
-  }
+function localAttendanceMap(recordId: number): Record<number, boolean> {
+  try { return JSON.parse(localStorage.getItem(`attendance:${numericId}:${recordId}`) || '{}') as Record<number, boolean>; } catch { return {}; }
+}
   // removed unused setAttachments
   // unused actions removed: local-only attendance bulk/update, attachments add/remove, notes editor
   const totalStudents = useMemo(() => (typeof course?.enrolledCount === 'number' ? course!.enrolledCount! : students.length), [course?.enrolledCount, students.length]);
@@ -208,7 +216,7 @@ export default function CourseDetail() {
           <UIGhostBtn to={`/classes/${numericId || ''}/edit-students`} title="수강생 수정">수강생 수정</UIGhostBtn>
           <UIPrimaryBtn to={`/classes/${numericId || ''}/edit`} title="기본 정보 수정">기본정보 수정</UIPrimaryBtn>
           {numericId && (
-            <UIGhostBtn as={"button" as any} onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostBtn>
+            <UIGhostBtn as="button" onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostBtn>
           )}
         </Actions>
       </Head>
@@ -228,8 +236,8 @@ export default function CourseDetail() {
             await deleteCourse(numericId);
             setConfirmDeleteOpen(false);
             navigate('/classes');
-          } catch (e: any) {
-            alert(e?.message || '삭제에 실패했습니다.');
+          } catch (e) {
+            alert(readableError(e, '삭제에 실패했습니다.'));
           } finally {
             setConfirmBusy(false);
           }
@@ -378,7 +386,7 @@ export default function CourseDetail() {
               {(recLoading || !course) && <Muted>불러오는 중...</Muted>}
               {recError && <AlertError>{recError}</AlertError>}
               {history.length === 0 && !recLoading && <Muted>표시할 일정이 없습니다.</Muted>}
-              {history.map((h: any) => (
+              {history.map((h) => (
                 <RecordCard key={h.id || h.dateLabel}>
                   <RecordHead>
                     <div>
@@ -388,7 +396,9 @@ export default function CourseDetail() {
                       {h.id && (() => {
                         const m = attByRec[h.id!] || localAttendanceMap(h.id!);
                         const processed = Object.keys(m).length;
-                        const unprocessed = Math.max(0, students.length - processed);
+                        const isPast = new Date(h.date) < new Date(new Date().toDateString());
+                        const totalNow = typeof course?.enrolledCount === 'number' ? course!.enrolledCount! : students.length;
+                        const unprocessed = isPast ? 0 : Math.max(0, totalNow - processed);
                         return (
                           <RecBadge>
                             {`처리 ${processed}명 · 미처리 ${unprocessed}명`}
@@ -409,7 +419,9 @@ export default function CourseDetail() {
                     const map = h.id ? (attByRec[h.id!] || localAttendanceMap(h.id!)) : {} as Record<number, boolean>;
                     const present = Object.values(map).filter(v => v === true).length;
                     const absent = Object.values(map).filter(v => v === false).length;
-                    const unprocessed = Math.max(0, students.length - (present + absent));
+                    const isPast = h.date < new Date(new Date().toDateString());
+                    const totalNow = typeof course?.enrolledCount === 'number' ? course!.enrolledCount! : students.length;
+                    const unprocessed = isPast ? 0 : Math.max(0, totalNow - (present + absent));
                     return (
                       <div style={{ display:'flex', gap:12, alignItems:'center' }}>
                         <CountPill data-variant='present'>출석 {present}명</CountPill>
@@ -459,7 +471,14 @@ function statusLabel(s?: Course["status"]) {
 function studentStatusText(s: Student["status"]) { switch (s) { case "ENROLLED": return "수강중"; case "ON_LEAVE": return "휴학"; case "PENDING": return "대기"; default: return s; } }
 
 function buildInfo(c: Course) {
-  const days = (c.recurrenceDays || '').split(',').map(s=>s.trim()).filter(Boolean).map(dayLabel).join('/');
+  const order: Record<'MON'|'TUE'|'WED'|'THU'|'FRI'|'SAT'|'SUN', number> = { MON:0, TUE:1, WED:2, THU:3, FRI:4, SAT:5, SUN:6 };
+  const days = (c.recurrenceDays || '')
+    .split(',')
+    .map(s=>s.trim().toUpperCase())
+    .filter(Boolean)
+    .sort((a,b)=>order[a as keyof typeof order] - order[b as keyof typeof order])
+    .map(dayLabel)
+    .join('/');
   const time = c.startTime && c.endTime ? `${hhmm(c.startTime)} ~ ${hhmm(c.endTime)}` : (c.courseTime || '-');
   return { days, time };
 }
@@ -470,7 +489,10 @@ function buildHistory(c: Course, fromOffset = 0, toOffset = 6) {
   const end = new Date(); end.setDate(end.getDate() + toOffset);
   const days = (c.recurrenceDays || '')
     .split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
-  const dow: number[] = days.map(d => ({SUN:0,MON:1,TUE:2,WED:3,THU:4,FRI:5,SAT:6} as any)[d]).filter((n:any)=>typeof n==='number');
+  const mapDow: Record<'SUN'|'MON'|'TUE'|'WED'|'THU'|'FRI'|'SAT', number> = { SUN:0, MON:1, TUE:2, WED:3, THU:4, FRI:5, SAT:6 };
+  const dow: number[] = days
+    .map((d) => mapDow[d as keyof typeof mapDow])
+    .filter((n): n is number => typeof n === 'number');
   const list: { date: Date; dateLabel: string; time: string; type: string }[] = [];
   if (dow.length === 0) return list;
   const time = c.startTime && c.endTime ? `${hhmm(c.startTime)} ~ ${hhmm(c.endTime)}` : (c.courseTime || '-');

@@ -1,5 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
+import { buttonVariants } from './UI';
 
 type Props = {
   open: boolean;
@@ -57,11 +58,16 @@ const Btns = styled.div`
   display:flex; justify-content:flex-end; gap:8px; margin-top: 14px;
 `;
 const Btn = styled.button`
-  height: 36px; padding: 0 12px; border-radius: 8px; font-weight: 800; font-size: 13px; cursor: pointer;
-  background:#fff; color:#111827; border:1px solid #e5e7eb;
-  &[disabled]{ opacity: .6; cursor: default; }
+  ${buttonVariants.outline};
+  height: 40px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+  &[disabled]{ opacity: .65; cursor: default; }
   &[data-variant='danger']{
-    background:#fee2e2; color:#7f1d1d; border-color:#fecaca;
+    background:#fee2e2;
+    color:#7f1d1d;
+    border-color:#fecaca;
   }
 `;
 
@@ -88,4 +94,3 @@ const IconBox = styled.span`
   width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: #f3f4f6; color:#2563eb;
   &[data-variant='danger']{ background:#fee2e2; color:#b91c1c; }
 `;
-

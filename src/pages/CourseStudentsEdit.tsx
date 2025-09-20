@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
-import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn } from "../components/common/UI";
+import {
+  SectionCard as Section,
+  TitleH3 as Title,
+  GhostBtn as UIGhostBtn,
+  GhostBtnSmall as UIGhostBtnSmall,
+  SmallBtn as UISmallBtn,
+} from "../components/common/UI";
 import { getCourse, listCourseStudents } from "../api/courses";
 import { listStudents, type Student, updateStudent, type StudentPayload } from "../api/students";
 
@@ -221,10 +227,19 @@ const Hint = styled.div` color:#6b7280; font-size:12px; `;
 const ListBox = styled.div` border:1px solid #e5e7eb; border-radius:10px; min-height:40px; max-height:420px; overflow:auto; padding:6px; display:grid; gap:6px; `;
 const Row = styled.div` display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border:1px solid #f1f5f9; border-radius:10px; `;
 const RowActions = styled.div` display:inline-flex; gap:6px; `;
-const SmallBtn = styled.button`
-  height:28px; padding:0 10px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#111827; font-size:12px;
-  &[data-active='true']{ background:#111827; color:#fff; border-color:#111827; }
-  &[data-variant='danger']{ border-color:#fecaca; color:#b91c1c; background:#fff; }
+const SmallBtn = styled(UISmallBtn)`
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  &[data-active='true']{
+    background:#111827;
+    color:#fff;
+    border-color:#111827;
+  }
+  &[data-variant='danger']{
+    border-color:#fecaca;
+    color:#b91c1c;
+  }
 `;
 const SmallMuted = styled.span` margin-left:8px; color:#9ca3af; font-size:12px; `;
 const StatusTag = styled.span`
@@ -236,5 +251,8 @@ const StatusTag = styled.span`
 const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; font-size:13px; `;
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
 // Buttons from common UI; keep BackBtn local
-const BackBtn = styled.button` height:32px; padding:0 10px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#111827; font-weight:800; font-size:12px; display:inline-flex; align-items:center; gap:6px; `;
+const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+  font-weight: 600;
+  font-size: 13px;
+`;
 const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);

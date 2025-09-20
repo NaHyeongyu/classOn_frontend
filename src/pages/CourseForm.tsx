@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "../components/common/UI";
+import { GhostBtn as UIGhostBtn, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn } from "../components/common/UI";
 import { SectionCard as Section, TitleH3 as Title } from "../components/common/UI";
 import { createCourse, getCourse, type Course, updateCourse } from "../api/courses";
 
@@ -261,7 +261,10 @@ function FormSk(){
   );
 }
 
-const BackBtn = styled.button` height:32px; padding:0 10px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#111827; font-weight:800; font-size:12px; display:inline-flex; align-items:center; gap:6px; `;
+const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+  font-weight: 600;
+  font-size: 13px;
+`;
 const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);
 
 const dayOptions = [

@@ -2,7 +2,10 @@ import { useEffect, useState, type FormEvent } from "react";
 // EN: 4-step onboarding wizard (basic info -> phone verify -> credentials -> academy)
 // KO: 4단계 온보딩 위저드(기본정보 -> 휴대폰 인증 -> 계정설정 -> 학원정보)
 import styled from "styled-components";
-import { PrimaryBtnLg as UIPrimaryBtn } from "../components/common/UI";
+import {
+  PrimaryBtnLg as UIPrimaryBtn,
+  buttonVariants,
+} from "../components/common/UI";
 import { Link, useNavigate } from "react-router-dom";
 import { apiCheckEmail, apiCheckUsername, apiRequestPhoneCode, apiVerifyPhoneCode, apiCheckBizNo, apiOnboardComplete } from "../api/auth";
 import { formatPhone } from "../lib/format";
@@ -340,17 +343,14 @@ const Input = styled.input`
 `;
 // Button from common UI
 const SmallButton = styled.button`
+  ${buttonVariants.subtle};
   height: 54px;
-  padding: 0 16px;
   border-radius: 14px;
-  border: none;
-  background: #eef2ff;
-  color: #4f46e5;
   font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
-  &:hover { background: #e0e7ff; }
-  &:disabled { opacity: 0.7; cursor: not-allowed; }
+  padding: 0 20px;
+  &:disabled {
+    opacity: 0.6;
+  }
 `;
 const Alt = styled.div`
   margin-top: 18px;

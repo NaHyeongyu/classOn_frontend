@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
-import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn } from "../components/common/UI";
+import {
+  SectionCard as Section,
+  TitleH3 as Title,
+  GhostBtn as UIGhostBtn,
+  GhostBtnSmall as UIGhostBtnSmall,
+  SmallBtn as UISmallBtn,
+  buttonVariants,
+} from "../components/common/UI";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { KPI, UsersIcon, CheckIcon, ClassIcon, DeltaPill } from "../components/dashboard/KPI";
 import { getCourse, type Course, type CourseRecord, listCourseRecords, listCourseStudents, updateCourseRecord, createCourseRecord, listRecordAttendance, upsertAttendance, listRecordAttachments, uploadRecordAttachments, deleteRecordAttachment, deleteCourseRecord, type Attachment, type Attendance } from "../api/courses";
@@ -753,7 +760,10 @@ const SuccessBadge = styled.span`
   }
 `;
 const AttBtn = styled.button`
-  height:28px; padding:0 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#111827; font-size:12px; font-weight:800;
+  ${buttonVariants.outline};
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
   &[data-active='true']{ background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
   &[data-variant='danger']{ background:#fff; color:#b91c1c; }
   &[data-variant='danger'][data-active='true']{ background:#fee2e2; color:#7f1d1d; border-color:#fecaca; }
@@ -769,9 +779,14 @@ const Processed = styled.span`
 const TextArea = styled.textarea` width:100%; border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; font-size:14px; `;
 const AttachList = styled.div` display:grid; gap:6px; margin-top:6px; `;
 const AttachRow = styled.div` display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border:1px solid #f1f5f9; border-radius:8px; `;
-const SmallBtn = styled.button`
-  height:28px; padding:0 10px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#111827; font-size:12px;
-  &[data-variant='danger']{ border-color:#fecaca; color:#b91c1c; background:#fff; }
+const SmallBtn = styled(UISmallBtn)`
+  height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+  &[data-variant='danger']{
+    border-color:#fecaca;
+    color:#b91c1c;
+  }
 `;
 const Hint = styled.div` color:#6b7280; font-size:12px; margin-top:4px; `;
 // removed unused Badge
@@ -779,6 +794,9 @@ const SmallMuted = styled.span` color:#9ca3af; font-size:12px; `;
 // Buttons from common UI
 const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; font-size:13px; `;
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
-const BackBtn = styled.button` height:32px; padding:0 10px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#111827; font-weight:800; font-size:12px; display:inline-flex; align-items:center; gap:6px; `;
+const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+  font-weight: 600;
+  font-size: 13px;
+`;
 const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);
  

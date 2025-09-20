@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { TableBase as UITable, GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "../components/common/UI";
+import {
+  TableBase as UITable,
+  GhostBtn as UIGhostBtn,
+  GhostBtnSmall as UIGhostBtnSmall,
+  PrimaryBtn as UIPrimaryBtn,
+  SmallBtn as UISmallBtn,
+} from "../components/common/UI";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { listCounsels, createCounsel, updateCounsel, deleteCounsel, type Counsel } from "../api/counsels";
 import { getStudent, getStudentAttendance, type Student, type StudentAttendance } from "../api/students";
@@ -685,8 +691,9 @@ const TopBar = styled.div`
   display: flex; align-items: center; gap: 10px;
   h2 { margin: 0; font-size: 20px; color: #0f172a; }
 `;
-const BackBtn = styled.button`
-  height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;
+const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+  font-weight: 600;
+  font-size: 13px;
 `;
 const Columns = styled.div`
   display: grid; grid-template-columns: 360px 1fr; gap: 14px; align-items: start;
@@ -760,9 +767,15 @@ const MiniHead = styled.div`
 const Tabs = styled.div`
   display: inline-flex; gap: 6px; flex-wrap: wrap;
 `;
-const TabButton = styled.button`
-  height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700; font-size: 12px; display: inline-flex; align-items: center; gap: 6px;
-  &[data-active='true'] { background:#111827; color:#fff; border-color:#111827; }
+const TabButton = styled(UISmallBtn)`
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  &[data-active='true'] {
+    background:#111827;
+    color:#fff;
+    border-color:#111827;
+  }
 `;
 const Badge = styled.span`
   min-width: 18px; height: 18px; padding: 0 6px; border-radius: 9999px; background:#e5e7eb; color:#374151; font-weight: 800; font-size: 11px; display: inline-flex; align-items: center; justify-content: center;
@@ -823,8 +836,10 @@ const Empty = styled.div`
 // Actions under basic info
 // Button from common UI
 // BtnRow removed (unused)
-const ModalBtn = styled.button`
-  height: 32px; padding: 0 12px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700; font-size: 12px;
+const ModalBtn = styled(UISmallBtn)`
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
 `;
 // Button from common UI
 

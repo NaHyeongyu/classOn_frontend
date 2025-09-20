@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import styled from "styled-components";
 import { NavLink, useNavigate } from "react-router-dom";
+import { buttonVariants } from "./UI";
 import { useAuth } from "../../hooks/useAuth";
 
 export default function Sidebar() {
@@ -351,18 +352,16 @@ const FooterText = styled.div`
 `;
 
 const LogoutButton = styled.button`
+  ${buttonVariants.outline};
   width: 100%;
   margin-top: 10px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
+  height: 42px;
+  justify-content: center;
+  font-weight: 600;
+  color: #4b5563;
   background: #f9fafb;
-  color: #6b7280;
-  font-weight: 700;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  border-color: #e5e7eb;
   &:hover {
     background: #f3f4f6;
-    color: #111827;
   }
 `;

@@ -1,6 +1,11 @@
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import type { ClassItem } from "../../../types/calendarDetail";
+import {
+  GhostBtnSmall as UIGhostBtnSmall,
+  PrimaryBtn as UIPrimaryBtn,
+  SmallBtn as UISmallBtn,
+} from "../../common/UI";
 
 type Props = {
   items?: ClassItem[] | null;
@@ -77,7 +82,7 @@ export default function ClassList({
                       </DateBadge>
                     )}
                     {c.courseId && (c.recordId || c.date) && (
-                      <SmallBtn
+                      <DetailBtn
                         type="button"
                         onClick={() => {
                           if (c.recordId)
@@ -91,7 +96,7 @@ export default function ClassList({
                         }}
                       >
                         상세
-                      </SmallBtn>
+                      </DetailBtn>
                     )}
                   </HeadRight>
                 </RecordHead>
@@ -225,19 +230,8 @@ const SectionIcon = styled.span`
   color: #4f46e5;
 `;
 const Actions = styled.div``;
-const ActionBtn = styled.button`
-  height: 32px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #111827;
-  font-weight: 700;
-  font-size: 12px;
-  cursor: pointer;
-  &:hover {
-    background: #f9fafb;
-  }
+const ActionBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+  font-weight: 600;
 `;
 const Grid = styled.div`
   display: grid;
@@ -266,23 +260,9 @@ const EmptyState = styled.div`
     margin: 0;
   }
 `;
-const EmptyActionBtn = styled.button`
-  height: 34px;
-  padding: 0 16px;
-  border-radius: 10px;
-  border: none;
-  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-  color: #fff;
-  font-weight: 800;
-  font-size: 13px;
-  cursor: pointer;
-  box-shadow: 0 4px 10px rgba(99, 102, 241, 0.2);
-  &:hover {
-    filter: brightness(1.05);
-  }
-  &:active {
-    transform: translateY(1px);
-  }
+const EmptyActionBtn = styled(UIPrimaryBtn).attrs({ as: "button" })`
+  height: 40px;
+  padding: 0 18px;
 `;
 // Unified "수업 내역" look
 const RecordCard = styled.div`
@@ -387,13 +367,9 @@ const CountPill = styled.span`
     border-color: #e5e7eb;
   }
 `;
-const SmallBtn = styled.button`
-  height: 28px;
-  padding: 0 10px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #111827;
+const DetailBtn = styled(UISmallBtn)`
+  height: 32px;
+  padding: 0 12px;
   font-size: 12px;
 `;
 

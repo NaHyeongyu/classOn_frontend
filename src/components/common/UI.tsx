@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { Link } from "react-router-dom";
 
 // Design tokens (fallbacks if global CSS vars are not defined)
@@ -28,29 +28,116 @@ export const TableBase = styled.table`
   tbody td { padding:10px 8px; border-bottom:1px solid #f1f5f9; font-size:14px; vertical-align:middle; }
 `;
 
+const buttonBase = css`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1;
+  border: 1px solid transparent;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, transform 0.1s ease;
+  text-align: center;
+  &:focus-visible {
+    outline: 3px solid rgba(79, 70, 229, 0.3);
+    outline-offset: 2px;
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    box-shadow: none;
+    transform: none;
+  }
+`;
+
+const buttonPrimary = css`
+  ${buttonBase};
+  background: #4f46e5;
+  border-color: #4338ca;
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.18);
+  &:hover:not(:disabled) {
+    background: #4338ca;
+  }
+  &:active:not(:disabled) {
+    background: #3730a3;
+    transform: translateY(1px);
+    box-shadow: 0 3px 10px rgba(79, 70, 229, 0.22);
+  }
+`;
+
+const buttonOutline = css`
+  ${buttonBase};
+  background: #fff;
+  border-color: #d1d5db;
+  color: #111827;
+  box-shadow: none;
+  &:hover:not(:disabled) {
+    background: #f9fafb;
+    border-color: #cdd5df;
+  }
+  &:active:not(:disabled) {
+    background: #f3f4f6;
+    transform: translateY(1px);
+  }
+`;
+
+const buttonSubtle = css`
+  ${buttonBase};
+  background: #eef2ff;
+  border-color: transparent;
+  color: #4f46e5;
+  box-shadow: none;
+  &:hover:not(:disabled) {
+    background: #e0e7ff;
+  }
+  &:active:not(:disabled) {
+    background: #c7d2fe;
+    transform: translateY(1px);
+  }
+`;
+
+export const buttonVariants = {
+  base: buttonBase,
+  primary: buttonPrimary,
+  outline: buttonOutline,
+  subtle: buttonSubtle,
+};
+
 export const PrimaryBtn = styled(Link)`
-  height:32px; padding:0 10px; border-radius:8px; border:1px solid ${fg}; background:${fg}; color:#fff; font-weight:800; font-size:12px; text-decoration:none;
-  display:inline-flex; align-items:center; gap:6px;
+  ${buttonPrimary};
 `;
 
 // Taller primary button for hero forms (e.g., Login/Register)
 export const PrimaryBtnLg = styled(PrimaryBtn)`
   height: 48px;
-  padding: 0 16px;
-  border-radius: 12px;
-  font-size: 14px;
+  padding: 0 20px;
+  border-radius: 14px;
+  font-size: 15px;
 `;
 
 export const GhostBtn = styled(Link)`
-  height:32px; padding:0 10px; border-radius:8px; border:1px solid ${bd}; background:${bg}; color:${fg}; font-weight:800; font-size:12px; text-decoration:none;
-  display:inline-flex; align-items:center; gap:6px;
+  ${buttonOutline};
 `;
 
 export const GhostBtnSmall = styled(Link)`
-  height:28px; padding:0 10px; border-radius:8px; border:1px solid ${bd}; background:${bg}; color:${fg}; font-weight:700; font-size:12px; text-decoration:none;
-  display:inline-flex; align-items:center; gap:6px;
+  ${buttonOutline};
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 10px;
 `;
 
 export const SmallBtn = styled.button`
-  height:28px; padding:0 10px; border-radius:8px; border:1px solid ${bd}; background:${bg}; color:${fg}; font-size:12px;
+  ${buttonOutline};
+  height: 36px;
+  padding: 0 12px;
+  font-size: 13px;
+  border-radius: 10px;
 `;

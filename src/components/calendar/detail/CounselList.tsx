@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import type { CounselItem } from "../../../types/calendarDetail";
+import { buttonVariants } from "../../common/UI";
 
 type Props = {
   items: CounselItem[];
@@ -65,8 +66,11 @@ const SectionIcon = styled.span`
 `;
 const Actions = styled.div``;
 const ActionBtn = styled.button`
-  height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700; font-size: 12px; cursor: pointer;
-  &:hover { background: #f9fafb; }
+  ${buttonVariants.outline};
+  height: 34px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
 `;
 const Grid = styled.div`
   display: grid;

@@ -32,3 +32,9 @@ export function formatPhone(raw?: string | null): string {
   return digits;
 }
 
+export function formatMoney(value?: number | string | null, suffix = '원'): string {
+  if (value == null || value === '') return '-';
+  const n = typeof value === 'string' ? Number(value) : value;
+  if (Number.isNaN(n as number)) return '-';
+  return `${Number(n).toLocaleString('ko-KR')}${suffix ? suffix : ''}`;
+}

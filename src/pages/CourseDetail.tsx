@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
-import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, TableBase as UITable } from "../components/common/UI";
+import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, TableBase as UITable, buttonVariants, GhostButton as UIGhostButton } from "../components/common/UI";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { getCourse, type Course, type CourseRecord, listCourseStudents, listCourseRecords, listRecordAttendance, deleteCourse } from "../api/courses";
+import { formatMoney } from "../lib/format";
 import { listStudents, type Student } from "../api/students";
 import { KPI, UsersIcon, ClassIcon, CheckIcon, DeltaPill } from "../components/dashboard/KPI";
 import { formatPhone } from "../lib/format";
@@ -216,7 +217,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
           <UIGhostBtn to={`/classes/${numericId || ''}/edit-students`} title="수강생 수정">수강생 수정</UIGhostBtn>
           <UIPrimaryBtn to={`/classes/${numericId || ''}/edit`} title="기본 정보 수정">기본정보 수정</UIPrimaryBtn>
           {numericId && (
-            <UIGhostBtn as="button" onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostBtn>
+            <UIGhostButton type="button" onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostButton>
           )}
         </Actions>
       </Head>
@@ -300,7 +301,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
                 <Field><Label>요일</Label><div>{info.days || '-'}</div></Field>
                 <Field><Label>시간</Label><div>{info.time || '-'}</div></Field>
                 <Field><Label>정원</Label><div>{course?.capacity ?? '-'}</div></Field>
-                <Field><Label>수강료</Label><div>{course?.fee ? `${course.fee.toLocaleString()}원` : '-'}</div></Field>
+                <Field><Label>수강료</Label><div>{course?.fee != null ? formatMoney(course.fee as any) : '-'}</div></Field>
                 <Field style={{ gridColumn: '1 / -1' }}>
                   <Label>수업 설명</Label>
                   <Desc>{course?.description || '-'}</Desc>
@@ -546,7 +547,10 @@ const StatusTag = styled.span`
 // Buttons from common UI
 const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; font-size:13px; `;
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
-const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+const BackBtn = styled.button`
+  ${buttonVariants.outline};
+  height: 36px;
+  padding: 0 14px;
   font-weight: 600;
   font-size: 13px;
 `;

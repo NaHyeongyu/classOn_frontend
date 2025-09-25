@@ -1,11 +1,7 @@
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import type { ClassItem } from "../../../types/calendarDetail";
-import {
-  GhostBtnSmall as UIGhostBtnSmall,
-  PrimaryBtn as UIPrimaryBtn,
-  SmallBtn as UISmallBtn,
-} from "../../common/UI";
+import { SmallBtn as UISmallBtn, buttonVariants } from "../../common/UI";
 
 type Props = {
   items?: ClassItem[] | null;
@@ -195,10 +191,10 @@ function statusIcon(tone: StatusVariant) {
 }
 
 const Section = styled.section`
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.lg};
   padding: 12px;
-  background: #fff;
+  background: ${(p) => p.theme.colors.surface};
   display: flex;
   flex-direction: column;
   height: 100%; /* fill half container */
@@ -212,7 +208,7 @@ const SectionHeader = styled.div`
   h4 {
     margin: 0;
     font-size: 15px;
-    color: #111827;
+    color: ${(p) => p.theme.colors.text};
   }
 `;
 const HeaderLeft = styled.div`
@@ -226,11 +222,15 @@ const SectionIcon = styled.span`
   border-radius: 8px;
   display: grid;
   place-items: center;
-  background: #f3f4f6;
-  color: #4f46e5;
+  background: ${(p) => p.theme.colors.primarySurface};
+  color: ${(p) => p.theme.colors.primary};
 `;
 const Actions = styled.div``;
-const ActionBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+const ActionBtn = styled.button`
+  ${buttonVariants.outline};
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
   font-weight: 600;
 `;
 const Grid = styled.div`
@@ -246,13 +246,13 @@ const Grid = styled.div`
   grid-auto-rows: max-content; /* row height equals content height */
 `;
 const EmptyState = styled.div`
-  color: #6b7280;
+  color: ${(p) => p.theme.colors.textMuted};
   font-size: 13px;
   text-align: center;
-  border: 1px dashed #e5e7eb;
-  border-radius: 10px;
+  border: 1px dashed ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
   padding: 18px 12px;
-  background: #fafafa;
+  background: ${(p) => p.theme.colors.surfaceMuted};
   display: grid;
   gap: 10px;
   justify-items: center;
@@ -260,15 +260,19 @@ const EmptyState = styled.div`
     margin: 0;
   }
 `;
-const EmptyActionBtn = styled(UIPrimaryBtn).attrs({ as: "button" })`
+const EmptyActionBtn = styled.button`
+  ${buttonVariants.primary};
   height: 40px;
   padding: 0 18px;
+  font-size: 14px;
+  font-weight: 600;
 `;
 // Unified "수업 내역" look
 const RecordCard = styled.div`
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
   padding: 12px;
+  background: ${(p) => p.theme.colors.surface};
   display: grid;
   gap: 10px;
 `;
@@ -278,7 +282,7 @@ const RecordHead = styled.div`
   justify-content: space-between;
 `;
 const SmallMuted = styled.span`
-  color: #9ca3af;
+  color: ${(p) => p.theme.colors.textMuted};
   font-size: 12px;
 `;
 const MetaRow = styled.div`
@@ -295,15 +299,15 @@ const StatusChip = styled.span`
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
-  background: #f3f4f6;
+  background: ${(p) => p.theme.colors.surfaceMuted};
   color: #4b5563;
   &[data-variant='past'] {
-    background: #fee2e2;
-    color: #b91c1c;
+    background: ${(p) => p.theme.colors.dangerSurface};
+    color: ${(p) => p.theme.colors.danger};
   }
   &[data-variant='upcoming'] {
-    background: #d1fae5;
-    color: #047857;
+    background: ${(p) => p.theme.colors.successSurface};
+    color: ${(p) => p.theme.colors.success};
   }
 `;
 const HeadRight = styled.div`
@@ -319,8 +323,8 @@ const DateBadge = styled.span`
   gap: 4px;
   padding: 4px 10px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-  color: #3730a3;
+  background: ${(p) => p.theme.colors.primarySurface};
+  color: ${(p) => p.theme.colors.primary};
   font-weight: 700;
   font-size: 12px;
   white-space: nowrap;
@@ -333,11 +337,11 @@ const BlockTitle = styled.div`
 `;
 const ReadOnlyBox = styled.div`
   white-space: pre-wrap;
-  border: 1px solid #f1f5f9;
-  border-radius: 10px;
+  border: 1px solid ${(p) => p.theme.colors.borderMuted};
+  border-radius: ${(p) => p.theme.radii.md};
   padding: 10px;
-  background: #f9fafb;
-  color: #111827;
+  background: ${(p) => p.theme.colors.surfaceMuted};
+  color: ${(p) => p.theme.colors.text};
   font-size: 14px;
 `;
 const CountPill = styled.span`
@@ -346,25 +350,25 @@ const CountPill = styled.span`
   gap: 4px;
   padding: 2px 8px;
   border-radius: 999px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid ${(p) => p.theme.colors.border};
   font-size: 12px;
   font-weight: 800;
   color: #374151;
-  background: #fff;
+  background: ${(p) => p.theme.colors.bg};
   &[data-variant="present"] {
-    background: #ecfdf5;
-    color: #065f46;
+    background: ${(p) => p.theme.colors.successSurface};
+    color: ${(p) => p.theme.colors.success};
     border-color: #a7f3d0;
   }
   &[data-variant="absent"] {
-    background: #fee2e2;
+    background: ${(p) => p.theme.colors.dangerSurface};
     color: #7f1d1d;
     border-color: #fecaca;
   }
   &[data-variant="none"] {
-    background: #f3f4f6;
-    color: #6b7280;
-    border-color: #e5e7eb;
+    background: ${(p) => p.theme.colors.surfaceMuted};
+    color: ${(p) => p.theme.colors.textMuted};
+    border-color: ${(p) => p.theme.colors.border};
   }
 `;
 const DetailBtn = styled(UISmallBtn)`

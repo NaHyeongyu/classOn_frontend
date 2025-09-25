@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { useEffect, useState } from "react";
 import type { TaskItem } from "../../../types/calendarDetail";
+import { SmallBtn as UISmallBtn, buttonVariants } from "../../common/UI";
 
 type Props = {
   inProgress: TaskItem[];
@@ -80,8 +81,11 @@ const SectionIcon = styled.span`
 `;
 const Actions = styled.div``;
 const ActionBtn = styled.button`
-  height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700; font-size: 12px; cursor: pointer;
-  &:hover { background: #f9fafb; }
+  ${buttonVariants.outline};
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  font-weight: 600;
 `;
 // SubHeader removed
 const Count = styled.span`
@@ -117,15 +121,21 @@ const TaskContent = styled.div`
   overflow: hidden;
 `;
 /* removed category/owner metadata display for cleaner look */
-const GhostBtn = styled.button`
-  height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #0f172a; font-weight: 700; font-size: 12px;
-  transition: background 0.15s ease, border-color 0.15s ease;
-  &:hover { background: #f3f4f6; border-color: #e2e8f0; }
+const GhostBtn = styled(UISmallBtn)`
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
 `;
-const DangerBtn = styled.button`
-  height: 28px; padding: 0 10px; border-radius: 8px; border: 1px solid #ef4444; background: #fff; color: #ef4444; font-weight: 700; font-size: 12px;
-  transition: background 0.15s ease;
-  &:hover { background: #fee2e2; }
+const DangerBtn = styled(UISmallBtn)`
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
+  border-color: #ef4444;
+  color: #ef4444;
+  &:hover {
+    background: #fee2e2;
+    border-color: #dc2626;
+  }
 `;
 const BtnRow = styled.div`
   display: flex; gap: 6px; align-items: center;

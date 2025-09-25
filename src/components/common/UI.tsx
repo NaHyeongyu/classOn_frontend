@@ -1,31 +1,42 @@
 import styled, { css } from "styled-components";
 import { Link } from "react-router-dom";
 
-// Design tokens (fallbacks if global CSS vars are not defined)
-const bd = "#e5e7eb"; // border color
-const fg = "#111827"; // text
-const fgMuted = "#6b7280"; // muted text
-const bg = "#ffffff"; // card bg
-const radiusMd = "14px";
-
-export const Page = styled.div` display:grid; gap:12px; `;
+export const Page = styled.div` display:grid; gap:12px; overflow-x: hidden; `;
 export const SectionCard = styled.section`
-  background:${bg};
-  border:1px solid ${bd};
-  border-radius:${radiusMd};
+  background:${(p) => p.theme.colors.surface};
+  border:1px solid ${(p) => p.theme.colors.border};
+  border-radius:${(p) => p.theme.radii.lg};
   padding:14px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow: hidden; /* prevent child overflow from pushing layout */
 `;
 
 export const TitleH3 = styled.h3`
-  margin:0 0 10px; font-size:15px; color:#0f172a;
+  margin:0 0 10px; font-size:${(p) => p.theme.font.size.lg}; color:${(p) => p.theme.colors.text};
+`;
+
+// Page header used across pages (title + description + optional actions)
+export const PageHeader = styled.header`
+  display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin-bottom: 4px;
+  h2 { margin: 0; font-size: 22px; color: ${(p) => p.theme.colors.text}; letter-spacing: -0.01em; }
+  p { margin: 0; color: ${(p) => p.theme.colors.textMuted}; font-size: 13px; }
 `;
 
 export const Scroller = styled.div` overflow:auto; `;
 
 export const TableBase = styled.table`
-  width:100%; border-collapse:collapse;
-  thead th { text-align:left; font-size:12px; color:${fgMuted}; padding:10px 8px; border-bottom:1px solid ${bd}; }
-  tbody td { padding:10px 8px; border-bottom:1px solid #f1f5f9; font-size:14px; vertical-align:middle; }
+  width:100%; border-collapse:separate; border-spacing:0;
+  thead th {
+    text-align:left; font-size:12px; color:${(p) => p.theme.colors.textMuted}; padding:12px 10px; border-bottom:1px solid ${(p) => p.theme.colors.border};
+    position: sticky; top: 0; background: ${(p) => p.theme.colors.surface}; z-index: 2;
+  }
+  tbody td { padding:12px 10px; border-bottom:1px solid ${(p) => p.theme.colors.borderMuted}; font-size:14px; vertical-align:middle; color:${(p) => p.theme.colors.text}; }
+  tbody tr:hover td { background:${(p) => p.theme.colors.gray50}; }
+  tbody tr:nth-child(even) td { background:#fcfcfd; }
+  thead th.num, tbody td.num { text-align: right; }
 `;
 
 const buttonBase = css`
@@ -58,15 +69,15 @@ const buttonBase = css`
 
 const buttonPrimary = css`
   ${buttonBase};
-  background: #4f46e5;
-  border-color: #4338ca;
+  background: ${(p) => p.theme.colors.primary};
+  border-color: ${(p) => p.theme.colors.primaryHover};
   color: #fff;
   box-shadow: 0 4px 14px rgba(79, 70, 229, 0.18);
   &:hover:not(:disabled) {
-    background: #4338ca;
+    background: ${(p) => p.theme.colors.primaryHover};
   }
   &:active:not(:disabled) {
-    background: #3730a3;
+    background: ${(p) => p.theme.colors.primaryActive};
     transform: translateY(1px);
     box-shadow: 0 3px 10px rgba(79, 70, 229, 0.22);
   }
@@ -74,25 +85,25 @@ const buttonPrimary = css`
 
 const buttonOutline = css`
   ${buttonBase};
-  background: #fff;
-  border-color: #d1d5db;
-  color: #111827;
+  background: ${(p) => p.theme.colors.bg};
+  border-color: ${(p) => p.theme.colors.border};
+  color: ${(p) => p.theme.colors.text};
   box-shadow: none;
   &:hover:not(:disabled) {
-    background: #f9fafb;
-    border-color: #cdd5df;
+    background: ${(p) => p.theme.colors.gray50};
+    border-color: ${(p) => p.theme.colors.border};
   }
   &:active:not(:disabled) {
-    background: #f3f4f6;
+    background: ${(p) => p.theme.colors.gray100};
     transform: translateY(1px);
   }
 `;
 
 const buttonSubtle = css`
   ${buttonBase};
-  background: #eef2ff;
+  background: ${(p) => p.theme.colors.primarySurface};
   border-color: transparent;
-  color: #4f46e5;
+  color: ${(p) => p.theme.colors.primary};
   box-shadow: none;
   &:hover:not(:disabled) {
     background: #e0e7ff;
@@ -122,6 +133,17 @@ export const PrimaryBtnLg = styled(PrimaryBtn)`
   font-size: 15px;
 `;
 
+export const PrimaryButton = styled.button`
+  ${buttonPrimary};
+`;
+
+export const PrimaryButtonLg = styled(PrimaryButton)`
+  height: 48px;
+  padding: 0 20px;
+  border-radius: 14px;
+  font-size: 15px;
+`;
+
 export const GhostBtn = styled(Link)`
   ${buttonOutline};
 `;
@@ -134,10 +156,40 @@ export const GhostBtnSmall = styled(Link)`
   border-radius: 10px;
 `;
 
+export const GhostButton = styled.button`
+  ${buttonOutline};
+`;
+
+export const GhostButtonSmall = styled(GhostButton)`
+  height: 36px;
+  padding: 0 14px;
+  font-size: 13px;
+  border-radius: 10px;
+`;
+
 export const SmallBtn = styled.button`
   ${buttonOutline};
   height: 36px;
   padding: 0 12px;
   font-size: 13px;
   border-radius: 10px;
+`;
+
+// Empty state pattern
+export const EmptyState = styled.div`
+  display: grid; place-items: center; gap: 6px; padding: 20px 10px; color: ${(p) => p.theme.colors.textMuted};
+  svg { width: 28px; height: 28px; opacity: 0.6; }
+`;
+
+// Lightweight skeleton block
+export const Skeleton = styled.div<{ w?: number|string; h?: number; mt?: number }>`
+  --w: ${({w}) => (typeof w === 'number' ? `${w}px` : (w || '100%'))};
+  --h: ${({h}) => (h ? `${h}px` : '14px')};
+  width: var(--w); height: var(--h);
+  border-radius: 8px;
+  background: linear-gradient(90deg, #f3f4f6 25%, #e5e7eb 37%, #f3f4f6 63%);
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+  margin-top: ${({mt}) => (mt ? `${mt}px` : 0)};
+  @keyframes shimmer { 0% { background-position: 100% 0; } 100% { background-position: 0 0; } }
 `;

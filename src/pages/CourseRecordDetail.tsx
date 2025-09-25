@@ -6,6 +6,7 @@ import {
   TitleH3 as Title,
   GhostBtn as UIGhostBtn,
   GhostBtnSmall as UIGhostBtnSmall,
+  GhostButton as UIGhostButton,
   SmallBtn as UISmallBtn,
   buttonVariants,
 } from "../components/common/UI";
@@ -245,6 +246,15 @@ export default function CourseRecordDetail() {
   function setLocalAttachments(list: { name: string; size: number }[]) {
     try { localStorage.setItem(localAttachKey(), JSON.stringify(list)); } catch {}
   }
+  function toAttachmentRows(list: { name: string; size: number }[]): Attachment[] {
+    const now = new Date().toISOString();
+    return list.map((item, idx) => ({
+      id: -1 - idx,
+      filename: item.name,
+      size: item.size,
+      createdAt: now,
+    }));
+  }
   useEffect(() => {
     if (!courseId) return;
     let cancelled = false;
@@ -380,7 +390,7 @@ export default function CourseRecordDetail() {
         <HeadRight>
           <UIGhostBtn to={`/classes/${courseId}`} title="수업으로">수업으로</UIGhostBtn>
           {record?.id && (
-            <UIGhostBtn as="button" onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostBtn>
+            <UIGhostButton type="button" onClick={() => setConfirmDeleteOpen(true)}>삭제</UIGhostButton>
           )}
         </HeadRight>
       </Head>
@@ -794,7 +804,10 @@ const SmallMuted = styled.span` color:#9ca3af; font-size:12px; `;
 // Buttons from common UI
 const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; font-size:13px; `;
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
-const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+const BackBtn = styled.button`
+  ${buttonVariants.outline};
+  height: 36px;
+  padding: 0 14px;
   font-weight: 600;
   font-size: 13px;
 `;

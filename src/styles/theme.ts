@@ -1,0 +1,47 @@
+import type { DefaultTheme } from "styled-components";
+
+export const defaultTheme: DefaultTheme = {
+  colors: {
+    text: "#111827",
+    textMuted: "#6b7280",
+    bg: "#ffffff",
+    surface: "#ffffff",
+    surfaceMuted: "#f9fafb",
+    border: "#e5e7eb",
+    borderMuted: "#f1f5f9",
+    primary: "#4f46e5",
+    primaryHover: "#4338ca",
+    primaryActive: "#3730a3",
+    primarySurface: "#eef2ff",
+    success: "#065f46",
+    successSurface: "#ecfdf5",
+    danger: "#b91c1c",
+    dangerSurface: "#fee2e2",
+    warning: "#b45309",
+    warningSurface: "#fff7ed",
+    info: "#2563eb",
+    gray50: "#f9fafb",
+    gray100: "#f3f4f6",
+    gray150: "#f1f5f9",
+    gray200: "#e5e7eb",
+  },
+  radii: {
+    sm: "8px",
+    md: "12px",
+    lg: "14px",
+    xl: "16px",
+  },
+  font: {
+    size: {
+      xs: "11px",
+      sm: "12px",
+      md: "14px",
+      lg: "16px",
+    },
+  },
+  shadow: {
+    soft: "0 1px 2px rgba(0,0,0,0.03)",
+    focusPrimary: "0 0 0 3px rgba(79, 70, 229, 0.18)",
+  },
+};
+

@@ -1,7 +1,7 @@
 import styled from "styled-components";
-import { SectionCard as TableCard, Scroller, TableBase as Table, GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "../common/UI";
+import { SectionCard as TableCard, Scroller, TableBase as Table, EmptyState, Skeleton } from "../common/UI";
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { listStudents, type Student, type PageResult } from "../../api/students";
 import { formatPhone } from "../../lib/format";
 import { visiblePages } from "../../lib/pagination";
@@ -23,13 +23,22 @@ type Filters = {
 
 export default function StudentsTable({ filters, refreshKey }: { filters: Filters; refreshKey?: number }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [rows, setRows] = useState<Student[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [size, setSize] = useState(10);
+  const [page, setPage] = useState(() => {
+    const p = Number(searchParams.get('page'));
+    return Number.isFinite(p) && p >= 0 ? p : 0;
+  });
+  const [size, setSize] = useState(() => {
+    const s = Number(searchParams.get('size'));
+    return (s === 10 || s === 20 || s === 50) ? s : 10;
+  });
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(false);
+  const sortKey = 'createdAt';
+  const sortDir: 'ASC'|'DESC' = 'DESC';
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +55,8 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
           to: filters.to || undefined,
           ageMin: filters.ageMin ? Number(filters.ageMin) : undefined,
           ageMax: filters.ageMax ? Number(filters.ageMax) : undefined,
+          s: sortKey as any,
+          dir: sortDir,
         });
         if (!cancelled) {
           setRows(res.content);
@@ -65,6 +76,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
   // Reset to first page when filters change
   useEffect(() => { setPage(0); }, [filters.status, filters.q, filters.from, filters.to, filters.ageMin, filters.ageMax]);
 
+  // Sync from URL params (for back/forward navigation)
   const view = useMemo(() => rows.map((r, idx) => {
     let ageText: string;
     if (r.birthDate) {
@@ -75,43 +87,49 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
     } else {
       ageText = r.age != null ? String(r.age) : '-';
     }
+    const seqDesc = Math.max(0, totalElements - (page * size) - idx);
     return ({
-      seq: page * size + idx + 1,
+      seq: seqDesc,
+      code: r.code,
       id: r.id,
       name: r.name,
       age: ageText,
+      birth: r.birthDate || '-',
       phone: formatPhone(r.phoneNumber),
       course: r.courses?.map(c => c.title).join(", ") || "-",
       guardian: formatPhone(r.guardianPhone),
       status: statusKr(r.status),
       joinedAt: r.joinedDate || (r.createdAt?.slice(0,10)) || "-",
     });
-  }), [rows, page, size]);
+  }), [rows, page, size, totalElements]);
 
   function changePage(p: number) {
     if (p < 0 || p >= totalPages) return;
     setPage(p);
   }
 
+  // no bulk/Excel features
+
   return (
     <TableCard>
+      <CardInner>
       <TableHead>
         <div>
           <strong>원생 목록</strong>
-          <Muted>{loading ? "불러오는 중..." : `총 ${totalElements}명의 원생이 조회되었습니다.`}</Muted>
+          <Muted>
+            {loading ? "불러오는 중..." : `총 ${totalElements}명의 원생이 조회되었습니다.`}
+          </Muted>
           {error && <ErrText>{error}</ErrText>}
         </div>
-        <HeadActions>
-          <UIGhostBtn as={"button" as any}>엑셀로 다운받기</UIGhostBtn>
-          <UIPrimaryBtn as={"button" as any} onClick={() => navigate('/students/new')}>원생 추가하기</UIPrimaryBtn>
-        </HeadActions>
       </TableHead>
       <Scroller>
-        <Table style={{ minWidth: 960 }}>
+        <Table style={{ minWidth: 900 }}>
           <thead>
             <tr>
               <th>번호</th>
+              <th>코드</th>
               <th>이름</th>
+              <th>생일</th>
               <th>나이</th>
               <th>연락처</th>
               <th>수강수업</th>
@@ -121,14 +139,30 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
             </tr>
           </thead>
           <tbody>
+            {loading && rows.length === 0 && (
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={`sk-${i}`}>
+                  <td colSpan={10}><Skeleton h={14} /></td>
+                </tr>
+              ))
+            )}
+            {!loading && view.length === 0 && (
+              <tr>
+                <td colSpan={10}>
+                  <EmptyState>조건에 맞는 결과가 없습니다.</EmptyState>
+                </td>
+              </tr>
+            )}
             {view.map((r) => (
               <tr key={r.id}>
                 <td>{r.seq}</td>
+                <td>{r.code}</td>
                 <td>
                   <NameLink type="button" onClick={() => navigate(`/students/${r.id}/courses`)} title="상세 보기">
                     {r.name}
                   </NameLink>
                 </td>
+                <td>{r.birth || '-'}</td>
                 <td>{r.age}</td>
                 <td>{r.phone || '-'}</td>
                 <td>{r.course || '-'}</td>
@@ -150,26 +184,24 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
         <PageBtn onClick={() => changePage(page + 1)} disabled={page >= totalPages - 1}>다음</PageBtn>
         <PageSize>
           <span>페이지당</span>
-          <select value={size} onChange={(e) => { setPage(0); setSize(Number(e.target.value)); }}>
+          <select value={size} onChange={(e) => { const next = Number(e.target.value); setPage(0); setSize(next); }}>
             <option value={10}>10</option>
             <option value={20}>20</option>
             <option value={50}>50</option>
           </select>
         </PageSize>
       </Pager>
+      </CardInner>
     </TableCard>
   );
 }
 
 // Card provided by common UI
 const TableHead = styled.div`
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: center; justify-content: flex-start;
 `;
 const Muted = styled.div`
   color: #6b7280; font-size: 12px; margin-top: 4px;
-`;
-const HeadActions = styled.div`
-  display: inline-flex; gap: 8px;
 `;
 // Buttons from common UI
 // Scroller/Table from common UI
@@ -196,3 +228,5 @@ const PageSize = styled.div`
   display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; color: #6b7280; font-size: 12px;
   select { height: 28px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; padding: 0 8px; }
 `;
+
+const CardInner = styled.div` position: relative; `;

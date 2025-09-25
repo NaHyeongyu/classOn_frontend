@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { isSameDate } from "../../features/calendar/dateUtils";
 import type { CalendarEvent } from "../../types/calendar";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Props = {
   viewDate: Date;
@@ -10,21 +11,64 @@ type Props = {
 };
 
 export default function CalendarGrid({ viewDate, dates, onSelectDate, getEvents }: Props) {
+  const cellRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const initialIndex = useMemo(() => {
+    const todayIdx = dates.findIndex((d) => isSameDate(d, new Date()));
+    return todayIdx >= 0 ? todayIdx : 0;
+  }, [dates]);
+  const [focusIdx, setFocusIdx] = useState<number>(initialIndex);
+
+  useEffect(() => { setFocusIdx(initialIndex); }, [initialIndex]);
+
+  function moveFocus(next: number) {
+    const idx = Math.max(0, Math.min(dates.length - 1, next));
+    setFocusIdx(idx);
+    const el = cellRefs.current[idx];
+    if (el) el.focus();
+  }
+
   return (
-    <Grid>
+    <Grid role="grid" aria-label="월간 달력">
       {dates.map((d, i) => {
         const isCurrent = d.getMonth() === viewDate.getMonth();
         const isToday = isSameDate(d, new Date());
         const weekday = d.getDay();
         const events = isCurrent ? getEvents(d) : [];
+        const idx = i;
         return (
-          <Cell key={`${d.toISOString()}-${i}`} $dim={!isCurrent} $today={isToday} onClick={() => onSelectDate(d)}>
+          <Cell
+            key={`${d.toISOString()}-${i}`}
+            ref={(el) => (cellRefs.current[i] = el)}
+            tabIndex={idx === focusIdx ? 0 : -1}
+            $dim={!isCurrent}
+            $today={isToday}
+            onClick={() => onSelectDate(d)}
+            onKeyDown={(e) => {
+              switch (e.key) {
+                case 'ArrowRight': e.preventDefault(); moveFocus(idx + 1); break;
+                case 'ArrowLeft': e.preventDefault(); moveFocus(idx - 1); break;
+                case 'ArrowDown': e.preventDefault(); moveFocus(idx + 7); break;
+                case 'ArrowUp': e.preventDefault(); moveFocus(idx - 7); break;
+                case 'Home': e.preventDefault(); moveFocus(0); break;
+                case 'End': e.preventDefault(); moveFocus(dates.length - 1); break;
+                case 'Enter':
+                case ' ': e.preventDefault(); onSelectDate(d); break;
+              }
+            }}
+            role="gridcell"
+            aria-selected={idx === focusIdx}
+          >
             <DateNum $red={weekday === 0 || weekday === 6} $today={isToday}>
               {d.getDate()}
             </DateNum>
             <Events>
-              {events.map((ev, idx) => (
-                <Pill key={idx} $type={ev.type}>
+              {events.map((ev, idx2) => (
+                <Pill
+                  key={idx2}
+                  $type={ev.type}
+                  title={`[${ev.type}] ${ev.label}\nEnter로 날짜 이동 후 상세 보기`}
+                  aria-label={`${ev.type} 이벤트: ${ev.label}`}
+                >
                   {ev.label}
                 </Pill>
               ))}
@@ -76,4 +120,3 @@ const Pill = styled.div<{ $type: "class" | "counsel" | "todo" }>`
       ? "color:#15803d; background:#ecfdf5; border-color:#d1fae5;"
       : ""}
 `;
-

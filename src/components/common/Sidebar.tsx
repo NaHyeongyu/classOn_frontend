@@ -5,7 +5,7 @@ import { buttonVariants } from "./UI";
 import { useAuth } from "../../hooks/useAuth";
 
 export default function Sidebar() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
   const items = useMemo(
     () => [
@@ -13,10 +13,23 @@ export default function Sidebar() {
       { key: "calendar", label: "일정", sub: "Calendar", to: "/calendar" },
       { key: "students", label: "원생관리", sub: "Student Management", to: "/students" },
       { key: "classes", label: "수업관리", sub: "Class Management", to: "/classes" },
-      { key: "billing", label: "결제관리", sub: "Payments", to: "/payments" },
+      { key: "payments", label: "결제관리", sub: "Payments", to: "/payments" },
+      { key: "marketing", label: "마케팅", sub: "Marketing", to: "/marketing" },
     ],
     []
   );
+
+  const initials = useMemo(() => {
+    const n = (user?.name || user?.username || "").trim();
+    if (!n) return "?";
+    const parts = n.split(/\s+/);
+    if (n.length <= 2) return n;
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return n.slice(0, 2).toUpperCase();
+  }, [user?.name, user?.username]);
+
+  const displayName = user?.name || user?.username || "사용자";
+  const displaySub = user?.email || user?.username || "";
 
   return (
     <SidebarWrapper>
@@ -46,10 +59,10 @@ export default function Sidebar() {
 
       <BottomInfo>
         <UserBox>
-          <UserAvatar>관리</UserAvatar>
+          <UserAvatar aria-hidden>{initials}</UserAvatar>
           <div>
-            <UserName>사용자: 관리자</UserName>
-            <UserEmail>admin@academy.com</UserEmail>
+            <UserName title={displayName}>{displayName}</UserName>
+            {displaySub ? <UserEmail title={displaySub}>{displaySub}</UserEmail> : null}
           </div>
         </UserBox>
         <LogoutButton type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }}>
@@ -140,7 +153,7 @@ function renderIcon(key: string) {
           <path d="M7 16h6" />
         </svg>
       );
-    case "billing":
+    case "payments":
       return (
         <svg
           width="20"
@@ -152,10 +165,11 @@ function renderIcon(key: string) {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M20 7h-9" />
-          <path d="M14 17H5" />
-          <circle cx="17" cy="17" r="3" />
-          <circle cx="7" cy="7" r="3" />
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <line x1="3" y1="9" x2="21" y2="9" />
+          <circle cx="8" cy="15" r="1" />
+          <circle cx="12" cy="15" r="1" />
+          <circle cx="16" cy="15" r="1" />
         </svg>
       );
     case "classes":
@@ -174,6 +188,22 @@ function renderIcon(key: string) {
           <rect x="14" y="3" width="7" height="7" />
           <rect x="14" y="14" width="7" height="7" />
           <rect x="3" y="14" width="7" height="7" />
+        </svg>
+      );
+    case "marketing":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 11l19-8-4 18-7-7-8-3z" />
+          <path d="M14 7l-7 7" />
         </svg>
       );
     case "counsels":
@@ -204,7 +234,7 @@ const LogoRow = styled.div`
   gap: 12px;
   padding: 0 16px;
   border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
+  background: #f9fafb;
 `;
 
 const LogoImage = styled.img`
@@ -256,9 +286,10 @@ const NavLinkStyled = styled(NavLink)`
   background: transparent;
   outline: none;
   user-select: none;
+  position: relative;
 
   &:hover {
-    background: #f3f4f6;
+    background: #f5f5f5;
     color: #111827;
   }
 
@@ -272,6 +303,21 @@ const NavLinkStyled = styled(NavLink)`
     border-color: #e5e7eb;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   }
+
+  /* Active/hover left accent bar */
+  &::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 2px;
+    background: transparent;
+    transition: background 0.15s ease;
+  }
+  &:hover::before { background: rgba(79,70,229,0.35); }
+  &[aria-current="page"]::before { background: #4f46e5; }
 `;
 
 const Icon = styled.span`
@@ -308,7 +354,7 @@ const Labels = styled.span`
 const BottomInfo = styled.div`
   padding: 12px 12px 16px;
   border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
+  background: #ffffff;
 `;
 
 const UserBox = styled.div`
@@ -325,8 +371,8 @@ const UserAvatar = styled.div`
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: #eef2ff;
-  color: #4f46e5;
+  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+  color: #4338ca;
   display: grid;
   place-items: center;
   font-size: 12px;
@@ -358,10 +404,10 @@ const LogoutButton = styled.button`
   height: 42px;
   justify-content: center;
   font-weight: 600;
-  color: #4b5563;
-  background: #f9fafb;
+  color: #374151;
+  background: #f1f5f9;
   border-color: #e5e7eb;
   &:hover {
-    background: #f3f4f6;
+    background: #e5e7eb;
   }
 `;

@@ -1,5 +1,5 @@
 import styled from "styled-components";
-import { SectionCard as Card, Scroller, TableBase as Table, GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "../common/UI";
+import { SectionCard as Card, Scroller, TableBase as Table } from "../common/UI";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listCourses, type Course, type PageResult } from "../../api/courses";
@@ -25,7 +25,8 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
       setError(null); setLoading(true);
       try {
         const res: PageResult<Course> = await listCourses({
-          page, size,
+          page,
+          size,
           status: (filters.status as any) || undefined,
           q: filters.q || undefined,
         });
@@ -93,18 +94,16 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
   })), [rows]);
 
   function changePage(p: number) { if (p >= 0 && p < totalPages) setPage(p); }
+
   return (
     <Card>
+      <CardInner>
       <Head>
         <div>
           <strong>수업 목록</strong>
           <Muted>{loading ? "불러오는 중..." : `총 ${totalElements}개의 수업이 조회되었습니다.`}</Muted>
           {error && <Err>{error}</Err>}
         </div>
-        <HeadActions>
-          <UIGhostBtn as="button">엑셀로 다운받기</UIGhostBtn>
-          <UIPrimaryBtn as="button" onClick={() => navigate('/classes/new')}>수업 추가하기</UIPrimaryBtn>
-        </HeadActions>
       </Head>
       <Scroller>
         <Table style={{ minWidth: 820 }}>
@@ -151,13 +150,13 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
           </select>
         </PageSize>
       </Pager>
+      </CardInner>
     </Card>
   );
 }
 
 // Card provided by common UI
-const Head = styled.div` display:flex; align-items:center; justify-content:space-between; `;
-const HeadActions = styled.div` display:inline-flex; gap:8px; `;
+const Head = styled.div` display:flex; align-items:center; justify-content:flex-start; `;
 const Muted = styled.div` color:#6b7280; font-size:12px; margin-top:4px; `;
 const Err = styled.div` color:#b91c1c; font-size:12px; `;
 // Table provided by common UI
@@ -176,3 +175,4 @@ const Btn = styled.button<{disabled?:boolean}>`
 `;
 const PageSize = styled.div` display:inline-flex; align-items:center; gap:6px; margin-left:12px; color:#6b7280; font-size:12px; select{ height:28px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; padding:0 8px; }`;
 // Buttons from common UI
+const CardInner = styled.div` position: relative; `;

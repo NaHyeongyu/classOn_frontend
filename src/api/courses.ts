@@ -51,10 +51,12 @@ export type Attachment = {
 // Re-export for existing imports from this module
 export type { PageResult } from "../types/paging";
 
-export async function listCourses(params?: { status?: Course["status"] | ""; q?: string; page?: number; size?: number; onYmd?: string; }): Promise<PageResult<Course>> {
+export async function listCourses(params?: { status?: Course["status"] | ""; q?: string; page?: number; size?: number; onYmd?: string; s?: 'title'|'status'|'capacity'|'fee'|'startTime'|'endTime'|'createdAt'; dir?: 'ASC'|'DESC' }): Promise<PageResult<Course>> {
   const sp = new URLSearchParams();
   if (params?.status) sp.set("status", params.status);
   if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
+  if (params?.s) sp.set('s', params.s);
+  if (params?.dir) sp.set('dir', params.dir);
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
   if (params?.onYmd) sp.set("onYmd", params.onYmd);
@@ -115,8 +117,8 @@ export async function updateCourseRecord(courseId: number, recordId: number, pay
   return await fetchJSON<CourseRecord>(`/api/courses/${courseId}/records/${recordId}`, { method: 'PUT', body });
 }
 
-export async function deleteCourseRecord(courseId: number, recordId: number): Promise<{ deleted: number }> {
-  return await fetchJSON<{ deleted: number }>(`/api/courses/${courseId}/records/${recordId}`, { method: 'DELETE' });
+export async function deleteCourseRecord(courseId: number, recordId: number): Promise<void> {
+  await fetchJSON<void>(`/api/courses/${courseId}/records/${recordId}`, { method: 'DELETE' });
 }
 
 export async function createCourseRecord(courseId: number, payload: { recordDate: string; startTime?: string; endTime?: string; topic?: string; notes?: string; content?: string; }): Promise<CourseRecord> {
@@ -132,9 +134,9 @@ export async function generateCourseRecords(courseId: number, params?: { from?: 
   return await fetchJSON<{ created: number }>(`/api/courses/${courseId}/records/generate${q}`, { method: 'POST' });
 }
 
-export async function deleteCourseRecordsRange(courseId: number, params: { from: string; to: string; }): Promise<{ deleted: number }> {
+export async function deleteCourseRecordsRange(courseId: number, params: { from: string; to: string; }): Promise<void> {
   const sp = new URLSearchParams({ from: params.from, to: params.to });
-  return await fetchJSON<{ deleted: number }>(`/api/courses/${courseId}/records?${sp}`, { method: 'DELETE' });
+  await fetchJSON<void>(`/api/courses/${courseId}/records?${sp}`, { method: 'DELETE' });
 }
 
 export async function listRecordAttendance(courseId: number, recordId: number): Promise<Attendance[]> {
@@ -162,4 +164,38 @@ export async function deleteRecordAttachment(courseId: number, recordId: number,
 
 export async function deleteCourse(id: number): Promise<void> {
   await fetchJSON<void>(`/api/courses/${id}`, { method: 'DELETE' });
+}
+
+// Excel helpers (download/upload)
+const API_BASE_COURSE = (import.meta as any).env?.VITE_API_BASE_URL || "";
+function resolveURL(path: string) { return API_BASE_COURSE ? new URL(path, API_BASE_COURSE).toString() : path; }
+async function fetchBlob(path: string): Promise<Blob> {
+  const url = resolveURL(path);
+  const token = (await import("../lib/auth")).getToken();
+  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return await res.blob();
+}
+
+export async function downloadCoursesExcel(params?: { status?: Course["status"] | ""; q?: string; }): Promise<Blob> {
+  const sp = new URLSearchParams();
+  if (params?.status) sp.set('status', params.status);
+  if (params?.q && params.q.trim()) sp.set('q', params.q.trim());
+  const q = Array.from(sp.keys()).length ? `?${sp}` : '';
+  return await fetchBlob(`/api/courses/export${q}`);
+}
+
+export async function downloadCoursesTemplate(): Promise<Blob> {
+  return await fetchBlob(`/api/courses/template`);
+}
+
+export async function importCoursesExcel(file: File): Promise<{ created: number; updated: number; skipped: number; errors: string[] }>{
+  const url = resolveURL(`/api/courses/import`);
+  const token = (await import("../lib/auth")).getToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(url, { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+  const text = await res.text().catch(() => '');
+  if (!res.ok) throw new Error(text || `HTTP ${res.status} ${res.statusText}`);
+  return text ? JSON.parse(text) : { created:0, updated:0, skipped:0, errors:[] };
 }

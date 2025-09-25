@@ -12,6 +12,13 @@ const NO_CACHE_PREFIXES = [
   "/api/calendar/classes",
   "/api/dashboard/summary",
   "/api/dashboard/attendance-today",
+  "/api/marketing/render", // rendering should always be fresh
+  "/api/marketing/recommend",
+  "/api/marketing/summary",
+  "/api/marketing/platforms",
+  "/api/marketing/copy",
+  "/api/marketing/run",
+  "/api/records/render",
 ];
 
 function resolveURL(path: string) {
@@ -98,9 +105,16 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
   // Use credentials only for same-origin requests; omit for cross-origin to avoid CORS credential requirements
   const target = new URL(url, window.location.href);
   const sameOrigin = target.origin === window.location.origin;
+  // Normalize method and apply safe overrides for known POST-only endpoints
+  const originalMethod = (init?.method ?? "GET").toUpperCase();
+  const method = (() => {
+    // Ensure summarize endpoint is always POST (prevents accidental navigation/GET)
+    if (path.startsWith("/api/records/summarize") && originalMethod === "GET") return "POST";
+    return originalMethod;
+  })();
   // Lightweight ETag cache for GET requests (reduces payload via 304 Not Modified)
   // 간단한 ETag 캐시 (GET 전용) – 304 응답 시 로컬 캐시 반환으로 트래픽 절감
-  const isGet = (init?.method ?? "GET").toUpperCase() === "GET";
+  const isGet = method === "GET";
   const { body: cachedBody, etag: cachedEtag, ts } = isGet ? getCache(url) : { body: null, etag: null, ts: 0 };
   // Soft TTL: within TTL, serve cache immediately to avoid network
   if (isGet && !noCache && cachedBody && ts && Date.now() - ts < CACHE_TTL_MS) {
@@ -136,6 +150,7 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
       headers,
       credentials: sameOrigin ? "include" : "omit",
       ...init,
+      method,
       // Prefer our consolidated signal to ensure timeout works
       signal: controller.signal,
     });

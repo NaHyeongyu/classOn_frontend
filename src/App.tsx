@@ -3,8 +3,10 @@
  * KO: 인증 가드와 기본 레이아웃(사이드바 + 콘텐츠)을 포함한 앱 루트 컴포넌트.
  */
 import Sidebar from "./components/common/Sidebar";
+import { ToastProvider } from "./components/common/Toast";
 import styled, { keyframes } from "styled-components";
-import { Routes, Route, Outlet, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, Outlet, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 import Dashboard from "./pages/Dashboard";
 import Calendar from "./pages/Calendar";
 import CalendarDetail from "./pages/CalendarDetail";
@@ -14,15 +16,18 @@ import CourseForm from "./pages/CourseForm";
 import CourseDetail from "./pages/CourseDetail";
 import CourseStudentsEdit from "./pages/CourseStudentsEdit";
 import CourseRecordDetail from "./pages/CourseRecordDetail";
-import Payments from "./pages/Payments";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import PaymentFail from "./pages/PaymentFail";
+// Payments/Banking routes removed for MVP
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import { useAuth } from "./hooks/useAuth";
 import StudentDetail from "./pages/StudentDetail";
 import StudentForm from "./pages/StudentForm";
 import DevTools from "./pages/DevTools";
+import Marketing from "./pages/Marketing";
+import PaymentsWip from "./pages/PaymentsWip";
+import MarketingSummary from "./pages/MarketingSummary";
+import MarketingGuide from "./pages/MarketingGuide";
+import MarketingPreview from "./pages/MarketingPreview";
 // 상담 전역 페이지는 학생 상세 내 탭으로 통합됨
 
 const AppContainer = styled.div`
@@ -34,13 +39,16 @@ const SidebarContainer = styled.aside`
 `;
 const ContentContainer = styled.main`
   flex: 1;
+  min-width: 0; /* prevent flex overflow */
   min-height: 100vh;
   background: #ffffff;
   padding: 24px;
+  overflow-x: hidden; /* confine horizontal scroll within inner scrollers */
 `;
 
 export default function App() {
   return (
+    <ToastProvider>
     <Routes>
       <Route element={<AuthLayout />}>
         <Route path="/login" element={<Login />} />
@@ -66,20 +74,35 @@ export default function App() {
           <Route path="/classes/:id/history/:recordId" element={<CourseRecordDetail />} />
           <Route path="/classes/:id/history/date/:ymd" element={<CourseRecordDetail />} />
           { /* 상담 전역 라우트 제거됨: 학생 상세 > 상담기록 탭에서 관리 */ }
-          <Route path="/payments" element={<Payments />} />
-          <Route path="/payments/success" element={<PaymentSuccess />} />
-          <Route path="/payments/fail" element={<PaymentFail />} />
+          <Route path="/payments" element={<PaymentsWip />} />
           <Route path="/dev-tools" element={<DevTools />} />
+          <Route path="/marketing" element={<Marketing />} />
+          <Route path="/marketing/guide" element={<MarketingGuide />} />
+          <Route path="/marketing/preview" element={<MarketingPreview />} />
+          <Route path="/marketing/summary" element={<MarketingSummary />} />
           { /* Todos page removed; manage todos within Calendar Detail */ }
         </Route>
       </Route>
     </Routes>
+    </ToastProvider>
   );
 }
 
 function ProtectedLayout() {
-  const { user, loading } = useAuth();
+  const { user, loading, validate } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    if (loading) return;
+    let cancelled = false;
+    (async () => {
+      const ok = await validate();
+      if (!ok && !cancelled) {
+        navigate('/login', { replace: true, state: { from: location.pathname } });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [location.pathname, loading, validate, navigate]);
   if (loading) return <Centered>로딩 중...</Centered>;
   if (!user) return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   return <Outlet />;

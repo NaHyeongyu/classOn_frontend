@@ -4,16 +4,17 @@ import styled, { keyframes } from "styled-components";
 import {
   TableBase as UITable,
   GhostBtn as UIGhostBtn,
-  GhostBtnSmall as UIGhostBtnSmall,
   PrimaryBtn as UIPrimaryBtn,
   SmallBtn as UISmallBtn,
+  buttonVariants,
 } from "../components/common/UI";
 import ConfirmDialog from "../components/common/ConfirmDialog";
 import { listCounsels, createCounsel, updateCounsel, deleteCounsel, type Counsel } from "../api/counsels";
 import { getStudent, getStudentAttendance, type Student, type StudentAttendance } from "../api/students";
+// formatMoney 사용 제거됨 (MVP)
 import { formatPhone } from "../lib/format";
 
-type TabKey = "courses" | "attendance" | "payments" | "counsels";
+type TabKey = "courses" | "attendance" | "counsels";
 
 export default function StudentDetail() {
   const navigate = useNavigate();
@@ -25,6 +26,7 @@ export default function StudentDetail() {
   const [notes, setNotes] = useState<string>("");
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
+  // Tuition UI removed (MVP)
   // Per-item memos (temporary local persistence until API ready)
   type MemoItem = { id: number; text: string; createdAt: string; updatedAt?: string };
   const [memos, setMemos] = useState<MemoItem[]>([]);
@@ -35,8 +37,7 @@ export default function StudentDetail() {
   const [attRows, setAttRows] = useState<StudentAttendance[]>([]);
   const [attLoading, setAttLoading] = useState(false);
   const [attError, setAttError] = useState<string | null>(null);
-  // Payments (history) – placeholder state, default empty
-  const [payments] = useState<Array<{ date: string; item: string; amount: string; status: string }>>([]);
+  // 결제 관련 상태 제거 (MVP)
   // Counsels state (loaded per student)
   const [counsels, setCounsels] = useState<Counsel[]>([]);
   const [counselLoading, setCounselLoading] = useState(false);
@@ -68,7 +69,6 @@ export default function StudentDetail() {
     switch (tabParam) {
       case "courses":
       case "attendance":
-      case "payments":
       case "counsels":
         return tabParam as TabKey;
       default:
@@ -153,8 +153,8 @@ export default function StudentDetail() {
     async function load() {
       setAttLoading(true); setAttError(null);
       try {
-        const list = await getStudentAttendance(numericId, { size: 200 });
-        if (!cancelled) setAttRows(list || []);
+        const res = await getStudentAttendance(numericId, { size: 200 });
+        if (!cancelled) setAttRows(res?.content || []);
       } catch (e: any) {
         if (!cancelled) setAttError(e?.message || '출석 정보를 불러오지 못했습니다.');
       } finally {
@@ -164,6 +164,8 @@ export default function StudentDetail() {
     void load();
     return () => { cancelled = true; };
   }, [numericId, activeTab]);
+
+  // 결제 내역 로딩 제거 (MVP)
 
   function saveNotes() {
     if (!numericId) return;
@@ -287,7 +289,7 @@ export default function StudentDetail() {
                 <Tabs>
                   <TabButton data-active>{/* active visual only */}수강수업 <Badge>0</Badge></TabButton>
                   <TabButton>출석현황</TabButton>
-                  <TabButton>결제 내역</TabButton>
+                  {/* 결제 탭 제거 (MVP) */}
                   <TabButton>상담기록</TabButton>
                 </Tabs>
               </MiniHead>
@@ -345,6 +347,7 @@ export default function StudentDetail() {
                       <Label>등록일</Label>
                       <Value>{student.joinedDate || student.createdAt?.slice(0, 10) || "-"}</Value>
                     </Field>
+                    {/* 수강료/할인 UI 제거 (MVP) */}
                   </InfoList>
                   {/* actions moved to header */}
                 </>
@@ -464,7 +467,7 @@ export default function StudentDetail() {
                     수강수업 <Badge>{student?.courses?.length ?? 0}</Badge>
                   </TabButton>
                   <TabButton data-active={activeTab === "attendance"} onClick={() => navigate(`/students/${numericId}/attendance`)}>출석현황</TabButton>
-                  <TabButton data-active={activeTab === "payments"} onClick={() => navigate(`/students/${numericId}/payments`)}>결제 내역</TabButton>
+                  {/* 결제 탭 제거 (MVP) */}
                   <TabButton data-active={activeTab === "counsels"} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담기록</TabButton>
                 </Tabs>
               </MiniHead>
@@ -539,36 +542,7 @@ export default function StudentDetail() {
                 </SectionBody>
               )}
 
-              {activeTab === "payments" && (
-                <SectionBody>
-                  <UITable style={{ minWidth: 640 }}>
-                    <thead>
-                      <tr>
-                        <th>결제일</th>
-                        <th>항목</th>
-                        <th>금액</th>
-                        <th>상태</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {payments.length === 0 ? (
-                        <tr>
-                          <td colSpan={4}><Muted>결제 기록이 없습니다.</Muted></td>
-                        </tr>
-                      ) : (
-                        payments.map((p, i) => (
-                          <tr key={i}>
-                            <td>{p.date}</td>
-                            <td>{p.item}</td>
-                            <td>{p.amount}</td>
-                            <td>{p.status}</td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </UITable>
-                </SectionBody>
-              )}
+              {/* 결제 탭 본문 제거 (MVP) */}
 
               {activeTab === "counsels" && (
                 <SectionBody>
@@ -691,7 +665,10 @@ const TopBar = styled.div`
   display: flex; align-items: center; gap: 10px;
   h2 { margin: 0; font-size: 20px; color: #0f172a; }
 `;
-const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+const BackBtn = styled.button`
+  ${buttonVariants.outline};
+  height: 36px;
+  padding: 0 14px;
   font-weight: 600;
   font-size: 13px;
 `;
@@ -720,6 +697,12 @@ const CardActions = styled.div`
 `;
 const Divider = styled.div`
   height: 1px; background: #e5e7eb; margin: 6px 0 10px;
+`;
+const Notice = styled.div`
+  color:#065f46; background:#ecfdf5; border:1px solid #a7f3d0; padding:8px 10px; border-radius:10px; margin-bottom:8px;
+`;
+const Bar = styled.div`
+  display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
 `;
 const InfoList = styled.div`
   display: grid; gap: 14px;

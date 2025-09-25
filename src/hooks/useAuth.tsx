@@ -12,6 +12,7 @@ type AuthState = {
   login: (username: string, password: string) => Promise<void>;
   register: (name: string, email: string, phone: string, password: string) => Promise<void>;
   logout: () => void;
+  validate: () => Promise<boolean>;
 };
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -55,7 +56,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   }, []);
 
-  const value = useMemo(() => ({ user, loading, login, register, logout }), [user, loading, login, register, logout]);
+  const validate = useCallback(async () => {
+    const token = getToken();
+    if (!token) { setUser(null); return false; }
+    try {
+      const res = await apiMe();
+      setUser(res);
+      return true;
+    } catch {
+      setUser(null);
+      return false;
+    }
+  }, []);
+
+  const value = useMemo(() => ({ user, loading, login, register, logout, validate }), [user, loading, login, register, logout, validate]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

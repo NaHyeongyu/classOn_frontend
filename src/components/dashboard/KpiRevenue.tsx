@@ -1,4 +1,5 @@
 import { KPI, CreditIcon, DeltaPill } from "./KPI";
+import { formatMoney } from "../../lib/format";
 import type { DashboardSummary } from "../../types/dashboard";
 
 type Props = {
@@ -9,7 +10,7 @@ type Props = {
 };
 
 export default function KpiRevenue({ data, loading, error, onRetry }: Props) {
-  const value = data ? `₩${data.thisMonthRevenue.toLocaleString()}` : "—";
+  const value = data ? formatMoney(data.thisMonthRevenue) : "—";
   const delta = data ? `+${data.revenueMoMPercent}%` : "—";
   return (
     <KPI

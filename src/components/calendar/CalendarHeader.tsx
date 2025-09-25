@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import { SmallBtn as UISmallBtn } from "../common/UI";
 
 type Props = {
   title?: string;
@@ -84,15 +85,10 @@ const MonthLabel = styled.div`
   min-width: 140px;
   text-align: center;
 `;
-const NavBtn = styled.button`
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #374151;
-  cursor: pointer;
-  &:hover {
-    background: #f9fafb;
-  }
+const NavBtn = styled(UISmallBtn)`
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 18px;
+  font-weight: 700;
 `;

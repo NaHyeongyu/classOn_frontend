@@ -1,13 +1,25 @@
 import styled from "styled-components";
 import { Page as PageWrap, SectionCard as SectionCard } from "../components/common/UI";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import ClassesFilters from "../components/classes/ClassesFilters";
 import ClassesTable from "../components/classes/ClassesTable";
 import ClassesStats from "../components/classes/ClassesStats";
 
 export default function Classes() {
-  const [filters, setFilters] = useState({ status: "" as "" | "IN_PROGRESS" | "STOPPED" | "PENDING", q: "" });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initial = useMemo(() => ({
+    status: (searchParams.get('status') as any) || "",
+    q: searchParams.get('q') || "",
+  }), []);
+  const [filters, setFilters] = useState({ status: initial.status as "" | "IN_PROGRESS" | "STOPPED" | "PENDING", q: initial.q });
   const [refreshKey, setRefreshKey] = useState(0);
+  useEffect(() => {
+    const sp = new URLSearchParams();
+    if (filters.status) sp.set('status', filters.status);
+    if (filters.q && filters.q.trim()) sp.set('q', filters.q.trim());
+    setSearchParams(sp, { replace: true });
+  }, [filters, setSearchParams]);
   return (
     <PageWrap>
       <Head>

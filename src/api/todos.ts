@@ -51,8 +51,8 @@ export async function updateTodo(id: number, payload: TodoPayload): Promise<Todo
   });
 }
 
-export async function deleteTodo(id: number): Promise<{ success: boolean }> {
-  return await fetchJSON<{ success: boolean }>(`/api/todos/${id}`, { method: "DELETE" });
+export async function deleteTodo(id: number): Promise<void> {
+  await fetchJSON<void>(`/api/todos/${id}`, { method: "DELETE" });
 }
 
 export async function completeTodo(id: number, done = true): Promise<Todo> {

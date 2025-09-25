@@ -14,7 +14,7 @@ export function DashboardPanel({ span = 6, bg = "#ffffff", children }: { span?: 
 const Wrapper = styled.section`
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-rows: auto 1fr 1fr; /* KPI row + two content rows fill viewport */
+  grid-template-rows: auto auto 1fr; /* KPI row + two content rows fill viewport */
   gap: 16px;
   height: calc(100vh - 48px); /* account for content padding (24px top/bottom) */
   overflow: hidden; /* page-level no scroll */

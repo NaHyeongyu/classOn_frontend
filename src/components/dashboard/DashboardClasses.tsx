@@ -30,7 +30,7 @@ export default function DashboardClasses() {
     return () => { cancelled = true; clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
-  function numOr<T>(...vals: any[]): number { for (const v of vals) { if (typeof v === 'number' && Number.isFinite(v)) return v as number; } return 0; }
+  function numOr(...vals: any[]): number { for (const v of vals) { if (typeof v === 'number' && Number.isFinite(v)) return v; } return 0; }
   const items: ClassItem[] = rows.map((r: any) => {
     const s = r.startTime ?? r.start_at ?? r.startAt ?? r.start ?? null;
     const e = r.endTime ?? r.end_at ?? r.endAt ?? r.end ?? null;
@@ -55,8 +55,8 @@ export default function DashboardClasses() {
   });
 
   return (
-    <div style={{ gridColumn: 'span 6', minHeight: 0 }}>
-      <div style={{ height: '100%', overflow: 'auto' }}>
+    <div style={{ gridColumn: 'span 6', minHeight: 0, display: 'flex' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
         <ClassList
           items={items}
           actionLabel="더보기"

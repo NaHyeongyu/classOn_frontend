@@ -12,9 +12,10 @@ type Props = {
   onConfirm: () => void;
   onCancel: () => void;
   busy?: boolean;
+  hideCancel?: boolean;
 };
 
-export default function ConfirmDialog({ open, title, message, confirmLabel = '확인', cancelLabel = '취소', tone = 'default', onConfirm, onCancel, busy = false }: Props) {
+export default function ConfirmDialog({ open, title, message, confirmLabel = '확인', cancelLabel = '취소', tone = 'default', onConfirm, onCancel, busy = false, hideCancel = false }: Props) {
   if (!open) return null;
   return (
     <Backdrop onClick={busy ? undefined : onCancel}>
@@ -25,7 +26,7 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
         </Head>
         {message && <Msg id="confirm-desc">{message}</Msg>}
         <Btns>
-          <Btn type="button" onClick={onCancel} disabled={busy}>{cancelLabel}</Btn>
+          {!hideCancel && <Btn type="button" onClick={onCancel} disabled={busy}>{cancelLabel}</Btn>}
           <Btn
             type="button"
             data-variant={tone}

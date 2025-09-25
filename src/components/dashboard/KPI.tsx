@@ -145,14 +145,14 @@ export function ClassIcon() {
 }
 
 export const KPICard = styled.article`
-  grid-column: span 3;
-  /* unified height across pages */
-  --kpi-card-height: 150px;
+  /* Card visuals aligned across pages */
+  --kpi-card-height: 140px;
   height: var(--kpi-card-height);
   min-height: var(--kpi-card-height);
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
+  grid-column: span 3; /* default for 12-col dashboards; page rows can override */
+  border-radius: ${(p) => p.theme.radii.xl};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: ${(p) => p.theme.colors.surface};
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -170,21 +170,21 @@ export const KPITitle = styled.h4`
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #6b7280;
+  color: ${(p) => p.theme.colors.textMuted};
 `;
 
 export const KPIValue = styled.div`
   font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: #111827;
+  color: ${(p) => p.theme.colors.text};
 `;
 
 export const KPIFooter = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-  color: #6b7280;
+  color: ${(p) => p.theme.colors.textMuted};
   font-size: 12px;
   margin-top: auto; /* pin footer to bottom for consistent vertical rhythm */
 `;

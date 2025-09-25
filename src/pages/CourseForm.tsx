@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
-import { GhostBtn as UIGhostBtn, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn } from "../components/common/UI";
+import { GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn, buttonVariants } from "../components/common/UI";
 import { SectionCard as Section, TitleH3 as Title } from "../components/common/UI";
 import { createCourse, getCourse, type Course, updateCourse } from "../api/courses";
+import { formatMoney } from "../lib/format";
 
 export default function CourseForm() {
   const navigate = useNavigate();
@@ -14,16 +15,23 @@ export default function CourseForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [fieldErr, setFieldErr] = useState<{ title?: string; schedule?: string }>({});
 
   const [form, setForm] = useState<{ title: string; description?: string; status: Course["status"]; capacity?: number; fee?: number; courseTime?: string; recurrenceDays?: string; startTime?: string; endTime?: string; }>({
     title: "",
     description: "",
     status: "IN_PROGRESS",
   });
+  const [feeInput, setFeeInput] = useState<string>("");
   const toggleDay = useToggleDay(form, setForm);
   const [recurring, setRecurring] = useState(true);
 
   function pad2(n: number) { return String(n).padStart(2, '0'); }
+  function formatNumberKR(n: number | string): string {
+    const digits = String(n ?? '').replace(/[^0-9]/g, '');
+    if (!digits) return '';
+    return Number(digits).toLocaleString('ko-KR');
+  }
 
   useEffect(() => {
     if (!isEdit || !numericId) return;
@@ -44,6 +52,7 @@ export default function CourseForm() {
             startTime: found.startTime ? found.startTime.slice(0,5) : "",
             endTime: found.endTime ? found.endTime.slice(0,5) : "",
           });
+          setFeeInput(found.fee != null ? formatNumberKR(found.fee as any) : "");
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message || "수업 정보를 불러오지 못했습니다.");
@@ -56,16 +65,14 @@ export default function CourseForm() {
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null); setSuccess(null);
-    if (!form.title || !form.title.trim()) { setError("수업명은 필수입니다."); return; }
+    setError(null); setSuccess(null); setFieldErr({});
+    if (!form.title || !form.title.trim()) { setFieldErr(prev=>({ ...prev, title: '수업명을 입력해 주세요.' })); return; }
     setSaving(true);
     try {
       // validation: recurrence days/time required
-      if (recurring) {
-        if (!form.recurrenceDays || !form.recurrenceDays.trim() || !form.startTime || !form.endTime) {
-          setError("반복 요일과 시작/종료 시간은 필수입니다.");
-          return;
-        }
+      if (recurring && (!form.recurrenceDays || !form.recurrenceDays.trim() || !form.startTime || !form.endTime)) {
+        setFieldErr(prev=>({ ...prev, schedule: '반복 요일과 시작/종료 시간을 선택해 주세요.' }));
+        return;
       }
       if (isEdit && numericId) {
         await updateCourse(numericId, {
@@ -112,7 +119,8 @@ export default function CourseForm() {
             <GridOne>
               <Field>
                 <Label>수업명<span>*</span></Label>
-                <Input value={form.title} onChange={(e)=>setForm(f=>({...f, title:e.target.value}))} placeholder="예: 영어 회화 A반" />
+                <Input aria-invalid={!!fieldErr.title} value={form.title} onChange={(e)=>{ setForm(f=>({...f, title:e.target.value})); if (fieldErr.title) setFieldErr(prev=>({...prev, title: undefined})); }} placeholder="예: 영어 회화 A반" />
+                {fieldErr.title ? <FieldErr>{fieldErr.title}</FieldErr> : null}
               </Field>
               <Field>
                 <Label>상태</Label>
@@ -132,13 +140,15 @@ export default function CourseForm() {
               </Field>
               <Field>
                 <Label>반복 요일</Label>
-                <Days>
-                  {dayOptions.map(d => (
-                    <label key={d.value}>
-                      <input type="checkbox" disabled={!recurring} checked={hasDay(form.recurrenceDays, d.value)} onChange={(e)=>toggleDay(d.value, e.currentTarget.checked)} /> {d.label}
-                    </label>
-                  ))}
-                </Days>
+                <DayChips aria-disabled={!recurring}>
+                  {dayOptions.map(d => {
+                    const active = hasDay(form.recurrenceDays, d.value);
+                    return (
+                      <ChipBtn type="button" key={d.value} data-active={active} disabled={!recurring}
+                        onClick={()=> toggleDay(d.value, !active)}>{d.label}</ChipBtn>
+                    );
+                  })}
+                </DayChips>
                 <Hint>예: 월/수는 MON,WED 로 저장됩니다.</Hint>
               </Field>
               <Field>
@@ -189,14 +199,30 @@ export default function CourseForm() {
                   </select>
                 </TimeRow>
                 <Hint>시/분을 고정 옵션으로 선택합니다(5분 단위).</Hint>
+                {fieldErr.schedule ? <FieldErr>{fieldErr.schedule}</FieldErr> : null}
               </Field>
               <Field>
                 <Label>정원</Label>
                 <Input type="number" value={form.capacity ?? ""} onChange={(e)=>setForm(f=>({...f, capacity: e.target.value? Number(e.target.value): undefined}))} placeholder="예: 12" />
               </Field>
               <Field>
-                <Label>수강료(원)</Label>
-                <Input type="number" value={form.fee ?? ""} onChange={(e)=>setForm(f=>({...f, fee: e.target.value? Number(e.target.value): undefined}))} placeholder="예: 150000" />
+                <Label>수강료</Label>
+                <FeeWrap>
+                  <Input
+                    type="text"
+                    inputMode="numeric"
+                    value={feeInput}
+                    onChange={(e)=>{
+                      const digits = (e.target.value || '').replace(/[^0-9]/g, '');
+                      setFeeInput(formatNumberKR(digits));
+                      setForm(f=>({ ...f, fee: digits ? Number(digits) : undefined }));
+                    }}
+                    placeholder="예: 150,000"
+                    style={{ paddingRight: 38 }}
+                  />
+                  <Suffix>원</Suffix>
+                </FeeWrap>
+                <Hint>천 단위 구분으로 가독성을 높였습니다.</Hint>
               </Field>
               <Field style={{ gridColumn: "1 / -1" }}>
                 <Label>설명</Label>
@@ -238,10 +264,28 @@ const GridOne = styled.div` display:grid; grid-template-columns: 1fr; gap:12px; 
 const Field = styled.label` display:grid; gap:6px; ` as any;
 const Label = styled.div` color:#6b7280; font-size:12px; font-weight:700; span{ color:#ef4444; }`;
 const Input = styled.input` height:38px; border:1px solid #e5e7eb; border-radius:10px; padding:0 10px; font-size:14px; `;
-const Select = styled.select` height:38px; border:1px solid #e5e7eb; border-radius:10px; padding:0 10px; font-size:14px; background:#fff; `;
-const TextArea = styled.textarea` border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:14px; resize:vertical; `;
+const FeeWrap = styled.div` position: relative; display:block; `;
+const Suffix = styled.span`
+  position:absolute; right:10px; top:50%; transform: translateY(-50%);
+  color:#6b7280; font-size:13px;
+`;
+const Select = styled.select`
+  height:38px; border:1px solid #e5e7eb; border-radius:10px; padding:0 10px; font-size:14px; background:#fff;
+  &:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.12); }
+`;
+const TextArea = styled.textarea`
+  border:1px solid #e5e7eb; border-radius:10px; padding:10px; font-size:14px; resize:vertical; background:#fff;
+  &:focus { outline:none; border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.12); }
+`;
 const Hint = styled.div` color:#6b7280; font-size:12px; `;
+const FieldErr = styled.div` color:#b91c1c; font-size:12px; margin-top:4px; `;
 const Days = styled.div` display:flex; flex-wrap:wrap; gap:10px; `;
+const DayChips = styled.div` display:flex; flex-wrap:wrap; gap:8px; `;
+const ChipBtn = styled.button`
+  height:32px; padding:0 12px; border-radius:999px; border:1px solid #e5e7eb; background:#fff; font-size:13px; color:#111827;
+  &[data-active='true'] { background:#111827; color:#fff; border-color:#111827; }
+  &:disabled { opacity:0.6; cursor:not-allowed; }
+`;
 const TimeRow = styled.div` display:grid; grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr; gap:8px; align-items:center; `;
 // Buttons from common UI
 const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; font-size:13px; `;
@@ -261,7 +305,10 @@ function FormSk(){
   );
 }
 
-const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+const BackBtn = styled.button`
+  ${buttonVariants.outline};
+  height: 36px;
+  padding: 0 14px;
   font-weight: 600;
   font-size: 13px;
 `;

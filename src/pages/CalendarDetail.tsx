@@ -6,7 +6,7 @@ import TodoList from "../components/calendar/detail/TodoList";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import styled from "styled-components";
-import { GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "../components/common/UI";
+import { GhostButton as UIGhostButton, PrimaryButton as UIPrimaryButton } from "../components/common/UI";
 import { formatYMD } from "../features/calendar/dateUtils";
 import { createTodo, deleteTodo, updateTodo } from "../api/todos";
 import { listCourses, createCourseRecord, type Course } from "../api/courses";
@@ -378,8 +378,8 @@ export default function CalendarDetail() {
                     placeholder="세부 내용 또는 참고사항"
                   />
                   <BtnRow>
-                    <UIGhostBtn as="button" onClick={() => setOpen(false)}>취소</UIGhostBtn>
-                    <UIPrimaryBtn as="button" type="submit">저장</UIPrimaryBtn>
+                    <UIGhostButton type="button" onClick={() => setOpen(false)}>취소</UIGhostButton>
+                    <UIPrimaryButton type="submit">저장</UIPrimaryButton>
                   </BtnRow>
                 </form>
               </ModalCard>
@@ -434,8 +434,8 @@ export default function CalendarDetail() {
                 <TextArea rows={3} value={counselNote} onChange={(e)=>setCounselNote(e.target.value)} placeholder="상담 메모" />
                 {counselErr && <Err>{counselErr}</Err>}
                 <BtnRow>
-                  <UIGhostBtn as="button" onClick={() => setCounselOpen(false)}>취소</UIGhostBtn>
-                  <UIPrimaryBtn as="button" disabled={savingCounsel} onClick={onSaveCounsel}>{savingCounsel ? '저장 중…' : '저장'}</UIPrimaryBtn>
+                  <UIGhostButton type="button" onClick={() => setCounselOpen(false)}>취소</UIGhostButton>
+                  <UIPrimaryButton type="button" disabled={savingCounsel} onClick={onSaveCounsel}>{savingCounsel ? '저장 중…' : '저장'}</UIPrimaryButton>
                 </BtnRow>
               </ModalCard>
             </ModalBackdrop>
@@ -469,26 +469,26 @@ export default function CalendarDetail() {
                 </CourseList>
                 <Label style={{ marginTop: 10 }}>시간</Label>
                 <Row>
-                  <Select aria-label="시" value={startHour} onChange={(e) => { const v=e.target.value; setStartHour(v); setTimeStart(`${v}:${(startMin||'00').padStart(2,'0')}`); }}>
+                  <Select aria-label="시" value={startHour} onChange={(e) => { const v=e.target.value; setStartHour(v); }}>
                     {hours24.map(h => (<option key={h} value={h}>{h}</option>))}
                   </Select>
                   <span>:</span>
-                  <Select aria-label="분" value={startMin} onChange={(e) => { const v=e.target.value; setStartMin(v); setTimeStart(`${(startHour||'00').padStart(2,'0')}:${v}`); }}>
+                  <Select aria-label="분" value={startMin} onChange={(e) => { const v=e.target.value; setStartMin(v); }}>
                     {mins5.map(m => (<option key={m} value={m}>{m}</option>))}
                   </Select>
                   <span>~</span>
-                  <Select aria-label="시" value={endHour} onChange={(e) => { const v=e.target.value; setEndHour(v); setTimeEnd(`${v}:${(endMin||'00').padStart(2,'0')}`); }}>
+                  <Select aria-label="시" value={endHour} onChange={(e) => { const v=e.target.value; setEndHour(v); }}>
                     {hours24.map(h => (<option key={h} value={h}>{h}</option>))}
                   </Select>
                   <span>:</span>
-                  <Select aria-label="분" value={endMin} onChange={(e) => { const v=e.target.value; setEndMin(v); setTimeEnd(`${(endHour||'00').padStart(2,'0')}:${v}`); }}>
+                  <Select aria-label="분" value={endMin} onChange={(e) => { const v=e.target.value; setEndMin(v); }}>
                     {mins5.map(m => (<option key={m} value={m}>{m}</option>))}
                   </Select>
                 </Row>
                 {addErr && <Err>{addErr}</Err>}
                 <BtnRow>
-                  <UIGhostBtn as="button" onClick={() => setAddOpen(false)}>취소</UIGhostBtn>
-                  <UIPrimaryBtn as="button" disabled={savingClass} onClick={onSaveClass}>{savingClass ? '저장 중…' : '저장'}</UIPrimaryBtn>
+                  <UIGhostButton type="button" onClick={() => setAddOpen(false)}>취소</UIGhostButton>
+                  <UIPrimaryButton type="button" disabled={savingClass} onClick={onSaveClass}>{savingClass ? '저장 중…' : '저장'}</UIPrimaryButton>
                 </BtnRow>
               </ModalCard>
             </ModalBackdrop>

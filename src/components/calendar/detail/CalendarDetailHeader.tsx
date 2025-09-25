@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import { buttonVariants } from "../../common/UI";
 
 type Props = {
   label: string;
@@ -32,14 +33,22 @@ const DateLabel = styled.div`
   font-weight: 800; color: #111827;
 `;
 const BackBtn = styled.button`
-  height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; color: #374151; cursor: pointer;
-  &:hover { background: #f9fafb; }
+  ${buttonVariants.outline};
+  height: 36px;
+  padding: 0 14px;
+  font-weight: 600;
 `;
 const NavBtn = styled.button`
-  width: 32px; height: 32px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; color: #374151; cursor: pointer;
-  &:hover { background: #f3f4f6; }
+  ${buttonVariants.outline};
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-weight: 700;
+  font-size: 18px;
 `;
 const TodayBtn = styled.button`
-  height: 36px; padding: 0 12px; border-radius: 10px; border: none; background: #4f46e5; color: #fff; font-weight: 700; cursor: pointer;
+  ${buttonVariants.primary};
+  height: 40px;
+  padding: 0 18px;
+  font-weight: 600;
 `;
-

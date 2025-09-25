@@ -41,7 +41,9 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      const message = summarize(String(this.state.error?.message ?? this.state.error ?? "알 수 없는 오류"));
+      const { error } = this.state;
+      const rawMessage = error instanceof Error ? error.message : typeof error === "string" ? error : "";
+      const message = summarize(rawMessage || "알 수 없는 오류");
       return (
         <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", background: "#fff" }}>
           <div style={{ maxWidth: 720, padding: 16 }}>

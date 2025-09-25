@@ -5,8 +5,8 @@ import {
   SectionCard as Section,
   TitleH3 as Title,
   GhostBtn as UIGhostBtn,
-  GhostBtnSmall as UIGhostBtnSmall,
   SmallBtn as UISmallBtn,
+  buttonVariants,
 } from "../components/common/UI";
 import { getCourse, listCourseStudents } from "../api/courses";
 import { listStudents, type Student, updateStudent, type StudentPayload } from "../api/students";
@@ -251,7 +251,10 @@ const StatusTag = styled.span`
 const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; font-size:13px; `;
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
 // Buttons from common UI; keep BackBtn local
-const BackBtn = styled(UIGhostBtnSmall).attrs({ as: "button" })`
+const BackBtn = styled.button`
+  ${buttonVariants.outline};
+  height: 36px;
+  padding: 0 14px;
   font-weight: 600;
   font-size: 13px;
 `;

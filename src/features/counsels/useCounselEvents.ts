@@ -22,6 +22,7 @@ export function useCounselEvents(visibleDates?: Date[]) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     async function load() {
       if (!range) return;
       setLoading(true); setError(null);
@@ -30,7 +31,7 @@ export function useCounselEvents(visibleDates?: Date[]) {
         let page = 0;
         let all: Counsel[] = [];
         while (true) {
-          const res: PageResult<Counsel> = await listCounsels({ from: range.from, to: range.to, page, size });
+          const res: PageResult<Counsel> = await listCounsels({ from: range.from, to: range.to, page, size }, { signal: controller.signal });
           all = all.concat(res.content || []);
           if (res.last || (res.content || []).length === 0 || page > 200) break;
           page += 1;
@@ -50,7 +51,7 @@ export function useCounselEvents(visibleDates?: Date[]) {
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [range]);
 
   const eventsForDate = useCallback(

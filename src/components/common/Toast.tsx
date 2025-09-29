@@ -45,8 +45,17 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <Container aria-live="polite" aria-atomic="true" role="region" aria-label="알림">
         {toasts.map((t) => (
           <Item key={t.id} data-kind={t.kind}>
-            {t.title ? <strong>{t.title}</strong> : null}
-            <span>{t.message}</span>
+            <Accent $kind={t.kind} />
+            <Icon aria-hidden>
+              {t.kind === 'success' ? '✅' : t.kind === 'error' ? '⚠️' : t.kind === 'warning' ? '⚠️' : 'ℹ️'}
+            </Icon>
+            <Body>
+              {t.title ? <strong>{t.title}</strong> : null}
+              <span>{t.message}</span>
+            </Body>
+            <Dismiss type="button" onClick={() => remove(t.id)} aria-label="닫기">
+              ×
+            </Dismiss>
           </Item>
         ))}
       </Container>
@@ -67,26 +76,69 @@ const enter = keyframes`
 
 const Container = styled.div`
   position: fixed;
-  right: 16px; bottom: 16px;
-  display: grid; gap: 8px;
-  z-index: 1000;
+  right: 24px;
+  top: 24px;
+  display: grid;
+  gap: 10px;
+  z-index: 1200;
 `;
 
 const Item = styled.div`
-  min-width: 220px;
+  min-width: 240px;
   max-width: 360px;
-  background: #111827;
-  color: #fff;
-  border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.08);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-  padding: 10px 12px;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.16);
+  padding: 12px 14px 12px 18px;
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 12px;
   animation: ${enter} 180ms ease-out;
-  display: grid; gap: 4px;
-  strong { font-size: 13px; }
-  span { font-size: 13px; opacity: 0.95; }
-  &[data-kind='success'] { background:#065f46; border-color:#064e3b; }
-  &[data-kind='error'] { background:#991b1b; border-color:#7f1d1d; }
-  &[data-kind='warning'] { background:#92400e; border-color:#78350f; }
 `;
 
+const Accent = styled.span<{ $kind: ToastKind }>`
+  width: 4px;
+  height: 100%;
+  border-radius: 999px;
+  background: ${({ $kind }) =>
+    $kind === 'success'
+      ? '#16a34a'
+      : $kind === 'error'
+      ? '#ef4444'
+      : $kind === 'warning'
+      ? '#f97316'
+      : '#3b82f6'};
+`;
+
+const Icon = styled.span`
+  font-size: 16px;
+`;
+
+const Body = styled.div`
+  display: grid;
+  gap: 2px;
+  strong {
+    font-size: 13px;
+    color: #0f172a;
+  }
+  span {
+    font-size: 13px;
+    color: #475569;
+  }
+`;
+
+const Dismiss = styled.button`
+  border: none;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  &:hover {
+    color: #64748b;
+  }
+`;

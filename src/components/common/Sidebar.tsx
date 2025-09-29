@@ -1,35 +1,28 @@
 import { useMemo } from "react";
 import styled from "styled-components";
 import { NavLink, useNavigate } from "react-router-dom";
-import { buttonVariants } from "./UI";
-import { useAuth } from "../../hooks/useAuth";
+import { buttonVariants } from "@/components/common/UI";
+import { useAuth } from "@/hooks/useAuth";
+import { routes } from "@/routes";
 
 export default function Sidebar() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
   const items = useMemo(
     () => [
-      { key: "dashboard", label: "대시보드", sub: "Dashboard", to: "/" },
-      { key: "calendar", label: "일정", sub: "Calendar", to: "/calendar" },
-      { key: "students", label: "원생관리", sub: "Student Management", to: "/students" },
-      { key: "classes", label: "수업관리", sub: "Class Management", to: "/classes" },
-      { key: "payments", label: "결제관리", sub: "Payments", to: "/payments" },
-      { key: "marketing", label: "마케팅", sub: "Marketing", to: "/marketing" },
+      { key: "dashboard", label: "대시보드", sub: "Dashboard", to: routes.home },
+      { key: "calendar", label: "일정", sub: "Calendar", to: routes.calendar },
+      { key: "students", label: "원생관리", sub: "Student Management", to: routes.students },
+      { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes },
+      { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
+      { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
     ],
     []
   );
 
-  const initials = useMemo(() => {
-    const n = (user?.name || user?.username || "").trim();
-    if (!n) return "?";
-    const parts = n.split(/\s+/);
-    if (n.length <= 2) return n;
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return n.slice(0, 2).toUpperCase();
-  }, [user?.name, user?.username]);
-
-  const displayName = user?.name || user?.username || "사용자";
-  const displaySub = user?.email || user?.username || "";
+  // Display only academy name in the bottom user box
+  const academyName = (user?.academy && user.academy.name) ? user.academy.name : undefined;
+  const displayName = academyName || user?.name || user?.username || "사용자";
 
   return (
     <SidebarWrapper>
@@ -59,10 +52,8 @@ export default function Sidebar() {
 
       <BottomInfo>
         <UserBox>
-          <UserAvatar aria-hidden>{initials}</UserAvatar>
           <div>
             <UserName title={displayName}>{displayName}</UserName>
-            {displaySub ? <UserEmail title={displaySub}>{displaySub}</UserEmail> : null}
           </div>
         </UserBox>
         <LogoutButton type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }}>
@@ -220,7 +211,7 @@ function renderIcon(key: string) {
 const SidebarWrapper = styled.aside`
   position: fixed;
   inset: 0 auto 0 0; /* top:0; left:0; bottom:0 */
-  width: 264px;
+  width: 220px;
   background: #f9fafb;
   border-right: 1px solid #e5e7eb;
   display: flex;

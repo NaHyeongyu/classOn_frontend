@@ -1,34 +1,36 @@
 import { useNavigate, useParams } from "react-router-dom";
-import CalendarDetailHeader from "../components/calendar/detail/CalendarDetailHeader";
-import ClassList from "../components/calendar/detail/ClassList";
-import CounselList from "../components/calendar/detail/CounselList";
-import TodoList from "../components/calendar/detail/TodoList";
+import CalendarDetailHeader from "@/components/calendar/detail/CalendarDetailHeader";
+import ClassList from "@/components/calendar/detail/ClassList";
+import CounselList from "@/components/calendar/detail/CounselList";
+import TodoList from "@/components/calendar/detail/TodoList";
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import styled from "styled-components";
-import { GhostButton as UIGhostButton, PrimaryButton as UIPrimaryButton } from "../components/common/UI";
-import { formatYMD } from "../features/calendar/dateUtils";
-import { createTodo, deleteTodo, updateTodo } from "../api/todos";
-import { listCourses, createCourseRecord, type Course } from "../api/courses";
-import { invalidateCacheByPrefix } from "../lib/fetcher";
-import type { ClassItem, TaskItem } from "../types/calendarDetail";
-import { useCalendarDetail } from "../hooks/useCalendarDetail";
-import { getClassesOn } from "../api/calendar";
-import { useTodosByDate } from "../features/todos/useTodosByDate";
-import { listStudents, type Student } from "../api/students";
-import { createCounsel, listCounsels, type Counsel, type PageResult as PageCounsel } from "../api/counsels";
-import { invalidateTodosCache } from "../features/todos/cache";
-import { formatPhone } from "../lib/format";
+import { GhostButton as UIGhostButton, PrimaryButton as UIPrimaryButton } from "@/components/common/UI";
+import { useToast } from "@/components/common/Toast";
+import { formatYMD } from "@/features/calendar/dateUtils";
+import { createTodo, deleteTodo, updateTodo } from "@/api/todos";
+import { listCourses, createCourseRecord, type Course } from "@/api/courses";
+import { invalidateCacheByPrefix } from "@/lib/fetcher";
+import type { ClassItem, TaskItem } from "@/types/calendarDetail";
+import { useCalendarDetail } from "@/hooks/useCalendarDetail";
+import { getClassesOn } from "@/api/calendar";
+import { useTodosByDate } from "@/features/todos/useTodosByDate";
+import { listStudents, type Student } from "@/api/students";
+import { createCounsel, listCounsels, type Counsel, type PageResult as PageCounsel } from "@/api/counsels";
+import { invalidateTodosCache } from "@/features/todos/cache";
+import { formatPhone } from "@/lib/format";
 import {
   DetailPage,
   DetailColumns,
   DetailLeft,
   DetailRight,
-} from "../components/calendar/detail/DetailLayout";
+} from "@/components/calendar/detail/DetailLayout";
 
 export default function CalendarDetail() {
   const navigate = useNavigate();
   const { ymd } = useParams();
+  const { warning } = useToast();
   const ymdSafe = ymd ?? formatYMD(new Date());
   const { label, classes: classesDerived, counsels, prevYMD, nextYMD, todayYMD } =
     useCalendarDetail(ymdSafe);
@@ -77,7 +79,7 @@ export default function CalendarDetail() {
         courseId: r.courseId || undefined,
         date: r.recordDate || r.date || ymdSafe,
         recordId: r.recordId || r.id,
-        notes: r.topic || r.notes || r.content || null,
+        notes: r.notes || r.content || r.topic || null,
         attPresent: present,
         attAbsent: absent,
         attUnprocessed: unprocessed,
@@ -94,7 +96,7 @@ export default function CalendarDetail() {
         const list = await getClassesOn(ymdSafe);
         if (cancelled) return;
         setClasses(mapRows(list));
-      } catch (e) {
+      } catch {
         if (!cancelled) {
           // fallback to derived client-side list to avoid blank
           setClasses(classesDerived);
@@ -130,6 +132,23 @@ export default function CalendarDetail() {
     }
     document.addEventListener('visibilitychange', onVis);
     return () => document.removeEventListener('visibilitychange', onVis);
+  }, [ymdSafe]);
+
+  // Respond to calendar refresh events (e.g., after attendance changes)
+  useEffect(() => {
+    function onRefresh(event: Event) {
+      const detail = (event as CustomEvent<{ ymd?: string }>).detail;
+      const target = detail?.ymd;
+      if (!target || target === ymdSafe) {
+        getClassesOn(ymdSafe)
+          .then((list) => setClasses(mapRows(list)))
+          .catch(() => { /* noop */ });
+      }
+    }
+    window.addEventListener('calendar:classes-refresh', onRefresh as EventListener);
+    return () => {
+      window.removeEventListener('calendar:classes-refresh', onRefresh as EventListener);
+    };
   }, [ymdSafe]);
 
   const { data, error, refresh } = useTodosByDate(ymdSafe);
@@ -222,7 +241,7 @@ export default function CalendarDetail() {
     setAddErr(null);
   }
   async function onSaveClass() {
-    if (!selectedCourse) { alert("수업 템플릿을 선택해 주세요."); return; }
+    if (!selectedCourse) { warning("수업 템플릿을 선택해 주세요."); return; }
     const start = toHHMMSS(`${(startHour||'00').padStart(2,'0')}:${(startMin||'00').padStart(2,'0')}`);
     const end = toHHMMSS(`${(endHour||'00').padStart(2,'0')}:${(endMin||'00').padStart(2,'0')}`);
     setSavingClass(true);
@@ -346,10 +365,6 @@ export default function CalendarDetail() {
       />
       <DetailColumns>
         <DetailLeft>
-          <ClassList items={classes} titleMode="subject" showNotes={false} onAdd={onAddClass} />
-          <CounselList items={counselItems} onAdd={onAddCounsel} onDetail={(studentId) => navigate(`/students/${studentId}/counsels`)} />
-        </DetailLeft>
-        <DetailRight>
           <TodoList
             inProgress={inProgress}
             done={done}
@@ -357,6 +372,10 @@ export default function CalendarDetail() {
             onDelete={onDelete}
             onEdit={onEdit}
           />
+          <CounselList items={counselItems} onAdd={onAddCounsel} onDetail={(studentId) => navigate(`/students/${studentId}/counsels`)} />
+        </DetailLeft>
+        <DetailRight>
+          <ClassList items={classes} titleMode="subject" showNotes={true} onAdd={onAddClass} />
           {open && (
             <ModalBackdrop onClick={() => setOpen(false)}>
               <ModalCard onClick={(e) => e.stopPropagation()}>

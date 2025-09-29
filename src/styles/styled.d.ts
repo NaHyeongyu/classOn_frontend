@@ -44,6 +44,14 @@ declare module 'styled-components' {
       soft: string
       focusPrimary: string
     }
+    spacing: {
+      xs: string
+      sm: string
+      md: string
+      lg: string
+      xl: string
+      xxl: string
+      layout: string
+    }
   }
 }
-

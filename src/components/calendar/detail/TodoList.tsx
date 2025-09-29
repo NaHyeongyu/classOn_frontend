@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { useEffect, useState } from "react";
 import type { TaskItem } from "../../../types/calendarDetail";
 import { SmallBtn as UISmallBtn, buttonVariants } from "../../common/UI";
+import { EmptyPlaceholder } from "../../common/EmptyPlaceholder";
 
 type Props = {
   inProgress: TaskItem[];
@@ -38,29 +39,30 @@ export default function TodoList({ inProgress, done, onAdd, onToggle, onDelete, 
         </Actions>
       </SectionHeader>
       {/* 진행 중 표시 제거 (Removed 'In Progress' label) */}
-      <List>
-        {pList.map((t, i) => (
-          <TaskCard key={`p-${t.id ?? i}`}>
-            <Left>
-              <Dot aria-hidden />
-              <TextArea>
-                <TaskTitle title={t.title}>{t.title}</TaskTitle>
-                {t.content && <TaskContent title={t.content}>{t.content}</TaskContent>}
-              </TextArea>
-            </Left>
-            <BtnRow>
-              {typeof t.id === "number" && (
-                <GhostBtn type="button" onClick={() => onEdit?.(t.id!)}>수정</GhostBtn>
-              )}
-              {typeof t.id === "number" && (
-                <DangerBtn type="button" onClick={() => onDelete?.(t.id!)}>삭제</DangerBtn>
-              )}
-            </BtnRow>
-          </TaskCard>
-        ))}
-      </List>
-      {pList.length === 0 && (
-        <div style={{ color: '#6b7280', fontSize: 12, textAlign: 'center', marginTop: 6 }}>오늘 등록된 할 일이 없습니다.</div>
+      {pList.length === 0 ? (
+        <EmptyPlaceholder title="오늘 등록된 할 일이 없습니다." />
+      ) : (
+        <List>
+          {pList.map((t, i) => (
+            <TaskCard key={`p-${t.id ?? i}`}>
+              <Left>
+                <Dot aria-hidden />
+                <TextArea>
+                  <TaskTitle title={t.title}>{t.title}</TaskTitle>
+                  {t.content && <TaskContent title={t.content}>{t.content}</TaskContent>}
+                </TextArea>
+              </Left>
+              <BtnRow>
+                {typeof t.id === "number" && (
+                  <GhostBtn type="button" onClick={() => onEdit?.(t.id!)}>수정</GhostBtn>
+                )}
+                {typeof t.id === "number" && (
+                  <DangerBtn type="button" onClick={() => onDelete?.(t.id!)}>삭제</DangerBtn>
+                )}
+              </BtnRow>
+            </TaskCard>
+          ))}
+        </List>
       )}
     </Section>
   );

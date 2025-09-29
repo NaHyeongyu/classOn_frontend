@@ -1,4 +1,4 @@
-import { fetchJSON } from "../lib/fetcher";
+import { fetchJSON, invalidateCacheByPrefix } from "../lib/fetcher";
 import type { Student } from "./students";
 import type { PageResult } from "../types/paging";
 
@@ -81,7 +81,18 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
   });
-  return await fetchJSON<Course>(`/api/courses`, { method: "POST", body });
+  const res = await fetchJSON<Course>(`/api/courses`, { method: "POST", body });
+  // Invalidate related caches so auto-generated records/summary reflect immediately
+  try {
+    invalidateCacheByPrefix([
+      '/api/courses',
+      res?.id ? `/api/courses/${res.id}` : '/api/courses/',
+      res?.id ? `/api/courses/${res.id}/records` : '/api/courses/',
+      '/api/calendar/classes',
+      '/api/calendar/classes-range',
+    ]);
+  } catch {}
+  return res;
 }
 
 export async function updateCourse(id: number, payload: Partial<Course>): Promise<Course> {
@@ -97,7 +108,17 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
   });
-  return await fetchJSON<Course>(`/api/courses/${id}`, { method: "PUT", body });
+  const res = await fetchJSON<Course>(`/api/courses/${id}`, { method: "PUT", body });
+  try {
+    invalidateCacheByPrefix([
+      '/api/courses',
+      `/api/courses/${id}`,
+      `/api/courses/${id}/records`,
+      '/api/calendar/classes',
+      '/api/calendar/classes-range',
+    ]);
+  } catch {}
+  return res;
 }
 
 export async function listCourseStudents(id: number): Promise<Student[]> {
@@ -160,6 +181,16 @@ export async function uploadRecordAttachments(courseId: number, recordId: number
 
 export async function deleteRecordAttachment(courseId: number, recordId: number, fileId: number): Promise<void> {
   await fetchJSON<void>(`/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`, { method: 'DELETE' });
+}
+
+export async function downloadRecordAttachmentBlob(courseId: number, recordId: number, fileId: number): Promise<Blob> {
+  // Reuse blob fetch helper used by Excel utilities to include Authorization header
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || "";
+  const url = API_BASE ? new URL(`/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`, API_BASE).toString() : `/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`;
+  const token = (await import("../lib/auth")).getToken();
+  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return await res.blob();
 }
 
 export async function deleteCourse(id: number): Promise<void> {

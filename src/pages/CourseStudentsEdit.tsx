@@ -1,22 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import styled from "styled-components";
 import {
   SectionCard as Section,
   TitleH3 as Title,
-  GhostBtn as UIGhostBtn,
   SmallBtn as UISmallBtn,
-  buttonVariants,
 } from "../components/common/UI";
-import { getCourse, listCourseStudents } from "../api/courses";
-import { listStudents, type Student, updateStudent, type StudentPayload } from "../api/students";
+import { getCourse, listCourseStudents } from "@/api/courses";
+import type { Course } from "@/api/courses";
+import { listStudents, type Student, updateStudent, type StudentPayload } from "@/api/students";
+import BackButton from "@/components/common/BackButton";
+import { invalidateCacheByPrefix } from "@/lib/fetcher";
 
 export default function CourseStudentsEdit() {
-  const navigate = useNavigate();
   const { id } = useParams();
   const numericId = useMemo(() => (id ? Number(id) : null), [id]);
 
   const [title, setTitle] = useState<string>("");
+  const [courseInfo, setCourseInfo] = useState<Course | null>(null);
   const [capacity, setCapacity] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,8 +38,14 @@ export default function CourseStudentsEdit() {
     async function load() {
       try {
         const c = await getCourse(numericId!);
-        if (!cancelled) { setTitle(c.title); setCapacity(c.capacity ?? null); }
-      } catch (e: any) { if (!cancelled) setError(e?.message || "수업 정보를 불러오지 못했습니다."); }
+        if (!cancelled) {
+          setCourseInfo(c);
+          setTitle(c.title);
+          setCapacity(c.capacity ?? null);
+        }
+      } catch (error) {
+        if (!cancelled) setError(getErrorMessage(error, "수업 정보를 불러오지 못했습니다."));
+      }
     }
     void load();
     return () => { cancelled = true; };
@@ -52,21 +59,22 @@ export default function CourseStudentsEdit() {
       try {
         const list = await listCourseStudents(numericId!);
         if (!cancelled) setEnrolledStudents(list);
-      } catch (e: any) {
-        const msg = e?.message || "";
+      } catch (error) {
+        const msg = getErrorMessage(error, "");
         if (msg.includes("404")) {
           try {
             let page = 0; const size = 100; let all: Student[] = [];
             while (true) {
               const res = await listStudents({ page, size });
-              all = all.concat(res.content);
-              if (res.last || res.content.length === 0 || page > 100) break;
+              const { content, last } = res;
+              all = all.concat(content);
+              if (last || content.length === 0 || page > 100) break;
               page += 1;
             }
             const filtered = all.filter(s => (s.courses || []).some(c => c.id === numericId));
             if (!cancelled) setEnrolledStudents(filtered);
-          } catch (e2: any) {
-            if (!cancelled) setEnrolledError(e2?.message || "등록된 학생 목록을 불러오지 못했습니다.");
+          } catch (nestedError) {
+            if (!cancelled) setEnrolledError(getErrorMessage(nestedError, "등록된 학생 목록을 불러오지 못했습니다."));
           }
         } else {
           if (!cancelled) setEnrolledError(msg || "등록된 학생 목록을 불러오지 못했습니다.");
@@ -88,12 +96,15 @@ export default function CourseStudentsEdit() {
           const qv = studentSearch.trim();
           while (true) {
             const res = await listStudents({ q: qv || undefined, page, size });
-            all = all.concat(res.content);
-            if (res.last || res.content.length === 0 || page > 200) break;
+            const { content, last } = res;
+            all = all.concat(content);
+            if (last || content.length === 0 || page > 200) break;
             page += 1;
           }
           if (!cancelled) setStudentOptions(all);
-        } catch (e: any) { if (!cancelled) setStudentError(e?.message || "학생 목록을 불러오지 못했습니다."); }
+        } catch (error) {
+          if (!cancelled) setStudentError(getErrorMessage(error, "학생 목록을 불러오지 못했습니다."));
+        }
         finally { if (!cancelled) setStudentLoading(false); }
       }
       void run();
@@ -112,9 +123,38 @@ export default function CourseStudentsEdit() {
       if (existing.includes(numericId!)) return;
       const next = Array.from(new Set<number>([...existing, numericId!]));
       await updateStudent(s.id, { courseIds: next } as Partial<StudentPayload>);
+      // Invalidate related caches so other views (CourseDetail, lists) reflect immediately
+      invalidateCacheByPrefix([
+        `/api/courses/${numericId}`,
+        `/api/courses/${numericId}/students`,
+        '/api/students',
+      ]);
       setEnrolledStudents((prev) => (prev.some(p=>p.id===s.id) ? prev : [...prev, s]));
-      setStudentOptions((opts) => opts.map((x) => x.id === s.id ? { ...x, courses: [...(x.courses || []), { id: numericId!, code: '', title: '', status: '' } as any] } : x));
-    } catch (e: any) { setStudentError(e?.message || "추가에 실패했습니다."); }
+      setStudentOptions((opts) => opts.map((x) => {
+        if (x.id !== s.id) return x;
+        const entry: Student["courses"][number] = courseInfo
+          ? {
+              id: courseInfo.id,
+              code: courseInfo.code,
+              title: courseInfo.title,
+              status: courseInfo.status,
+              fee: courseInfo.fee ?? null,
+            }
+          : {
+              id: numericId!,
+              code: '',
+              title: title || '',
+              status: 'IN_PROGRESS',
+              fee: null,
+            };
+        const nextCourses = x.courses.some((c) => c.id === numericId)
+          ? x.courses
+          : [...x.courses, entry];
+        return { ...x, courses: nextCourses };
+      }));
+    } catch (error) {
+      setStudentError(getErrorMessage(error, "추가에 실패했습니다."));
+    }
     finally { setAddingId(null); }
   }
 
@@ -125,9 +165,17 @@ export default function CourseStudentsEdit() {
       const existing = Array.isArray(s.courses) ? s.courses.map((c) => c.id) : [];
       const next = existing.filter((cid) => cid !== numericId);
       await updateStudent(s.id, { courseIds: next } as Partial<StudentPayload>);
+      // Invalidate related caches so other views (CourseDetail, lists) reflect immediately
+      invalidateCacheByPrefix([
+        `/api/courses/${numericId}`,
+        `/api/courses/${numericId}/students`,
+        '/api/students',
+      ]);
       setEnrolledStudents((prev) => prev.filter((x) => x.id !== s.id));
-      setStudentOptions((opts) => opts.map((x) => x.id === s.id ? { ...x, courses: (x.courses || []).filter(c => c.id !== numericId) } : x));
-    } catch (e: any) { setEnrolledError(e?.message || "해제에 실패했습니다."); }
+      setStudentOptions((opts) => opts.map((x) => x.id === s.id ? { ...x, courses: x.courses.filter(c => c.id !== numericId) } : x));
+    } catch (error) {
+      setEnrolledError(getErrorMessage(error, "해제에 실패했습니다."));
+    }
     finally { setRemovingId(null); }
   }
 
@@ -138,10 +186,10 @@ export default function CourseStudentsEdit() {
   return (
     <Wrap>
       <Head>
-        <BackBtn type="button" onClick={() => navigate(`/classes/${numericId}`)}>{leftIcon} 상세</BackBtn>
+        <BackButton to={`/classes/${numericId ?? ''}`} label="상세" />
         <h2>수강생 수정</h2>
         <Actions>
-          <UIGhostBtn as={"button" as any} onClick={() => navigate(`/classes/${numericId}`)}>완료</UIGhostBtn>
+          <BackButton to={`/classes/${numericId ?? ''}`} label="완료" />
         </Actions>
       </Head>
       {(error || enrolledError) && <AlertError>{error || enrolledError}</AlertError>}
@@ -214,6 +262,12 @@ export default function CourseStudentsEdit() {
   );
 }
 
+function getErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message || fallback;
+  if (typeof error === 'string') return error || fallback;
+  return fallback;
+}
+
 // styles
 const Wrap = styled.div` display:grid; gap:12px; `;
 const Head = styled.div` display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; `;
@@ -251,11 +305,4 @@ const StatusTag = styled.span`
 const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px solid #fecaca; padding:10px 12px; border-radius:10px; font-size:13px; `;
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
 // Buttons from common UI; keep BackBtn local
-const BackBtn = styled.button`
-  ${buttonVariants.outline};
-  height: 36px;
-  padding: 0 14px;
-  font-weight: 600;
-  font-size: 13px;
-`;
-const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);
+// Back buttons unified via shared component

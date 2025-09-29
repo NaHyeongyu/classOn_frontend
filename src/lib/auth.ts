@@ -8,6 +8,7 @@ export type AuthUser = {
   username: string;
   email?: string;
   phone?: string;
+  academy?: { id: number; name: string };
 };
 
 export function getToken(): string | null {

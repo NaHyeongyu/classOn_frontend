@@ -9,7 +9,6 @@ const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_FETCH_TIMEOUT_MS ?? 10000
 // real-time updates (mobile/manual attendance, edited class times, KPI refresh).
 // We still keep caching for other endpoints to reduce traffic.
 const NO_CACHE_PREFIXES = [
-  "/api/calendar/classes",
   "/api/dashboard/summary",
   "/api/dashboard/attendance-today",
   "/api/marketing/render", // rendering should always be fresh
@@ -167,10 +166,10 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
   if (!res.ok) {
     throw new Error(`HTTP ${res.status} ${res.statusText} ${text}`.trim());
   }
-  // Persist fresh cache when ETag present
+  // Persist fresh cache for GET (store body always; ETag when available)
   if (isGet && !noCache) {
     const etag = res.headers.get("ETag");
-    if (etag) setCache(url, etag, text);
+    setCache(url, etag, text);
   }
   return (text ? (JSON.parse(text) as T) : ({} as unknown as T));
 

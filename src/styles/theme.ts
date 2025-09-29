@@ -43,5 +43,13 @@ export const defaultTheme: DefaultTheme = {
     soft: "0 1px 2px rgba(0,0,0,0.03)",
     focusPrimary: "0 0 0 3px rgba(79, 70, 229, 0.18)",
   },
+  spacing: {
+    xs: "4px",
+    sm: "8px",
+    md: "12px",
+    lg: "16px",
+    xl: "20px",
+    xxl: "32px",
+    layout: "24px",
+  },
 };
-

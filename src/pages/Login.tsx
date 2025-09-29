@@ -2,9 +2,9 @@ import { useState, type FormEvent } from "react";
 // EN: Username/password login page
 // KO: 아이디/비밀번호 로그인 화면
 import styled from "styled-components";
-import { PrimaryBtnLg as UIPrimaryBtn } from "../components/common/UI";
+import { PrimaryBtnLg as UIPrimaryBtn } from "@/components/common/UI";
 import { Link, useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function Login() {
   const { login } = useAuth();

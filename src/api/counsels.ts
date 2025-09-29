@@ -24,7 +24,7 @@ export async function listCounsels(params: {
   from?: string;
   to?: string;
   onYmd?: string;
-}): Promise<PageResult<Counsel>> {
+}, init?: RequestInit): Promise<PageResult<Counsel>> {
   const sp = new URLSearchParams();
   if (params.studentId) sp.set("studentId", String(params.studentId));
   if (typeof params.page === 'number') sp.set("page", String(params.page));
@@ -35,7 +35,7 @@ export async function listCounsels(params: {
   if (params.to) sp.set("to", params.to);
   if (params.onYmd) sp.set("onYmd", params.onYmd);
   const q = Array.from(sp.keys()).length ? `?${sp}` : '';
-  return await fetchJSON<PageResult<Counsel>>(`/api/counsels${q}`);
+  return await fetchJSON<PageResult<Counsel>>(`/api/counsels${q}`, init);
 }
 
 function mapStatusParam(s: string) {

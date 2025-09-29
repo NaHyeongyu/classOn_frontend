@@ -3,6 +3,7 @@ import { formatYMD, parseYMD, stripTime, WEEK_LABELS } from "../features/calenda
 import type { ClassItem, CounselItem,  } from "../types/calendarDetail";
 import { useCoursesCalendar } from "../features/calendar/useCoursesCalendar";
 import { listCounsels, type Counsel, type PageResult } from "../api/counsels";
+import { peekCache } from "../lib/fetcher";
 
 export function useCalendarDetail(ymd?: string) {
   const date = useMemo(() => (ymd ? parseYMD(ymd) : stripTime(new Date())), [ymd]);
@@ -18,6 +19,24 @@ export function useCalendarDetail(ymd?: string) {
     async function load() {
       try {
         const ymd = formatYMD(date);
+        // Seed from cache for instant paint
+        try {
+          const sp = new URLSearchParams({ onYmd: ymd, size: String(50) });
+          const key = `/api/counsels?${sp.toString()}`;
+          const cached = peekCache<PageResult<Counsel>>(key);
+          if (cached.data && !cancelled) {
+            const items: CounselItem[] = (cached.data.content || []).map(c => ({
+              id: c.id,
+              studentId: c.studentId,
+              time: toHM(c.counselTime),
+              title: (c.content || '').split(/\r?\n/)[0] || '상담',
+              with: c.studentName,
+              owner: '-',
+              done: c.status === 'CONVERTED',
+            }));
+            setCounsels(items);
+          }
+        } catch { /* ignore cache seed errors */ }
         const res: PageResult<Counsel> = await listCounsels({ onYmd: ymd, size: 50 });
         if (cancelled) return;
         const items: CounselItem[] = (res.content || []).map(c => ({

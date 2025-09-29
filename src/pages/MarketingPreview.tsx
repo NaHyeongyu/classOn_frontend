@@ -1,14 +1,20 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { Page, SectionCard, TitleH3, GhostButtonSmall, PrimaryButton } from '../components/common/UI';
+import { Page, SectionCard, PrimaryButton, GhostButtonSmall } from '../components/common/UI';
+import BackButton from '@/components/common/BackButton';
 import type { SummarizeItem } from '../api/summarize';
 
 export default function MarketingPreview() {
-  const { state } = useLocation() as { state?: { items?: SummarizeItem[]; direction?: string; bullets?: string[]; tone?: string; speechStyle?: 'SEUMNIDA'|'YO'; platformChoice?: 'INSTAGRAM'|'NAVER_BLOG'|'KAKAO_CHANNEL'; from?: string } };
+  const { state } = useLocation() as { state?: { items?: SummarizeItem[]; summary?: { from:string; to:string; summary:string; bullets:string[]; tokensUsed?:number; rawJson?:string }; direction?: string; bullets?: string[]; tone?: string; speechStyle?: 'SEUMNIDA'|'YO'; platformChoice?: 'INSTAGRAM'|'NAVER_BLOG'|'KAKAO_CHANNEL'; formatStyle?: 'STORY'|'LIST'|'PERFORMANCE'; from?: string } };
   const items = state?.items ?? [];
   const direction = state?.direction ?? '';
-  const bullets = state?.bullets ?? [];
+  const initialBullets = (state?.summary?.bullets ?? state?.bullets) ?? [];
+  const [edBullets, setEdBullets] = useState<string[]>(initialBullets);
+  // Sync when arriving with fresh summary
+  
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  
   const tone = state?.tone ?? 'WARM_VIVID';
   const toneLabel = (t: string) => {
     const map: Record<string, string> = {
@@ -19,21 +25,102 @@ export default function MarketingPreview() {
     };
     return map[t] ?? t;
   };
-  const speechStyle = state?.speechStyle ?? 'SEUMNIDA';
+  // Local selections (editable on this page)
+  const [speechStyle, setSpeechStyle] = useState<'SEUMNIDA'|'YO'>(state?.speechStyle ?? 'SEUMNIDA');
   const navigate = useNavigate();
-  const platformChoice = state?.platformChoice ?? 'INSTAGRAM';
+  const [platformChoice, setPlatformChoice] = useState<'INSTAGRAM'|'NAVER_BLOG'|'KAKAO_CHANNEL'>(state?.platformChoice ?? 'INSTAGRAM');
+  const [formatStyle, setFormatStyle] = useState<'STORY'|'LIST'|'PERFORMANCE'>(state?.formatStyle ?? 'STORY');
   const [fx, setFx] = useState(false);
   const [fxIdx] = useState(()=>Math.floor(Math.random()*1000));
-
-  // (프롬프트 제거) AI 전송 미리보기 구성 로직은 제거되었습니다.
+  const [showIgPrompt, setShowIgPrompt] = useState(false);
 
   function goNext() {
     setFx(true);
     setTimeout(() => {
-      navigate('/marketing/summary', { state: { items, direction, bullets, tone, speechStyle, platformChoice, from: 'preview' } });
+      // Restore dedicated rendering indicator step before summary
+      navigate('/marketing/rendering', { state: { items, direction, bullets: edBullets, tone, speechStyle, platformChoice, formatStyle, summary: (state as any)?.summary } });
     }, 950);
   }
 
+  function renderSummary(items: SummarizeItem[], direction: string) {
+    const max = 6;
+    const lines = items.slice(0, max).map(i => `• ${i.date}${i.courseTitle?` [${i.courseTitle}]`:''}: ${i.content || ''}`);
+    const more = items.length > max ? `\n... (외 ${items.length - max}행)` : '';
+    const text = (direction && direction.trim()) ? direction.trim() : (lines.join('\n') + more);
+    return (
+      <SummaryBody>
+        <p style={{ whiteSpace:'pre-wrap' }}>{text}</p>
+      </SummaryBody>
+    );
+  }
+
+  // ---------- Instagram 전송 프롬프트 (변수 반영) ----------
+  function sanitizeLine(s: string): string {
+    if (!s) return '';
+    let t = s.replace(/[\r\n]+/g, ' ').trim();
+    t = t.replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, '[REDACTED]');
+    t = t.replace(/(\+?\d{1,3}[- ]?)?(\d{2,4}[- ]?\d{3,4}[- ]?\d{4})/g, '[REDACTED]');
+    return t;
+  }
+  function minMaxDate(): { from: string; to: string } {
+    const ds = (items || []).map(i => i.date).filter(Boolean).sort();
+    if (!ds.length) { const today = new Date().toISOString().slice(0,10); return { from: today, to: today }; }
+    return { from: ds[0], to: ds[ds.length-1] };
+  }
+  function buildInstagramPrompt(): string {
+    const { from, to } = minMaxDate();
+    const toneOfVoice = speechStyle === 'YO' ? '요체' : '입니다체';
+    const styleKo = formatStyle === 'STORY' ? '스토리텔링' : formatStyle === 'LIST' ? '정보 나열' : '성과 중심';
+    const system = [
+      '[시스템]',
+      '당신은 학원·교육 기관·체험 수업을 홍보하는 인스타그램 전문 마케터입니다.',
+      '목표는 학부모와 학생이 공감하고, 학원의 커리큘럼/활동을 자연스럽게 알리는 매력적인 인스타그램 캡션을 작성하는 것입니다.',
+      '출력은 반드시 한국어로 하세요.',
+    ].join('\n');
+    const guide = [
+      '[지시사항]',
+      '1) 원본 데이터를 기반으로, 이번 기간의 수업을 날짜 나열이 아닌 **하나의 흐름**으로 정리하세요.',
+      '2) 글 구조:',
+      '   - 도입: 이번 달/기간 활동의 큰 주제',
+      '   - 본문: 핵심 활동 + 아이들의 반응/느낀 점',
+      '   - 마무리: 교육적 효과 + 학원/기관 소개 + 부드러운 안내 문장',
+      '3) 이모지는 적절하게 사용하세요 (SNS 친화적으로)',
+      '4) 해시태그는 8개.',
+      '5) 글 길이: 450~900자.',
+      '6) 아래 변수를 반영해 작성하세요.',
+      `   - 말투 (tone_of_voice): \`${toneOfVoice}\``,
+      '   - 톤 (content_style):',
+      '     • `스토리텔링`: 서사 중심, 에피소드처럼 전개',
+      '     • `정보 나열`: 활동을 간결하게 나열하며 정리',
+      '     • `성과 중심`: 아이들의 성취, 결과, 성장 포인트 강조',
+      `     → 선택: \`${styleKo}\``,
+      '7) 사진 추천(5~10개): 각 항목에 “아이디어/주제”를 제안하세요. 과도한 연출보다 수업 현장감이 느껴지는 자연스러운 컷을 권장합니다. 아동 개인 식별 가능 요소(얼굴·명찰 등)는 노출하지 않도록 유의합니다.',
+      '8) 금지:',
+      '   - 날짜/시간표 나열',
+      '   - 가격/할인/과장된 광고 문구',
+      '',
+      '[출력 형식]',
+      '<캡션 시작>',
+      '(최종 인스타그램 캡션)',
+      '빈 줄 1개',
+      '#해시태그',
+      '빈 줄 1개',
+      '[사진 추천(5~10개)]',
+      '- 아이디어 1',
+      '- 아이디어 2',
+      '- 아이디어 3',
+      '- 아이디어 4',
+      '- 아이디어 5',
+      '<캡션 끝>',
+    ].join('\n');
+    const lines = (items || []).map(i => `- ${i.date}${i.courseTitle?` [${sanitizeLine(i.courseTitle)}]`:''}: ${sanitizeLine(i.content || '')}`);
+    const dataBlock = [
+      '[원본 데이터]',
+      `기간: ${from} ~ ${to}`,
+      lines.join('\n')
+    ].join('\n');
+    return [system, '', guide, '', dataBlock].join('\n');
+  }
   return (
     <Page>
       <Stepper>
@@ -43,31 +130,30 @@ export default function MarketingPreview() {
         <StepSep />
         <Step data-active={false}>3. 생성/편집</Step>
       </Stepper>
-      <header>
-        <BackButton type="button" onClick={() => navigate(-1)}>←</BackButton>
-        <HeaderText>
-          <h2>AI 요약 결과</h2>
-          <p>AI가 분석한 수업 내용을 바탕으로 마케팅 콘텐츠를 생성하세요.</p>
-        </HeaderText>
-      </header>
+      <HeaderWrap>
+        <HeaderRow>
+          <BackButton backSteps={1} label="뒤로" />
+          <HeaderTitle>AI 요약 결과</HeaderTitle>
+        </HeaderRow>
+        <HeaderSubtitle>AI가 분석한 수업 내용을 바탕으로 마케팅 콘텐츠를 생성하세요.</HeaderSubtitle>
+      </HeaderWrap>
 
       <ContentGrid>
         <SummaryCard>
           <CardHeader>
             <div>
               <CardTitle>AI 요약 내용</CardTitle>
-              <CardSubtitle>최근 수업 활동을 분석한 결과, 학생들의 학습 참여도와 이해도가 눈에 띄게 향상되고 있습니다.</CardSubtitle>
+              <CardSubtitle>최근 수업 활동을 분석한 결과를 확인하고 핵심 문장을 검토하세요.</CardSubtitle>
             </div>
-            <MetaWrap>
-              <Chip>톤: {toneLabel(tone)}</Chip>
-              <Chip>말투: {speechStyle==='SEUMNIDA'?'~습니다':'~요'}</Chip>
-              <Chip>핵심 {bullets.length}개</Chip>
-              <Chip>데이터 {items.length}행</Chip>
-              <Chip>플랫폼: {platformChoice==='INSTAGRAM'?'인스타그램':platformChoice==='NAVER_BLOG'?'블로그':'카카오 채널'}</Chip>
-            </MetaWrap>
           </CardHeader>
           <SummaryBox>
-            {renderSummary(items, direction)}
+            {state?.summary?.summary ? (
+              <SummaryBody>
+                <p style={{ whiteSpace:'pre-wrap' }}>{state.summary.summary}</p>
+              </SummaryBody>
+            ) : (
+              renderSummary(items, direction)
+            )}
           </SummaryBox>
         </SummaryCard>
 
@@ -79,19 +165,77 @@ export default function MarketingPreview() {
             </div>
           </CardHeader>
           <BulletList role="list">
-            {bullets.length === 0 ? (
-              <EmptyHint>핵심 문장이 아직 없습니다.</EmptyHint>
-            ) : bullets.map((b, i) => (
+            {edBullets.length === 0 ? (
+              <EmptyHint>핵심 문장이 아직 없습니다. 아래 버튼으로 추가해 보세요.</EmptyHint>
+            ) : edBullets.map((b, i) => (
               <BulletItem key={i}>
-                <span>{b}</span>
+                <AddInput value={b} onChange={(e)=>{
+                  const copy = edBullets.slice(); copy[i] = e.target.value; setEdBullets(copy);
+                }} placeholder={`핵심 내용 ${i+1}`} />
+                <IconButton aria-label="delete" onClick={()=> setEdBullets(edBullets.filter((_,idx)=>idx!==i))}>✕</IconButton>
               </BulletItem>
             ))}
           </BulletList>
+          <BulletActions>
+            <GhostButtonSmall as="button" onClick={()=> setEdBullets([...edBullets, ''])}>항목 추가</GhostButtonSmall>
+          </BulletActions>
         </BulletsCard>
       </ContentGrid>
 
+      {/* 설정 선택 영역: 말투, 양식, 플랫폼 (아래로 이동) */}
+      <SectionCard>
+        <CardHeader>
+          <div>
+            <CardTitle>설정</CardTitle>
+            <CardSubtitle>말투, 양식, 플랫폼을 선택하세요. 결과에 반영됩니다.</CardSubtitle>
+          </div>
+        </CardHeader>
+        <OptionBlock>
+          <Label>말투(~체)</Label>
+          <OptionRow>
+            <OptionButton type="button" data-active={speechStyle==='SEUMNIDA'} onClick={()=>setSpeechStyle('SEUMNIDA')}>~습니다</OptionButton>
+            <OptionButton type="button" data-active={speechStyle==='YO'} onClick={()=>setSpeechStyle('YO')}>~요</OptionButton>
+          </OptionRow>
+        </OptionBlock>
+        <OptionBlock>
+          <Label>양식</Label>
+          <OptionRow>
+            <OptionButton type="button" data-active={formatStyle==='STORY'} onClick={()=>setFormatStyle('STORY')}>스토리텔링형</OptionButton>
+            <OptionButton type="button" data-active={formatStyle==='LIST'} onClick={()=>setFormatStyle('LIST')}>정보나열형</OptionButton>
+            <OptionButton type="button" data-active={formatStyle==='PERFORMANCE'} onClick={()=>setFormatStyle('PERFORMANCE')}>성과형</OptionButton>
+          </OptionRow>
+        </OptionBlock>
+        <OptionBlock>
+          <Label>플랫폼</Label>
+          <OptionRow>
+            <OptionButton type="button" data-active={platformChoice==='INSTAGRAM'} onClick={()=>setPlatformChoice('INSTAGRAM')}>인스타그램</OptionButton>
+            <OptionButton type="button" data-active={platformChoice==='NAVER_BLOG'} onClick={()=>setPlatformChoice('NAVER_BLOG')}>블로그</OptionButton>
+            {/* 필요 시 카카오 채널도 유지 */}
+            <OptionButton type="button" data-active={platformChoice==='KAKAO_CHANNEL'} onClick={()=>setPlatformChoice('KAKAO_CHANNEL')}>카카오 채널</OptionButton>
+          </OptionRow>
+        </OptionBlock>
+      </SectionCard>
+
+      {platformChoice==='INSTAGRAM' && (
+      <SectionCard>
+        <CardHeader>
+          <div>
+            <CardTitle>전송 프롬프트 (Instagram)</CardTitle>
+            <CardSubtitle>현재 설정이 반영된 프롬프트를 확인하고 복사할 수 있어요.</CardSubtitle>
+          </div>
+          <div style={{ display:'flex', gap: 8 }}>
+            <GhostButtonSmall as="button" onClick={()=> setShowIgPrompt(v=>!v)}>{showIgPrompt ? '접기' : '펼쳐보기'}</GhostButtonSmall>
+            <GhostButtonSmall as="button" onClick={()=> { const t = buildInstagramPrompt(); navigator.clipboard?.writeText(t).catch(()=>{}); }}>전체 복사</GhostButtonSmall>
+          </div>
+        </CardHeader>
+        {showIgPrompt && (
+          <Pre style={{ maxHeight: 480, overflow: 'auto' }}>{buildInstagramPrompt()}</Pre>
+        )}
+      </SectionCard>
+      )}
+
       <FooterBar>
-        <GhostButtonSmall as="button" onClick={() => navigate(-1)}>이전 단계</GhostButtonSmall>
+        <BackButton backSteps={1} label="이전 단계" />
         <PrimaryButton as="button" onClick={goNext}>다음 단계</PrimaryButton>
       </FooterBar>
 
@@ -110,23 +254,276 @@ export default function MarketingPreview() {
   );
 }
 
-const TitleRow = styled.div`
-  display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
+const HeaderWrap = styled.header`
+  display: grid;
+  gap: 6px;
+  margin-bottom: 18px;
 `;
-const Label = styled.label`
-  display:block; margin: 10px 0 6px; font-weight: 700; font-size: 13px;
+
+const HeaderRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
 `;
-const Pre = styled.pre`
-  white-space: pre-wrap; background: ${({theme}) => theme.colors.surfaceMuted}; border: 1px solid ${({theme}) => theme.colors.border}; border-radius: 10px; padding: 10px; font-size: 13px;
+
+// Back button unified via shared component
+
+const HeaderTitle = styled.h2`
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: ${({theme}) => theme.colors.text};
 `;
-const MetaRow = styled.div`
-  display:flex; gap: 6px; flex-wrap: wrap; margin: 6px 0 8px;
+
+const HeaderSubtitle = styled.p`
+  margin: 0;
+  font-size: 13px;
+  color: ${({theme}) => theme.colors.textMuted};
 `;
+
+const ContentGrid = styled.div`
+  display: grid;
+  gap: 16px;
+  align-items: stretch;
+  grid-template-columns: 1fr;
+  @media (min-width: 1080px) {
+    grid-template-columns: 1.4fr 1fr;
+  }
+`;
+
+const SummaryCard = styled(SectionCard)`
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  min-height: 0;
+`;
+
+const BulletsCard = styled(SectionCard)`
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 16px;
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
+  max-height: 420px;
+  @media (max-width: 1079px) {
+    max-height: none;
+  }
+`;
+
+const CardHeader = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+`;
+
+const CardTitle = styled.h3`
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+  font-weight: 800;
+`;
+
+const CardSubtitle = styled.p`
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #475569;
+`;
+
+const MetaWrap = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`;
+
 const Chip = styled.span`
-  display:inline-flex; align-items:center; gap: 6px; padding: 4px 8px; border-radius: 999px; background: ${({theme}) => theme.colors.surfaceMuted}; color: ${({theme}) => theme.colors.text}; border: 1px solid ${({theme}) => theme.colors.border}; font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid ${({theme}) => theme.colors.border};
+  background: ${({theme}) => theme.colors.surfaceMuted};
+  color: ${({theme}) => theme.colors.text};
+  font-size: 12px;
+  font-weight: 600;
 `;
-const NavRow = styled.div`
-  display:flex; justify-content: space-between; margin-top: 12px;
+
+const SummaryBox = styled.div`
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  padding: 20px;
+  min-height: 220px;
+  display: grid;
+  gap: 10px;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(226, 232, 240, 0.7);
+  max-height: 380px;
+  overflow-y: auto;
+`;
+
+const SummaryBody = styled.div`
+  display: grid;
+  gap: 14px;
+  font-size: 14px;
+  line-height: 1.8;
+  color: #1f2937;
+  p { margin: 0; }
+`;
+
+const BulletList = styled.div`
+  display: grid;
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 4px;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.55) transparent;
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: rgba(148, 163, 184, 0.55);
+    border-radius: 999px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+`;
+
+const BulletItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid ${({theme}) => theme.colors.border};
+  background: ${({theme}) => theme.colors.surfaceMuted};
+`;
+
+const BulletText = styled.span`
+  flex: 1;
+  font-size: 13px;
+  color: ${({theme}) => theme.colors.text};
+`;
+
+const IconButton = styled.button`
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  color: ${({theme}) => theme.colors.textMuted};
+  cursor: pointer;
+  padding: 0 4px;
+`;
+
+const AddRow = styled.div`
+  display: flex;
+  gap: 8px;
+  align-items: center;
+`;
+
+const AddInput = styled.input`
+  flex: 1;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid ${({theme}) => theme.colors.border};
+  padding: 0 12px;
+  background: #fff;
+  font-size: 13px;
+  color: ${({theme}) => theme.colors.text};
+`;
+
+const AddButton = styled.button`
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid ${({theme}) => theme.colors.border};
+  background: ${({theme}) => theme.colors.primarySurface};
+  color: ${({theme}) => theme.colors.primary};
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+`;
+
+const EmptyHint = styled.div`
+  display: grid;
+  place-items: center;
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px dashed ${({theme}) => theme.colors.border};
+  font-size: 13px;
+  color: ${({theme}) => theme.colors.textMuted};
+`;
+
+const BulletActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+`;
+
+// ---- Common small UI pieces ----
+const Label = styled.div`
+  margin: 2px 0 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: ${({theme}) => theme.colors.text};
+`;
+
+const Pre = styled.pre`
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid ${({theme}) => theme.colors.border};
+  background: #fff;
+  color: ${({theme}) => theme.colors.text};
+  font-size: 12px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+`;
+
+const OptionBlock = styled.div`
+  display: grid;
+  gap: 6px;
+  &:not(:last-child){ margin-bottom: 10px; }
+`;
+
+const OptionRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+`;
+
+const OptionButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 999px;
+  border: 1px solid ${({theme}) => theme.colors.border};
+  background: #fff;
+  color: ${({theme}) => theme.colors.text};
+  font-size: 12px;
+  cursor: pointer;
+  &[data-active='true']{
+    background: ${({theme}) => theme.colors.primarySurface};
+    color: ${({theme}) => theme.colors.primary};
+    border-color: ${({theme}) => theme.colors.border};
+    font-weight: 800;
+  }
+`;
+
+const FooterBar = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
 `;
 
 const Stepper = styled.div`

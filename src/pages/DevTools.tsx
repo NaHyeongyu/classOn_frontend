@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
-import { GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "../components/common/UI";
-import { fetchJSON } from "../lib/fetcher";
-import { seedDemo } from "../api/dev";
+import { GhostBtn as UIGhostBtn, PrimaryBtn as UIPrimaryBtn } from "@/components/common/UI";
+import { fetchJSON } from "@/lib/fetcher";
+import { seedDemo } from "@/api/dev";
 
 type Stats = { academyId: number | null; students: number; courses: number; counsels: number };
 

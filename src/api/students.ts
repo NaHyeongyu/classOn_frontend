@@ -1,7 +1,7 @@
 // EN: Students API client
 // KO: 원생 API 클라이언트
 
-import { fetchJSON } from "../lib/fetcher";
+import { fetchJSON, invalidateCacheByPrefix } from "../lib/fetcher";
 import type { PageResult } from "../types/paging";
 
 export type Student = {
@@ -92,17 +92,22 @@ export async function getStudentAttendance(id: number, params?: { from?: string;
 }
 
 export async function createStudent(payload: StudentPayload): Promise<Student> {
-  return await fetchJSON<Student>(`/api/students`, {
+  const res = await fetchJSON<Student>(`/api/students`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
+  // Bust caches so lists/KPIs reflect immediately
+  invalidateCacheByPrefix(['/api/students']);
+  return res;
 }
 
 export async function updateStudent(id: number, payload: Partial<StudentPayload>): Promise<Student> {
-  return await fetchJSON<Student>(`/api/students/${id}`, {
+  const res = await fetchJSON<Student>(`/api/students/${id}`, {
     method: "PUT",
     body: JSON.stringify(payload),
   });
+  invalidateCacheByPrefix(['/api/students']);
+  return res;
 }
 
 // Excel helpers (download/upload)

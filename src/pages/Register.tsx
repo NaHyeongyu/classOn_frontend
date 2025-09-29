@@ -7,8 +7,8 @@ import {
   buttonVariants,
 } from "../components/common/UI";
 import { Link, useNavigate } from "react-router-dom";
-import { apiCheckEmail, apiCheckUsername, apiRequestPhoneCode, apiVerifyPhoneCode, apiCheckBizNo, apiOnboardComplete } from "../api/auth";
-import { formatPhone } from "../lib/format";
+import { apiCheckEmail, apiCheckUsername, apiRequestPhoneCode, apiVerifyPhoneCode, apiCheckBizNo, apiOnboardComplete } from "@/api/auth";
+import { formatPhone } from "@/lib/format";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -197,7 +197,7 @@ export default function Register() {
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" />
 
             <Label>휴대폰</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="01012345678" />
+            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-1234-5678" pattern="^010-\\d{4}-\\d{4}$" onBlur={(e)=>{ const d=e.currentTarget.value.replace(/[^0-9]/g,''); if (d.length===11 && d.startsWith('010')) setPhone(`010-${d.slice(3,7)}-${d.slice(7)}`); }} />
 
             {error && <ErrorText>{error}</ErrorText>}
             <UIPrimaryBtn as={"button" as any} type="submit">계정 만들기</UIPrimaryBtn>

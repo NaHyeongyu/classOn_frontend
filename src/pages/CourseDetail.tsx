@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
-import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, TableBase as UITable, buttonVariants, GhostButton as UIGhostButton } from "../components/common/UI";
-import ConfirmDialog from "../components/common/ConfirmDialog";
-import { getCourse, type Course, type CourseRecord, listCourseStudents, listCourseRecords, listRecordAttendance, deleteCourse } from "../api/courses";
-import { formatMoney } from "../lib/format";
-import { listStudents, type Student } from "../api/students";
-import { KPI, UsersIcon, ClassIcon, CheckIcon, DeltaPill } from "../components/dashboard/KPI";
-import { formatPhone } from "../lib/format";
+import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, TableBase as UITable, buttonVariants, GhostButton as UIGhostButton } from "@/components/common/UI";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { getCourse, type Course, type CourseRecord, listCourseStudents, listCourseRecords, listRecordAttendance, deleteCourse } from "@/api/courses";
+import { formatMoney } from "@/lib/format";
+import { listStudents, type Student } from "@/api/students";
+import { KPI, UsersIcon, ClassIcon, CheckIcon } from "@/components/dashboard/KPI";
+import { formatPhone } from "@/lib/format";
+import { useToast } from "@/components/common/Toast";
 
 export default function CourseDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const numericId = useMemo(() => (id ? Number(id) : null), [id]);
+  const { error: showError } = useToast();
   // info/students를 하나의 관리 화면으로 통합 (탭 상태 제거)
 
   const [course, setCourse] = useState<Course | null>(null);
@@ -139,22 +141,22 @@ export default function CourseDetail() {
       try {
         const list = await listCourseStudents(numericId!);
         if (!cancelled) setStudents(list);
-      } catch (e: any) {
-        const msg = e?.message || "";
+      } catch (error) {
+        const msg = readableError(error, "");
         if (msg.includes("404")) {
           try {
             // fallback: gather all then filter
             let page = 0; const size = 100; let all: Student[] = [];
             while (true) {
-              const res = await listStudents({ page, size });
-              all = all.concat(res.content);
-              if (res.last || res.content.length === 0 || page > 100) break;
+              const { content, last } = await listStudents({ page, size });
+              all = all.concat(content);
+              if (last || content.length === 0 || page > 100) break;
               page += 1;
             }
             const filtered = all.filter(s => (s.courses || []).some(c => c.id === numericId));
             if (!cancelled) setStudents(filtered);
-          } catch (e2: any) {
-            if (!cancelled) setStuError(e2?.message || "등록 학생을 불러오지 못했습니다.");
+          } catch (nestedError) {
+            if (!cancelled) setStuError(readableError(nestedError, "등록 학생을 불러오지 못했습니다."));
           }
         } else {
           if (!cancelled) setStuError(msg || "등록 학생을 불러오지 못했습니다.");
@@ -175,7 +177,7 @@ export default function CourseDetail() {
       dateLabel: `${r.recordDate} (${"일월화수목금토"[new Date(r.recordDate).getDay()]})`,
       time: formatCourseTime(course),
       type: new Date(r.recordDate) < new Date() ? '지난 수업' : '예정',
-      notes: r.notes,
+      notes: r.notes || r.content || null,
     }));
   }, [course, records]);
   function fmt(d: Date) { const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), da=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${da}`; }
@@ -197,10 +199,11 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
 }
   // removed unused setAttachments
   // unused actions removed: local-only attendance bulk/update, attachments add/remove, notes editor
-  const totalStudents = useMemo(() => (typeof course?.enrolledCount === 'number' ? course!.enrolledCount! : students.length), [course?.enrolledCount, students.length]);
-  const activeStudents = useMemo(() => students.filter(s => s.status === 'ENROLLED').length, [students]);
+  const totalStudents = useMemo(() => {
+    if (course?.enrolledCount != null) return course.enrolledCount;
+    return students.length;
+  }, [course, students.length]);
   const capacity = course?.capacity;
-  const activeRate = useMemo(() => (capacity && capacity > 0 ? Math.round((activeStudents / capacity) * 100) : null), [activeStudents, capacity]);
   const completedCount = useMemo(() => history.filter(h => h.type === '지난 수업').length, [history]);
   const progressPct = useMemo(() => {
     const total = history.length || 0;
@@ -221,6 +224,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
           )}
         </Actions>
       </Head>
+      <Crumbs>수업 관리 &gt; {course?.title || '상세'}</Crumbs>
       <ConfirmDialog
         open={confirmDeleteOpen}
         title="수업(템플릿) 삭제"
@@ -238,7 +242,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
             setConfirmDeleteOpen(false);
             navigate('/classes');
           } catch (e) {
-            alert(readableError(e, '삭제에 실패했습니다.'));
+            showError(readableError(e, '삭제에 실패했습니다.'));
           } finally {
             setConfirmBusy(false);
           }
@@ -257,14 +261,6 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
           iconAccent="indigo"
           value={<>{typeof totalStudents === 'number' ? `${totalStudents}명` : '—'}</>}
           footerLeft={<span>정원 {capacity ?? '—'}명</span>}
-        />
-        <KPI
-          title="활성 수강생"
-          icon={<UsersIcon />}
-          iconAccent="emerald"
-          value={<>{activeStudents}명</>}
-          footerLeft={activeRate != null ? <DeltaPill $tone="positive">{activeRate}%</DeltaPill> : <span>—</span>}
-          footerRight={<span>수강율</span>}
         />
         <KPI
           title="평균 출석률"
@@ -301,7 +297,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
                 <Field><Label>요일</Label><div>{info.days || '-'}</div></Field>
                 <Field><Label>시간</Label><div>{info.time || '-'}</div></Field>
                 <Field><Label>정원</Label><div>{course?.capacity ?? '-'}</div></Field>
-                <Field><Label>수강료</Label><div>{course?.fee != null ? formatMoney(course.fee as any) : '-'}</div></Field>
+                <Field><Label>수강료</Label><div>{course?.fee != null ? formatMoney(course.fee) : '-'}</div></Field>
                 <Field style={{ gridColumn: '1 / -1' }}>
                   <Label>수업 설명</Label>
                   <Desc>{course?.description || '-'}</Desc>
@@ -484,35 +480,6 @@ function buildInfo(c: Course) {
   return { days, time };
 }
 
-function buildHistory(c: Course, fromOffset = 0, toOffset = 6) {
-  // Generate limited future window (default: today..+6)
-  const start = new Date(); start.setDate(start.getDate() + fromOffset);
-  const end = new Date(); end.setDate(end.getDate() + toOffset);
-  const days = (c.recurrenceDays || '')
-    .split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
-  const mapDow: Record<'SUN'|'MON'|'TUE'|'WED'|'THU'|'FRI'|'SAT', number> = { SUN:0, MON:1, TUE:2, WED:3, THU:4, FRI:5, SAT:6 };
-  const dow: number[] = days
-    .map((d) => mapDow[d as keyof typeof mapDow])
-    .filter((n): n is number => typeof n === 'number');
-  const list: { date: Date; dateLabel: string; time: string; type: string }[] = [];
-  if (dow.length === 0) return list;
-  const time = c.startTime && c.endTime ? `${hhmm(c.startTime)} ~ ${hhmm(c.endTime)}` : (c.courseTime || '-');
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate()+1)) {
-    const day = d.getDay();
-    if (dow.includes(day)) {
-      list.push({
-        date: new Date(d),
-        dateLabel: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')} (${"일월화수목금토"[day]})`,
-        time,
-        type: d < new Date() ? '지난 수업' : '예정',
-      });
-    }
-  }
-  // sort by date ascending
-  list.sort((a,b)=>a.date.getTime()-b.date.getTime());
-  return list;
-}
-
 // styles
 const Wrap = styled.div` display:grid; gap:12px; `;
 const Head = styled.div` display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; `;
@@ -555,6 +522,7 @@ const BackBtn = styled.button`
   font-size: 13px;
 `;
 const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);
+const Crumbs = styled.div` color:#9ca3af; font-size:12px; margin-top: -6px; margin-bottom: 4px; `;
 
 // new layout styles
 const KPIGrid = styled.div` display:grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap:12px; `;
@@ -594,7 +562,19 @@ const RecordCard = styled.div` border:1px solid #e5e7eb; border-radius:12px; pad
 const RecordHead = styled.div` display:flex; align-items:center; justify-content:space-between; `;
 const BlockTitle = styled.div` font-size:12px; font-weight:800; color:#6b7280; margin-top:4px; `;
 const RecBadge = styled.span` margin-left:8px; padding:2px 6px; border-radius:999px; font-size:11px; font-weight:700; border:1px solid #e5e7eb; color:#374151; background:#f3f4f6; `;
-const ReadOnlyBox = styled.div` white-space:pre-wrap; border:1px solid #f1f5f9; border-radius:10px; padding:10px; background:#f9fafb; color:#111827; font-size:14px; `;
+const ReadOnlyBox = styled.div`
+  white-space: pre-wrap;
+  border: 1px solid #f1f5f9;
+  border-radius: 10px;
+  padding: 10px;
+  background: #f9fafb;
+  color: #111827;
+  font-size: 14px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* show 2 lines */
+  -webkit-box-orient: vertical;
+`;
 const AttachList = styled.div` display:grid; gap:6px; margin-top:6px; `;
 const AttachRow = styled.div` display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border:1px solid #f1f5f9; border-radius:8px; `;
 // removed unused SmallBtn/Hint styles

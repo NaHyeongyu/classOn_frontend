@@ -3,6 +3,7 @@ import type { CalendarEvent } from "../../types/calendar";
 import type { ClassItem } from "../../types/calendarDetail";
 import { formatYMD } from "./dateUtils";
 import { getClassesRange } from "../../api/calendar";
+import { peekCache } from "../../lib/fetcher";
 
 function hhmm(t?: string) {
   if (!t) return "";
@@ -66,10 +67,31 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
 
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     async function loadRange() {
-      setLoading(true); setError(null);
+      setError(null);
+      // Seed from cache for instant UI, then revalidate in background
       try {
-        const rows = await getClassesRange(range.from, range.to) as RangeRow[];
+        const sp = new URLSearchParams({ from: range.from, to: range.to });
+        const key = `/api/calendar/classes-range?${sp.toString()}`;
+        const cached = peekCache<RangeRow[]>(key);
+        if (cached.data && !cancelled) {
+          const grouped: Record<string, ClassItem[]> = {};
+          for (const r of cached.data) {
+            const ymd = r.recordDate;
+            if (!grouped[ymd]) grouped[ymd] = [];
+            grouped[ymd].push(toClassItemFromDto(r));
+          }
+          setByYmd(grouped);
+          setLoading(false);
+        } else {
+          setLoading(true);
+        }
+      } catch {
+        setLoading(true);
+      }
+      try {
+        const rows = await getClassesRange(range.from, range.to, { signal: controller.signal }) as RangeRow[];
         if (cancelled) return;
         const grouped: Record<string, ClassItem[]> = {};
         for (const r of (rows || [])) {
@@ -83,7 +105,7 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
       } finally { if (!cancelled) setLoading(false); }
     }
     void loadRange();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; controller.abort(); };
   }, [range.from, range.to]);
 
   const classesForDate = useCallback((d: Date): ClassItem[] => {

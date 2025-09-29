@@ -6,13 +6,14 @@ import {
   GhostBtn as UIGhostBtn,
   PrimaryBtn as UIPrimaryBtn,
   SmallBtn as UISmallBtn,
-  buttonVariants,
-} from "../components/common/UI";
-import ConfirmDialog from "../components/common/ConfirmDialog";
-import { listCounsels, createCounsel, updateCounsel, deleteCounsel, type Counsel } from "../api/counsels";
-import { getStudent, getStudentAttendance, type Student, type StudentAttendance } from "../api/students";
+} from "@/components/common/UI";
+import BackButton from "@/components/common/BackButton";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { listCounsels, createCounsel, updateCounsel, deleteCounsel, type Counsel } from "@/api/counsels";
+import { getStudent, getStudentAttendance, type Student, type StudentAttendance } from "@/api/students";
 // formatMoney 사용 제거됨 (MVP)
-import { formatPhone } from "../lib/format";
+import { formatPhone } from "@/lib/format";
+import { useToast } from "@/components/common/Toast";
 
 type TabKey = "courses" | "attendance" | "counsels";
 
@@ -53,6 +54,7 @@ export default function StudentDetail() {
   const [editWhen, setEditWhen] = useState<string>("");
   const [editContent, setEditContent] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const { error: showError } = useToast();
   const intlAge = useMemo(() => {
     if (!student?.birthDate) return undefined;
     const [y, m, d] = student.birthDate.split("-").map(Number);
@@ -256,9 +258,10 @@ export default function StudentDetail() {
   return (
     <Page>
       <TopBar>
-        <BackBtn type="button" onClick={() => navigate("/students")}>{leftIcon} 뒤로</BackBtn>
+        <BackButton to="/students" label="뒤로" />
         <h2>원생 상세</h2>
       </TopBar>
+      <Crumbs>원생 관리 &gt; {student?.name || '상세'}</Crumbs>
       {loading && (
         <Columns>
           <Left>
@@ -643,7 +646,7 @@ export default function StudentDetail() {
             setCounsels(res.content || []);
             setConfirmCounselId(null);
           } catch (e: any) {
-            alert(e?.message || '삭제에 실패했습니다.');
+            showError(e?.message || '삭제에 실패했습니다.');
           } finally {
             setConfirmCounselBusy(false);
           }
@@ -665,13 +668,10 @@ const TopBar = styled.div`
   display: flex; align-items: center; gap: 10px;
   h2 { margin: 0; font-size: 20px; color: #0f172a; }
 `;
-const BackBtn = styled.button`
-  ${buttonVariants.outline};
-  height: 36px;
-  padding: 0 14px;
-  font-weight: 600;
-  font-size: 13px;
+const Crumbs = styled.div`
+  color: #9ca3af; font-size: 12px; margin-top: -6px; margin-bottom: 4px;
 `;
+// Back button unified via shared component
 const Columns = styled.div`
   display: grid; grid-template-columns: 360px 1fr; gap: 14px; align-items: start;
   @media (max-width: 1200px) { grid-template-columns: 1fr; }
@@ -697,12 +697,6 @@ const CardActions = styled.div`
 `;
 const Divider = styled.div`
   height: 1px; background: #e5e7eb; margin: 6px 0 10px;
-`;
-const Notice = styled.div`
-  color:#065f46; background:#ecfdf5; border:1px solid #a7f3d0; padding:8px 10px; border-radius:10px; margin-bottom:8px;
-`;
-const Bar = styled.div`
-  display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
 `;
 const InfoList = styled.div`
   display: grid; gap: 14px;
@@ -874,11 +868,7 @@ const SkeletonRow = styled.div`
 const SkeletonChip = styled(SkeletonBase).attrs({ w: 80, h: 24 })``;
 const SkField = styled(SkeletonBase).attrs({ h: 16, mt: 10 })``;
 
-const leftIcon = (
-  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <polyline points="15 18 9 12 15 6" />
-  </svg>
-);
+// Arrow icon resides in BackButton
 
 function two(n: number) { return String(n).padStart(2, '0'); }
 function formatDate(iso: string) {

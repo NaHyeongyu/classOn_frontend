@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { DashboardPanel } from "./DashboardLayout";
 import { getAttendanceToday, type RecentAttendance } from "../../api/dashboard";
+import { EmptyPlaceholder } from "../common/EmptyPlaceholder";
 
 export default function DashboardAttendance() {
+  const navigate = useNavigate();
   const [rows, setRows] = useState<RecentAttendance[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +38,13 @@ export default function DashboardAttendance() {
       </Head>
       <List>
         {rows.length === 0 && !loading && (
-          <Empty>오늘 출석 처리된 학생이 없습니다.</Empty>
+          <EmptyPlaceholder
+            title="오늘 등록된 출석 기록이 없습니다."
+            description="수업 상세에서 출석을 체크하면 이곳에서 바로 확인할 수 있어요."
+            actionLabel="출석 입력하러 가기"
+            onAction={() => navigate('/calendar')}
+            actionVariant="outline"
+          />
         )}
         {rows.map(r => (
           <Item key={r.id}>
@@ -79,4 +88,3 @@ const Source = styled.span`
   &[data-type='MANUAL'] { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
 `;
 const Time = styled.span` color:#6b7280; font-size:12px; `;
-const Empty = styled.div` color:#6b7280; font-size:13px; text-align:center; border:1px dashed #e5e7eb; border-radius:10px; padding:12px; background:#fafafa; `;

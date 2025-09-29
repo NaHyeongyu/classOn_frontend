@@ -30,6 +30,7 @@ export default function DashboardClasses() {
     return () => { cancelled = true; clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
+
   function numOr(...vals: any[]): number { for (const v of vals) { if (typeof v === 'number' && Number.isFinite(v)) return v; } return 0; }
   const items: ClassItem[] = rows.map((r: any) => {
     const s = r.startTime ?? r.start_at ?? r.startAt ?? r.start ?? null;
@@ -37,6 +38,7 @@ export default function DashboardClasses() {
     const present = numOr(r.attPresent, r.presentCount, r.attendancePresent, r?.attendance?.present);
     const absent = numOr(r.attAbsent, r.absentCount, r.attendanceAbsent, r?.attendance?.absent);
     const unprocessed = numOr(r.attUnprocessed);
+    const recId = r.recordId || r.id;
     return {
       subject: r.courseTitle || '수업',
       time: formatTimeRange(s, e),
@@ -46,8 +48,8 @@ export default function DashboardClasses() {
       done: false,
       courseId: r.courseId || undefined,
       date: r.recordDate || r.date,
-      recordId: r.recordId || r.id,
-      notes: r.topic || r.notes || r.content || null,
+      recordId: recId,
+      notes: r.notes || r.content || r.topic || null,
       attPresent: present,
       attAbsent: absent,
       attUnprocessed: unprocessed,
@@ -62,7 +64,7 @@ export default function DashboardClasses() {
           actionLabel="더보기"
           onAdd={() => navigate(`/calendar/${formatYMD(new Date())}`)}
           titleMode="subject"
-          showNotes={false}
+          showNotes={true}
         />
         {error && <Err>{error}</Err>}
       </div>

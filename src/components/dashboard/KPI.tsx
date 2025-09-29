@@ -149,7 +149,7 @@ export const KPICard = styled.article`
   --kpi-card-height: 140px;
   height: var(--kpi-card-height);
   min-height: var(--kpi-card-height);
-  grid-column: span 3; /* default for 12-col dashboards; page rows can override */
+  grid-column: span 4; /* 3-up layout on 12-col dashboard */
   border-radius: ${(p) => p.theme.radii.xl};
   border: 1px solid ${(p) => p.theme.colors.border};
   background: ${(p) => p.theme.colors.surface};

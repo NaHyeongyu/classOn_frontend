@@ -20,19 +20,28 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
   return (
     <Backdrop onClick={busy ? undefined : onCancel}>
       <Card role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc" onClick={(e) => e.stopPropagation()}>
-        <Head>
-          {tone === 'danger' ? <DangerIcon aria-hidden /> : <InfoIcon aria-hidden />}
+        <IconWrap data-tone={tone} aria-hidden>
+          {tone === 'danger' ? DangerGlyph : InfoGlyph}
+        </IconWrap>
+        <Content>
           <Title id="confirm-title">{title}</Title>
-        </Head>
-        {message && <Msg id="confirm-desc">{message}</Msg>}
+          {message ? <Msg id="confirm-desc">{message}</Msg> : null}
+        </Content>
         <Btns>
-          {!hideCancel && <Btn type="button" onClick={onCancel} disabled={busy}>{cancelLabel}</Btn>}
-          <Btn
+          {!hideCancel && (
+            <Action type="button" data-role="cancel" onClick={onCancel} disabled={busy}>
+              {cancelLabel}
+            </Action>
+          )}
+          <Action
             type="button"
-            data-variant={tone}
+            data-role="confirm"
+            data-tone={tone}
             onClick={onConfirm}
             disabled={busy}
-          >{busy ? '진행 중…' : confirmLabel}</Btn>
+          >
+            {busy ? '진행 중…' : confirmLabel}
+          </Action>
         </Btns>
       </Card>
     </Backdrop>
@@ -40,58 +49,91 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
 }
 
 const Backdrop = styled.div`
-  position: fixed; inset: 0; background: rgba(0,0,0,0.35); display:grid; place-items:center; z-index: 1000;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(3px);
+  display: grid;
+  place-items: center;
+  z-index: 1200;
 `;
+
 const Card = styled.div`
-  width: 520px; max-width: calc(100% - 32px);
-  background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+  width: min(480px, calc(100% - 32px));
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.22);
+  padding: 24px 26px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
 `;
-const Head = styled.div`
-  display:flex; align-items:center; gap:10px; margin-bottom:8px;
+
+const IconWrap = styled.span<{ 'data-tone': Props['tone'] }>`
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: ${({ 'data-tone': tone }) =>
+    tone === 'danger' ? '#fee2e2' : '#e0f2fe'};
+  color: ${({ 'data-tone': tone }) =>
+    tone === 'danger' ? '#b91c1c' : '#2563eb'};
+  font-size: 20px;
 `;
+
+const Content = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+
 const Title = styled.h3`
-  margin: 0; font-size: 18px; color: #111827;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #0f172a;
 `;
+
 const Msg = styled.div`
-  color:#374151; font-size:14px; line-height: 1.5; white-space: pre-wrap; margin-top: 6px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
 `;
+
 const Btns = styled.div`
-  display:flex; justify-content:flex-end; gap:8px; margin-top: 14px;
+  grid-column: 1 / -1;
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 `;
-const Btn = styled.button`
+
+const Action = styled.button`
   ${buttonVariants.outline};
   height: 40px;
   padding: 0 18px;
   font-size: 14px;
   font-weight: 600;
-  &[disabled]{ opacity: .65; cursor: default; }
-  &[data-variant='danger']{
-    background:#fee2e2;
-    color:#7f1d1d;
-    border-color:#fecaca;
+  &[disabled] {
+    opacity: 0.65;
+    cursor: default;
+  }
+  &[data-role='confirm'] {
+    ${buttonVariants.primary};
+  }
+  &[data-role='confirm'][data-tone='danger'] {
+    background: #ef4444;
+    border-color: #dc2626;
+    &:hover:not(:disabled) {
+      background: #dc2626;
+    }
+    &:active:not(:disabled) {
+      background: #b91c1c;
+    }
   }
 `;
 
-const DangerIcon = () => (
-  <IconBox data-variant="danger">
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-      <line x1="12" y1="9" x2="12" y2="13" />
-      <line x1="12" y1="17" x2="12.01" y2="17" />
-    </svg>
-  </IconBox>
-);
-const InfoIcon = () => (
-  <IconBox>
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="16" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12.01" y2="8" />
-    </svg>
-  </IconBox>
-);
-
-const IconBox = styled.span`
-  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: #f3f4f6; color:#2563eb;
-  &[data-variant='danger']{ background:#fee2e2; color:#b91c1c; }
-`;
+const DangerGlyph = '⚠️';
+const InfoGlyph = 'ℹ️';

@@ -1,25 +1,27 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import {
   SectionCard as Section,
   TitleH3 as Title,
   GhostBtn as UIGhostBtn,
-  GhostBtnSmall as UIGhostBtnSmall,
   GhostButton as UIGhostButton,
   SmallBtn as UISmallBtn,
   buttonVariants,
 } from "../components/common/UI";
-import ConfirmDialog from "../components/common/ConfirmDialog";
-import { KPI, UsersIcon, CheckIcon, ClassIcon, DeltaPill } from "../components/dashboard/KPI";
-import { getCourse, type Course, type CourseRecord, listCourseRecords, listCourseStudents, updateCourseRecord, createCourseRecord, listRecordAttendance, upsertAttendance, listRecordAttachments, uploadRecordAttachments, deleteRecordAttachment, deleteCourseRecord, type Attachment, type Attendance } from "../api/courses";
-import { invalidateCacheByPrefix } from "../lib/fetcher";
-import type { Student } from "../api/students";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { KPI, UsersIcon, CheckIcon, ClassIcon, DeltaPill } from "@/components/dashboard/KPI";
+import { useToast } from "@/components/common/Toast";
+import { getCourse, type Course, type CourseRecord, listCourseRecords, listCourseStudents, updateCourseRecord, createCourseRecord, listRecordAttendance, upsertAttendance, listRecordAttachments, uploadRecordAttachments, deleteRecordAttachment, deleteCourseRecord, type Attachment, type Attendance, downloadRecordAttachmentBlob } from "@/api/courses";
+import { invalidateCacheByPrefix } from "@/lib/fetcher";
+import type { Student } from "@/api/students";
+import { formatYMD } from "@/features/calendar/dateUtils";
 // KPIs removed from this view for a simpler layout
 
 export default function CourseRecordDetail() {
   const navigate = useNavigate();
   const { id, recordId, ymd } = useParams();
+  const { error: showError } = useToast();
   const courseId = useMemo(() => (id ? Number(id) : null), [id]);
   const recId = useMemo(() => (recordId ? Number(recordId) : null), [recordId]);
 
@@ -51,42 +53,54 @@ export default function CourseRecordDetail() {
   const [filesError, setFilesError] = useState<string | null>(null);
   const [contentValue, setContentValue] = useState<string>('');
   const [fileBusy, setFileBusy] = useState<Record<number, boolean>>({});
+  const [thumbUrl, setThumbUrl] = useState<Record<number, string>>({});
+  const [previewBusy, setPreviewBusy] = useState<Record<number, boolean>>({});
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmBusy, setConfirmBusy] = useState(false);
   // file size limit (MB)
-  const MAX_FILE_SIZE_MB = 10;
+  // Match server max (4MB per file in CourseRecordService)
+  const MAX_FILE_SIZE_MB = 4;
   const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+  const ALLOWED_MIME = new Set(['image/jpeg','image/png','image/webp','application/pdf']);
   // Right column shows attendance; content/files move to left below info
 
   useEffect(() => {
     if (!courseId) return;
     let cancelled = false;
     async function load() {
-      setLoading(true); setError(null);
+      setLoading(true);
+      setError(null);
       try {
-        const [c, recs, studs] = await Promise.all([
-          getCourse(courseId!),
-          listCourseRecords(courseId!),
-          listCourseStudents(courseId!)
+        const [courseData, recordsData, studentsData] = await Promise.all([
+          getCourse(courseId),
+          listCourseRecords(courseId),
+          listCourseStudents(courseId),
         ]);
         if (!cancelled) {
-          setCourse(c);
-          const byId = recs.find(r => r.id === recId || r.id === Number(ymd)) || null;
-          const byDate = ymd ? (recs.find(r => r.recordDate === ymd) || null) : null;
-          setRecord(byId || byDate || null);
-          setStudents(studs);
+          setCourse(courseData);
+          const foundById = recordsData.find((r) => r.id === recId) || null;
+          const foundByDate = ymd
+            ? recordsData.find((r) => r.recordDate === ymd) || null
+            : null;
+          setRecord(foundById ?? foundByDate ?? null);
+          setStudents(studentsData);
         }
-      } catch (e) {
-        if (!cancelled) setError(readableError(e, "수업 내역을 불러오지 못했습니다."));
-      } finally { if (!cancelled) setLoading(false); }
+      } catch (error) {
+        if (!cancelled) {
+          setError(readableError(error, "수업 내역을 불러오지 못했습니다."));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
     void load();
-    return () => { cancelled = true; };
-  }, [courseId, recId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, recId, ymd]);
 
   // initialize editable date/time when record loads
   useEffect(() => {
-    if (!record && !course) return;
     const d = record?.recordDate || ymd || "";
     const s = record?.startTime || course?.startTime || "";
     const e = record?.endTime || course?.endTime || "";
@@ -107,17 +121,23 @@ export default function CourseRecordDetail() {
   }, [record?.content]);
 
   // Attendance local storage (unified with CourseDetail)
-  function getLocalAttendanceKey() {
+  const getLocalAttendanceKey = useCallback(() => {
     if (!courseId) return `attendance::`;
     if (recId) return `attendance:${courseId}:${recId}`;
     if (ymd) return `attendanceDate:${courseId}:${ymd}`;
     return `attendance:${courseId}:`;
-  }
+  }, [courseId, recId, ymd]);
+
   const localAttMap = useMemo(() => {
     if (!courseId) return {} as Record<string, boolean>;
     const key = getLocalAttendanceKey();
-    try { return JSON.parse(localStorage.getItem(key) || '{}') as Record<string, boolean>; } catch { return {}; }
-  }, [courseId, recId, ymd, attVersion]);
+    void attVersion;
+    try {
+      return JSON.parse(localStorage.getItem(key) || '{}') as Record<string, boolean>;
+    } catch {
+      return {};
+    }
+  }, [courseId, getLocalAttendanceKey, attVersion]);
   const presentMap = useMemo(() => {
     // Prefer server map when record exists; fallback to local when not available
     if (record?.id) return attMap;
@@ -128,15 +148,24 @@ export default function CourseRecordDetail() {
     const key = getLocalAttendanceKey();
     const map: Record<string, boolean> = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}') as Record<string, boolean>; } catch { return {}; } })();
     map[String(studentId)] = present;
-    try { localStorage.setItem(key, JSON.stringify(map)); } catch {}
+    try {
+      localStorage.setItem(key, JSON.stringify(map));
+    } catch {
+      // ignore quota errors
+    }
     setAttVersion(v => v + 1);
+    emitCalendarClassesRefresh();
   }
   function clearAttendanceLocal(studentId: number) {
     if (!courseId) return;
     const key = getLocalAttendanceKey();
     const map: Record<string, boolean> = (() => { try { return JSON.parse(localStorage.getItem(key) || '{}') as Record<string, boolean>; } catch { return {}; } })();
     if (Object.prototype.hasOwnProperty.call(map, String(studentId))) delete map[String(studentId)];
-    try { localStorage.setItem(key, JSON.stringify(map)); } catch {}
+    try {
+      localStorage.setItem(key, JSON.stringify(map));
+    } catch {
+      // ignore quota errors
+    }
     setAttVersion(v => v + 1);
   }
   const presentCount = useMemo(() => Object.values(presentMap).filter(Boolean).length, [presentMap]);
@@ -151,6 +180,13 @@ export default function CourseRecordDetail() {
   const attendanceRate = useMemo(() => denom ? Math.round((presentCount / denom) * 100) : null, [presentCount, denom]);
   const durationMin = useMemo(() => getDurationMinutes(record?.startTime || course?.startTime, record?.endTime || course?.endTime), [record?.startTime, record?.endTime, course?.startTime, course?.endTime]);
   // participation metrics removed
+
+  function emitCalendarClassesRefresh(target?: string) {
+    const payload = target || record?.recordDate || ymd || formatYMD(new Date());
+    window.dispatchEvent(
+      new CustomEvent("calendar:classes-refresh", { detail: { ymd: payload } })
+    );
+  }
 
   const whenInfo = useMemo(() => {
     const rawDate = record?.recordDate || ymd || '';
@@ -186,13 +222,13 @@ export default function CourseRecordDetail() {
           setAttNoteMap(notes);
           setAttStudentNames(names);
         }
-      } catch (e) {
-        if (!cancelled) setAttError(readableError(e, '출석 정보를 불러오지 못했습니다.'));
+      } catch (error) {
+        if (!cancelled) setAttError(readableError(error, '출석 정보를 불러오지 못했습니다.'));
       } finally { if (!cancelled) setAttLoading(false); }
     }
     void loadAttendance();
     return () => { cancelled = true; };
-  }, [courseId, record?.id]);
+  }, [courseId, record]);
 
   async function confirmAndSetAttendance(studentId: number, target: boolean) {
     const sName = students.find(s => s.id === studentId)?.name || '학생';
@@ -208,8 +244,9 @@ export default function CourseRecordDetail() {
         setAttMap(m => ({ ...m, [studentId]: target }));
         // Invalidate dashboard classes/summary caches to reflect latest attendance
         invalidateCacheByPrefix(['/api/calendar/classes', '/api/dashboard/summary']);
-      } catch (e) {
-        alert(readableError(e, '출석 처리에 실패했습니다.'));
+        emitCalendarClassesRefresh(record?.recordDate ?? ymd ?? undefined);
+      } catch (error) {
+        showError(readableError(error, '출석 처리에 실패했습니다.'));
       } finally {
         setAttSavingMap(m => ({ ...m, [studentId]: false }));
       }
@@ -223,9 +260,13 @@ export default function CourseRecordDetail() {
   useEffect(() => {
     if (!courseId || record?.id) return;
     const key = getLocalAttendanceKey().replace('attendance', 'attendanceNote');
-    try { const parsed = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, string>; setAttNoteMap(parsed || {}); } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [courseId, recId, ymd]);
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) || '{}') as Record<string, string>;
+      setAttNoteMap(parsed || {});
+    } catch {
+      // ignore localStorage errors
+    }
+  }, [courseId, record?.id, getLocalAttendanceKey]);
 
   useEffect(() => {
     if (contentFeedback !== 'success') return;
@@ -234,18 +275,22 @@ export default function CourseRecordDetail() {
   }, [contentFeedback]);
 
   // Attachments helpers: server if record exists; otherwise local fallback keyed by date
-  function localAttachKey() {
+  const localAttachKey = useCallback(() => {
     if (!courseId) return `attachments::`;
     if (recId) return `attachments:${courseId}:${recId}`;
     if (ymd) return `attachmentsDate:${courseId}:${ymd}`;
     return `attachments:${courseId}:`;
-  }
-  function getLocalAttachments(): { name: string; size: number }[] {
+  }, [courseId, recId, ymd]);
+  const getLocalAttachments = useCallback((): { name: string; size: number }[] => {
     try { return JSON.parse(localStorage.getItem(localAttachKey()) || '[]'); } catch { return []; }
-  }
-  function setLocalAttachments(list: { name: string; size: number }[]) {
-    try { localStorage.setItem(localAttachKey(), JSON.stringify(list)); } catch {}
-  }
+  }, [localAttachKey]);
+  const setLocalAttachments = useCallback((list: { name: string; size: number }[]) => {
+    try {
+      localStorage.setItem(localAttachKey(), JSON.stringify(list));
+    } catch {
+      // ignore quota errors
+    }
+  }, [localAttachKey]);
   function toAttachmentRows(list: { name: string; size: number }[]): Attachment[] {
     const now = new Date().toISOString();
     return list.map((item, idx) => ({
@@ -264,42 +309,112 @@ export default function CourseRecordDetail() {
         setFilesLoading(true);
         try {
           const list = await listRecordAttachments(courseId!, record!.id);
-          if (!cancelled) setFiles(list);
-        } catch (e: any) {
-          if (!cancelled) setFilesError(e?.message || '첨부를 불러오지 못했습니다.');
-        } finally { if (!cancelled) setFilesLoading(false); }
-      } else {
-        // local fallback
-        const local = getLocalAttachments();
-        setFiles(local.map((x, i) => ({ id: i, filename: x.name, size: x.size, createdAt: new Date().toISOString() } as any)));
-      }
+          if (!cancelled) {
+            setFiles(list);
+            // Preload thumbnails for images (best-effort)
+            void preloadThumbs(list);
+          }
+      } catch (error) {
+        if (!cancelled) setFilesError(readableError(error, '첨부를 불러오지 못했습니다.'));
+      } finally { if (!cancelled) setFilesLoading(false); }
+    } else {
+      // local fallback
+      const local = getLocalAttachments();
+      const now = new Date().toISOString();
+      const mapped: Attachment[] = local.map((x, i) => ({
+        id: -1 - i,
+        filename: x.name,
+        size: x.size,
+        createdAt: now,
+      }));
+      setFiles(mapped);
     }
-    void loadFiles();
-    return () => { cancelled = true; };
-  }, [courseId, record?.id, recId, ymd]);
+  }
+  void loadFiles();
+  return () => { cancelled = true; };
+  }, [courseId, record, recId, ymd, getLocalAttachments]);
   async function onUpload(filesList: FileList | null) {
     if (!filesList) return;
     // enforce size limit
     const all = Array.from(filesList);
-    const accepted = all.filter(f => f.size <= MAX_FILE_SIZE);
-    const rejected = all.filter(f => f.size > MAX_FILE_SIZE);
-    if (rejected.length > 0) {
-      setFilesError(`용량 제한(${MAX_FILE_SIZE_MB}MB)을 초과한 파일 제외: ${rejected.map(f => f.name).join(', ')}`);
+    const sized = all.filter(f => f.size <= MAX_FILE_SIZE);
+    const rejectedSize = all.filter(f => f.size > MAX_FILE_SIZE);
+    // enforce mime type allowlist
+    const accepted = sized.filter(f => !f.type || ALLOWED_MIME.has(f.type));
+    const rejectedType = sized.filter(f => f.type && !ALLOWED_MIME.has(f.type));
+    if (rejectedSize.length > 0) {
+      setFilesError(`용량 제한(${MAX_FILE_SIZE_MB}MB)을 초과한 파일 제외: ${rejectedSize.map(f => f.name).join(', ')}`);
     } else {
       setFilesError(null);
+    }
+    if (rejectedType.length > 0) {
+      setFilesError(prev => [prev, `허용되지 않는 형식 제외: ${rejectedType.map(f => f.name).join(', ')}`].filter(Boolean).join(' / '));
     }
     if (accepted.length === 0) return;
     if (courseId && record?.id) {
       try {
-        const uploaded = await uploadRecordAttachments(courseId!, record!.id, accepted);
+        const MAX_FILES = 5;
+        const send = accepted.slice(0, MAX_FILES);
+        const omitted = accepted.length - send.length;
+        if (omitted > 0) {
+          setFilesError(prev => [prev, `최대 ${MAX_FILES}개까지만 업로드됩니다 (추가 ${omitted}개 제외)`].filter(Boolean).join(' / '));
+        }
+        const uploaded = await uploadRecordAttachments(courseId!, record!.id, send);
         setFiles(prev => [...uploaded, ...prev]);
-      } catch (e) { alert(readableError(e, '업로드에 실패했습니다.')); }
+        // Preload thumbnails for any new images
+        void preloadThumbs(uploaded);
+      } catch (error) {
+        showError(readableError(error, '업로드에 실패했습니다.'));
+      }
     } else {
       // local
       const prev = getLocalAttachments();
       const next = [...prev, ...accepted.map(f => ({ name: f.name, size: f.size }))];
       setLocalAttachments(next);
       setFiles(toAttachmentRows(next));
+    }
+  }
+  async function preloadThumbs(list: Attachment[]) {
+    // Only for images; best-effort with small concurrency
+    const imgs = list.filter(f => (f.contentType || '').startsWith('image/'));
+    const limit = 3;
+    let idx = 0;
+    const run = async () => {
+      while (idx < imgs.length) {
+        const cur = imgs[idx++];
+        if (thumbUrl[cur.id]) continue; // already loaded
+        try {
+          setPreviewBusy(m => ({ ...m, [cur.id]: true }));
+          const blob = await downloadRecordAttachmentBlob(courseId!, record!.id, cur.id);
+          const url = URL.createObjectURL(blob);
+          setThumbUrl(m => ({ ...m, [cur.id]: url }));
+        } catch {
+          // ignore preview failures
+        } finally {
+          setPreviewBusy(m => ({ ...m, [cur.id]: false }));
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(limit, imgs.length) }, () => run()));
+  }
+  useEffect(() => {
+    return () => {
+      // Revoke object URLs on unmount
+      Object.values(thumbUrl).forEach(u => { try { URL.revokeObjectURL(u); } catch {} });
+    };
+  }, []);
+  async function openAttachment(f: Attachment) {
+    if (!courseId || !record?.id) return;
+    try {
+      setPreviewBusy(m => ({ ...m, [f.id]: true }));
+      const blob = await downloadRecordAttachmentBlob(courseId!, record!.id, f.id);
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank', 'noopener');
+      // No revoke immediately; let the new tab own the URL lifetime
+    } catch (err) {
+      showError(readableError(err, '파일을 열 수 없습니다.'));
+    } finally {
+      setPreviewBusy(m => ({ ...m, [f.id]: false }));
     }
   }
   async function onDeleteFile(fileId: number, name?: string) {
@@ -310,8 +425,11 @@ export default function CourseRecordDetail() {
       try {
         await deleteRecordAttachment(courseId!, record!.id, fileId);
         setFiles(prev => prev.filter(f => f.id !== fileId));
-      } catch (e) { alert(readableError(e, '삭제에 실패했습니다.')); }
-      finally { setFileBusy(m => ({ ...m, [fileId]: false })); }
+      } catch (error) {
+        showError(readableError(error, '삭제에 실패했습니다.'));
+      } finally {
+        setFileBusy(m => ({ ...m, [fileId]: false }));
+      }
     } else {
       const prev = getLocalAttachments();
       const next = prev.filter(x => x.name !== name);
@@ -332,8 +450,8 @@ export default function CourseRecordDetail() {
       invalidateCacheByPrefix('/api/calendar/classes');
       invalidateCacheByPrefix('/api/calendar/classes-range');
       if (key === 'content') setContentFeedback('success');
-    } catch (e) {
-      alert(readableError(e, '저장에 실패했습니다.'));
+    } catch (error) {
+      showError(readableError(error, '저장에 실패했습니다.'));
     } finally {
       setSaving(s => ({ ...s, [key]: false }));
     }
@@ -365,8 +483,8 @@ export default function CourseRecordDetail() {
       // New record may appear in dashboard classes
       invalidateCacheByPrefix('/api/calendar/classes');
       invalidateCacheByPrefix('/api/calendar/classes-range');
-    } catch (e) {
-      const msg = readableError(e, '');
+    } catch (error) {
+      const msg = readableError(error, '');
       if (msg.includes('HTTP 409')) setWhenError('이미 등록된 수업이 있습니다.');
       else setWhenError('기록 생성에 실패했습니다.');
     } finally {
@@ -407,12 +525,12 @@ export default function CourseRecordDetail() {
           if (!courseId || !record?.id) return;
           setConfirmBusy(true);
           try {
-            await deleteCourseRecord(courseId!, record!.id);
+            await deleteCourseRecord(courseId, record.id);
             invalidateCacheByPrefix('/api/calendar/classes');
             setConfirmDeleteOpen(false);
             navigate(`/classes/${courseId}/history`);
-          } catch (e: any) {
-            alert(e?.message || '삭제에 실패했습니다.');
+          } catch (error) {
+            showError(readableError(error, '삭제에 실패했습니다.'));
           } finally {
             setConfirmBusy(false);
           }
@@ -426,7 +544,6 @@ export default function CourseRecordDetail() {
         <KPI title="참석" icon={<UsersIcon />} iconAccent="indigo" value={<>{presentCount}명</>} footerLeft={<span>총 {denom}명</span>} />
         <KPI title="출석률" icon={<CheckIcon />} iconAccent="green" value={<>{attendanceRate != null ? `${attendanceRate}%` : '—'}</>} footerLeft={<DeltaPill $tone={attendanceRate != null && attendanceRate >= 75 ? 'positive' : attendanceRate != null && attendanceRate < 50 ? 'negative' : 'neutral'}>{attendanceRate != null ? `${attendanceRate}%` : '—'}</DeltaPill>} />
         <KPI title="수업 시간" icon={<ClassIcon />} iconAccent="violet" value={<>{durationMin != null ? `${durationMin}분` : '—'}</>} footerLeft={<span>{formatRange(record?.startTime || course?.startTime, record?.endTime || course?.endTime) || '-'}</span>} />
-        <KPI title="일자" icon={<ClassIcon />} iconAccent="emerald" value={<>{record?.recordDate || ymd || '—'}</>} />
       </KPIGrid>
 
       
@@ -525,28 +642,45 @@ export default function CourseRecordDetail() {
               <Title>수업 파일</Title>
               <label style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
                 <SmallBtn as="span">파일 추가</SmallBtn>
-                <input type="file" multiple style={{ display:'none' }} onChange={(e) => onUpload(e.currentTarget.files)} />
+                <input type="file" accept="image/*,application/pdf" multiple style={{ display:'none' }} onChange={(e) => onUpload(e.currentTarget.files)} />
               </label>
             </SectionHeader>
             {filesError && <AlertError>{filesError}</AlertError>}
             {filesLoading && <Muted>불러오는 중...</Muted>}
-            <AttachList>
             {files.length === 0 ? (
-                <SmallMuted>첨부 없음</SmallMuted>
-              ) : (
-                files.map((f) => (
-                  <AttachRow key={f.id}>
-                    <div style={{ display:'flex', alignItems:'center', gap: 8 }}>
-                      <span>{f.filename}</span>
-                      <SmallMuted>({Math.round(f.size / 1024)} KB)</SmallMuted>
-                    </div>
-                    <SmallBtn data-variant='danger' disabled={!!fileBusy[f.id]} onClick={() => void onDeleteFile(f.id, f.filename)}>삭제</SmallBtn>
-                  </AttachRow>
-                ))
-              )}
-            </AttachList>
+              <AttachEmpty>첨부 없음</AttachEmpty>
+            ) : (
+              <AttachGrid>
+                {files.map((f) => {
+                  const isImg = (f.contentType || '').startsWith('image/');
+                  const isPdf = (f.contentType || '') === 'application/pdf' || /\.pdf$/i.test(f.filename);
+                  const url = thumbUrl[f.id];
+                  return (
+                    <AttachCard key={f.id}>
+                      <ThumbArea>
+                        {isImg ? (
+                          url ? <ThumbImg src={url} alt={f.filename} /> : <ThumbPlaceholder>이미지</ThumbPlaceholder>
+                        ) : isPdf ? (
+                          <ThumbPlaceholder>PDF</ThumbPlaceholder>
+                        ) : (
+                          <ThumbPlaceholder>FILE</ThumbPlaceholder>
+                        )}
+                      </ThumbArea>
+                      <AttachMeta title={f.filename}>
+                        <span className="name">{f.filename}</span>
+                        <span className="size">{Math.round(f.size / 1024)} KB</span>
+                      </AttachMeta>
+                      <AttachActions>
+                        <SmallBtn onClick={() => void openAttachment(f)} disabled={!!previewBusy[f.id]}>보기</SmallBtn>
+                        <SmallBtn data-variant='danger' disabled={!!fileBusy[f.id]} onClick={() => void onDeleteFile(f.id, f.filename)}>삭제</SmallBtn>
+                      </AttachActions>
+                    </AttachCard>
+                  );
+                })}
+              </AttachGrid>
+            )}
             {!record?.id && <Hint>서버 기록이 없어 로컬에만 저장됩니다.</Hint>}
-            <Hint>파일 크기 제한: 최대 {MAX_FILE_SIZE_MB}MB</Hint>
+            <Hint>파일 크기 제한: 최대 {MAX_FILE_SIZE_MB}MB (이미지/PDF만 허용)</Hint>
           </Section>
 
         </Left>
@@ -597,7 +731,9 @@ export default function CourseRecordDetail() {
                                 const obj = JSON.parse(localStorage.getItem(key) || '{}');
                                 obj[String(s.id)] = v;
                                 localStorage.setItem(key, JSON.stringify(obj));
-                              } catch {}
+                              } catch {
+                                // ignore local persistence failure
+                              }
                             }
                             // Auto-save to server (debounced) when server record exists and this student already has an attendance row
                             if (!s.isExtra && courseId && record?.id && has) {
@@ -789,6 +925,33 @@ const Processed = styled.span`
 const TextArea = styled.textarea` width:100%; border:1px solid #e5e7eb; border-radius:10px; padding:8px 10px; font-size:14px; `;
 const AttachList = styled.div` display:grid; gap:6px; margin-top:6px; `;
 const AttachRow = styled.div` display:flex; align-items:center; justify-content:space-between; padding:6px 8px; border:1px solid #f1f5f9; border-radius:8px; `;
+const AttachEmpty = styled.div`
+  color: #9ca3af; font-size: 13px; padding: 12px 0;
+`;
+const AttachGrid = styled.div`
+  display: grid; gap: 12px; margin-top: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+`;
+const AttachCard = styled.div`
+  border: 1px solid #e5e7eb; border-radius: 12px; background: #fff; padding: 10px; display: grid; gap: 8px;
+`;
+const ThumbArea = styled.div`
+  height: 120px; border-radius: 8px; background: #f3f4f6; display: grid; place-items: center; overflow: hidden;
+`;
+const ThumbImg = styled.img`
+  width: 100%; height: 100%; object-fit: cover; display: block;
+`;
+const ThumbPlaceholder = styled.div`
+  color: #6b7280; font-size: 12px;
+`;
+const AttachMeta = styled.div`
+  display: flex; justify-content: space-between; align-items: center; gap: 8px;
+  .name { font-size: 12px; color: #111827; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .size { font-size: 11px; color: #9ca3af; }
+`;
+const AttachActions = styled.div`
+  display: flex; gap: 8px; justify-content: flex-end;
+`;
 const SmallBtn = styled(UISmallBtn)`
   height: 32px;
   padding: 0 12px;
@@ -812,4 +975,3 @@ const BackBtn = styled.button`
   font-size: 13px;
 `;
 const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);
- 

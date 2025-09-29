@@ -20,6 +20,7 @@ const MOCK_USER: AuthUser = {
   username: "admin@academy.com",
   email: "admin@academy.com",
   phone: "01012345678",
+  academy: { id: 1, name: "모의 학원" },
 };
 
 // EN: Username login -> { token, user }

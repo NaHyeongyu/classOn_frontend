@@ -17,11 +17,20 @@ export type RenderResponse = {
   images?: ImageIdea[];
 };
 
+// In-flight de-duplication (prevents duplicate requests under StrictMode remounts)
+const inflightRender = new Map<string, Promise<RenderResponse>>();
+
 export async function renderRecords(items: SummarizeItem[], options: RenderOptions) {
   const TIMEOUT = Number((import.meta as any).env?.VITE_RENDER_TIMEOUT_MS ?? 60000);
-  return await fetchJSON<RenderResponse>("/api/records/render", {
+  const body = { items, options, brief: options.brief ? { direction: options.brief.direction, bullets: options.brief.bullets } : undefined };
+  const key = JSON.stringify({ b: body });
+  const existing = inflightRender.get(key);
+  if (existing) return existing;
+  const p = fetchJSON<RenderResponse>("/api/records/render", {
     method: "POST",
-    body: JSON.stringify({ items, options, brief: options.brief ? { direction: options.brief.direction, bullets: options.brief.bullets } : undefined }),
+    body: JSON.stringify(body),
     timeoutMs: TIMEOUT,
-  });
+  }).finally(() => { inflightRender.delete(key); });
+  inflightRender.set(key, p);
+  return await p;
 }

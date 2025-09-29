@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { formatYMD } from "../../features/calendar/dateUtils";
 import { useTodosByDate } from "../../features/todos/useTodosByDate";
+import { EmptyPlaceholder } from "../common/EmptyPlaceholder";
 
 export default function DashboardTodos() {
   const navigate = useNavigate();
@@ -28,20 +29,21 @@ export default function DashboardTodos() {
       {loading && <Hint>불러오는 중...</Hint>}
       {error && <Error>{error}</Error>}
       {!loading && !error && (
-        <List>
-          {shortlist.map((t) => (
-            <Item key={t.id}>
-              <Dot aria-hidden />
-              <TextBox>
-                <Title title={t.title}>{t.title}</Title>
-                {t.notes && <Body title={t.notes}>{t.notes}</Body>}
-              </TextBox>
-            </Item>
-          ))}
-          {shortlist.length === 0 && (
-            <Empty>오늘 등록된 할 일이 없습니다.</Empty>
-          )}
-        </List>
+        shortlist.length === 0 ? (
+          <EmptyPlaceholder title="오늘 등록된 할 일이 없습니다." />
+        ) : (
+          <List>
+            {shortlist.map((t) => (
+              <Item key={t.id}>
+                <Dot aria-hidden />
+                <TextBox>
+                  <Title title={t.title}>{t.title}</Title>
+                  {t.notes && <Body title={t.notes}>{t.notes}</Body>}
+                </TextBox>
+              </Item>
+            ))}
+          </List>
+        )
       )}
     </Wrap>
   );
@@ -106,10 +108,6 @@ const Hint = styled.div`
 `;
 const Error = styled.div`
   color: #b91c1c; font-size: 12px; font-weight: 700; margin-top: 8px;
-`;
-
-const Empty = styled.div`
-  color: #6b7280; font-size: 13px; text-align: center; border: 1px dashed #e5e7eb; border-radius: 10px; padding: 16px; background: #fafafa;
 `;
 
 const checkIcon = (

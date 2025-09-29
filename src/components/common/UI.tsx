@@ -1,12 +1,17 @@
 import styled, { css } from "styled-components";
 import { Link } from "react-router-dom";
 
-export const Page = styled.div` display:grid; gap:12px; overflow-x: hidden; `;
+export const Page = styled.div`
+  display: grid;
+  gap: ${(p) => p.theme.spacing.lg};
+  width: 100%;
+  overflow-x: hidden;
+`;
 export const SectionCard = styled.section`
-  background:${(p) => p.theme.colors.surface};
-  border:1px solid ${(p) => p.theme.colors.border};
-  border-radius:${(p) => p.theme.radii.lg};
-  padding:14px;
+  background: ${(p) => p.theme.colors.surface};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.lg};
+  padding: ${(p) => p.theme.spacing.xl};
   width: 100%;
   max-width: 100%;
   min-width: 0;
@@ -15,28 +20,72 @@ export const SectionCard = styled.section`
 `;
 
 export const TitleH3 = styled.h3`
-  margin:0 0 10px; font-size:${(p) => p.theme.font.size.lg}; color:${(p) => p.theme.colors.text};
+  margin: 0 0 ${(p) => p.theme.spacing.sm};
+  font-size: ${(p) => p.theme.font.size.lg};
+  color: ${(p) => p.theme.colors.text};
 `;
 
 // Page header used across pages (title + description + optional actions)
 export const PageHeader = styled.header`
-  display: grid; grid-template-columns: 1fr auto; gap: 12px; align-items: center; margin-bottom: 4px;
-  h2 { margin: 0; font-size: 22px; color: ${(p) => p.theme.colors.text}; letter-spacing: -0.01em; }
-  p { margin: 0; color: ${(p) => p.theme.colors.textMuted}; font-size: 13px; }
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: ${(p) => p.theme.spacing.md};
+  align-items: center;
+  margin-bottom: ${(p) => p.theme.spacing.sm};
+  h2 {
+    margin: 0;
+    font-size: 22px;
+    color: ${(p) => p.theme.colors.text};
+    letter-spacing: -0.01em;
+  }
+  p {
+    margin: 0;
+    color: ${(p) => p.theme.colors.textMuted};
+    font-size: 13px;
+  }
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    gap: ${(p) => p.theme.spacing.sm};
+  }
 `;
 
-export const Scroller = styled.div` overflow:auto; `;
+export const Scroller = styled.div`
+  overflow: auto;
+`;
 
 export const TableBase = styled.table`
-  width:100%; border-collapse:separate; border-spacing:0;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   thead th {
-    text-align:left; font-size:12px; color:${(p) => p.theme.colors.textMuted}; padding:12px 10px; border-bottom:1px solid ${(p) => p.theme.colors.border};
-    position: sticky; top: 0; background: ${(p) => p.theme.colors.surface}; z-index: 2;
+    text-align: left;
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+    padding: ${(p) => p.theme.spacing.md} ${(p) => p.theme.spacing.sm};
+    border-bottom: 1px solid ${(p) => p.theme.colors.border};
+    position: sticky;
+    top: 0;
+    background: ${(p) => p.theme.colors.surface};
+    z-index: 2;
   }
-  tbody td { padding:12px 10px; border-bottom:1px solid ${(p) => p.theme.colors.borderMuted}; font-size:14px; vertical-align:middle; color:${(p) => p.theme.colors.text}; }
-  tbody tr:hover td { background:${(p) => p.theme.colors.gray50}; }
-  tbody tr:nth-child(even) td { background:#fcfcfd; }
-  thead th.num, tbody td.num { text-align: right; }
+  tbody td {
+    padding: ${(p) => p.theme.spacing.md} ${(p) => p.theme.spacing.sm};
+    border-bottom: 1px solid ${(p) => p.theme.colors.borderMuted};
+    font-size: 14px;
+    vertical-align: middle;
+    color: ${(p) => p.theme.colors.text};
+  }
+  tbody tr:hover td {
+    background: ${(p) => p.theme.colors.gray50};
+  }
+  tbody tr:nth-child(even) td {
+    background: #fcfcfd;
+  }
+  thead th.num,
+  tbody td.num {
+    text-align: right;
+  }
 `;
 
 const buttonBase = css`
@@ -177,8 +226,16 @@ export const SmallBtn = styled.button`
 
 // Empty state pattern
 export const EmptyState = styled.div`
-  display: grid; place-items: center; gap: 6px; padding: 20px 10px; color: ${(p) => p.theme.colors.textMuted};
-  svg { width: 28px; height: 28px; opacity: 0.6; }
+  display: grid;
+  place-items: center;
+  gap: ${(p) => p.theme.spacing.sm};
+  padding: ${(p) => p.theme.spacing.xl} ${(p) => p.theme.spacing.md};
+  color: ${(p) => p.theme.colors.textMuted};
+  svg {
+    width: 28px;
+    height: 28px;
+    opacity: 0.6;
+  }
 `;
 
 // Lightweight skeleton block

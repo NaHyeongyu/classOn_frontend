@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import type { ClassItem } from "../../../types/calendarDetail";
 import { SmallBtn as UISmallBtn, buttonVariants } from "../../common/UI";
+import { EmptyPlaceholder } from "../../common/EmptyPlaceholder";
 
 type Props = {
   items?: ClassItem[] | null;
@@ -16,7 +17,7 @@ export default function ClassList({
   onAdd,
   actionLabel = "+ 수업 추가",
   titleMode = "subject",
-  showNotes = false,
+  showNotes = true,
 }: Props) {
   const navigate = useNavigate();
   const records = Array.isArray(items) ? items : [];
@@ -38,14 +39,13 @@ export default function ClassList({
       </SectionHeader>
       <Grid>
         {records.length === 0 ? (
-          <EmptyState>
-            <p>등록된 수업 내역이 없습니다.</p>
-            {canAdd && (
-              <EmptyActionBtn type="button" onClick={onAdd}>
-                {actionLabel.replace(/^\+\s*/, "")}
-              </EmptyActionBtn>
-            )}
-          </EmptyState>
+          <EmptyPlaceholder
+            title="등록된 수업 내역이 없습니다."
+            description="오늘 수업을 기록하면 출석과 수업 내용을 한 번에 관리할 수 있어요."
+            actionLabel={canAdd ? actionLabel.replace(/^\+\s*/, "") : undefined}
+            onAction={canAdd ? onAdd : undefined}
+            actionVariant="outline"
+          />
         ) : (
           records.map((c, i) => {
             const statusLabel = typeLabel(c.date, c.time);
@@ -245,28 +245,6 @@ const Grid = styled.div`
   align-items: start; /* keep item height to content */
   grid-auto-rows: max-content; /* row height equals content height */
 `;
-const EmptyState = styled.div`
-  color: ${(p) => p.theme.colors.textMuted};
-  font-size: 13px;
-  text-align: center;
-  border: 1px dashed ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.md};
-  padding: 18px 12px;
-  background: ${(p) => p.theme.colors.surfaceMuted};
-  display: grid;
-  gap: 10px;
-  justify-items: center;
-  p {
-    margin: 0;
-  }
-`;
-const EmptyActionBtn = styled.button`
-  ${buttonVariants.primary};
-  height: 40px;
-  padding: 0 18px;
-  font-size: 14px;
-  font-weight: 600;
-`;
 // Unified "수업 내역" look
 const RecordCard = styled.div`
   border: 1px solid ${(p) => p.theme.colors.border};
@@ -301,11 +279,11 @@ const StatusChip = styled.span`
   font-weight: 700;
   background: ${(p) => p.theme.colors.surfaceMuted};
   color: #4b5563;
-  &[data-variant='past'] {
+  &[data-variant="past"] {
     background: ${(p) => p.theme.colors.dangerSurface};
     color: ${(p) => p.theme.colors.danger};
   }
-  &[data-variant='upcoming'] {
+  &[data-variant="upcoming"] {
     background: ${(p) => p.theme.colors.successSurface};
     color: ${(p) => p.theme.colors.success};
   }
@@ -343,6 +321,10 @@ const ReadOnlyBox = styled.div`
   background: ${(p) => p.theme.colors.surfaceMuted};
   color: ${(p) => p.theme.colors.text};
   font-size: 14px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* show 2 lines */
+  -webkit-box-orient: vertical;
 `;
 const CountPill = styled.span`
   display: inline-flex;

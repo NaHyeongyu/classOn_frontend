@@ -81,6 +81,14 @@ export default function Register() {
     return { masked: [p1, p2, p3].filter(Boolean).join("-"), raw: digits };
   }
 
+  function normalizeMobile(input: string): string | null {
+    const digits = input.replace(/[^0-9]/g, "");
+    if (digits.length === 11 && digits.startsWith("010")) {
+      return `010-${digits.slice(3, 7)}-${digits.slice(7)}`;
+    }
+    return null;
+  }
+
   async function onNextFromStep1(e: FormEvent) {
     e.preventDefault();
     setError(null);
@@ -89,12 +97,18 @@ export default function Register() {
       setError("이메일/이름/휴대폰을 확인해 주세요.");
       return;
     }
+    const normalizedPhone = normalizeMobile(phone);
+    if (!normalizedPhone) {
+      setError("휴대폰 번호 형식이 올바르지 않습니다. 010-1234-5678 형태로 입력해 주세요.");
+      return;
+    }
     if (emailAvailable === false) {
       setError("이미 사용 중인 이메일입니다.");
       return;
     }
     try {
-      const res = await apiRequestPhoneCode(phone);
+      setPhone(normalizedPhone);
+      const res = await apiRequestPhoneCode(normalizedPhone);
       if (res.code) setDevCodeHint(res.code);
       setResendCooldown(60);
       setStep(2);
@@ -108,7 +122,12 @@ export default function Register() {
     e.preventDefault();
     setError(null);
     try {
-      const res = await apiVerifyPhoneCode(phone, code);
+      const normalizedPhone = normalizeMobile(phone);
+      if (!normalizedPhone) {
+        setError("휴대폰 번호 형식을 다시 확인해 주세요.");
+        return;
+      }
+      const res = await apiVerifyPhoneCode(normalizedPhone, code);
       if (res.success) setStep(3);
       else setError("인증코드가 올바르지 않습니다.");
     } catch (e: any) {
@@ -120,7 +139,12 @@ export default function Register() {
     if (resendCooldown > 0) return;
     setError(null);
     try {
-      const res = await apiRequestPhoneCode(phone);
+      const normalizedPhone = normalizeMobile(phone);
+      if (!normalizedPhone) {
+        setError("휴대폰 번호 형식을 다시 확인해 주세요.");
+        return;
+      }
+      const res = await apiRequestPhoneCode(normalizedPhone);
       if (res.code) setDevCodeHint(res.code);
       setResendCooldown(60);
     } catch (e: any) {
@@ -197,7 +221,17 @@ export default function Register() {
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" />
 
             <Label>휴대폰</Label>
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-1234-5678" pattern="^010-\\d{4}-\\d{4}$" onBlur={(e)=>{ const d=e.currentTarget.value.replace(/[^0-9]/g,''); if (d.length===11 && d.startsWith('010')) setPhone(`010-${d.slice(3,7)}-${d.slice(7)}`); }} />
+            <Input
+              value={phone}
+              inputMode="tel"
+              autoComplete="tel"
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="010-1234-5678"
+              onBlur={(e)=>{
+                const normalized = normalizeMobile(e.currentTarget.value);
+                setPhone(normalized ?? e.currentTarget.value.trim());
+              }}
+            />
 
             {error && <ErrorText>{error}</ErrorText>}
             <UIPrimaryBtn as={"button" as any} type="submit">계정 만들기</UIPrimaryBtn>

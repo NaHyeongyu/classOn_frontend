@@ -7,7 +7,7 @@ import {
   buttonVariants,
 } from "../components/common/UI";
 import { Link, useNavigate } from "react-router-dom";
-import { apiCheckEmail, apiCheckUsername, apiRequestPhoneCode, apiVerifyPhoneCode, apiCheckBizNo, apiOnboardComplete } from "@/api/auth";
+import { apiCheckUsername, apiRequestPhoneCode, apiVerifyPhoneCode, apiCheckBizNo, apiOnboardComplete } from "@/api/auth";
 import { formatPhone } from "@/lib/format";
 
 export default function Register() {
@@ -17,9 +17,6 @@ export default function Register() {
 
   // Step 1: 담당자 기본 정보 / Basic info
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
-  const [emailChecking, setEmailChecking] = useState(false);
   const [phone, setPhone] = useState("");
 
   // Step 2: 휴대전화 인증 / Phone verification
@@ -59,19 +56,7 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function onEmailBlur() {
-    if (!email) return;
-    setEmailChecking(true);
-    setEmailAvailable(null);
-    try {
-      const res = await apiCheckEmail(email);
-      setEmailAvailable(res.available);
-    } catch {
-      setEmailAvailable(null);
-    } finally {
-      setEmailChecking(false);
-    }
-  }
+  // Email 수집 제거됨: 담당자 이메일은 혼선을 주어 수집하지 않습니다.
 
   function maskBizNo(input: string) {
     const digits = input.replace(/\D/g, "").slice(0, 10);
@@ -92,18 +77,13 @@ export default function Register() {
   async function onNextFromStep1(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const emailValid = /.+@.+\..+/.test(email);
-    if (!name || !emailValid || !phone) {
-      setError("이메일/이름/휴대폰을 확인해 주세요.");
+    if (!name || !phone) {
+      setError("이름/휴대폰을 확인해 주세요.");
       return;
     }
     const normalizedPhone = normalizeMobile(phone);
     if (!normalizedPhone) {
       setError("휴대폰 번호 형식이 올바르지 않습니다. 010-1234-5678 형태로 입력해 주세요.");
-      return;
-    }
-    if (emailAvailable === false) {
-      setError("이미 사용 중인 이메일입니다.");
       return;
     }
     try {
@@ -186,7 +166,6 @@ export default function Register() {
     try {
       await apiOnboardComplete({
         name,
-        email,
         phone,
         username,
         password,
@@ -212,11 +191,6 @@ export default function Register() {
         <>
           <Sub>담당자 정보를 입력해 주세요.</Sub>
           <Form onSubmit={onNextFromStep1}>
-            <Label>담당자 이메일</Label>
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onBlur={onEmailBlur} placeholder="you@example.com" />
-            {emailChecking && <Hint>이메일 확인 중...</Hint>}
-            {emailAvailable === false && <Hint danger>이미 사용 중인 이메일입니다.</Hint>}
-
             <Label>담당자 이름</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" />
 

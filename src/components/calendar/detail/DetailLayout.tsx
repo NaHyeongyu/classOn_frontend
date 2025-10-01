@@ -34,7 +34,7 @@ const Columns = styled.div`
   @media (max-width: 960px) { flex-direction: column; height: auto; overflow: visible; }
 `;
 const Left = styled.div`
-  flex: 4 1 0;
+  flex: 1 1 0;
   display: grid;
   grid-template-rows: 1fr 1fr; /* 5:5 (1:1) vertical split */
   gap: 12px;
@@ -42,7 +42,7 @@ const Left = styled.div`
   min-height: 0; /* enable internal scrolls in children */
 `;
 const Right = styled.div`
-  flex: 6 1 0;
+  flex: 1 1 0;
   display: grid;
   gap: 12px;
   align-content: flex-start;

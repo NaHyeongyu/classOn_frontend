@@ -164,7 +164,26 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
 
   const text = await res.text().catch(() => "");
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status} ${res.statusText} ${text}`.trim());
+    // Try to parse API error payloads and surface a friendly message
+    const contentType = res.headers.get('content-type') || '';
+    let message = '' as string;
+    let code: string | number | undefined;
+    if (contentType.includes('application/json') && text) {
+      try {
+        const json = JSON.parse(text);
+        // Common fields: { code, message, field } or generic { error, msg }
+        message = json?.message || json?.error || json?.msg || '';
+        code = json?.code;
+      } catch { /* ignore parse error */ }
+    }
+    if (!message) {
+      // Fallback to plain text or status text
+      message = text?.trim() || res.statusText || '요청에 실패했습니다.';
+    }
+    const err: any = new Error(message);
+    err.status = res.status;
+    if (code) err.code = code;
+    throw err;
   }
   // Persist fresh cache for GET (store body always; ETag when available)
   if (isGet && !noCache) {

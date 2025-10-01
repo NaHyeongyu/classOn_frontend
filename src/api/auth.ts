@@ -138,10 +138,10 @@ export async function apiCheckBizNo(bizNo: string): Promise<{ available: boolean
 // KO: 온보딩 최종 제출; 성공 시 로그인 페이지로 이동
 export async function apiOnboardComplete(payload: {
   name: string;
-  email: string;
   phone: string;
   username: string;
   password: string;
+  email?: string;
   academyName: string;
   bizNo: string;
   address?: string;
@@ -151,13 +151,13 @@ export async function apiOnboardComplete(payload: {
 }): Promise<LoginResponse> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(300);
-    const token = btoa(`${payload.email}:${Date.now()}`);
+    const token = btoa(`${payload.username}:${Date.now()}`);
     setToken(token);
     const user: AuthUser = {
       id: Date.now(),
       name: payload.name,
       username: payload.username,
-      email: payload.email,
+      email: payload.email ?? "",
       phone: payload.phone,
     };
     return { token, user };
@@ -166,7 +166,6 @@ export async function apiOnboardComplete(payload: {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  setToken(res.token);
   return res;
 }
 

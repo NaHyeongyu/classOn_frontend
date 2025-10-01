@@ -129,12 +129,15 @@ const Card = styled.section`
 const Centered = styled.div`
   /* Center the calendar content and cap overly wide screens */
   width: 100%;
-  max-width: 1280px;
+  max-width: 1360px; /* align with app content width */
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  @media (min-width: 1536px) {
+    max-width: 1480px; /* match ContentInner large cap */
+  }
 `;
 
 const HeaderWrap = styled.div`
@@ -147,10 +150,13 @@ const CalendarSurface = styled(SectionCard)`
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: ${(p) => p.theme.spacing.xl};
+  padding: ${(p) => p.theme.spacing.lg};
   border-radius: ${(p) => p.theme.radii.xl};
   gap: ${(p) => p.theme.spacing.md};
   min-height: 0; /* ensure grid can size within */
+  @media (min-width: 1280px) {
+    padding: ${(p) => p.theme.spacing.xl};
+  }
 `;
 
 const Legend = styled.div`

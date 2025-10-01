@@ -46,6 +46,7 @@ export type Attachment = {
   contentType?: string;
   size: number;
   createdAt: string;
+  downloadUrl?: string;
 };
 
 // Re-export for existing imports from this module
@@ -169,14 +170,35 @@ export async function upsertAttendance(courseId: number, recordId: number, stude
   return await fetchJSON<Attendance>(`/api/courses/${courseId}/records/${recordId}/attendance/${studentId}`, { method: 'PUT', body });
 }
 
-export async function listRecordAttachments(courseId: number, recordId: number): Promise<Attachment[]> {
-  return await fetchJSON<Attachment[]>(`/api/courses/${courseId}/records/${recordId}/attachments`);
+export async function listRecordAttachments(courseId: number, recordId: number, opts?: { presign?: boolean }): Promise<Attachment[]> {
+  const sp = new URLSearchParams();
+  if (opts?.presign) sp.set('presign', 'true');
+  const q = Array.from(sp.keys()).length ? `?${sp.toString()}` : '';
+  return await fetchJSON<Attachment[]>(`/api/courses/${courseId}/records/${recordId}/attachments${q}`);
 }
 
 export async function uploadRecordAttachments(courseId: number, recordId: number, files: File[]): Promise<Attachment[]> {
   const form = new FormData();
   files.forEach(f => form.append('files', f));
   return await fetchJSON<Attachment[]>(`/api/courses/${courseId}/records/${recordId}/attachments`, { method: 'POST', body: form });
+}
+
+// Presign flow: request PUT URL then confirm metadata
+export async function presignRecordAttachment(courseId: number, recordId: number, filename: string, contentType: string, expireSec?: number): Promise<{ url: string; key: string; headers: Record<string,string>; expiresAt: number; method: 'PUT' }>{
+  const body = JSON.stringify({ filename, contentType, expireSec });
+  return await fetchJSON(`/api/courses/${courseId}/records/${recordId}/attachments/presign`, { method: 'POST', body });
+}
+
+export async function confirmRecordAttachment(courseId: number, recordId: number, payload: { key: string; filename: string; contentType: string; size: number }): Promise<Attachment> {
+  const body = JSON.stringify(payload);
+  return await fetchJSON<Attachment>(`/api/courses/${courseId}/records/${recordId}/attachments/confirm`, { method: 'POST', body });
+}
+
+export async function getRecordAttachmentDownloadUrl(courseId: number, recordId: number, fileId: number, expireSec?: number): Promise<{ url: string; expiresAt: number; method: 'GET' }>{
+  const sp = new URLSearchParams();
+  if (expireSec) sp.set('expireSec', String(expireSec));
+  const q = Array.from(sp.keys()).length ? `?${sp}` : '';
+  return await fetchJSON(`/api/courses/${courseId}/records/${recordId}/attachments/${fileId}/download-url${q}`);
 }
 
 export async function deleteRecordAttachment(courseId: number, recordId: number, fileId: number): Promise<void> {

@@ -14,10 +14,13 @@ export default function Weekdays() {
 const Row = styled.div`
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  padding: 0 4px 10px;
+  padding: 0 2px 8px;
   color: #94a3b8;
   font-size: 12px;
   font-weight: 600;
+  @media (min-width: 1024px) {
+    padding: 0 4px 10px;
+  }
 `;
 const Cell = styled.div<{ $red?: boolean }>`
   text-align: center;

@@ -63,23 +63,23 @@ export default function CalendarGrid({ viewDate, dates, onSelectDate, getEvents 
             </DateNum>
             <Events>
               {(() => {
-                const MAX = 3;
-                const visible = events.slice(0, MAX);
-                const more = events.length - visible.length;
+                // Aggregate counts by type
+                const classCount = events.filter((e) => e.type === 'class').length;
+                const counselCount = events.filter((e) => e.type === 'counsel').length;
+                const todoCount = events.filter((e) => e.type === 'todo').length;
+                if (classCount + counselCount + todoCount === 0) return null;
                 return (
-                  <>
-                    {visible.map((ev, idx2) => (
-                      <Pill
-                        key={idx2}
-                        $type={ev.type}
-                        title={`[${ev.type}] ${ev.label}\nEnter로 날짜 이동 후 상세 보기`}
-                        aria-label={`${ev.type} 이벤트: ${ev.label}`}
-                      >
-                        {ev.label}
-                      </Pill>
-                    ))}
-                    {more > 0 ? <MorePill>+{more}</MorePill> : null}
-                  </>
+                  <CountGrid>
+                    {classCount > 0 && (
+                      <CountPill data-variant="class" title={`수업 ${classCount}건`}>수업 {classCount}</CountPill>
+                    )}
+                    {counselCount > 0 && (
+                      <CountPill data-variant="counsel" title={`상담 ${counselCount}건`}>상담 {counselCount}</CountPill>
+                    )}
+                    {todoCount > 0 && (
+                      <CountPill data-variant="todo" title={`할일 ${todoCount}건`}>할일 {todoCount}</CountPill>
+                    )}
+                  </CountGrid>
                 );
               })()}
             </Events>
@@ -96,16 +96,23 @@ const Grid = styled.div`
   grid-template-columns: repeat(7, 1fr);
   /* Exactly 5 rows, each sharing height evenly regardless of content */
   grid-template-rows: repeat(5, minmax(0, 1fr));
-  gap: 10px;
-  padding: 0 4px;
+  gap: 8px;
+  padding: 0 2px;
   height: 100%;
   min-height: 0;
+  @media (min-width: 1024px) {
+    gap: 10px;
+    padding: 0 4px;
+  }
+  @media (min-width: 1536px) {
+    gap: 12px;
+  }
 `;
 const Cell = styled.div<{ $dim?: boolean; $today?: boolean }>`
   background: ${(p) => (p.$dim ? "#f8fafc" : "#ffffff")};
   border: 1px solid ${(p) => (p.$today ? "#c7d2fe" : "#e2e8f0")};
   border-radius: 14px;
-  padding: 12px;
+  padding: 10px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -118,6 +125,7 @@ const Cell = styled.div<{ $dim?: boolean; $today?: boolean }>`
   box-shadow: ${(p) => (p.$today ? "0 0 0 2px rgba(99, 102, 241, 0.18)" : "0 2px 6px rgba(15, 23, 42, 0.04)")};
   &:hover { border-color: #cbd5f5; box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08); transform: translateY(-2px); }
   &:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28); border-color: #93c5fd; }
+  @media (min-width: 1280px) { padding: 12px; }
 `;
 const DateNum = styled.div<{ $red?: boolean; $today?: boolean }>`
   font-size: 13px;
@@ -151,32 +159,24 @@ const Events = styled.div`
     background: transparent;
   }
 `;
-const Pill = styled.div<{ $type: "class" | "counsel" | "todo" }>`
+const CountGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: minmax(0, auto);
+  gap: 6px;
+`;
+const CountPill = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   padding: 6px 8px;
   border-radius: 8px;
-  width: fit-content;
-  color: #5b21b6;
-  background: #f5f3ff;
-  border: 1px solid #ede9fe;
-  ${(p) =>
-    p.$type === "counsel"
-      ? "color:#1d4ed8; background:#eff6ff; border-color:#dbeafe;"
-      : p.$type === "todo"
-      ? "color:#047857; background:#ecfdf5; border-color:#bbf7d0;"
-      : ""}
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
-const MorePill = styled.span`
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 6px;
-  border-radius: 8px;
-  background: #e2e8f0;
-  color: #475569;
-  width: fit-content;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #334155;
+  &[data-variant='class'] { color:#5b21b6; background:#f5f3ff; border-color:#ede9fe; }
+  &[data-variant='counsel'] { color:#1d4ed8; background:#eff6ff; border-color:#dbeafe; }
+  &[data-variant='todo'] { color:#047857; background:#ecfdf5; border-color:#bbf7d0; }
 `;

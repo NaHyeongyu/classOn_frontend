@@ -12,7 +12,7 @@ import {
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { KPI, UsersIcon, CheckIcon, ClassIcon, DeltaPill } from "@/components/dashboard/KPI";
 import { useToast } from "@/components/common/Toast";
-import { getCourse, type Course, type CourseRecord, listCourseRecords, listCourseStudents, updateCourseRecord, createCourseRecord, listRecordAttendance, upsertAttendance, listRecordAttachments, uploadRecordAttachments, deleteRecordAttachment, deleteCourseRecord, type Attachment, type Attendance, downloadRecordAttachmentBlob } from "@/api/courses";
+import { getCourse, type Course, type CourseRecord, listCourseRecords, listCourseStudents, updateCourseRecord, createCourseRecord, listRecordAttendance, upsertAttendance, listRecordAttachments, uploadRecordAttachments, deleteRecordAttachment, deleteCourseRecord, type Attachment, type Attendance, presignRecordAttachment, confirmRecordAttachment, getRecordAttachmentDownloadUrl } from "@/api/courses";
 import { invalidateCacheByPrefix } from "@/lib/fetcher";
 import type { Student } from "@/api/students";
 import { formatYMD } from "@/features/calendar/dateUtils";
@@ -308,7 +308,7 @@ export default function CourseRecordDetail() {
       if (record?.id) {
         setFilesLoading(true);
         try {
-          const list = await listRecordAttachments(courseId!, record!.id);
+          const list = await listRecordAttachments(courseId!, record!.id, { presign: true });
           if (!cancelled) {
             setFiles(list);
             // Preload thumbnails for images (best-effort)
@@ -359,10 +359,19 @@ export default function CourseRecordDetail() {
         if (omitted > 0) {
           setFilesError(prev => [prev, `최대 ${MAX_FILES}개까지만 업로드됩니다 (추가 ${omitted}개 제외)`].filter(Boolean).join(' / '));
         }
-        const uploaded = await uploadRecordAttachments(courseId!, record!.id, send);
-        setFiles(prev => [...uploaded, ...prev]);
-        // Preload thumbnails for any new images
-        void preloadThumbs(uploaded);
+        const created: Attachment[] = [];
+        for (const f of send) {
+          // 1) presign
+          const pres = await presignRecordAttachment(courseId!, record!.id, f.name, f.type || 'application/octet-stream');
+          // 2) PUT to S3
+          const putRes = await fetch(pres.url, { method: 'PUT', headers: pres.headers, body: f });
+          if (!putRes.ok) throw new Error(`S3 업로드 실패: HTTP ${putRes.status}`);
+          // 3) confirm
+          const meta = await confirmRecordAttachment(courseId!, record!.id, { key: pres.key, filename: f.name, contentType: f.type || 'application/octet-stream', size: f.size });
+          created.push(meta);
+        }
+        setFiles(prev => [...created, ...prev]);
+        void preloadThumbs(created);
       } catch (error) {
         showError(readableError(error, '업로드에 실패했습니다.'));
       }
@@ -385,8 +394,8 @@ export default function CourseRecordDetail() {
         if (thumbUrl[cur.id]) continue; // already loaded
         try {
           setPreviewBusy(m => ({ ...m, [cur.id]: true }));
-          const blob = await downloadRecordAttachmentBlob(courseId!, record!.id, cur.id);
-          const url = URL.createObjectURL(blob);
+          // Prefer downloadUrl from list; fallback to a one-off presigned GET
+          const url = cur.downloadUrl || (await getRecordAttachmentDownloadUrl(courseId!, record!.id, cur.id)).url;
           setThumbUrl(m => ({ ...m, [cur.id]: url }));
         } catch {
           // ignore preview failures
@@ -407,10 +416,15 @@ export default function CourseRecordDetail() {
     if (!courseId || !record?.id) return;
     try {
       setPreviewBusy(m => ({ ...m, [f.id]: true }));
-      const blob = await downloadRecordAttachmentBlob(courseId!, record!.id, f.id);
-      const url = URL.createObjectURL(blob);
+      // Prefer presigned GET if available
+      const maybeUrl = f.downloadUrl;
+      if (maybeUrl) {
+        window.open(maybeUrl, '_blank', 'noopener');
+        return;
+      }
+      // fallback to API-proxied download URL
+      const { url } = await getRecordAttachmentDownloadUrl(courseId!, record!.id, f.id);
       window.open(url, '_blank', 'noopener');
-      // No revoke immediately; let the new tab own the URL lifetime
     } catch (err) {
       showError(readableError(err, '파일을 열 수 없습니다.'));
     } finally {

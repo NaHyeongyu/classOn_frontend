@@ -67,7 +67,7 @@ export default function Classes() {
           <h2>수업 관리</h2>
           <p>개설된 수업을 조회하고 빠르게 검색하세요.</p>
         </div>
-        <div style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
+        <div style={{ display:'inline-flex', alignItems:'center', gap:12 }}>
           <PrimaryBtn to="/classes/new">수업 추가</PrimaryBtn>
           <GhostButtonSmall as="button" onClick={handleTemplate}>템플릿 다운</GhostButtonSmall>
           <GhostButtonSmall as="button" onClick={handleExport}>추출</GhostButtonSmall>

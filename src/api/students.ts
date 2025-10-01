@@ -110,8 +110,13 @@ export async function updateStudent(id: number, payload: Partial<StudentPayload>
   return res;
 }
 
+export async function deleteStudent(id: number): Promise<void> {
+  await fetchJSON<void>(`/api/students/${id}`, { method: 'DELETE' });
+  invalidateCacheByPrefix(['/api/students']);
+}
+
 // Excel helpers (download/upload)
-const API_BASE_STU = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_BASE_URL || "https://api.myclasson.com/api";
+const API_BASE_STU = ((import.meta as any).env?.VITE_API_BASE ?? (import.meta as any).env?.VITE_API_BASE_URL) ?? ((import.meta as any).env?.DEV ? "" : "https://api.myclasson.com/api");
 function resolveURL(path: string) { return API_BASE_STU ? new URL(path, API_BASE_STU).toString() : path; }
 async function fetchBlob(path: string): Promise<Blob> {
   const url = resolveURL(path);

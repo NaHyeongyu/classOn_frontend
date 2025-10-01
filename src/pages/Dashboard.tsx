@@ -61,7 +61,7 @@ export default function Dashboard() {
 // Header actions container
 const Actions = styled.div`
   display: inline-flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
 `;
 

@@ -3,8 +3,9 @@ import { getToken } from "./auth";
 // KO: 기본 URL 및 인증 헤더를 추가하는 JSON fetch 헬퍼
 
 // Support both VITE_API_BASE (new) and VITE_API_BASE_URL (legacy).
-// Default hard-coded to production API domain to ensure all requests go to api.myclasson.com
-const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "https://api.myclasson.com/api";
+// In development: default to "" to use Vite dev proxy (no CORS, points to localhost:8080).
+// In production: default to the production API domain.
+const API_BASE = (import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL) ?? (import.meta.env.DEV ? "" : "https://api.myclasson.com/api");
 const CACHE_TTL_MS = Number(import.meta.env.VITE_FETCH_TTL_MS ?? 30000);
 const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_FETCH_TIMEOUT_MS ?? 10000);
 // Certain highly-dynamic endpoints should bypass client TTL/ETag to reflect

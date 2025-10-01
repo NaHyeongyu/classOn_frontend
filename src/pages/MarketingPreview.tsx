@@ -31,15 +31,10 @@ export default function MarketingPreview() {
   const [platformChoice, setPlatformChoice] = useState<'INSTAGRAM'|'NAVER_BLOG'|'KAKAO_CHANNEL'>(state?.platformChoice ?? 'INSTAGRAM');
   const [formatStyle, setFormatStyle] = useState<'STORY'|'LIST'|'PERFORMANCE'>(state?.formatStyle ?? 'STORY');
   const [fx, setFx] = useState(false);
-  const [fxIdx] = useState(()=>Math.floor(Math.random()*1000));
   const [showIgPrompt, setShowIgPrompt] = useState(false);
 
   function goNext() {
-    setFx(true);
-    setTimeout(() => {
-      // Restore dedicated rendering indicator step before summary
-      navigate('/marketing/rendering', { state: { items, direction, bullets: edBullets, tone, speechStyle, platformChoice, formatStyle, summary: (state as any)?.summary } });
-    }, 950);
+    navigate('/marketing/rendering', { state: { items, direction, bullets: edBullets, tone, speechStyle, platformChoice, formatStyle, summary: (state as any)?.summary } });
   }
 
   function renderSummary(items: SummarizeItem[], direction: string) {
@@ -223,7 +218,7 @@ export default function MarketingPreview() {
             <CardTitle>전송 프롬프트 (Instagram)</CardTitle>
             <CardSubtitle>현재 설정이 반영된 프롬프트를 확인하고 복사할 수 있어요.</CardSubtitle>
           </div>
-          <div style={{ display:'flex', gap: 8 }}>
+          <div style={{ display:'flex', gap: 12 }}>
             <GhostButtonSmall as="button" onClick={()=> setShowIgPrompt(v=>!v)}>{showIgPrompt ? '접기' : '펼쳐보기'}</GhostButtonSmall>
             <GhostButtonSmall as="button" onClick={()=> { const t = buildInstagramPrompt(); navigator.clipboard?.writeText(t).catch(()=>{}); }}>전체 복사</GhostButtonSmall>
           </div>
@@ -239,17 +234,6 @@ export default function MarketingPreview() {
         <PrimaryButton as="button" onClick={goNext}>다음 단계</PrimaryButton>
       </FooterBar>
 
-      {fx && (
-        <FXOverlay aria-live="polite">
-          <FXCard>
-            <FXTitle>콘텐츠 마법을 준비 중… ✨</FXTitle>
-            <FXEmojis data-variant={(fxIdx%3)+1} aria-hidden>
-              <span>🪄</span><span>📚</span><span>🧠</span><span>🎈</span><span>🌟</span><span>🚀</span>
-            </FXEmojis>
-            <FXBar><FXFill /></FXBar>
-          </FXCard>
-        </FXOverlay>
-      )}
     </Page>
   );
 }
@@ -539,40 +523,3 @@ const StepSep = styled.span`
 `;
 
 // -------- Step transition FX --------
-const FXOverlay = styled.div`
-  position: fixed; inset: 0; z-index: 60;
-  background: rgba(255,255,255,0.88);
-  backdrop-filter: blur(2px);
-  display: grid; place-items: center; pointer-events: none;
-`;
-const FXCard = styled.div`
-  width: min(480px, 92vw);
-  border: 1px solid ${({theme}) => theme.colors.border};
-  border-radius: 16px; background: #fff; padding: 16px;
-  display: grid; gap: 10px; justify-items: center; text-align: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-  animation: pop .22s ease-out;
-  @keyframes pop { 0%{ transform: scale(.98); opacity:.2 } 100%{ transform: scale(1); opacity:1 } }
-`;
-const FXTitle = styled.div`
-  font-weight: 900; letter-spacing: -0.01em; color: ${({theme}) => theme.colors.text};
-`;
-const FXEmojis = styled.div`
-  position: relative; height: 52px; overflow: visible;
-  span{ position: absolute; left: 50%; transform: translateX(-50%); font-size: 18px; opacity: 0; animation: float 950ms ease-in forwards; }
-  span:nth-child(1){ transform: translateX(-140%); animation-delay: 0ms; }
-  span:nth-child(2){ transform: translateX(-70%); animation-delay: 60ms; }
-  span:nth-child(3){ transform: translateX(-0%); animation-delay: 120ms; }
-  span:nth-child(4){ transform: translateX(70%); animation-delay: 180ms; }
-  span:nth-child(5){ transform: translateX(140%); animation-delay: 240ms; }
-  span:nth-child(6){ transform: translateX(0%); animation-delay: 300ms; }
-  @keyframes float { 0%{ transform: translateY(10px) translateX(var(--x,0)); opacity:0 } 60%{ opacity:1 } 100%{ transform: translateY(-18px) translateX(var(--x,0)); opacity:0 } }
-`;
-const FXBar = styled.div`
-  width: 100%; height: 10px; border-radius: 999px; overflow: hidden;
-  background: ${({theme}) => theme.colors.surfaceMuted}; border: 1px solid ${({theme}) => theme.colors.border};
-`;
-const FXFill = styled.div`
-  height: 100%; width: 0%; background: ${({theme}) => theme.colors.primary}; animation: fill 950ms ease forwards;
-  @keyframes fill { to { width: 100% } }
-`;

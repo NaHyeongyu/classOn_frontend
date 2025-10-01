@@ -52,7 +52,7 @@ export default function MarketingSavedDetail() {
           <h2>저장 내역 상세</h2>
           <p>{pf(rec.platform)} · {date}</p>
         </div>
-        <div style={{ display:'flex', gap: 8 }}>
+        <div style={{ display:'flex', gap: 12 }}>
           <GhostButtonSmall as="button" onClick={() => navigate('/marketing/saved')}>목록</GhostButtonSmall>
           <GhostButtonSmall as="button" onClick={() => { const text = [rec.body, tags].filter(Boolean).join('\n\n'); navigator.clipboard?.writeText(text).then(()=>success('복사되었습니다.')).catch(()=>showError('복사 실패')); }}>복사</GhostButtonSmall>
           <GhostButtonSmall as="button" onClick={() => { removeSavedMarketingPost(rec.id); navigate('/marketing/saved'); success('삭제했습니다.'); }}>삭제</GhostButtonSmall>

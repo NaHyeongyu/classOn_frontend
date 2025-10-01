@@ -40,7 +40,7 @@ export default function MarketingSavedList() {
           <h2>저장 내역</h2>
           <p>Summary에서 저장한 캡션 목록입니다.</p>
         </div>
-        <div style={{ display:'flex', gap: 8 }}>
+        <div style={{ display:'flex', gap: 12 }}>
           <GhostButtonSmall as="a" href="/marketing">마케팅 홈</GhostButtonSmall>
           {!!data.length && (
             <GhostButtonSmall as="button" onClick={() => { clearSavedMarketingPosts(); reload(); warning('저장 내역을 모두 삭제했습니다.'); }}>전체 삭제</GhostButtonSmall>

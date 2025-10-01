@@ -142,7 +142,7 @@ export default function MarketingSummary() {
         </ButtonRow>
       </ResultTopBar>
 
-      <MetaRow>
+      <MetaRow aria-hidden>
         <Chip>플랫폼: {platformLabel(platformChoice)}</Chip>
         <Chip>톤: {tone}</Chip>
         <Chip>말투: {speechStyle === 'SEUMNIDA' ? '~습니다' : '~요'}</Chip>
@@ -354,6 +354,7 @@ const MetaRow = styled.div`
   flex-wrap: wrap;
   gap: ${(p) => p.theme.spacing.xs};
   margin: ${(p) => p.theme.spacing.md} 0;
+  display: none;
 `;
 
 const Chip = styled.span`
@@ -418,16 +419,18 @@ const BlogTitleInput = styled.input`
 const IGPreviewWrap = styled.div`
   display: flex;
   justify-content: center;
+  padding: ${(p) => p.theme.spacing.sm};
 `;
 
 const IGPhone = styled.div`
-  width: 240px;
+  width: min(320px, 100%);
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: 28px;
-  padding: ${(p) => p.theme.spacing.md};
+  padding: ${(p) => p.theme.spacing.lg};
   background: ${(p) => p.theme.colors.surface};
   display: grid;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: ${(p) => p.theme.spacing.md};
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
 `;
 
 const IGTopBar = styled.div`
@@ -451,50 +454,94 @@ const IGUser = styled.span`
 const IGImage = styled.div`
   position: relative;
   border-radius: ${(p) => p.theme.radii.md};
-  background: ${(p) => p.theme.colors.surfaceMuted};
+  background: #e2e8f0;
   padding: ${(p) => p.theme.spacing.lg};
-  min-height: 140px;
+  min-height: 260px;
   display: grid;
   place-items: center;
   text-align: center;
-  font-size: ${(p) => p.theme.font.size.sm};
-  color: ${(p) => p.theme.colors.textMuted};
+  font-size: clamp(13px, 1.6vw, 16px);
+  font-weight: 600;
+  color: ${(p) => p.theme.colors.text};
+  line-height: 1.68;
+  letter-spacing: -0.01em;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.28);
+  span {
+    display: block;
+    padding: 0 ${(p) => p.theme.spacing.lg};
+    max-width: 80%;
+    margin: 0 auto;
+    white-space: pre-line;
+  }
   button.nav {
     position: absolute;
     top: 50%;
     transform: translateY(-50%);
     border: none;
-    background: rgba(0, 0, 0, 0.35);
+    background: rgba(15, 23, 42, 0.6);
     color: #fff;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
     cursor: pointer;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 6px 14px rgba(15, 23, 42, 0.18);
+    transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+    backdrop-filter: blur(2px);
   }
-  button.nav.prev { left: ${(p) => p.theme.spacing.sm}; }
-  button.nav.next { right: ${(p) => p.theme.spacing.sm}; }
+  button.nav:hover {
+    background: rgba(79, 70, 229, 0.75);
+    transform: translateY(-50%) scale(1.05);
+    box-shadow: 0 8px 16px rgba(79, 70, 229, 0.25);
+  }
+  button.nav:active {
+    transform: translateY(-50%) scale(0.97);
+  }
+  button.nav.prev { left: -24px; }
+  button.nav.next { right: -24px; }
 `;
 
 const IGDots = styled.div`
   display: flex;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
+  margin-top: ${(p) => p.theme.spacing.sm};
 `;
 
 const IGDot = styled.button<{ 'data-active': boolean }>`
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   border: none;
-  background: ${({ 'data-active': active }) => (active ? '#1f2937' : '#d1d5db')};
+  padding: 0;
+  background: ${({ 'data-active': active }) => (active ? '#1f2937' : 'rgba(148, 163, 184, 0.55)')};
+  opacity: ${({ 'data-active': active }) => (active ? 1 : 0.65)};
+  transform: ${({ 'data-active': active }) => (active ? 'scale(1.15)' : 'scale(1)')};
+  transition: transform 0.18s ease, background 0.18s ease, opacity 0.18s ease;
   cursor: pointer;
+  &:focus-visible {
+    outline: 2px solid rgba(79, 70, 229, 0.45);
+    outline-offset: 2px;
+  }
 `;
 
 const IGText = styled.p`
   margin: 0;
   font-size: ${(p) => p.theme.font.size.sm};
   color: ${(p) => p.theme.colors.text};
+  line-height: 1.68;
+  white-space: pre-wrap;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  strong {
+    margin-right: 6px;
+  }
   .tags {
+    display: block;
+    margin-top: ${(p) => p.theme.spacing.xs};
     color: ${(p) => p.theme.colors.textMuted};
   }
 `;

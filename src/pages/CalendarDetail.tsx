@@ -546,7 +546,7 @@ const ModalCard = styled.div`
   font-weight: 700;
   color: #111827;
 `;
-const Row = styled.div` display:flex; align-items:center; gap:8px; `;
+const Row = styled.div` display:flex; align-items:center; gap:12px; `;
 const CourseList = styled.div` max-height: 220px; overflow: auto; border: 1px solid #f1f5f9; border-radius: 10px; margin-top: 6px; `;
 const CourseRow = styled.div`
   padding: 8px 10px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;

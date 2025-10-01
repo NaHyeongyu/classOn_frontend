@@ -57,7 +57,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             }}>
               <strong style={{ display: "block", marginBottom: 6 }}>문제가 발생했습니다.</strong>
               <div style={{ whiteSpace: "pre-wrap" }}>{message}</div>
-              <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+              <div style={{ marginTop: 12, display: "flex", gap: 12 }}>
                 <button onClick={this.reload} style={btnStyle}>새로고침</button>
                 <button onClick={this.goHome} style={btnStyle}>홈으로</button>
               </div>

@@ -6,16 +6,20 @@ import {
   PrimaryBtn as UIPrimaryBtn,
   SectionCard as Section,
   TitleH3 as SectionTitle,
+  GhostButtonSmall,
 } from "@/components/common/UI";
 import InfoBanner from "@/components/common/InfoBanner";
 import BackButton from "@/components/common/BackButton";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
   createStudent,
   getStudent,
   updateStudent,
+  deleteStudent as apiDeleteStudent,
   type Student,
   type StudentPayload,
 } from "@/api/students";
+import { useToast } from "@/components/common/Toast";
 
 const statusLabel: Record<Student["status"], string> = {
   ENROLLED: "수강중",
@@ -36,11 +40,10 @@ const STATUS_LABEL_FALLBACK = "미지정";
 const STATUS_OPTIONS: Array<{
   value: Student["status"];
   label: string;
-  icon: string;
 }> = [
-  { value: "ENROLLED", label: "수강중", icon: "🎓" },
-  { value: "ON_LEAVE", label: "휴학", icon: "🌙" },
-  { value: "PENDING", label: "대기중", icon: "⌛" },
+  { value: "ENROLLED", label: "수강중" },
+  { value: "ON_LEAVE", label: "휴학" },
+  { value: "PENDING", label: "대기중" },
 ];
 
 export default function StudentForm() {
@@ -48,12 +51,15 @@ export default function StudentForm() {
   const { id } = useParams();
   const isEdit = useMemo(() => !!id, [id]);
   const numericId = useMemo(() => (id ? Number(id) : null), [id]);
+  const { success: showSuccess, error: showErrorToast } = useToast();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showHelper, setShowHelper] = useState(true);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function today(): string {
     const d = new Date();
@@ -238,6 +244,11 @@ export default function StudentForm() {
           </div>
         </HeadLeft>
         <HeadActions>
+          {isEdit && (
+            <GhostButtonSmall as={"button" as any} onClick={() => setConfirmDeleteOpen(true)}>
+              삭제
+            </GhostButtonSmall>
+          )}
           <BackButton to="/students" label="취소" />
           <UIPrimaryBtn
             as={"button" as any}
@@ -318,7 +329,6 @@ export default function StudentForm() {
                           }
                           disabled={saving}
                         >
-                          <span aria-hidden>{option.icon}</span>
                           {option.label}
                         </StatusButton>
                       ))}
@@ -539,6 +549,31 @@ export default function StudentForm() {
           </FormLayout>
         </Form>
       )}
+
+      {/* Delete confirmation: only for edit mode */}
+      <ConfirmDialog
+        open={isEdit && confirmDeleteOpen}
+        title="원생 삭제"
+        message={"이 원생을 삭제하시겠어요? 되돌릴 수 없습니다. 출석/상담 기록도 함께 삭제됩니다."}
+        confirmLabel="삭제"
+        cancelLabel="취소"
+        tone="danger"
+        busy={deleting}
+        onCancel={() => { if (!deleting) setConfirmDeleteOpen(false); }}
+        onConfirm={async () => {
+          if (!isEdit || !numericId) return;
+          setDeleting(true);
+          try {
+            await apiDeleteStudent(numericId);
+            showSuccess('원생을 삭제했습니다.');
+            navigate('/students');
+          } catch (e: any) {
+            showErrorToast(e?.message || '삭제에 실패했습니다.');
+          } finally {
+            setDeleting(false);
+          }
+        }}
+      />
     </Page>
   );
 }
@@ -822,9 +857,6 @@ const StatusButton = styled.button`
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease,
     transform 0.12s ease;
-  span {
-    font-size: 16px;
-  }
   &[data-active="true"] {
     border-color: ${(p) => p.theme.colors.primary};
     background: rgba(99, 102, 241, 0.12);

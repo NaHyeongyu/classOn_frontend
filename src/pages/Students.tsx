@@ -76,7 +76,7 @@ export default function Students() {
           <h2>원생 관리</h2>
           <p>등록된 원생들을 한눈에 확인해보세요!</p>
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
           <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
           <GhostButtonSmall as="button" onClick={handleTemplate}>템플릿 다운</GhostButtonSmall>
           <GhostButtonSmall as="button" onClick={handleExport}>추출</GhostButtonSmall>

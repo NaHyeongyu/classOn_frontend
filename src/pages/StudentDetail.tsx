@@ -693,7 +693,7 @@ const CardHead = styled.div`
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
 `;
 const CardActions = styled.div`
-  display: inline-flex; gap: 8px;
+  display: inline-flex; gap: 12px;
 `;
 const Divider = styled.div`
   height: 1px; background: #e5e7eb; margin: 6px 0 10px;
@@ -971,7 +971,7 @@ const TextArea = styled.textarea`
   width: 100%; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; font-size: 14px; resize: vertical;
 `;
 const CounselRow = styled.div` display:flex; align-items:center; justify-content:space-between; gap:8px; `;
-const RowActions = styled.div` display:inline-flex; gap:8px; `;
+const RowActions = styled.div` display:inline-flex; gap:12px; `;
 const When = styled.div` font-weight:900; color:#0f172a; `;
 const CounselContent = styled.pre` margin:4px 0 0; white-space:pre-wrap; color:#111827; font-size:14px; `;
 const EditGrid = styled.div` display:grid; grid-template-columns: 1fr 1fr; gap:10px; @media(max-width:900px){ grid-template-columns:1fr; }`;

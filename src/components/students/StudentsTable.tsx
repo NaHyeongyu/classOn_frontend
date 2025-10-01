@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { listStudents, type Student, type PageResult } from "../../api/students";
 import { formatPhone } from "../../lib/format";
 import { visiblePages } from "../../lib/pagination";
+// No row-level destructive actions here; deletion is available only on edit page.
 
 type ChipType = "수강중" | "휴학" | "대기중";
 
@@ -37,6 +38,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
   const [totalPages, setTotalPages] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(false);
+  // Deletion controls removed from list view
   const sortKey = 'createdAt';
   const sortDir: 'ASC'|'DESC' = 'DESC';
 
@@ -192,6 +194,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
         </PageSize>
       </Pager>
       </CardInner>
+      {/* Row-level delete dialog removed; delete is available in the edit page */}
     </TableCard>
   );
 }

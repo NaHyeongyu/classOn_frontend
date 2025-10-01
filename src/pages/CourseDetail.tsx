@@ -483,7 +483,7 @@ function buildInfo(c: Course) {
 // styles
 const Wrap = styled.div` display:grid; gap:12px; `;
 const Head = styled.div` display:grid; grid-template-columns:auto 1fr auto; gap:12px; align-items:center; `;
-const Actions = styled.div` display:inline-flex; gap:8px; `;
+const Actions = styled.div` display:inline-flex; gap:12px; `;
 // (tabs removed)
 // Section, Title from common UI
 const GridTwo = styled.div` display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; @media(max-width:900px){ grid-template-columns:1fr; }`;

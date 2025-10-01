@@ -199,10 +199,6 @@ export const GhostBtn = styled(Link)`
 
 export const GhostBtnSmall = styled(Link)`
   ${buttonOutline};
-  height: 36px;
-  padding: 0 14px;
-  font-size: 13px;
-  border-radius: 10px;
 `;
 
 export const GhostButton = styled.button`
@@ -210,18 +206,12 @@ export const GhostButton = styled.button`
 `;
 
 export const GhostButtonSmall = styled(GhostButton)`
-  height: 36px;
-  padding: 0 14px;
-  font-size: 13px;
-  border-radius: 10px;
+  height: 40px;
 `;
 
 export const SmallBtn = styled.button`
   ${buttonOutline};
-  height: 36px;
-  padding: 0 12px;
-  font-size: 13px;
-  border-radius: 10px;
+  height: 40px;
 `;
 
 // Empty state pattern

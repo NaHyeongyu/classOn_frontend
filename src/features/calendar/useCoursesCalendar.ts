@@ -117,7 +117,7 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
   const eventsForDate = useCallback((d: Date): CalendarEvent[] => {
     const n = (byYmd[formatYMD(d)] || []).length;
     const events: CalendarEvent[] = [];
-    if (n > 0) events.push({ type: "class", label: `수업 ${n}개` });
+    if (n > 0) events.push({ type: "class", label: `수업 ${n}건`, count: n });
     return events;
   }, [byYmd]);
 

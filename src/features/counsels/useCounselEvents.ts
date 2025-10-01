@@ -58,7 +58,7 @@ export function useCounselEvents(visibleDates?: Date[]) {
     (d: Date): CalendarEvent[] => {
       const ymd = formatYMD(d);
       const n = counts[ymd] || 0;
-      return n > 0 ? [{ type: "counsel", label: `상담 ${n}개` }] : [];
+      return n > 0 ? [{ type: "counsel", label: `상담 ${n}건`, count: n }] : [];
     },
     [counts]
   );

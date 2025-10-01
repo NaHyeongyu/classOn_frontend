@@ -73,7 +73,7 @@ const Desc = styled.span`
 const Action = styled.button<{ $variant: "primary" | "outline" }>`
   ${({ $variant }) =>
     $variant === "outline" ? buttonVariants.outline : buttonVariants.primary};
-  height: 38px;
+  height: 40px;
   padding: 0 18px;
   font-size: 13px;
   margin-top: 4px;

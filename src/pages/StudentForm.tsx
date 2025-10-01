@@ -2,24 +2,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import {
-  Page as PageWrap,
   PrimaryBtn as UIPrimaryBtn,
   SectionCard as Section,
   TitleH3 as SectionTitle,
-  GhostButtonSmall,
 } from "@/components/common/UI";
-import InfoBanner from "@/components/common/InfoBanner";
 import BackButton from "@/components/common/BackButton";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
   createStudent,
   getStudent,
   updateStudent,
-  deleteStudent as apiDeleteStudent,
   type Student,
   type StudentPayload,
 } from "@/api/students";
-import { useToast } from "@/components/common/Toast";
 
 const statusLabel: Record<Student["status"], string> = {
   ENROLLED: "수강중",
@@ -40,10 +34,11 @@ const STATUS_LABEL_FALLBACK = "미지정";
 const STATUS_OPTIONS: Array<{
   value: Student["status"];
   label: string;
+  icon: string;
 }> = [
-  { value: "ENROLLED", label: "수강중" },
-  { value: "ON_LEAVE", label: "휴학" },
-  { value: "PENDING", label: "대기중" },
+  { value: "ENROLLED", label: "수강중", icon: "🎓" },
+  { value: "ON_LEAVE", label: "휴학", icon: "🌙" },
+  { value: "PENDING", label: "대기중", icon: "⌛" },
 ];
 
 export default function StudentForm() {
@@ -51,15 +46,11 @@ export default function StudentForm() {
   const { id } = useParams();
   const isEdit = useMemo(() => !!id, [id]);
   const numericId = useMemo(() => (id ? Number(id) : null), [id]);
-  const { success: showSuccess, error: showErrorToast } = useToast();
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [showHelper, setShowHelper] = useState(true);
-  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [deleting, setDeleting] = useState(false);
 
   function today(): string {
     const d = new Date();
@@ -201,20 +192,6 @@ export default function StudentForm() {
         name: form.name.trim(),
         status: form.status || "ENROLLED",
       };
-      // Defensive: normalize phone formats at submit time as well
-      const normalizePhone = (v?: string) => {
-        const rawStr = (v ?? '').trim();
-        if (!rawStr) return undefined;
-        const digits = rawStr.replace(/[^0-9]/g, '');
-        if (!digits) return undefined; // treat symbols/hyphens-only as empty
-        if (digits.length === 11 && digits.startsWith('010')) {
-          return `010-${digits.slice(3,7)}-${digits.slice(7)}`;
-        }
-        // unsupported formats: drop to avoid server-side 400
-        return undefined;
-      };
-      (payload as any).phoneNumber = normalizePhone(payload.phoneNumber as any);
-      (payload as any).guardianPhone = normalizePhone(payload.guardianPhone as any);
       if (intlAge != null) (payload as any).age = intlAge;
       let res: Student;
       if (isEdit && numericId) {
@@ -244,21 +221,20 @@ export default function StudentForm() {
           </div>
         </HeadLeft>
         <HeadActions>
-          {isEdit && (
-            <GhostButtonSmall as={"button" as any} onClick={() => setConfirmDeleteOpen(true)}>
-              삭제
-            </GhostButtonSmall>
-          )}
           <BackButton to="/students" label="취소" />
           <UIPrimaryBtn
             as={"button" as any}
             type="button"
             onClick={() => {
-              const formEl = document.getElementById("student-form") as HTMLFormElement | null;
+              const formEl = document.getElementById(
+                "student-form"
+              ) as HTMLFormElement | null;
               if (!formEl) return;
               try {
                 // Prefer requestSubmit to trigger onSubmit + validation
-                (formEl as any).requestSubmit ? (formEl as any).requestSubmit() : formEl.submit();
+                (formEl as any).requestSubmit
+                  ? (formEl as any).requestSubmit()
+                  : formEl.submit();
               } catch {
                 formEl.submit();
               }
@@ -274,25 +250,9 @@ export default function StudentForm() {
       {success && <AlertOk>{success}</AlertOk>}
 
       {loading ? (
-        <FormSkeleton />
+        토
       ) : (
         <Form id="student-form" onSubmit={onSubmit}>
-          {showHelper ? (
-            <InfoBanner
-              title={isEdit ? "원생 정보를 빠르게 수정하는 방법" : "원생 등록 3단계"}
-              description={
-                isEdit
-                  ? "연락처·주소 변경 후 저장하면 바로 반영됩니다. 변경 이유를 메모에 남기면 추후 조회가 쉬워요."
-                  : "기본 정보 입력 → 보호자/주소 확인 → 저장 순으로 진행하면 1분 안에 등록을 마칠 수 있어요."
-              }
-              tips={[
-                "생년월일을 입력하면 나이가 자동 계산됩니다.",
-                "연락처는 하이픈(-)을 포함하면 검색 시 정확도가 높아집니다.",
-                "보호자 정보가 아직 없다면 비워둔 뒤 나중에 수정해도 괜찮아요.",
-              ]}
-              onClose={() => setShowHelper(false)}
-            />
-          ) : null}
           <FormLayout>
             <MainColumn>
               <Section>
@@ -329,6 +289,7 @@ export default function StudentForm() {
                           }
                           disabled={saving}
                         >
+                          <span aria-hidden>{option.icon}</span>
                           {option.label}
                         </StatusButton>
                       ))}
@@ -396,18 +357,6 @@ export default function StudentForm() {
                         }))
                       }
                       placeholder="010-1234-5678"
-                      inputMode="numeric"
-                      autoComplete="tel"
-                      onBlur={(e)=>{
-                        try {
-                          const val = (e.target as HTMLInputElement | null)?.value ?? '';
-                          const d = val.replace(/[^0-9]/g,'');
-                          if (d.length===11 && d.startsWith('010')) {
-                            const formatted = `010-${d.slice(3,7)}-${d.slice(7)}`;
-                            setForm(f=>({...f, phoneNumber: formatted }));
-                          }
-                        } catch {}
-                      }}
                       disabled={saving}
                     />
                     <Help>
@@ -456,19 +405,7 @@ export default function StudentForm() {
                           guardianPhone: e.target.value || undefined,
                         }))
                       }
-                      placeholder="010-1234-5678"
-                      inputMode="numeric"
-                      autoComplete="tel"
-                      onBlur={(e)=>{
-                        try {
-                          const val = (e.target as HTMLInputElement | null)?.value ?? '';
-                          const d = val.replace(/[^0-9]/g,'');
-                          if (d.length===11 && d.startsWith('010')) {
-                            const formatted = `010-${d.slice(3,7)}-${d.slice(7)}`;
-                            setForm(f=>({...f, guardianPhone: formatted }));
-                          }
-                        } catch {}
-                      }}
+                      placeholder="010-0000-0000"
                       disabled={saving}
                     />
                     <Help>비상 연락을 위해 보호자 연락처를 입력해 주세요.</Help>
@@ -489,18 +426,6 @@ export default function StudentForm() {
                   </Field>
                 </Grid>
               </Section>
-
-              {isEdit && (
-                <DangerZone>
-                  <ZoneTitle>위험 구역</ZoneTitle>
-                  <ZoneDesc>
-                    삭제 기능은 추후 연결됩니다. (디자인 프리셋)
-                  </ZoneDesc>
-                  <DangerBtn type="button" disabled>
-                    원생 삭제
-                  </DangerBtn>
-                </DangerZone>
-              )}
             </MainColumn>
 
             <SideColumn aria-label="form tips">
@@ -513,7 +438,7 @@ export default function StudentForm() {
                   </li>
                   <li>
                     <span>상태</span>
-                    <StatusBadge $variant={currentStatus}>
+                    <StatusBadge data-variant={currentStatus}>
                       {statusLabel[currentStatus] ?? STATUS_LABEL_FALLBACK}
                     </StatusBadge>
                   </li>
@@ -539,51 +464,20 @@ export default function StudentForm() {
                     수강 상태는 언제든지 변경 가능하니 현재 상황을 기준으로
                     선택하세요.
                   </li>
-                  <li>연락처는 하이픈(-)을 포함하면 더 읽기 쉬워요.</li>
-                  <li>
-                    주소를 입력해두면 청구·우편 발송 시 다시 묻지 않아도 됩니다.
-                  </li>
                 </ul>
               </InfoCard>
             </SideColumn>
           </FormLayout>
         </Form>
       )}
-
-      {/* Delete confirmation: only for edit mode */}
-      <ConfirmDialog
-        open={isEdit && confirmDeleteOpen}
-        title="원생 삭제"
-        message={"이 원생을 삭제하시겠어요? 되돌릴 수 없습니다. 출석/상담 기록도 함께 삭제됩니다."}
-        confirmLabel="삭제"
-        cancelLabel="취소"
-        tone="danger"
-        busy={deleting}
-        onCancel={() => { if (!deleting) setConfirmDeleteOpen(false); }}
-        onConfirm={async () => {
-          if (!isEdit || !numericId) return;
-          setDeleting(true);
-          try {
-            await apiDeleteStudent(numericId);
-            showSuccess('원생을 삭제했습니다.');
-            navigate('/students');
-          } catch (e: any) {
-            showErrorToast(e?.message || '삭제에 실패했습니다.');
-          } finally {
-            setDeleting(false);
-          }
-        }}
-      />
     </Page>
   );
 }
 
-const Page = styled(PageWrap)`
-  gap: ${(p) => p.theme.spacing.lg};
-  width: 100%;
-  max-width: 1080px;
-  margin: 0 auto;
-  padding-bottom: ${(p) => p.theme.spacing.xxl};
+const Page = styled.div`
+  display: grid;
+  gap: 14px;
+  padding-bottom: 32px;
 `;
 const Header = styled.div`
   position: sticky;
@@ -593,10 +487,8 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: ${(p) => p.theme.spacing.sm};
-  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.xs}
-    ${(p) => p.theme.spacing.xs};
+  gap: 10px;
+  padding: 10px 2px 6px;
   h2 {
     margin: 0;
     font-size: 20px;
@@ -625,24 +517,21 @@ const Header = styled.div`
 const HeadLeft = styled.div`
   display: flex;
   align-items: center;
-  gap: ${(p) => p.theme.spacing.sm};
-  flex-wrap: wrap;
+  gap: 10px;
 `;
 const HeadActions = styled.div`
   display: inline-flex;
-  gap: ${(p) => p.theme.spacing.sm};
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  gap: 8px;
 `;
 // Back button now shared component
 const Form = styled.form`
   display: grid;
-  gap: ${(p) => p.theme.spacing.lg};
+  gap: 16px;
 `;
 // Section/Title from common UI
 const Grid = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.md};
+  gap: 12px;
   grid-template-columns: minmax(0, 1fr);
   @media (min-width: 720px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -650,15 +539,15 @@ const Grid = styled.div`
 `;
 const Field = styled.label`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xs};
+  gap: 6px;
   align-items: start;
 ` as any;
 const Label = styled.div`
   color: #475569;
-  font-size: ${(p) => p.theme.font.size.md};
+  font-size: 13px;
   font-weight: 800;
   display: inline-flex;
-  gap: ${(p) => p.theme.spacing.xs};
+  gap: 4px;
   align-items: center;
   text-align: left;
   span {
@@ -667,11 +556,11 @@ const Label = styled.div`
 `;
 const Input = styled.input`
   height: 42px;
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.md};
-  padding: 0 ${(p) => p.theme.spacing.md};
-  font-size: ${(p) => p.theme.font.size.md};
-  color: ${(p) => p.theme.colors.text};
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #111827;
   width: 100%;
   &::placeholder {
     color: #9ca3af;
@@ -687,12 +576,12 @@ const Input = styled.input`
 `;
 const Select = styled.select`
   height: 42px;
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.md};
-  padding: 0 ${(p) => p.theme.spacing.md};
-  font-size: ${(p) => p.theme.font.size.md};
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
   background: #fff;
-  color: ${(p) => p.theme.colors.text};
+  color: #111827;
   width: 100%;
   &:focus {
     outline: none;
@@ -706,42 +595,40 @@ const Select = styled.select`
 const TripleGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: 8px;
 `;
 // Buttons from common UI
 const AlertError = styled.div`
   background: #fee2e2;
   color: #b91c1c;
   border: 1px solid #fecaca;
-  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.md};
-  border-radius: ${(p) => p.theme.radii.md};
-  font-size: ${(p) => p.theme.font.size.sm};
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
 `;
 const AlertOk = styled.div`
   background: #dcfce7;
   color: #166534;
   border: 1px solid #bbf7d0;
-  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.md};
-  border-radius: ${(p) => p.theme.radii.md};
-  font-size: ${(p) => p.theme.font.size.sm};
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 13px;
 `;
 
 const Help = styled.div`
-  color: ${(p) => p.theme.colors.textMuted};
-  font-size: ${(p) => p.theme.font.size.sm};
-  line-height: 1.4;
+  color: #6b7280;
+  font-size: 12px;
 `;
 
 const SectionLead = styled.p`
-  margin: ${(p) => p.theme.spacing.xs} 0 ${(p) => p.theme.spacing.lg};
-  color: ${(p) => p.theme.colors.textMuted};
-  font-size: ${(p) => p.theme.font.size.md};
-  line-height: 1.5;
+  margin: 4px 0 14px;
+  color: #6b7280;
+  font-size: 13px;
 `;
 
 const FormLayout = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xl};
+  gap: 18px;
   align-items: start;
   grid-template-columns: minmax(0, 1fr);
   @media (min-width: 1080px) {
@@ -751,24 +638,24 @@ const FormLayout = styled.div`
 
 const MainColumn = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.lg};
+  gap: 16px;
 `;
 
 const SideColumn = styled.aside`
   display: grid;
-  gap: ${(p) => p.theme.spacing.lg};
+  gap: 16px;
 `;
 
 const StickyCard = styled(Section)`
   display: grid;
-  gap: ${(p) => p.theme.spacing.md};
+  gap: 14px;
   position: sticky;
-  top: 96px;
+  top: 84px;
 `;
 
 const SummaryTitle = styled.h4`
   margin: 0;
-  font-size: ${(p) => p.theme.font.size.lg};
+  font-size: 15px;
   color: #111827;
   font-weight: 800;
 `;
@@ -778,12 +665,12 @@ const SummaryList = styled.ul`
   padding: 0;
   list-style: none;
   display: grid;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: 10px;
   li {
     display: flex;
     justify-content: space-between;
-    gap: ${(p) => p.theme.spacing.md};
-    font-size: ${(p) => p.theme.font.size.md};
+    gap: 12px;
+    font-size: 13px;
     color: #475569;
     strong {
       font-weight: 700;
@@ -792,47 +679,47 @@ const SummaryList = styled.ul`
   }
 `;
 
-const StatusBadge = styled.span<{ $variant: Student['status'] }>`
+const StatusBadge = styled.span`
   display: inline-flex;
   align-items: center;
-  gap: ${(p) => p.theme.spacing.xs};
-  padding: ${(p) => p.theme.spacing.xs} ${(p) => p.theme.spacing.sm};
+  gap: 6px;
+  padding: 4px 10px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  background: ${({ $variant }) =>
-    $variant === "ON_LEAVE"
+  background: ${({ "data-variant": variant }) =>
+    variant === "ON_LEAVE"
       ? "rgba(251, 191, 36, 0.18)"
-      : $variant === "PENDING"
+      : variant === "PENDING"
       ? "rgba(96, 165, 250, 0.16)"
       : "rgba(34, 197, 94, 0.18)"};
-  color: ${({ $variant }) =>
-    $variant === "ON_LEAVE"
+  color: ${({ "data-variant": variant }) =>
+    variant === "ON_LEAVE"
       ? "#92400e"
-      : $variant === "PENDING"
+      : variant === "PENDING"
       ? "#1d4ed8"
       : "#166534"};
-`;
+` as any;
 
 const TipNote = styled.div`
-  font-size: ${(p) => p.theme.font.size.sm};
-  color: ${(p) => p.theme.colors.textMuted};
+  font-size: 12px;
+  color: #6b7280;
 `;
 
 const InfoCard = styled(Section)`
   display: grid;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: 10px;
   h4 {
     margin: 0;
-    font-size: ${(p) => p.theme.font.size.md};
+    font-size: 14px;
     color: #111827;
   }
   ul {
     margin: 0;
-    padding-left: ${(p) => p.theme.spacing.lg};
+    padding-left: 18px;
     display: grid;
-    gap: ${(p) => p.theme.spacing.xs};
-    font-size: ${(p) => p.theme.font.size.md};
+    gap: 6px;
+    font-size: 13px;
     color: #4b5563;
   }
 `;
@@ -840,26 +727,29 @@ const InfoCard = styled(Section)`
 const StatusSwitch = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: ${(p) => p.theme.spacing.xs};
+  gap: 6px;
 `;
 
 const StatusButton = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: ${(p) => p.theme.spacing.xs};
-  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.md};
-  border-radius: ${(p) => p.theme.radii.md};
-  border: 1px solid ${(p) => p.theme.colors.border};
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
   background: #fff;
   color: #1f2937;
-  font-size: ${(p) => p.theme.font.size.md};
+  font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease,
     transform 0.12s ease;
+  span {
+    font-size: 16px;
+  }
   &[data-active="true"] {
-    border-color: ${(p) => p.theme.colors.primary};
-    background: rgba(99, 102, 241, 0.12);
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.08);
     color: #312e81;
     transform: translateY(-1px);
   }
@@ -873,10 +763,10 @@ const StatusButton = styled.button`
 const DangerZone = styled.section`
   background: #fff1f2;
   border: 1px solid #ffe4e6;
-  border-radius: ${(p) => p.theme.radii.lg};
-  padding: ${(p) => p.theme.spacing.md};
+  border-radius: 14px;
+  padding: 14px;
   display: grid;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: 8px;
 `;
 const ZoneTitle = styled.div`
   color: #be123c;
@@ -887,14 +777,14 @@ const ZoneDesc = styled.div`
   font-size: 12px;
 `;
 const DangerBtn = styled.button`
-  height: 36px;
-  padding: 0 ${(p) => p.theme.spacing.md};
-  border-radius: ${(p) => p.theme.radii.md};
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 10px;
   border: 1px solid #e11d48;
   background: #e11d48;
   color: #fff;
   font-weight: 800;
-  font-size: ${(p) => p.theme.font.size.sm};
+  font-size: 12px;
   justify-self: start;
   opacity: 0.6;
   cursor: not-allowed;
@@ -913,14 +803,9 @@ const Sk = styled.div<{ w?: number; h?: number }>`
   width: ${({ w }) => (w ? `${w}px` : "100%")};
   height: ${({ h }) => (h ? `${h}px` : "12px")};
 `;
-
-const SkeletonWrap = styled.div`
-  display: grid;
-  gap: ${(p) => p.theme.spacing.md};
-`;
 function FormSkeleton() {
   return (
-    <SkeletonWrap>
+    <div style={{ display: "grid", gap: 12 }}>
       <Section>
         <SectionTitle>기본 정보</SectionTitle>
         <Grid>
@@ -940,7 +825,7 @@ function FormSkeleton() {
           <Sk h={38} />
         </Grid>
       </Section>
-    </SkeletonWrap>
+    </div>
   );
 }
 

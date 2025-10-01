@@ -146,6 +146,19 @@ const buttonOutline = css`
     background: ${(p) => p.theme.colors.gray100};
     transform: translateY(1px);
   }
+  /* Danger outline variant (opt-in via data-variant="danger") */
+  &[data-variant='danger'] {
+    border-color: #fecaca;
+    color: #b91c1c;
+  }
+  &[data-variant='danger']:hover:not(:disabled) {
+    background: #fee2e2;
+    border-color: #fca5a5;
+  }
+  &[data-variant='danger']:active:not(:disabled) {
+    background: #fecaca;
+    transform: translateY(1px);
+  }
 `;
 
 const buttonSubtle = css`
@@ -206,12 +219,16 @@ export const GhostButton = styled.button`
 `;
 
 export const GhostButtonSmall = styled(GhostButton)`
-  height: 40px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
 `;
 
 export const SmallBtn = styled.button`
   ${buttonOutline};
-  height: 40px;
+  height: 32px;
+  padding: 0 12px;
+  font-size: 13px;
 `;
 
 // Empty state pattern

@@ -63,21 +63,23 @@ export default function CalendarGrid({ viewDate, dates, onSelectDate, getEvents 
             </DateNum>
             <Events>
               {(() => {
-                // Aggregate counts by type
-                const classCount = events.filter((e) => e.type === 'class').length;
-                const counselCount = events.filter((e) => e.type === 'counsel').length;
-                const todoCount = events.filter((e) => e.type === 'todo').length;
+                // Aggregate counts by type (prefer explicit count, fallback to 1 per event)
+                const sum = (t: CalendarEvent["type"]) =>
+                  events.filter((e) => e.type === t).reduce((acc, e) => acc + (e.count ?? 1), 0);
+                const classCount = sum('class');
+                const counselCount = sum('counsel');
+                const todoCount = sum('todo');
                 if (classCount + counselCount + todoCount === 0) return null;
                 return (
                   <CountGrid>
                     {classCount > 0 && (
-                      <CountPill data-variant="class" title={`수업 ${classCount}건`}>수업 {classCount}</CountPill>
+                      <CountPill data-variant="class" title={`수업 ${classCount}건`}>수업 {classCount}건</CountPill>
                     )}
                     {counselCount > 0 && (
-                      <CountPill data-variant="counsel" title={`상담 ${counselCount}건`}>상담 {counselCount}</CountPill>
+                      <CountPill data-variant="counsel" title={`상담 ${counselCount}건`}>상담 {counselCount}건</CountPill>
                     )}
                     {todoCount > 0 && (
-                      <CountPill data-variant="todo" title={`할일 ${todoCount}건`}>할일 {todoCount}</CountPill>
+                      <CountPill data-variant="todo" title={`할일 ${todoCount}개`}>할일 {todoCount}개</CountPill>
                     )}
                   </CountGrid>
                 );

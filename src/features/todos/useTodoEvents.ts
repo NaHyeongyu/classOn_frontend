@@ -74,7 +74,7 @@ export function useTodoEvents(visibleDates?: Date[]) {
     (d: Date): CalendarEvent[] => {
       const ymd = formatYMD(d);
       const n = counts[ymd] || 0;
-      return n > 0 ? [{ type: "todo", label: `할 일 ${n}개` }] : [];
+      return n > 0 ? [{ type: "todo", label: `할 일 ${n}개`, count: n }] : [];
     },
     [counts]
   );

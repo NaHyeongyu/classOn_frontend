@@ -7,6 +7,8 @@ import path from 'node:path'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  // Read env files from the monorepo root so `.env.production` at project root is picked up
+  envDir: path.resolve(__dirname, '..'),
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),

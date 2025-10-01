@@ -2,7 +2,8 @@ import { getToken } from "./auth";
 // EN: JSON fetch helper that adds base URL and Authorization header
 // KO: 기본 URL 및 인증 헤더를 추가하는 JSON fetch 헬퍼
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+// Support both VITE_API_BASE (new) and VITE_API_BASE_URL (legacy)
+const API_BASE = import.meta.env.VITE_API_BASE || import.meta.env.VITE_API_BASE_URL || "";
 const CACHE_TTL_MS = Number(import.meta.env.VITE_FETCH_TTL_MS ?? 30000);
 const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_FETCH_TIMEOUT_MS ?? 10000);
 // Certain highly-dynamic endpoints should bypass client TTL/ETag to reflect

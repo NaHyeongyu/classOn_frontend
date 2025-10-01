@@ -111,7 +111,7 @@ export async function updateStudent(id: number, payload: Partial<StudentPayload>
 }
 
 // Excel helpers (download/upload)
-const API_BASE_STU = (import.meta as any).env?.VITE_API_BASE_URL || "";
+const API_BASE_STU = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_BASE_URL || "";
 function resolveURL(path: string) { return API_BASE_STU ? new URL(path, API_BASE_STU).toString() : path; }
 async function fetchBlob(path: string): Promise<Blob> {
   const url = resolveURL(path);

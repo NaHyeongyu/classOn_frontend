@@ -20,9 +20,6 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
   return (
     <Backdrop onClick={busy ? undefined : onCancel}>
       <Card role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc" onClick={(e) => e.stopPropagation()}>
-        <IconWrap data-tone={tone} aria-hidden>
-          {tone === 'danger' ? DangerGlyph : InfoGlyph}
-        </IconWrap>
         <Content>
           <Title id="confirm-title">{title}</Title>
           {message ? <Msg id="confirm-desc">{message}</Msg> : null}
@@ -52,7 +49,6 @@ const Backdrop = styled.div`
   position: fixed;
   inset: 0;
   background: rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(3px);
   display: grid;
   place-items: center;
   z-index: 1200;
@@ -61,27 +57,16 @@ const Backdrop = styled.div`
 const Card = styled.div`
   width: min(480px, calc(100% - 32px));
   background: #ffffff;
-  border: 1px solid #e2e8f0;
-  border-radius: 20px;
-  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.22);
-  padding: 24px 26px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 8px 28px rgba(2, 6, 23, 0.08);
+  padding: 18px 20px;
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 16px;
+  grid-template-columns: 1fr;
+  gap: 12px;
 `;
 
-const IconWrap = styled.span<{ 'data-tone': Props['tone'] }>`
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  display: grid;
-  place-items: center;
-  background: ${({ 'data-tone': tone }) =>
-    tone === 'danger' ? '#fee2e2' : '#e0f2fe'};
-  color: ${({ 'data-tone': tone }) =>
-    tone === 'danger' ? '#b91c1c' : '#2563eb'};
-  font-size: 20px;
-`;
+// Icon removed for a cleaner, minimal dialog
 
 const Content = styled.div`
   display: grid;
@@ -90,9 +75,9 @@ const Content = styled.div`
 
 const Title = styled.h3`
   margin: 0;
-  font-size: 20px;
-  font-weight: 800;
-  color: #0f172a;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
 `;
 
 const Msg = styled.div`
@@ -135,5 +120,4 @@ const Action = styled.button`
   }
 `;
 
-const DangerGlyph = '⚠️';
-const InfoGlyph = 'ℹ️';
+// No glyphs

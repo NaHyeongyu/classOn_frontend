@@ -526,22 +526,24 @@ export default function CalendarDetail() {
 const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(15, 23, 42, 0.28);
   display: grid;
   place-items: center;
-  z-index: 50;
+  z-index: 1200;
 `;
 const ModalCard = styled.div`
-  width: 520px;
+  width: 480px;
   max-width: calc(100% - 32px);
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(2, 6, 23, 0.08);
+  padding: 18px;
 `;
   const ModalTitle = styled.h3`
   margin: 0 0 10px;
-  font-size: 18px;
+  font-size: 17px;
+  font-weight: 700;
   color: #111827;
 `;
 const Row = styled.div` display:flex; align-items:center; gap:8px; `;

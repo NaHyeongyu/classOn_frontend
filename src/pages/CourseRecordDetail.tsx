@@ -710,9 +710,33 @@ export default function CourseRecordDetail() {
               <Title>수업 파일</Title>
               <label style={{ display:'inline-flex', alignItems:'center', gap:8 }}>
                 <SmallBtn as="span">파일 추가</SmallBtn>
-                <input type="file" accept="image/*,application/pdf" multiple style={{ display:'none' }} onChange={(e) => onUpload(e.currentTarget.files)} />
+                <input
+                  type="file"
+                  accept="image/*,application/pdf"
+                  multiple
+                  style={{ display:'none' }}
+                  onChange={(e) => { void onUpload(e.currentTarget.files); e.currentTarget.value = ''; }}
+                />
               </label>
             </SectionHeader>
+            <DropArea onDragOver={(e) => { e.preventDefault(); }} onDrop={onDropFiles}>
+              <span className="hint">여기로 파일을 끌어다 놓거나 ‘파일 추가’를 누르세요</span>
+            </DropArea>
+            {uploadQueue.length > 0 && (
+              <UploadQueue>
+                {uploadQueue.map(u => (
+                  <QueueItem key={u.id}>
+                    <div className="meta">
+                      <span className="name" title={u.name}>{u.name}</span>
+                      <span className="size">{Math.round(u.size/1024)} KB</span>
+                      <span className="status">{u.status === 'uploading' ? '업로드 중' : u.status === 'done' ? '완료' : u.status === 'error' ? '오류' : '대기'}</span>
+                    </div>
+                    <div className="bar"><i style={{ width: `${u.progress}%` }} /></div>
+                    {u.error && <SmallMuted>{u.error}</SmallMuted>}
+                  </QueueItem>
+                ))}
+              </UploadQueue>
+            )}
             {filesError && <AlertError>{filesError}</AlertError>}
             {filesLoading && <Muted>불러오는 중...</Muted>}
             {files.length === 0 ? (
@@ -1043,3 +1067,28 @@ const BackBtn = styled.button`
   font-size: 14px;
 `;
 const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);
+
+// Upload UX additions
+const DropArea = styled.div`
+  margin-top: 8px;
+  border: 1px dashed #d1d5db;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 12px;
+  .hint{ pointer-events: none; }
+`;
+const UploadQueue = styled.div`
+  display: grid; gap: 8px; margin-top: 10px;
+`;
+const QueueItem = styled.div`
+  border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px; background: #fff; display: grid; gap: 6px;
+  .meta{ display:flex; gap:8px; align-items:center; justify-content:space-between; }
+  .name{ font-size:12px; color:#111827; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:left; }
+  .size{ font-size:11px; color:#9ca3af; }
+  .status{ font-size:11px; color:#6b7280; }
+  .bar{ height:6px; background:#f3f4f6; border-radius:999px; overflow:hidden; }
+  .bar i{ display:block; height:100%; background:#a7f3d0; }
+`;

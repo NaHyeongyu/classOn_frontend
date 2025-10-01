@@ -186,11 +186,9 @@ export default function CourseStudentsEdit() {
   return (
     <Wrap>
       <Head>
-        <BackButton to={`/classes/${numericId ?? ''}`} label="상세" />
+        <BackButton to={`/classes/${numericId ?? ''}`} label="뒤로" />
         <h2>수강생 수정</h2>
-        <Actions>
-          <BackButton to={`/classes/${numericId ?? ''}`} label="완료" />
-        </Actions>
+        <Actions />
       </Head>
       {(error || enrolledError) && <AlertError>{error || enrolledError}</AlertError>}
 

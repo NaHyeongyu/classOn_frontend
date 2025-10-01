@@ -127,7 +127,6 @@ export default function MarketingPreview() {
       </Stepper>
       <HeaderWrap>
         <HeaderRow>
-          <BackButton backSteps={1} label="뒤로" />
           <HeaderTitle>AI 요약 결과</HeaderTitle>
         </HeaderRow>
         <HeaderSubtitle>AI가 분석한 수업 내용을 바탕으로 마케팅 콘텐츠를 생성하세요.</HeaderSubtitle>

@@ -53,6 +53,8 @@ export default function CourseRecordDetail() {
   const [filesError, setFilesError] = useState<string | null>(null);
   const [contentValue, setContentValue] = useState<string>('');
   const [fileBusy, setFileBusy] = useState<Record<number, boolean>>({});
+  type UploadQueueItem = { id: string; name: string; size: number; progress: number; status: 'pending'|'uploading'|'done'|'error'; error?: string };
+  const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
   const [thumbUrl, setThumbUrl] = useState<Record<number, string>>({});
   const [previewBusy, setPreviewBusy] = useState<Record<number, boolean>>({});
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -333,57 +335,108 @@ export default function CourseRecordDetail() {
   void loadFiles();
   return () => { cancelled = true; };
   }, [courseId, record, recId, ymd, getLocalAttachments]);
-  async function onUpload(filesList: FileList | null) {
-    if (!filesList) return;
-    // enforce size limit
+  function filterIncoming(filesList: FileList | File[]) {
     const all = Array.from(filesList);
     const sized = all.filter(f => f.size <= MAX_FILE_SIZE);
     const rejectedSize = all.filter(f => f.size > MAX_FILE_SIZE);
-    // enforce mime type allowlist
     const accepted = sized.filter(f => !f.type || ALLOWED_MIME.has(f.type));
     const rejectedType = sized.filter(f => f.type && !ALLOWED_MIME.has(f.type));
-    if (rejectedSize.length > 0) {
-      setFilesError(`용량 제한(${MAX_FILE_SIZE_MB}MB)을 초과한 파일 제외: ${rejectedSize.map(f => f.name).join(', ')}`);
-    } else {
-      setFilesError(null);
-    }
-    if (rejectedType.length > 0) {
-      setFilesError(prev => [prev, `허용되지 않는 형식 제외: ${rejectedType.map(f => f.name).join(', ')}`].filter(Boolean).join(' / '));
-    }
+    if (rejectedSize.length > 0) setFilesError(`용량 제한(${MAX_FILE_SIZE_MB}MB)을 초과한 파일 제외: ${rejectedSize.map(f => f.name).join(', ')}`);
+    else setFilesError(null);
+    if (rejectedType.length > 0) setFilesError(prev => [prev, `허용되지 않는 형식 제외: ${rejectedType.map(f => f.name).join(', ')}`].filter(Boolean).join(' / '));
+    return accepted;
+  }
+  async function startUpload(accepted: File[]) {
     if (accepted.length === 0) return;
-    if (courseId && record?.id) {
-      try {
-        const MAX_FILES = 5;
-        const send = accepted.slice(0, MAX_FILES);
-        const omitted = accepted.length - send.length;
-        if (omitted > 0) {
-          setFilesError(prev => [prev, `최대 ${MAX_FILES}개까지만 업로드됩니다 (추가 ${omitted}개 제외)`].filter(Boolean).join(' / '));
-        }
-        const created: Attachment[] = [];
-        for (const f of send) {
-          // 1) presign
-          const pres = await presignRecordAttachment(courseId!, record!.id, f.name, f.type || 'application/octet-stream');
-          // 2) PUT to S3
-          const putRes = await fetch(pres.url, { method: 'PUT', headers: pres.headers, body: f });
-          if (!putRes.ok) throw new Error(`S3 업로드 실패: HTTP ${putRes.status}`);
-          // 3) confirm
-          const etag = putRes.headers.get('ETag') || putRes.headers.get('etag') || undefined;
-          const meta = await confirmRecordAttachment(courseId!, record!.id, { key: pres.key, filename: f.name, contentType: f.type || 'application/octet-stream', size: f.size, etag });
-          created.push(meta);
-        }
-        setFiles(prev => [...created, ...prev]);
-        void preloadThumbs(created);
-      } catch (error) {
-        showError(readableError(error, '업로드에 실패했습니다.'));
-      }
-    } else {
-      // local
+    if (!(courseId && record?.id)) {
+      // local fallback
       const prev = getLocalAttachments();
       const next = [...prev, ...accepted.map(f => ({ name: f.name, size: f.size }))];
       setLocalAttachments(next);
       setFiles(toAttachmentRows(next));
+      return;
     }
+    // limit concurrency for smoother UI
+    const MAX_FILES = 8;
+    const CONCURRENCY = 3;
+    const send = accepted.slice(0, MAX_FILES);
+    const omitted = accepted.length - send.length;
+    if (omitted > 0) setFilesError(prev => [prev, `최대 ${MAX_FILES}개까지만 업로드됩니다 (추가 ${omitted}개 제외)`].filter(Boolean).join(' / '));
+    // queue items
+    const newItems: UploadQueueItem[] = send.map((f, i) => ({ id: `${Date.now()}-${i}-${Math.random().toString(36).slice(2,8)}`, name: f.name, size: f.size, progress: 0, status: 'pending' }));
+    setUploadQueue(q => [...newItems, ...q]);
+    const created: Attachment[] = [];
+    let idx = 0;
+    async function uploadOne(index: number) {
+      const f = send[index];
+      const qid = newItems[index].id;
+      // 1) presign
+      const pres = await presignRecordAttachment(courseId!, record!.id, f.name, f.type || 'application/octet-stream');
+      // 2) PUT with progress via XHR
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', pres.url, true);
+        for (const [k, v] of Object.entries(pres.headers || {})) {
+          try { xhr.setRequestHeader(k, v as string); } catch {}
+        }
+        setUploadQueue(q => q.map(it => it.id === qid ? { ...it, status: 'uploading', progress: 0 } : it));
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) {
+            const pct = Math.max(1, Math.min(99, Math.round((ev.loaded / ev.total) * 100)));
+            setUploadQueue(q => q.map(it => it.id === qid ? { ...it, progress: pct } : it));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            setUploadQueue(q => q.map(it => it.id === qid ? { ...it, progress: 100 } : it));
+            resolve();
+          } else {
+            const err = `S3 업로드 실패: HTTP ${xhr.status}`;
+            setUploadQueue(q => q.map(it => it.id === qid ? { ...it, status: 'error', error: err } : it));
+            reject(new Error(err));
+          }
+        };
+        xhr.onerror = () => {
+          const err = 'S3 업로드 중 네트워크 오류';
+          setUploadQueue(q => q.map(it => it.id === qid ? { ...it, status: 'error', error: err } : it));
+          reject(new Error(err));
+        };
+        xhr.send(f);
+      });
+      // 3) confirm
+      let etag: string | undefined;
+      try { etag = (await (async () => '')()) as any; } catch {}
+      // XHR로는 헤더 접근이 제한될 수 있어 fetch 대체 헤더 취득은 생략; presigned GET 없이도 confirm 가능
+      const meta = await confirmRecordAttachment(courseId!, record!.id, { key: pres.key, filename: f.name, contentType: f.type || 'application/octet-stream', size: f.size, etag, originalName: f.name });
+      created.push(meta);
+      setUploadQueue(q => q.map(it => it.id === qid ? { ...it, status: 'done', progress: 100 } : it));
+    }
+    const workers = Array.from({ length: Math.min(CONCURRENCY, send.length) }, async () => {
+      while (idx < send.length) {
+        const cur = idx++;
+        try { await uploadOne(cur); } catch (e) { /* already marked in queue */ }
+      }
+    });
+    await Promise.all(workers);
+    if (created.length) {
+      setFiles(prev => [...created, ...prev]);
+      void preloadThumbs(created);
+    }
+    // cleanup finished items after short delay
+    setTimeout(() => setUploadQueue(q => q.filter(it => it.status !== 'done' && it.status !== 'error')), 2500);
   }
+  async function onUpload(filesList: FileList | null) {
+    if (!filesList) return;
+    const accepted = filterIncoming(filesList);
+    await startUpload(accepted);
+  }
+  const onDropFiles = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const items = e.dataTransfer?.files;
+    if (!items || items.length === 0) return;
+    const accepted = filterIncoming(items);
+    await startUpload(accepted);
+  };
   async function preloadThumbs(list: Attachment[]) {
     // Only for images; best-effort with small concurrency
     const imgs = list.filter(f => (f.contentType || '').startsWith('image/'));

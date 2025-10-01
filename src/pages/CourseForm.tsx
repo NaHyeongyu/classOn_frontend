@@ -228,11 +228,7 @@ export default function CourseForm() {
           {leftIcon} 뒤로
         </BackBtn>
         <h2>{isEdit ? "수업 수정" : "수업 추가하기"}</h2>
-        <Actions>
-          <UIGhostBtn onClick={() => navigate("/classes")}>
-            취소
-          </UIGhostBtn>
-        </Actions>
+        <Actions />
       </Head>
       {error && <AlertError>{error}</AlertError>}
       {success && <AlertOk>{success}</AlertOk>}

@@ -253,7 +253,7 @@ export default function StudentForm() {
       {success && <AlertOk>{success}</AlertOk>}
 
       {loading ? (
-        토
+        <FormSkeleton />
       ) : (
         <Form id="student-form" onSubmit={onSubmit}>
           <FormLayout>
@@ -448,7 +448,7 @@ export default function StudentForm() {
                   </li>
                   <li>
                     <span>상태</span>
-                    <StatusBadge data-variant={currentStatus}>
+                    <StatusBadge $variant={currentStatus}>
                       {statusLabel[currentStatus] ?? STATUS_LABEL_FALLBACK}
                     </StatusBadge>
                   </li>
@@ -698,7 +698,7 @@ const SummaryList = styled.ul`
   }
 `;
 
-const StatusBadge = styled.span`
+const StatusBadge = styled.span<{ $variant: Student["status"] }>`
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -706,19 +706,19 @@ const StatusBadge = styled.span`
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
-  background: ${({ "data-variant": variant }) =>
+  background: ${({ $variant: variant }) =>
     variant === "ON_LEAVE"
       ? "rgba(251, 191, 36, 0.18)"
       : variant === "PENDING"
       ? "rgba(96, 165, 250, 0.16)"
       : "rgba(34, 197, 94, 0.18)"};
-  color: ${({ "data-variant": variant }) =>
+  color: ${({ $variant: variant }) =>
     variant === "ON_LEAVE"
       ? "#92400e"
       : variant === "PENDING"
       ? "#1d4ed8"
       : "#166534"};
-` as any;
+`;
 
 const TipNote = styled.div`
   font-size: 12px;

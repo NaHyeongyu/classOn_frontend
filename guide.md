@@ -12,7 +12,8 @@
 ## 실행/환경 (Run & Env)
 - 개발 실행: `npm run dev`
 - 환경 변수(Environment variables)
-  - `VITE_API_BASE_URL`: 백엔드 API 베이스 URL (ex. `https://api.example.com`)
+  - `VITE_API_BASE` (권장): 백엔드 API 베이스 URL. 기본값은 `https://api.myclasson.com/api` 이며, 필요 시 로컬 개발 등에서만 오버라이드합니다.
+  - `VITE_API_BASE_URL` (호환): 예전 키. 설정 시 여전히 동작하나, `VITE_API_BASE`가 우선됩니다.
   - `VITE_USE_MOCK=1`: 인증/대시보드 요약 API 실패 시 목 데이터 사용 (dev 편의)
   - `VITE_FETCH_TIMEOUT_MS`: fetch 기본 타임아웃(ms, 기본 10000)
 

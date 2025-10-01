@@ -207,7 +207,7 @@ export async function deleteRecordAttachment(courseId: number, recordId: number,
 
 export async function downloadRecordAttachmentBlob(courseId: number, recordId: number, fileId: number): Promise<Blob> {
   // Reuse blob fetch helper used by Excel utilities to include Authorization header
-  const API_BASE = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_BASE_URL || "";
+  const API_BASE = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_BASE_URL || "https://api.myclasson.com/api";
   const url = API_BASE ? new URL(`/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`, API_BASE).toString() : `/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`;
   const token = (await import("../lib/auth")).getToken();
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
@@ -220,7 +220,7 @@ export async function deleteCourse(id: number): Promise<void> {
 }
 
 // Excel helpers (download/upload)
-const API_BASE_COURSE = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_BASE_URL || "";
+const API_BASE_COURSE = (import.meta as any).env?.VITE_API_BASE || (import.meta as any).env?.VITE_API_BASE_URL || "https://api.myclasson.com/api";
 function resolveURL(path: string) { return API_BASE_COURSE ? new URL(path, API_BASE_COURSE).toString() : path; }
 async function fetchBlob(path: string): Promise<Blob> {
   const url = resolveURL(path);

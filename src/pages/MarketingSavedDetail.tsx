@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import styled from 'styled-components';
 import { Page, SectionCard, GhostButtonSmall, TitleH3, PageHeader } from '@/components/common/UI';
-import { getSavedMarketingPosts, removeSavedMarketingPost, type SavedMarketing } from '@/lib/savedMarketing';
+import { getSavedMarketingPosts, removeSavedMarketingPost, type SavedMarketing, SAVED_MARKETING_KEY } from '@/lib/savedMarketing';
 import { getSaved } from '@/api/marketingSaved';
 import { useToast } from '@/components/common/Toast';
 
@@ -25,7 +25,7 @@ export default function MarketingSavedDetail() {
         if (!list.find(l => l.id === post.id)) {
           // cache to local for quick open
           const arr = [post, ...list].slice(0, 50);
-          localStorage.setItem('marketing:saved:v1', JSON.stringify(arr));
+          localStorage.setItem(SAVED_MARKETING_KEY, JSON.stringify(arr));
         }
       } catch {}
     }).catch(()=>{});

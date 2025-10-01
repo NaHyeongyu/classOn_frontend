@@ -195,6 +195,16 @@ export default function StudentForm() {
         name: form.name.trim(),
         status: form.status || "ENROLLED",
       };
+      // Defensive: normalize phone formats at submit time as well
+      const normalizePhone = (v?: string) => {
+        const raw = (v || '').replace(/[^0-9]/g, '');
+        if (raw.length === 11 && raw.startsWith('010')) {
+          return `010-${raw.slice(3,7)}-${raw.slice(7)}`;
+        }
+        return v;
+      };
+      (payload as any).phoneNumber = normalizePhone(payload.phoneNumber as any);
+      (payload as any).guardianPhone = normalizePhone(payload.guardianPhone as any);
       if (intlAge != null) (payload as any).age = intlAge;
       let res: Student;
       if (isEdit && numericId) {
@@ -373,7 +383,16 @@ export default function StudentForm() {
                       }
                       placeholder="010-1234-5678"
                       pattern="^010-\\d{4}-\\d{4}$"
-                      onBlur={(e)=>{ const d=e.currentTarget.value.replace(/[^0-9]/g,''); if (d.length===11 && d.startsWith('010')) { e.currentTarget.value = `010-${d.slice(3,7)}-${d.slice(7)}`; setForm(f=>({...f, phoneNumber: e.currentTarget.value })); } }}
+                      onBlur={(e)=>{
+                        try {
+                          const val = (e.target as HTMLInputElement | null)?.value ?? '';
+                          const d = val.replace(/[^0-9]/g,'');
+                          if (d.length===11 && d.startsWith('010')) {
+                            const formatted = `010-${d.slice(3,7)}-${d.slice(7)}`;
+                            setForm(f=>({...f, phoneNumber: formatted }));
+                          }
+                        } catch {}
+                      }}
                       disabled={saving}
                     />
                     <Help>
@@ -424,7 +443,16 @@ export default function StudentForm() {
                       }
                       placeholder="010-1234-5678"
                       pattern="^010-\\d{4}-\\d{4}$"
-                      onBlur={(e)=>{ const d=e.currentTarget.value.replace(/[^0-9]/g,''); if (d.length===11 && d.startsWith('010')) { e.currentTarget.value = `010-${d.slice(3,7)}-${d.slice(7)}`; setForm(f=>({...f, guardianPhone: e.currentTarget.value })); } }}
+                      onBlur={(e)=>{
+                        try {
+                          const val = (e.target as HTMLInputElement | null)?.value ?? '';
+                          const d = val.replace(/[^0-9]/g,'');
+                          if (d.length===11 && d.startsWith('010')) {
+                            const formatted = `010-${d.slice(3,7)}-${d.slice(7)}`;
+                            setForm(f=>({...f, guardianPhone: formatted }));
+                          }
+                        } catch {}
+                      }}
                       disabled={saving}
                     />
                     <Help>비상 연락을 위해 보호자 연락처를 입력해 주세요.</Help>

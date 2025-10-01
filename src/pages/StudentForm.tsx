@@ -197,11 +197,15 @@ export default function StudentForm() {
       };
       // Defensive: normalize phone formats at submit time as well
       const normalizePhone = (v?: string) => {
-        const raw = (v || '').replace(/[^0-9]/g, '');
-        if (raw.length === 11 && raw.startsWith('010')) {
-          return `010-${raw.slice(3,7)}-${raw.slice(7)}`;
+        const rawStr = (v ?? '').trim();
+        if (!rawStr) return undefined;
+        const digits = rawStr.replace(/[^0-9]/g, '');
+        if (!digits) return undefined; // treat symbols/hyphens-only as empty
+        if (digits.length === 11 && digits.startsWith('010')) {
+          return `010-${digits.slice(3,7)}-${digits.slice(7)}`;
         }
-        return v;
+        // unsupported formats: drop to avoid server-side 400
+        return undefined;
       };
       (payload as any).phoneNumber = normalizePhone(payload.phoneNumber as any);
       (payload as any).guardianPhone = normalizePhone(payload.guardianPhone as any);
@@ -382,7 +386,8 @@ export default function StudentForm() {
                         }))
                       }
                       placeholder="010-1234-5678"
-                      pattern="^010-\\d{4}-\\d{4}$"
+                      inputMode="numeric"
+                      autoComplete="tel"
                       onBlur={(e)=>{
                         try {
                           const val = (e.target as HTMLInputElement | null)?.value ?? '';
@@ -442,7 +447,8 @@ export default function StudentForm() {
                         }))
                       }
                       placeholder="010-1234-5678"
-                      pattern="^010-\\d{4}-\\d{4}$"
+                      inputMode="numeric"
+                      autoComplete="tel"
                       onBlur={(e)=>{
                         try {
                           const val = (e.target as HTMLInputElement | null)?.value ?? '';

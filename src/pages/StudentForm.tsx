@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import {
@@ -34,11 +34,10 @@ const STATUS_LABEL_FALLBACK = "미지정";
 const STATUS_OPTIONS: Array<{
   value: Student["status"];
   label: string;
-  icon: string;
 }> = [
-  { value: "ENROLLED", label: "수강중", icon: "🎓" },
-  { value: "ON_LEAVE", label: "휴학", icon: "🌙" },
-  { value: "PENDING", label: "대기중", icon: "⌛" },
+  { value: "ENROLLED", label: "수강중" },
+  { value: "ON_LEAVE", label: "휴학" },
+  { value: "PENDING", label: "대기중" },
 ];
 
 export default function StudentForm() {
@@ -51,6 +50,9 @@ export default function StudentForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [fieldErr, setFieldErr] = useState<{ name?: string }>({});
+  const [touched, setTouched] = useState<{ name?: boolean }>({});
+  const nameRef = useRef<HTMLInputElement | null>(null);
 
   function today(): string {
     const d = new Date();
@@ -182,7 +184,9 @@ export default function StudentForm() {
     setError(null);
     setSuccess(null);
     if (!form.name || !form.name.trim()) {
-      setError("이름은 필수입니다.");
+      setFieldErr((prev) => ({ ...prev, name: "이름은 필수입니다." }));
+      setTouched((prev) => ({ ...prev, name: true }));
+      try { nameRef.current?.focus(); } catch {}
       return;
     }
     setSaving(true);
@@ -221,7 +225,6 @@ export default function StudentForm() {
           </div>
         </HeadLeft>
         <HeadActions>
-          <BackButton to="/students" label="취소" />
           <UIPrimaryBtn
             as={"button" as any}
             type="button"
@@ -266,14 +269,22 @@ export default function StudentForm() {
                       이름<span>*</span>
                     </Label>
                     <Input
+                      ref={nameRef}
                       value={form.name}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, name: e.target.value }))
-                      }
+                      onChange={(e) => {
+                        setForm((f) => ({ ...f, name: e.target.value }));
+                        if (fieldErr.name) setFieldErr((prev) => ({ ...prev, name: undefined }));
+                      }}
+                      onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                       placeholder="홍길동"
                       required
                       disabled={saving}
+                      aria-invalid={touched.name && !!fieldErr.name}
+                      aria-describedby={touched.name && fieldErr.name ? 'err-name' : undefined}
                     />
+                    {touched.name && fieldErr.name ? (
+                      <FieldErr id="err-name">{fieldErr.name}</FieldErr>
+                    ) : null}
                     <Help>출석부/청구서에 표시될 이름입니다.</Help>
                   </Field>
                   <Field style={{ gridColumn: "1 / -1" }}>
@@ -289,7 +300,6 @@ export default function StudentForm() {
                           }
                           disabled={saving}
                         >
-                          <span aria-hidden>{option.icon}</span>
                           {option.label}
                         </StatusButton>
                       ))}
@@ -573,6 +583,10 @@ const Input = styled.input`
     background: #f9fafb;
     color: #6b7280;
   }
+  &[aria-invalid='true'] {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
 `;
 const Select = styled.select`
   height: 42px;
@@ -617,6 +631,11 @@ const AlertOk = styled.div`
 
 const Help = styled.div`
   color: #6b7280;
+  font-size: 12px;
+`;
+
+const FieldErr = styled.div`
+  color: #b91c1c;
   font-size: 12px;
 `;
 
@@ -733,7 +752,7 @@ const StatusSwitch = styled.div`
 const StatusButton = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 0;
   padding: 8px 12px;
   border-radius: 10px;
   border: 1px solid #e5e7eb;
@@ -744,9 +763,6 @@ const StatusButton = styled.button`
   cursor: pointer;
   transition: border-color 0.18s ease, background 0.18s ease,
     transform 0.12s ease;
-  span {
-    font-size: 16px;
-  }
   &[data-active="true"] {
     border-color: #6366f1;
     background: rgba(99, 102, 241, 0.08);
@@ -777,14 +793,14 @@ const ZoneDesc = styled.div`
   font-size: 12px;
 `;
 const DangerBtn = styled.button`
-  height: 32px;
-  padding: 0 12px;
+  height: 40px;
+  padding: 0 16px;
   border-radius: 10px;
   border: 1px solid #e11d48;
   background: #e11d48;
   color: #fff;
   font-weight: 800;
-  font-size: 12px;
+  font-size: 14px;
   justify-self: start;
   opacity: 0.6;
   cursor: not-allowed;
@@ -828,5 +844,3 @@ function FormSkeleton() {
     </div>
   );
 }
-
-// arrow icon moved into BackButton component

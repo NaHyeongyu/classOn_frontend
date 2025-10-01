@@ -204,16 +204,16 @@ const MonthLabel = styled.span`
 `;
 
 const NavBtn = styled(UISmallBtn)`
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   font-size: 18px;
   font-weight: 700;
 `;
 
 const TodayBtn = styled(UISmallBtn)`
-  height: 34px;
-  padding: 0 ${(p) => p.theme.spacing.md};
+  height: 40px;
+  padding: 0 ${(p) => p.theme.spacing.lg};
   font-size: ${(p) => p.theme.font.size.md};
   font-weight: 700;
 `;

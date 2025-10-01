@@ -189,8 +189,12 @@ export async function presignRecordAttachment(courseId: number, recordId: number
   return await fetchJSON(`/api/courses/${courseId}/records/${recordId}/attachments/presign`, { method: 'POST', body });
 }
 
-export async function confirmRecordAttachment(courseId: number, recordId: number, payload: { key: string; filename: string; contentType: string; size: number }): Promise<Attachment> {
-  const body = JSON.stringify(payload);
+export async function confirmRecordAttachment(courseId: number, recordId: number, payload: { key: string; filename: string; contentType: string; size: number; etag?: string; originalName?: string }): Promise<Attachment> {
+  const body = JSON.stringify({
+    ...payload,
+    // Send both for compatibility; server may accept either
+    originalName: payload.originalName ?? payload.filename,
+  });
   return await fetchJSON<Attachment>(`/api/courses/${courseId}/records/${recordId}/attachments/confirm`, { method: 'POST', body });
 }
 

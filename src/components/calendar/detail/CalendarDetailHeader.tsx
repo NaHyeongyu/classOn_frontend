@@ -34,14 +34,14 @@ const DateLabel = styled.div`
 `;
 const BackBtn = styled.button`
   ${buttonVariants.outline};
-  height: 36px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 16px;
   font-weight: 600;
 `;
 const NavBtn = styled.button`
   ${buttonVariants.outline};
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   font-weight: 700;
   font-size: 18px;

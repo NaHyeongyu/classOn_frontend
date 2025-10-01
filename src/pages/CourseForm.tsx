@@ -342,8 +342,8 @@ export default function CourseForm() {
                 </Field>
 
                 <Field>
-                  <Label>반복 요일</Label>
-                  <DayChips aria-disabled={!recurring}>
+                  <Label>반복 요일{recurring ? <span>*</span> : null}</Label>
+                  <DayChips aria-disabled={!recurring} aria-invalid={recurring && !!fieldErr.schedule}>
                     {dayOptions.map((d) => {
                       const active = hasDay(form.recurrenceDays, d.value);
                       return (
@@ -363,10 +363,11 @@ export default function CourseForm() {
                 </Field>
 
                 <Field>
-                  <Label>반복 시간</Label>
+                  <Label>반복 시간{recurring ? <span>*</span> : null}</Label>
                   <TimeRow>
                     <select
                       disabled={!recurring}
+                      aria-invalid={recurring && !!fieldErr.schedule}
                       value={(form.startTime ?? "").slice(0, 2) || "00"}
                       onChange={(e) => {
                         const hh = e.target.value;
@@ -383,6 +384,7 @@ export default function CourseForm() {
                     <span>:</span>
                     <select
                       disabled={!recurring}
+                      aria-invalid={recurring && !!fieldErr.schedule}
                       value={(form.startTime ?? "").slice(3, 5) || "00"}
                       onChange={(e) => {
                         const mm = e.target.value;
@@ -399,6 +401,7 @@ export default function CourseForm() {
                     <span>~</span>
                     <select
                       disabled={!recurring}
+                      aria-invalid={recurring && !!fieldErr.schedule}
                       value={(form.endTime ?? "").slice(0, 2) || "00"}
                       onChange={(e) => {
                         const hh = e.target.value;
@@ -415,6 +418,7 @@ export default function CourseForm() {
                     <span>:</span>
                     <select
                       disabled={!recurring}
+                      aria-invalid={recurring && !!fieldErr.schedule}
                       value={(form.endTime ?? "").slice(3, 5) || "00"}
                       onChange={(e) => {
                         const mm = e.target.value;
@@ -624,6 +628,12 @@ const DayChips = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: ${(p) => p.theme.spacing.sm};
+  &[aria-invalid='true'] {
+    outline: 2px solid rgba(239, 68, 68, 0.35);
+    outline-offset: 4px;
+    border-radius: 12px;
+    padding: 2px;
+  }
 `;
 const ChipBtn = styled.button`
   height: 32px;
@@ -648,6 +658,10 @@ const TimeRow = styled.div`
   grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
   gap: ${(p) => p.theme.spacing.sm};
   align-items: center;
+  select[aria-invalid='true'] {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
 `;
 // Buttons from common UI
 const AlertError = styled.div`
@@ -790,7 +804,7 @@ const NavButton = styled.button`
 
 const PrimaryAction = styled.button`
   ${buttonVariants.primary};
-  height: 42px;
+  height: 40px;
   padding: 0 ${(p) => p.theme.spacing.xl};
   font-size: ${(p) => p.theme.font.size.md};
   font-weight: 700;
@@ -807,8 +821,8 @@ const GuideCard = styled.div`
 
 const BackBtn = styled.button`
   ${buttonVariants.outline};
-  height: 36px;
-  padding: 0 ${(p) => p.theme.spacing.md};
+  height: 40px;
+  padding: 0 ${(p) => p.theme.spacing.lg};
   font-weight: 600;
   font-size: ${(p) => p.theme.font.size.md};
 `;

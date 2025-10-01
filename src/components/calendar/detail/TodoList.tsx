@@ -84,9 +84,9 @@ const SectionIcon = styled.span`
 const Actions = styled.div``;
 const ActionBtn = styled.button`
   ${buttonVariants.outline};
-  height: 36px;
-  padding: 0 14px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
   font-weight: 600;
 `;
 // SubHeader removed
@@ -124,14 +124,14 @@ const TaskContent = styled.div`
 `;
 /* removed category/owner metadata display for cleaner look */
 const GhostBtn = styled(UISmallBtn)`
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
 `;
 const DangerBtn = styled(UISmallBtn)`
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
   border-color: #ef4444;
   color: #ef4444;
   &:hover {

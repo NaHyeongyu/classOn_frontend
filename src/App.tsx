@@ -84,7 +84,7 @@ const TopBar = styled.div`
   display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: center; margin-bottom: 10px;
 `;
 const MenuBtn = styled.button`
-  height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; font-weight: 700; cursor: pointer;
+  height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; font-weight: 700; cursor: pointer;
   @media (min-width: 1025px) { display: none; }
 `;
 

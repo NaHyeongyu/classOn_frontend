@@ -113,10 +113,10 @@ const SearchInput = styled.input`
   height: 36px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 12px; width: 100%;
 `;
 const SearchBtn = styled.button`
-  height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #111827; background: #111827; color: #fff; font-weight: 700;
+  height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #111827; background: #111827; color: #fff; font-weight: 700;
 `;
 const GhostBtn = styled.button`
-  height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700;
+  height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700;
 `;
 
 /* segmented styles removed; using Select for status */

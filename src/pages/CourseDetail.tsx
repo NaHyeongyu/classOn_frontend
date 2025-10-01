@@ -516,10 +516,10 @@ const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px sol
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
 const BackBtn = styled.button`
   ${buttonVariants.outline};
-  height: 36px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 16px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
 `;
 const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);
 const Crumbs = styled.div` color:#9ca3af; font-size:12px; margin-top: -6px; margin-bottom: 4px; `;

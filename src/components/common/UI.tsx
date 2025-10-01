@@ -219,16 +219,16 @@ export const GhostButton = styled.button`
 `;
 
 export const GhostButtonSmall = styled(GhostButton)`
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
 `;
 
 export const SmallBtn = styled.button`
   ${buttonOutline};
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
 `;
 
 // Empty state pattern

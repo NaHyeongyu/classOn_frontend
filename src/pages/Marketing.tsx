@@ -799,7 +799,7 @@ const QuickGrid = styled.div`
 `;
 
 const QuickButton = styled.button`
-  height: 34px;
+  height: 40px;
   border-radius: 999px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: #fff;

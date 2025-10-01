@@ -93,14 +93,14 @@ const MonthLabel = styled.div`
   text-align: center;
 `;
 const NavBtn = styled(UISmallBtn)`
-  width: 34px;
-  height: 34px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   font-size: 18px;
   font-weight: 700;
 `;
 const TodayBtn = styled(UISmallBtn)`
-  height: 34px;
-  padding: 0 12px;
+  height: 40px;
+  padding: 0 16px;
   font-weight: 700;
 `;

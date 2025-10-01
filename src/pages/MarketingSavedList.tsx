@@ -130,6 +130,6 @@ const Pager = styled.div`
   display: flex; gap: 10px; align-items: center; justify-content: flex-end; margin-top: 10px;
 `;
 const PageBtn = styled(GhostButtonSmall)`
-  height: 32px; padding: 0 12px; font-size: 12px;
+  height: 40px; padding: 0 16px; font-size: 14px;
 `;
 // using common UI Scroller + TableBase for consistent table styling

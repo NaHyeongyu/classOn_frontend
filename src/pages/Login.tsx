@@ -16,9 +16,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [errOpen, setErrOpen] = useState(false);
   const [errMsg, setErrMsg] = useState<string>("");
+  const [submitted, setSubmitted] = useState(false);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    setSubmitted(true);
     if (!username || !password) {
       setErrMsg("아이디와 비밀번호를 입력해 주세요.");
       setErrOpen(true);
@@ -66,19 +68,23 @@ export default function Login() {
       <Title>로그인</Title>
       <Sub>계정에 접속하여 서비스를 이용하세요.</Sub>
       <Form onSubmit={onSubmit}>
-        <Label>아이디</Label>
+        <Label>아이디<span>*</span></Label>
         <Input
           type="text"
           value={username}
           onChange={(e) => setUsername(e.target.value)}
           placeholder="아이디를 입력하세요"
+          required
+          aria-invalid={submitted && !username}
         />
-        <Label>비밀번호</Label>
+        <Label>비밀번호<span>*</span></Label>
         <Input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
+          required
+          aria-invalid={submitted && !password}
         />
         <UIPrimaryBtn as={"button" as any} type="submit" disabled={loading}>
           {loading ? "로그인 중..." : "로그인"}
@@ -123,6 +129,7 @@ const Form = styled.form`
 const Label = styled.label`
   font-size: 13px;
   color: #6b7280;
+  span { color: #ef4444; margin-left: 4px; }
 `;
 const Input = styled.input`
   height: 54px;
@@ -139,6 +146,10 @@ const Input = styled.input`
   &:focus {
     background: #eef2ff;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
+  }
+  &[aria-invalid='true'] {
+    background: #fee2e2;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
   }
 `;
 // Button from common UI

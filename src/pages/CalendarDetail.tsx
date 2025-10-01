@@ -176,9 +176,10 @@ export default function CalendarDetail() {
     setOpen(true);
   }
 
+  const [todoErr, setTodoErr] = useState<string | null>(null);
   async function onSubmitModal(e: FormEvent) {
     e.preventDefault();
-    if (!formTitle.trim()) return;
+    if (!formTitle.trim()) { setTodoErr('제목을 입력해 주세요.'); return; }
     const calendarDate = ymdSafe;
     try {
       if (editingId == null) {
@@ -200,6 +201,7 @@ export default function CalendarDetail() {
         await refresh();
       }
       setOpen(false);
+      setTodoErr(null);
     } catch (e) {
       setMutationError(readableError(e, "저장에 실패했습니다."));
     }
@@ -383,12 +385,15 @@ export default function CalendarDetail() {
                   {editingId == null ? "할 일 추가" : "할 일 수정"}
                 </ModalTitle>
                 <form onSubmit={onSubmitModal}>
-                  <Label>제목</Label>
+                  <Label>제목<span>*</span></Label>
                   <Input
                     value={formTitle}
-                    onChange={(e) => setFormTitle(e.target.value)}
+                    onChange={(e) => { setFormTitle(e.target.value); if (todoErr) setTodoErr(null); }}
                     placeholder="예: 상담 준비"
+                    aria-invalid={!!todoErr}
+                    required
                   />
+                  {todoErr && <Err>{todoErr}</Err>}
                   <Label>메모 (선택)</Label>
                   <TextArea
                     rows={4}
@@ -583,6 +588,7 @@ const Label = styled.label`
   margin: 8px 0 6px;
   font-size: 12px;
   color: #6b7280;
+  span { color: #ef4444; margin-left: 4px; }
 `;
 const Input = styled.input`
   width: 100%;
@@ -590,6 +596,10 @@ const Input = styled.input`
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 0 12px;
+  &[aria-invalid='true'] {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
 `;
 const Select = styled.select`
   width: 100%;

@@ -78,8 +78,8 @@ export default function Students() {
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
           <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
-          <GhostButtonSmall as="button" onClick={handleTemplate}>템플릿 다운</GhostButtonSmall>
-          <GhostButtonSmall as="button" onClick={handleExport}>추출</GhostButtonSmall>
+          <GhostButton as="button" onClick={handleTemplate}>템플릿 다운</GhostButton>
+          <GhostButton as="button" onClick={handleExport}>추출</GhostButton>
           <GhostButton as="button" onClick={() => fileRef.current?.click()}>엑셀 업로드</GhostButton>
           <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display:'none' }} onChange={handleImport} />
         </div>

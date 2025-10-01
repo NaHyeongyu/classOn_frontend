@@ -392,7 +392,7 @@ const LogoutButton = styled.button`
   ${buttonVariants.outline};
   width: 100%;
   margin-top: 10px;
-  height: 42px;
+  height: 40px;
   justify-content: center;
   font-weight: 600;
   color: #374151;

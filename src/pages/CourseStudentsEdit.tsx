@@ -282,9 +282,9 @@ const ListBox = styled.div` border:1px solid #e5e7eb; border-radius:10px; min-he
 const Row = styled.div` display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 10px; border:1px solid #f1f5f9; border-radius:10px; `;
 const RowActions = styled.div` display:inline-flex; gap:6px; `;
 const SmallBtn = styled(UISmallBtn)`
-  height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
   &[data-active='true']{
     background:#111827;
     color:#fff;

@@ -52,4 +52,4 @@ const Label = styled.span` color:#6b7280; font-size:12px; font-weight:700; `;
 const Select = styled.select` height:36px; border:1px solid #e5e7eb; border-radius:10px; padding:0 10px; width:100%; `;
 const SearchBox = styled.div` display:grid; grid-template-columns:1fr auto; gap:8px; `;
 const SearchInput = styled.input` height:36px; border:1px solid #e5e7eb; border-radius:10px; padding:0 12px; width:100%; `;
-const PrimaryBtn = styled.button` height:36px; padding:0 12px; border-radius:10px; border:1px solid #111827; background:#111827; color:#fff; font-weight:700; `;
+const PrimaryBtn = styled.button` height:40px; padding:0 16px; border-radius:10px; border:1px solid #111827; background:#111827; color:#fff; font-weight:700; `;

@@ -367,7 +367,8 @@ export default function CourseRecordDetail() {
           const putRes = await fetch(pres.url, { method: 'PUT', headers: pres.headers, body: f });
           if (!putRes.ok) throw new Error(`S3 업로드 실패: HTTP ${putRes.status}`);
           // 3) confirm
-          const meta = await confirmRecordAttachment(courseId!, record!.id, { key: pres.key, filename: f.name, contentType: f.type || 'application/octet-stream', size: f.size });
+          const etag = putRes.headers.get('ETag') || putRes.headers.get('etag') || undefined;
+          const meta = await confirmRecordAttachment(courseId!, record!.id, { key: pres.key, filename: f.name, contentType: f.type || 'application/octet-stream', size: f.size, etag });
           created.push(meta);
         }
         setFiles(prev => [...created, ...prev]);
@@ -921,9 +922,9 @@ const SuccessBadge = styled.span`
 `;
 const AttBtn = styled.button`
   ${buttonVariants.outline};
-  height: 32px;
-  padding: 0 12px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
   &[data-active='true']{ background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
   &[data-variant='danger']{ background:#fff; color:#b91c1c; }
   &[data-variant='danger'][data-active='true']{ background:#fee2e2; color:#7f1d1d; border-color:#fecaca; }
@@ -967,9 +968,9 @@ const AttachActions = styled.div`
   display: flex; gap: 8px; justify-content: flex-end;
 `;
 const SmallBtn = styled(UISmallBtn)`
-  height: 32px;
-  padding: 0 12px;
-  font-size: 12px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
   &[data-variant='danger']{
     border-color:#fecaca;
     color:#b91c1c;
@@ -983,9 +984,9 @@ const AlertError = styled.div` background:#fee2e2; color:#b91c1c; border:1px sol
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
 const BackBtn = styled.button`
   ${buttonVariants.outline};
-  height: 36px;
-  padding: 0 14px;
+  height: 40px;
+  padding: 0 16px;
   font-weight: 600;
-  font-size: 13px;
+  font-size: 14px;
 `;
 const leftIcon = (<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>);

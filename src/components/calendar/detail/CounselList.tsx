@@ -67,9 +67,9 @@ const SectionIcon = styled.span`
 const Actions = styled.div``;
 const ActionBtn = styled.button`
   ${buttonVariants.outline};
-  height: 34px;
-  padding: 0 14px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
   font-weight: 600;
 `;
 const Grid = styled.div`

@@ -55,6 +55,9 @@ export default function Register() {
   // common
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Inline field errors per step
+  const [step1Err, setStep1Err] = useState<{ name?: string; phone?: string }>({});
+  const [step2Err, setStep2Err] = useState<{ code?: string }>({});
 
   // Email 수집 제거됨: 담당자 이메일은 혼선을 주어 수집하지 않습니다.
 
@@ -77,17 +80,15 @@ export default function Register() {
   async function onNextFromStep1(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!name || !phone) {
-      setError("이름/휴대폰을 확인해 주세요.");
-      return;
-    }
+    const nextErr: { name?: string; phone?: string } = {};
+    if (!name.trim()) nextErr.name = "이름은 필수입니다.";
+    if (!phone.trim()) nextErr.phone = "휴대폰 번호를 입력해 주세요.";
     const normalizedPhone = normalizeMobile(phone);
-    if (!normalizedPhone) {
-      setError("휴대폰 번호 형식이 올바르지 않습니다. 010-1234-5678 형태로 입력해 주세요.");
-      return;
-    }
+    if (phone.trim() && !normalizedPhone) nextErr.phone = "010-1234-5678 형식으로 입력해 주세요.";
+    setStep1Err(nextErr);
+    if (Object.keys(nextErr).length > 0) return;
     try {
-      setPhone(normalizedPhone);
+      setPhone(normalizedPhone!);
       const res = await apiRequestPhoneCode(normalizedPhone);
       if (res.code) setDevCodeHint(res.code);
       setResendCooldown(60);
@@ -101,6 +102,7 @@ export default function Register() {
   async function onVerifyCode(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!code.trim()) { setStep2Err({ code: '인증코드를 입력해 주세요.' }); return; }
     try {
       const normalizedPhone = normalizeMobile(phone);
       if (!normalizedPhone) {
@@ -191,21 +193,25 @@ export default function Register() {
         <>
           <Sub>담당자 정보를 입력해 주세요.</Sub>
           <Form onSubmit={onNextFromStep1}>
-            <Label>담당자 이름</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="홍길동" />
+            <Label>담당자 이름<span>*</span></Label>
+            <Input value={name} onChange={(e) => { setName(e.target.value); if (step1Err.name) setStep1Err(s => ({ ...s, name: undefined })); }} placeholder="홍길동" aria-invalid={!!step1Err.name} required />
 
-            <Label>휴대폰</Label>
+            <Label>휴대폰<span>*</span></Label>
             <Input
               value={phone}
               inputMode="tel"
               autoComplete="tel"
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => { setPhone(e.target.value); if (step1Err.phone) setStep1Err(s => ({ ...s, phone: undefined })); }}
               placeholder="010-1234-5678"
               onBlur={(e)=>{
                 const normalized = normalizeMobile(e.currentTarget.value);
                 setPhone(normalized ?? e.currentTarget.value.trim());
               }}
+              aria-invalid={!!step1Err.phone}
+              required
             />
+            {step1Err.name && <Hint danger>{step1Err.name}</Hint>}
+            {step1Err.phone && <Hint danger>{step1Err.phone}</Hint>}
 
             {error && <ErrorText>{error}</ErrorText>}
             <UIPrimaryBtn as={"button" as any} type="submit">계정 만들기</UIPrimaryBtn>
@@ -222,13 +228,14 @@ export default function Register() {
               <Input style={{ flex: 1 }} value={formatPhone(phone)} disabled />
               <SmallButton type="button" onClick={() => setStep(1)}>번호 변경</SmallButton>
             </Row>
-            <Label>인증코드</Label>
+            <Label>인증코드<span>*</span></Label>
             <Row>
-              <Input style={{ flex: 1 }} value={code} onChange={(e) => setCode(e.target.value)} placeholder="6자리" />
+              <Input style={{ flex: 1 }} value={code} onChange={(e) => { setCode(e.target.value); if (step2Err.code) setStep2Err({}); }} placeholder="6자리" aria-invalid={!!step2Err.code} required />
               <SmallButton type="button" onClick={onResendCode} disabled={resendCooldown > 0}>
                 {resendCooldown > 0 ? `${resendCooldown}s` : "재전송"}
               </SmallButton>
             </Row>
+            {step2Err.code && <Hint danger>{step2Err.code}</Hint>}
             {devCodeHint && <Hint>개발용 인증코드: {devCodeHint}</Hint>}
             <Help>스팸함을 확인하고, 발신 도메인을 화이트리스트에 추가해 주세요.</Help>
             {error && <ErrorText>{error}</ErrorText>}
@@ -240,20 +247,20 @@ export default function Register() {
         <>
           <Sub>아이디와 비밀번호를 설정해 주세요.</Sub>
           <Form onSubmit={(e) => { e.preventDefault(); if (username && usernameAvailable !== false && pwRuleLen && pwRuleMix && password && password === password2) setStep(4); }}>
-            <Label>아이디</Label>
-            <Input value={username} onChange={(e) => { setUsername(e.target.value); setUsernameAvailable(null); }} onBlur={onUsernameBlur} placeholder="아이디" />
+            <Label>아이디<span>*</span></Label>
+            <Input value={username} onChange={(e) => { setUsername(e.target.value); setUsernameAvailable(null); }} onBlur={onUsernameBlur} placeholder="아이디" aria-invalid={!!username && usernameAvailable === false} required />
             {usernameAvailable === true && <Hint success>사용 가능한 아이디입니다.</Hint>}
             {usernameAvailable === false && <Hint danger>이미 사용중인 아이디입니다.</Hint>}
 
-            <Label>비밀번호</Label>
-            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8–64자, 문자+숫자" />
+            <Label>비밀번호<span>*</span></Label>
+            <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="8–64자, 문자+숫자" aria-invalid={password !== '' && !(pwRuleLen && pwRuleMix)} required />
             <Rules>
               <Rule ok={pwRuleLen}>8–64자</Rule>
               <Rule ok={pwRuleMix}>문자+숫자 포함</Rule>
             </Rules>
 
-            <Label>비밀번호 확인</Label>
-            <Input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} placeholder="비밀번호 다시 입력" />
+            <Label>비밀번호 확인<span>*</span></Label>
+            <Input type="password" value={password2} onChange={(e) => setPassword2(e.target.value)} placeholder="비밀번호 다시 입력" aria-invalid={password2 !== '' && password !== password2} required />
             {password2 && password !== password2 && <Hint danger>비밀번호가 일치하지 않습니다.</Hint>}
 
             {error && <ErrorText>{error}</ErrorText>}
@@ -265,11 +272,11 @@ export default function Register() {
         <>
           <Sub>학원 정보를 입력해 주세요.</Sub>
           <Form onSubmit={onComplete}>
-            <Label>학원명</Label>
-            <Input value={academyName} onChange={(e) => setAcademyName(e.target.value)} placeholder="예: 오픈AI어학원" />
+            <Label>학원명<span>*</span></Label>
+            <Input value={academyName} onChange={(e) => setAcademyName(e.target.value)} placeholder="예: 오픈AI어학원" aria-invalid={academyName !== '' && !academyName} required />
 
-            <Label>사업자번호</Label>
-            <Input value={maskBizNo(bizNo).masked} onChange={(e) => void onBizNoChange(e.target.value)} placeholder="###-##-#####" />
+            <Label>사업자번호<span>*</span></Label>
+            <Input value={maskBizNo(bizNo).masked} onChange={(e) => void onBizNoChange(e.target.value)} placeholder="###-##-#####" aria-invalid={maskBizNo(bizNo).raw.length > 0 && (maskBizNo(bizNo).raw.length !== 10 || bizNoAvailable === false)} required />
             {bizNoAvailable === false && <Hint danger>이미 가입된 사업자번호입니다. 연결/문의를 진행해 주세요.</Hint>}
 
             <Label>주소 (선택)</Label>
@@ -333,6 +340,7 @@ const Row = styled.div`
 const Label = styled.label`
   font-size: 13px;
   color: #6b7280;
+  span { color: #ef4444; margin-left: 4px; }
 `;
 const Input = styled.input`
   height: 54px;
@@ -347,6 +355,10 @@ const Input = styled.input`
   &:focus {
     background: #eef2ff;
     box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
+  }
+  &[aria-invalid='true'] {
+    background: #fee2e2;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
   }
 `;
 // Button from common UI

@@ -745,9 +745,9 @@ const Tabs = styled.div`
   display: inline-flex; gap: 6px; flex-wrap: wrap;
 `;
 const TabButton = styled(UISmallBtn)`
-  height: 36px;
-  padding: 0 14px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
   &[data-active='true'] {
     background:#111827;
     color:#fff;
@@ -814,9 +814,9 @@ const Empty = styled.div`
 // Button from common UI
 // BtnRow removed (unused)
 const ModalBtn = styled(UISmallBtn)`
-  height: 34px;
-  padding: 0 14px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
 `;
 // Button from common UI
 

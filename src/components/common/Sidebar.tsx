@@ -16,6 +16,7 @@ export default function Sidebar() {
       { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
+      { key: "admin", label: "관리자", sub: "Admin", to: routes.admin },
     ],
     []
   );
@@ -201,6 +202,12 @@ function renderIcon(key: string) {
       return (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V5a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+        </svg>
+      );
+    case "admin":
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z" />
         </svg>
       );
     default:

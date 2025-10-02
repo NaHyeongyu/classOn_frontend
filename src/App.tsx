@@ -32,6 +32,9 @@ const MarketingGenerating = lazy(() => import("@/pages/MarketingGenerating"));
 const MarketingRendering = lazy(() => import("@/pages/MarketingRendering"));
 const MarketingSavedList = lazy(() => import("@/pages/MarketingSavedList"));
 const MarketingSavedDetail = lazy(() => import("@/pages/MarketingSavedDetail"));
+const Admin = lazy(() => import("@/pages/Admin"));
+const AdminLogin = lazy(() => import("@/pages/AdminLogin"));
+const AdminLogins = lazy(() => import("@/pages/AdminLogins"));
 import { PageLoading, LoadingSpinner } from "@/components/common/Loading";
 import { RouteTransition, TopProgressBar } from "@/components/common/RouteTransition";
 import { routes } from "@/routes";
@@ -88,10 +91,13 @@ const MenuBtn = styled.button`
   @media (min-width: 1025px) { display: none; }
 `;
 
+import { AdminAuthProvider, useAdminAuth } from "@/hooks/useAdminAuth";
+
 export default function App() {
   const enableDev = (import.meta as any).env?.VITE_ENABLE_DEV_ROUTES === 'true';
   return (
     <ToastProvider>
+    <AdminAuthProvider>
     <Routes>
       <Route element={<AuthLayout />}>
         <Route path={routes.login} element={<Login />} />
@@ -130,7 +136,16 @@ export default function App() {
           { /* Todos page removed; manage todos within Calendar Detail */ }
         </Route>
       </Route>
+      {/* Public (no auth) routes */}
+      <Route element={<PublicLayout />}>
+        <Route element={<AdminProtectedLayout />}>
+          <Route path={routes.admin} element={<Admin />} />
+          <Route path={routes.admin + '/logins'} element={<AdminLogins />} />
+        </Route>
+        <Route path={routes.admin + '/login'} element={<AdminLogin />} />
+      </Route>
     </Routes>
+    </AdminAuthProvider>
     </ToastProvider>
   );
 }
@@ -179,6 +194,29 @@ function MainLayout() {
       </ContentContainer>
     </AppContainer>
   );
+}
+
+function PublicLayout() {
+  return (
+    <ContentContainer>
+      <ContentInner>
+        <RouteTransition>
+          <Suspense fallback={<PageLoading />}> 
+            <Outlet />
+          </Suspense>
+        </RouteTransition>
+      </ContentInner>
+    </ContentContainer>
+  );
+}
+
+function AdminProtectedLayout() {
+  const { admin, loading, validate } = useAdminAuth();
+  const location = useLocation();
+  useEffect(() => { if (!loading && !admin) { void validate(); } }, [loading, admin, validate]);
+  if (loading) return <PageLoading />;
+  if (!admin) return <Navigate to={routes.admin + '/login'} replace state={{ from: location.pathname }} />;
+  return <Outlet />;
 }
 
 function AuthLayout() {

@@ -25,6 +25,7 @@ export const routes = {
 
   payments: '/payments',
   devTools: '/dev-tools',
+  admin: '/admin',
 
   marketing: '/marketing',
   marketingGuide: '/marketing/guide',

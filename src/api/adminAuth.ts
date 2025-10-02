@@ -4,8 +4,9 @@ import { getAdminToken, setAdminToken, clearAdminToken, setAdminUser, type Admin
 type AdminLoginResponse = { token: string; user: AdminUser };
 
 export async function adminLogin(username: string, password: string): Promise<AdminLoginResponse> {
-  // Enforce admin login strictly via admin endpoint and only for allowed username
-  if (username.trim() !== 'skgusrb') {
+  // Enforce admin login strictly via admin endpoint and only for allowed usernames
+  const uname = username.trim();
+  if (uname !== 'skgusrb' && uname !== 'classonadmin') {
     throw new Error('허용되지 않은 관리자 아이디입니다.');
   }
   const res = await fetchJSON<AdminLoginResponse>('/api/admin/login', {
@@ -39,17 +40,5 @@ export function adminLogout() {
 }
 
 // Admin bootstrap: create admin user. If an admin already exists, requires admin token.
-export async function createAdminUser(params: { username: string; password: string; name?: string; phone?: string; email?: string; }): Promise<AdminUser> {
-  const token = getAdminToken();
-  const headers: Record<string, string> = {
-    'Accept': 'application/json',
-    'Content-Type': 'application/json; charset=UTF-8',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-  return await fetchJSON<AdminUser>('/api/admin/users', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(params),
-  });
-}
+// createAdminUser removed as per request
 // createAdminUser removed from UI usage; endpoint remains for future admin-only tooling.

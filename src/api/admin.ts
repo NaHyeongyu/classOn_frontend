@@ -41,3 +41,77 @@ export async function listLoginLogsPaged(params?: { q?: string; from?: string; t
   const q = sp.toString() ? `?${sp.toString()}` : '';
   return await fetchJSON<{ content:any[]; page:number; size:number; totalElements:number; totalPages:number }>(`/api/admin/login-logs/page${q}`, { headers: authHeaders() });
 }
+
+export async function getPaymentsPaged(params?: { from?: string; to?: string; page?: number; size?: number }) {
+  const sp = new URLSearchParams();
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  if (typeof params?.page === 'number') sp.set('page', String(params.page));
+  if (typeof params?.size === 'number') sp.set('size', String(params.size));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return await fetchJSON<{ content:any[]; page:number; size:number; totalElements:number; totalPages:number }>(`/api/admin/payments/page${q}`, { headers: authHeaders() });
+}
+
+export async function getApiLogsPaged(params?: { q?: string; errorsOnly?: boolean; from?: string; to?: string; page?: number; size?: number }) {
+  const sp = new URLSearchParams();
+  if (params?.q) sp.set('q', params.q);
+  if (params?.errorsOnly) sp.set('errorsOnly', 'true');
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  if (typeof params?.page === 'number') sp.set('page', String(params.page));
+  if (typeof params?.size === 'number') sp.set('size', String(params.size));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return await fetchJSON<{ content:any[]; page:number; size:number; totalElements:number; totalPages:number }>(`/api/admin/api-logs/page${q}`, { headers: authHeaders() });
+}
+
+export async function getOpenAiLogsPaged(params?: { model?: string; success?: boolean; from?: string; to?: string; page?: number; size?: number }) {
+  const sp = new URLSearchParams();
+  if (params?.model) sp.set('model', params.model);
+  if (typeof params?.success === 'boolean') sp.set('success', String(params.success));
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  if (typeof params?.page === 'number') sp.set('page', String(params.page));
+  if (typeof params?.size === 'number') sp.set('size', String(params.size));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return await fetchJSON<{ content:any[]; page:number; size:number; totalElements:number; totalPages:number }>(`/api/admin/openai-logs/page${q}`, { headers: authHeaders() });
+}
+
+export async function getAcademySummary(id: number | string, params?: { from?: string; to?: string }) {
+  const sp = new URLSearchParams();
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return await fetchJSON(`/api/admin/academies/${id}/summary${q}`, { headers: authHeaders() });
+}
+
+export async function getAcademyPaymentsPaged(id: number | string, params?: { from?: string; to?: string; page?: number; size?: number }) {
+  const sp = new URLSearchParams();
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  if (typeof params?.page === 'number') sp.set('page', String(params.page));
+  if (typeof params?.size === 'number') sp.set('size', String(params.size));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return await fetchJSON<{ content:any[]; page:number; size:number; totalElements:number; totalPages:number }>(`/api/admin/academies/${id}/payments/page${q}`, { headers: authHeaders() });
+}
+
+export async function getAcademyLoginLogsPaged(id: number | string, params?: { q?: string; from?: string; to?: string; page?: number; size?: number }) {
+  const sp = new URLSearchParams();
+  if (params?.q) sp.set('q', params.q);
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  if (typeof params?.page === 'number') sp.set('page', String(params.page));
+  if (typeof params?.size === 'number') sp.set('size', String(params.size));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return await fetchJSON<{ content:any[]; page:number; size:number; totalElements:number; totalPages:number }>(`/api/admin/academies/${id}/login-logs/page${q}`, { headers: authHeaders() });
+}
+
+export async function getAcademyApiLogsPaged(id: number | string, params?: { q?: string; from?: string; to?: string; page?: number; size?: number }) {
+  const sp = new URLSearchParams();
+  if (params?.q) sp.set('q', params.q);
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  if (typeof params?.page === 'number') sp.set('page', String(params.page));
+  if (typeof params?.size === 'number') sp.set('size', String(params.size));
+  const q = sp.toString() ? `?${sp.toString()}` : '';
+  return await fetchJSON<{ content:any[]; page:number; size:number; totalElements:number; totalPages:number }>(`/api/admin/academies/${id}/api-logs/page${q}`, { headers: authHeaders() });
+}

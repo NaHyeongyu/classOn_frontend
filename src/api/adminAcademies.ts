@@ -5,6 +5,7 @@ export type AdminAcademyRow = {
   id: number; name: string; bizNo?: string; createdAt?: string;
   students: number; courses: number; classesToday: number;
   apiCalls: number; logins: number; paymentCount: number; paymentAmountCents: number;
+  loginLastAt?: string; apiLastAt?: string; paymentLastAt?: string;
 };
 
 export async function listAdminAcademies(params?: { from?: string; to?: string; page?: number; size?: number; q?: string; }) {

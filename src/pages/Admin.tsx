@@ -130,6 +130,15 @@ export default function AdminPage() {
             <li>
               <MonoGhost as="a" href={routes.admin + '/logins'}>로그인 기록 보기</MonoGhost>
             </li>
+            <li>
+              <MonoGhost as="a" href={routes.admin + '/api-logs'}>API 로그 보기</MonoGhost>
+            </li>
+            <li>
+              <MonoGhost as="a" href={routes.admin + '/openai-logs'}>OpenAI 로그 보기</MonoGhost>
+            </li>
+            <li>
+              <MonoGhost as="a" href={routes.admin + '/payments'}>결제 기록 보기</MonoGhost>
+            </li>
           </QuickList>
         </Section>
 
@@ -308,7 +317,7 @@ function AcademiesTable({ from, to }: { from: string; to: string }) {
         <Table>
           <thead>
             <tr>
-              <th>학원명</th><th>학생수</th><th>수업수</th><th>오늘 수업</th><th>API</th><th>로그인</th><th>결제건수</th><th>결제합계(원)</th>
+              <th>학원</th><th>학생수</th><th>수업수</th><th>오늘 수업</th><th>API(기간)</th><th>로그인(기간)</th><th>결제건수(기간)</th><th>결제합계(기간/원)</th>
             </tr>
           </thead>
           <tbody>
@@ -316,7 +325,16 @@ function AcademiesTable({ from, to }: { from: string; to: string }) {
             {error && <tr><td colSpan={8}><span style={{color:'#b91c1c'}}>{error}</span></td></tr>}
             {!loading && !error && rows.map((r, i) => (
               <tr key={r.id || i}>
-                <td>{r.name}</td>
+                <td>
+                  <div style={{ display:'grid' }}>
+                    <a href={routes.admin + '/academies/' + (r.id || '')} style={{ color:'#111827', textDecoration:'underline', fontWeight:800 }}>{r.name}</a>
+                    <div style={{ color:'#64748b', fontSize:12 }}>
+                      {(r.bizNo || '-')}
+                      {r.createdAt ? ` • 가입일 ${new Date(r.createdAt).toLocaleDateString()}` : ''}
+                      {(() => { const t = [r.loginLastAt, r.apiLastAt, r.paymentLastAt].filter(Boolean).map(x => new Date(x as string).getTime()); if (t.length===0) return ''; const last = new Date(Math.max.apply(null, t)); return ` • 최근활동 ${last.toLocaleDateString()} ${last.toLocaleTimeString()}`; })()}
+                    </div>
+                  </div>
+                </td>
                 <td>{r.students}</td>
                 <td>{r.courses}</td>
                 <td>{r.classesToday}</td>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type React from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import {
@@ -404,9 +405,8 @@ export default function CourseRecordDetail() {
         xhr.send(f);
       });
       // 3) confirm
-      let etag: string | undefined;
-      try { etag = (await (async () => '')()) as any; } catch {}
-      // XHR로는 헤더 접근이 제한될 수 있어 fetch 대체 헤더 취득은 생략; presigned GET 없이도 confirm 가능
+      const etag: string | undefined = undefined; // ETag는 S3 CORS ExposeHeaders 설정 시 접근 가능
+      // XHR로는 헤더 접근이 제한될 수 있어 여기서는 생략; presigned GET 없이도 confirm 가능
       const meta = await confirmRecordAttachment(courseId!, record!.id, { key: pres.key, filename: f.name, contentType: f.type || 'application/octet-stream', size: f.size, etag, originalName: f.name });
       created.push(meta);
       setUploadQueue(q => q.map(it => it.id === qid ? { ...it, status: 'done', progress: 100 } : it));
@@ -792,10 +792,8 @@ export default function CourseRecordDetail() {
                   .map(Number)
                   .filter(id => !baseIds.has(id))
                   .map(id => ({ id, name: attStudentNames[id] || `학생#${id}`, isExtra: true }));
-                // Hide newly-added students on past records: only show attendees with rows
-                const recDateStr = record?.recordDate || ymd || '';
-                const isPast = recDateStr ? (new Date(recDateStr) < new Date(new Date().toDateString())) : false;
-                const rows: RowStudent[] = isPast ? extraRows : [...baseRows, ...extraRows];
+                // 과거 회차도 편집 가능하도록 항상 전체 학생 + 과거 수강생 표시
+                const rows: RowStudent[] = [...baseRows, ...extraRows];
                 return rows.map(s => {
                   const has = Object.prototype.hasOwnProperty.call(presentMap, s.id);
                   const present = has ? !!(presentMap as Record<number, boolean>)[s.id] : null as null | boolean;
@@ -828,7 +826,7 @@ export default function CourseRecordDetail() {
                               }
                             }
                             // Auto-save to server (debounced) when server record exists and this student already has an attendance row
-                            if (!s.isExtra && courseId && record?.id && has) {
+                            if (courseId && record?.id && has) {
                               const timers = noteTimersRef.current;
                               if (timers[s.id]) window.clearTimeout(timers[s.id]);
                               timers[s.id] = window.setTimeout(async () => {
@@ -844,19 +842,18 @@ export default function CourseRecordDetail() {
                               }, 600);
                             }
                           }}
-                          disabled={!!s.isExtra}
                         />
                         <AttSeg>
                           <AttBtn
                             data-active={String(present === true)}
-                            onClick={() => { if (!s.isExtra && present !== true && !attSavingMap[s.id]) void confirmAndSetAttendance(s.id, true); }}
-                            disabled={!!attSavingMap[s.id] || !!s.isExtra}
+                            onClick={() => { if (present !== true && !attSavingMap[s.id]) void confirmAndSetAttendance(s.id, true); }}
+                            disabled={!!attSavingMap[s.id]}
                           >출석</AttBtn>
                           <AttBtn
                             data-variant="danger"
                             data-active={String(has && present === false)}
-                            onClick={() => { if (!s.isExtra && present !== false && !attSavingMap[s.id]) void confirmAndSetAttendance(s.id, false); }}
-                            disabled={!!attSavingMap[s.id] || !!s.isExtra}
+                            onClick={() => { if (present !== false && !attSavingMap[s.id]) void confirmAndSetAttendance(s.id, false); }}
+                            disabled={!!attSavingMap[s.id]}
                           >결석</AttBtn>
                         </AttSeg>
                         <SmallBtn

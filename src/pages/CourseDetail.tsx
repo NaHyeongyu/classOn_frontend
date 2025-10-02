@@ -133,6 +133,51 @@ export default function CourseDetail() {
     return () => { cancelled = true; };
   }, [numericId, records]);
 
+  // Real-time: refresh attendance counts when records are edited elsewhere
+  const [attReloadVersion, setAttReloadVersion] = useState(0);
+  useEffect(() => {
+    function onRefresh(event: Event) {
+      const ymd = (event as CustomEvent<{ ymd?: string }>).detail?.ymd;
+      // Narrow reload to records matching the date, if provided
+      const ids = records
+        .filter(r => !ymd || r.recordDate === ymd)
+        .map(r => r.id)
+        .filter((x): x is number => typeof x === 'number');
+      if (!numericId) return;
+      if (ids.length === 0) {
+        // still trigger re-render for local-only entries
+        setAttReloadVersion(v => v + 1);
+        return;
+      }
+      (async () => {
+        try {
+          const pairs = await Promise.all(ids.map(async (rid) => {
+            try {
+              const list = await listRecordAttendance(numericId!, rid);
+              const map: Record<number, boolean> = {};
+              list.forEach(a => { map[a.studentId] = !!a.present; });
+              return [rid, map] as const;
+            } catch {
+              return [rid, undefined] as const;
+            }
+          }));
+          setAttByRec(prev => {
+            const next = { ...prev };
+            pairs.forEach(([rid, map]) => { if (map) next[rid] = map; });
+            return next;
+          });
+        } catch {
+          // ignore
+        } finally {
+          // ensure UI updates
+          setAttReloadVersion(v => v + 1);
+        }
+      })();
+    }
+    window.addEventListener('calendar:classes-refresh', onRefresh as EventListener);
+    return () => window.removeEventListener('calendar:classes-refresh', onRefresh as EventListener);
+  }, [numericId, records]);
+
   useEffect(() => {
     if (!numericId) return;
     let cancelled = false;
@@ -211,6 +256,29 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
     return Math.round((completedCount / total) * 100);
   }, [completedCount, history.length]);
 
+  // Compute average attendance across processed entries in current filter
+  const avgAttendance = useMemo(() => {
+    if (!history.length) return null as null | number;
+    let presentSum = 0;
+    let processedSum = 0;
+    for (const h of history) {
+      if (!h.id) continue;
+      const map = attByRec[h.id] || localAttendanceMap(h.id);
+      const present = Object.values(map).filter(v => v === true).length;
+      const absent = Object.values(map).filter(v => v === false).length;
+      const processed = present + absent;
+      if (processed > 0) {
+        presentSum += present;
+        processedSum += processed;
+      }
+    }
+    if (processedSum === 0) return null;
+    return Math.round((presentSum / processedSum) * 100);
+  }, [history, attByRec]);
+
+  // Toggle to collapse/expand the session list view
+  const [collapsedList, setCollapsedList] = useState(false);
+
   return (
     <Wrap>
       <Head>
@@ -266,8 +334,8 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
           title="평균 출석률"
           icon={<CheckIcon />}
           iconAccent="green"
-          value={<>—</>}
-          footerLeft={<span>전체 평균</span>}
+          value={<>{avgAttendance != null ? `${avgAttendance}%` : '—'}</>}
+          footerLeft={<span>처리된 회차 기준</span>}
         />
         <KPI
           title="완료된 수업"
@@ -352,7 +420,12 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
             <Section>
               <SectionHead>
                 <Title>수업 내역</Title>
-                <UIGhostBtnSmall to={`/classes/${numericId || ''}/history/date/${fmt(new Date())}`}>수업 생성</UIGhostBtnSmall>
+                <div style={{ display:'inline-flex', gap: 8 }}>
+                  <UIGhostButton type="button" onClick={() => setCollapsedList(v => !v)}>
+                    {collapsedList ? '펼치기' : '목록 접기'}
+                  </UIGhostButton>
+                  <UIPrimaryBtn to={`/classes/${numericId || ''}/history/date/${fmt(new Date())}`}>수업 생성</UIPrimaryBtn>
+                </div>
               </SectionHead>
               <FilterRow>
                 <FilterItem>
@@ -384,6 +457,22 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
               {recError && <AlertError>{recError}</AlertError>}
               {history.length === 0 && !recLoading && <Muted>표시할 일정이 없습니다.</Muted>}
               {history.map((h) => (
+                collapsedList ? (
+                  <CollapsedRow key={h.id || h.dateLabel}>
+                    <div className="left">
+                      <strong>{h.dateLabel}</strong>
+                      <SmallMuted style={{ marginLeft: 8 }}>{h.time}</SmallMuted>
+                      <SmallMuted style={{ marginLeft: 8 }}>{h.type}</SmallMuted>
+                    </div>
+                    <div className="right">
+                      {h.id ? (
+                        <UIGhostBtnSmall to={`/classes/${numericId}/history/${h.id}`}>상세</UIGhostBtnSmall>
+                      ) : (
+                        <UIGhostBtnSmall to={`/classes/${numericId}/history/date/${fmt(h.date)}`}>상세</UIGhostBtnSmall>
+                      )}
+                    </div>
+                  </CollapsedRow>
+                ) : (
                 <RecordCard key={h.id || h.dateLabel}>
                   <RecordHead>
                     <div>
@@ -448,6 +537,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
                     </>
                   )}
                 </RecordCard>
+                )
               ))}
             </Section>
           </Right>
@@ -559,7 +649,11 @@ const TableScroller = styled.div`
 
 // Records UI
 const RecordCard = styled.div` border:1px solid #e5e7eb; border-radius:12px; padding:12px; display:grid; gap:10px; margin-bottom:10px; `;
-const RecordHead = styled.div` display:flex; align-items:center; justify-content:space-between; `;
+  const RecordHead = styled.div` display:flex; align-items:center; justify-content:space-between; `;
+const CollapsedRow = styled.div`
+  display:flex; align-items:center; justify-content:space-between; border:1px solid #e5e7eb; border-radius:12px; padding:10px 12px; background:#fff; margin-bottom:10px;
+  .left { display:flex; align-items:center; gap:8px; }
+`;
 const BlockTitle = styled.div` font-size:12px; font-weight:800; color:#6b7280; margin-top:4px; `;
 const RecBadge = styled.span` margin-left:8px; padding:2px 6px; border-radius:999px; font-size:11px; font-weight:700; border:1px solid #e5e7eb; color:#374151; background:#f3f4f6; `;
 const ReadOnlyBox = styled.div`

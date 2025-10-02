@@ -376,7 +376,10 @@ export default function StudentForm() {
                   <Field>
                     <Label>등록일</Label>
                     <Input
-                      type="date"
+                      type="text"
+                      lang="ko-KR"
+                      inputMode="numeric"
+                      placeholder="YYYY-MM-DD"
                       value={form.joinedDate ?? ""}
                       readOnly
                       disabled

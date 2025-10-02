@@ -459,7 +459,6 @@ const FXFill = styled.div`
 const PLATFORMS = [
   { value: 'INSTAGRAM', name: '인스타그램', icon: '📸', desc: '짧고 임팩트 있는 메시지' },
   { value: 'NAVER_BLOG', name: '네이버 블로그', icon: '📝', desc: '길고 친절한 설명에 적합' },
-  { value: 'KAKAO_CHANNEL', name: '카카오 채널', icon: '💬', desc: '알림톡 · 채널 소식 전용' },
 ] as const;
 
 const TONE_OPTIONS = [

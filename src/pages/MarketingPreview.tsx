@@ -125,113 +125,117 @@ export default function MarketingPreview() {
         <StepSep />
         <Step data-active={false}>3. 생성/편집</Step>
       </Stepper>
-      <HeaderWrap>
-        <HeaderRow>
-          <HeaderTitle>AI 요약 결과</HeaderTitle>
-        </HeaderRow>
-        <HeaderSubtitle>AI가 분석한 수업 내용을 바탕으로 마케팅 콘텐츠를 생성하세요.</HeaderSubtitle>
-      </HeaderWrap>
+      <Header>
+        <Hero>
+          <HeroText>
+            <h1>전송 전 내용을 한번 더 점검해요</h1>
+            <p>요약과 핵심 문장을 확인하고 설정을 마친 뒤 다음 단계로 넘어가세요.</p>
+          </HeroText>
+          <HeroMeta>
+            <MetaPill>선택 항목 {items.length}건</MetaPill>
+          </HeroMeta>
+        </Hero>
+      </Header>
 
-      <ContentGrid>
-        <SummaryCard>
-          <CardHeader>
+      <Layout>
+        <MainColumn>
+          <GuideCard>
+            <h2>AI 요약 내용</h2>
+            <p className="hint">최근 수업 활동을 분석한 결과를 확인하세요.</p>
+            <SummaryBox>
+              {state?.summary?.summary ? (
+                <SummaryBody>
+                  <p style={{ whiteSpace:'pre-wrap' }}>{state.summary.summary}</p>
+                </SummaryBody>
+              ) : (
+                renderSummary(items, direction)
+              )}
+            </SummaryBox>
+          </GuideCard>
+
+          <GuideCard>
+            <h2>핵심 문장</h2>
+            <p className="hint">핵심 문장을 검토하고 바로 수정할 수 있어요.</p>
+            <BulletList role="list">
+              {edBullets.length === 0 ? (
+                <EmptyHint>핵심 문장이 아직 없습니다. 아래 버튼으로 추가해 보세요.</EmptyHint>
+              ) : edBullets.map((b, i) => (
+                <BulletItem key={i}>
+                  <span className="index">#{i+1}</span>
+                  <AddInput value={b} onChange={(e)=>{
+                    const copy = edBullets.slice(); copy[i] = e.target.value; setEdBullets(copy);
+                  }} placeholder={`핵심 내용 ${i+1}`} />
+                  <GhostButtonSmall as="button" onClick={()=> setEdBullets(edBullets.filter((_,idx)=>idx!==i))}>삭제</GhostButtonSmall>
+                </BulletItem>
+              ))}
+            </BulletList>
             <div>
-              <CardTitle>AI 요약 내용</CardTitle>
-              <CardSubtitle>최근 수업 활동을 분석한 결과를 확인하고 핵심 문장을 검토하세요.</CardSubtitle>
+              <GhostButtonSmall as="button" onClick={()=> setEdBullets([...edBullets, ''])}>+ 항목 추가</GhostButtonSmall>
             </div>
-          </CardHeader>
-          <SummaryBox>
-            {state?.summary?.summary ? (
-              <SummaryBody>
-                <p style={{ whiteSpace:'pre-wrap' }}>{state.summary.summary}</p>
-              </SummaryBody>
-            ) : (
-              renderSummary(items, direction)
-            )}
-          </SummaryBox>
-        </SummaryCard>
+          </GuideCard>
 
-        <BulletsCard>
-          <CardHeader>
-            <div>
-              <CardTitle>핵심 내용</CardTitle>
-              <CardSubtitle>핵심 문장을 확인하고 필요하면 바로 수정하세요.</CardSubtitle>
-            </div>
-          </CardHeader>
-          <BulletList role="list">
-            {edBullets.length === 0 ? (
-              <EmptyHint>핵심 문장이 아직 없습니다. 아래 버튼으로 추가해 보세요.</EmptyHint>
-            ) : edBullets.map((b, i) => (
-              <BulletItem key={i}>
-                <AddInput value={b} onChange={(e)=>{
-                  const copy = edBullets.slice(); copy[i] = e.target.value; setEdBullets(copy);
-                }} placeholder={`핵심 내용 ${i+1}`} />
-                <IconButton aria-label="delete" onClick={()=> setEdBullets(edBullets.filter((_,idx)=>idx!==i))}>✕</IconButton>
-              </BulletItem>
-            ))}
-          </BulletList>
-          <BulletActions>
-            <GhostButtonSmall as="button" onClick={()=> setEdBullets([...edBullets, ''])}>항목 추가</GhostButtonSmall>
-          </BulletActions>
-        </BulletsCard>
-      </ContentGrid>
+          {platformChoice==='INSTAGRAM' && (
+            <GuideCard>
+              <h2>전송 프롬프트 (Instagram)</h2>
+              <p className="hint">현재 설정이 반영된 프롬프트를 확인하고 복사할 수 있어요.</p>
+              <div style={{ display:'flex', gap: 12, justifyContent:'flex-end' }}>
+                <GhostButtonSmall as="button" onClick={()=> setShowIgPrompt(v=>!v)}>{showIgPrompt ? '접기' : '펼쳐보기'}</GhostButtonSmall>
+                <GhostButtonSmall as="button" onClick={()=> { const t = buildInstagramPrompt(); navigator.clipboard?.writeText(t).catch(()=>{}); }}>전체 복사</GhostButtonSmall>
+              </div>
+              {showIgPrompt && (
+                <Pre style={{ maxHeight: 480, overflow: 'auto' }}>{buildInstagramPrompt()}</Pre>
+              )}
+            </GuideCard>
+          )}
+        </MainColumn>
 
-      {/* 설정 선택 영역: 말투, 양식, 플랫폼 (아래로 이동) */}
-      <SectionCard>
-        <CardHeader>
-          <div>
-            <CardTitle>설정</CardTitle>
-            <CardSubtitle>말투, 양식, 플랫폼을 선택하세요. 결과에 반영됩니다.</CardSubtitle>
-          </div>
-        </CardHeader>
-        <OptionBlock>
-          <Label>말투(~체)</Label>
-          <OptionRow>
-            <OptionButton type="button" data-active={speechStyle==='SEUMNIDA'} onClick={()=>setSpeechStyle('SEUMNIDA')}>~습니다</OptionButton>
-            <OptionButton type="button" data-active={speechStyle==='YO'} onClick={()=>setSpeechStyle('YO')}>~요</OptionButton>
-          </OptionRow>
-        </OptionBlock>
-        <OptionBlock>
-          <Label>양식</Label>
-          <OptionRow>
-            <OptionButton type="button" data-active={formatStyle==='STORY'} onClick={()=>setFormatStyle('STORY')}>스토리텔링형</OptionButton>
-            <OptionButton type="button" data-active={formatStyle==='LIST'} onClick={()=>setFormatStyle('LIST')}>정보나열형</OptionButton>
-            <OptionButton type="button" data-active={formatStyle==='PERFORMANCE'} onClick={()=>setFormatStyle('PERFORMANCE')}>성과형</OptionButton>
-          </OptionRow>
-        </OptionBlock>
-        <OptionBlock>
-          <Label>플랫폼</Label>
-          <OptionRow>
-            <OptionButton type="button" data-active={platformChoice==='INSTAGRAM'} onClick={()=>setPlatformChoice('INSTAGRAM')}>인스타그램</OptionButton>
-            <OptionButton type="button" data-active={platformChoice==='NAVER_BLOG'} onClick={()=>setPlatformChoice('NAVER_BLOG')}>블로그</OptionButton>
-            {/* 필요 시 카카오 채널도 유지 */}
-            <OptionButton type="button" data-active={platformChoice==='KAKAO_CHANNEL'} onClick={()=>setPlatformChoice('KAKAO_CHANNEL')}>카카오 채널</OptionButton>
-          </OptionRow>
-        </OptionBlock>
-      </SectionCard>
+        <Aside>
+          <GuideCard>
+            <h2>플랫폼 선택</h2>
+            <p className="hint">콘텐츠를 게시할 채널을 선택하세요.</p>
+            <ChoiceGrid>
+              {PLATFORMS.map((pf) => (
+                <ChoiceCard
+                  key={pf.value}
+                  data-active={platformChoice === pf.value}
+                  onClick={() => setPlatformChoice(pf.value)}
+                >
+                  <span className="icon" role="img" aria-label={pf.name}>{pf.icon}</span>
+                  <strong>{pf.name}</strong>
+                  <small>{pf.desc}</small>
+                </ChoiceCard>
+              ))}
+            </ChoiceGrid>
+          </GuideCard>
 
-      {platformChoice==='INSTAGRAM' && (
-      <SectionCard>
-        <CardHeader>
-          <div>
-            <CardTitle>전송 프롬프트 (Instagram)</CardTitle>
-            <CardSubtitle>현재 설정이 반영된 프롬프트를 확인하고 복사할 수 있어요.</CardSubtitle>
-          </div>
-          <div style={{ display:'flex', gap: 12 }}>
-            <GhostButtonSmall as="button" onClick={()=> setShowIgPrompt(v=>!v)}>{showIgPrompt ? '접기' : '펼쳐보기'}</GhostButtonSmall>
-            <GhostButtonSmall as="button" onClick={()=> { const t = buildInstagramPrompt(); navigator.clipboard?.writeText(t).catch(()=>{}); }}>전체 복사</GhostButtonSmall>
-          </div>
-        </CardHeader>
-        {showIgPrompt && (
-          <Pre style={{ maxHeight: 480, overflow: 'auto' }}>{buildInstagramPrompt()}</Pre>
-        )}
-      </SectionCard>
-      )}
+          <GuideCard>
+            <h2>톤 & 문장 어미</h2>
+            <p className="hint">말투와 어조를 설정하면 결과물에 반영돼요.</p>
+            <SmallLabel>문장 어미</SmallLabel>
+            <ToneGrid>
+              <ToneOption data-active={speechStyle === 'SEUMNIDA'} onClick={() => setSpeechStyle('SEUMNIDA')}>
+                <span>🧑‍🏫</span>
+                <span>~습니다</span>
+              </ToneOption>
+              <ToneOption data-active={speechStyle === 'YO'} onClick={() => setSpeechStyle('YO')}>
+                <span>😊</span>
+                <span>~요</span>
+              </ToneOption>
+            </ToneGrid>
+            <SmallLabel>양식</SmallLabel>
+            <ToneGrid>
+              <ToneOption data-active={formatStyle==='STORY'} onClick={()=>setFormatStyle('STORY')}><span>🧵</span><span>스토리텔링</span></ToneOption>
+              <ToneOption data-active={formatStyle==='LIST'} onClick={()=>setFormatStyle('LIST')}><span>📋</span><span>정보 나열</span></ToneOption>
+              <ToneOption data-active={formatStyle==='PERFORMANCE'} onClick={()=>setFormatStyle('PERFORMANCE')}><span>🏆</span><span>성과 중심</span></ToneOption>
+            </ToneGrid>
+          </GuideCard>
+        </Aside>
+      </Layout>
 
-      <FooterBar>
-        <BackButton backSteps={1} label="이전 단계" />
+      <Footer>
+        <GhostButtonSmall as="button" onClick={() => navigate('/marketing/guide')}>← 이전</GhostButtonSmall>
         <PrimaryButton as="button" onClick={goNext}>다음 단계</PrimaryButton>
-      </FooterBar>
+      </Footer>
 
     </Page>
   );
@@ -522,3 +526,63 @@ const StepSep = styled.span`
 `;
 
 // -------- Step transition FX --------
+// Guide-style header and layout (reused design)
+const Header = styled.header`
+  display: grid; gap: 16px; margin-bottom: 12px;
+`;
+const Hero = styled.section`
+  display: grid; gap: 12px; padding: 18px; border-radius: 18px;
+  background: linear-gradient(135deg, rgba(248, 250, 252, 0.94), rgba(224, 231, 255, 0.8));
+  border: 1px solid rgba(203, 213, 225, 0.4);
+`;
+const HeroText = styled.div`
+  display: grid; gap: 4px;
+  h1 { margin: 0; font-size: 24px; font-weight: 800; color: #111827; }
+  p { margin: 0; font-size: 14px; color: #475569; }
+`;
+const HeroMeta = styled.div`
+  display: flex; gap: 8px; flex-wrap: wrap;
+`;
+const MetaPill = styled.span`
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; font-size: 12px;
+  border-radius: 999px; background: rgba(99, 102, 241, 0.08); color: #4338ca; font-weight: 600;
+`;
+const Layout = styled.div`
+  display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start;
+  @media (max-width: 1080px){ grid-template-columns: 1fr; }
+`;
+const MainColumn = styled.div` display: grid; gap: 16px; `;
+const Aside = styled.div` display: grid; gap: 16px; `;
+const GuideCard = styled(SectionCard)`
+  display: grid; gap: 12px; padding: 18px; border-radius: 18px; border: none;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+  h2 { margin: 0; font-size: 18px; color: #111827; }
+  .hint { margin: 0; font-size: 13px; color: #64748b; }
+`;
+const SmallLabel = styled.div`
+  margin-top: 6px; font-size: 12px; font-weight: 700; color: #475569;
+`;
+const ChoiceGrid = styled.div` display: grid; gap: 10px; `;
+const ChoiceCard = styled.button`
+  display: grid; gap: 6px; padding: 14px; text-align: left; border-radius: 16px;
+  border: 1px solid rgba(203, 213, 225, 0.7); background: #ffffff; cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .1s ease;
+  .icon { font-size: 20px; }
+  strong { font-size: 14px; color: #111827; }
+  small { font-size: 12px; color: #64748b; }
+  &[data-active='true']{ border-color: #4f46e5; box-shadow: 0 12px 24px rgba(79, 70, 229, 0.18); transform: translateY(-2px); }
+`;
+const ToneGrid = styled.div` display: flex; flex-wrap: wrap; gap: 8px; `;
+const ToneOption = styled.button`
+  display: inline-flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 999px;
+  border: 1px solid rgba(203, 213, 225, 0.8); background: #fff; cursor: pointer;
+  span { font-size: 13px; }
+  &[data-active='true']{ background: rgba(99,102,241,.16); color: #4338ca; border-color: rgba(99,102,241,.4); font-weight: 700; }
+`;
+const Footer = styled.div` display:flex; justify-content: space-between; align-items:center; margin-top: 18px; `;
+
+// Data for choice cards (mirrors guide page)
+const PLATFORMS = [
+  { value: 'INSTAGRAM', name: '인스타그램', icon: '📸', desc: '짧고 임팩트 있는 메시지' },
+  { value: 'NAVER_BLOG', name: '네이버 블로그', icon: '📝', desc: '길고 친절한 설명에 적합' },
+] as const;

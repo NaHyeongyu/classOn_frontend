@@ -33,6 +33,26 @@ export default function MarketingSavedList() {
   const data = useMemo(() => rows, [rows]);
   function reload() { setRows(getSavedMarketingPosts()); }
 
+  function normalizeYMDInput(input: string): string {
+    const s = (input || '').trim();
+    if (!s) return '';
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    const ymd = s.match(/^(\d{4})[./-]?(\d{2})[./-]?(\d{2})$/);
+    if (ymd) return `${ymd[1]}-${ymd[2]}-${ymd[3]}`;
+    const mdy = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+    if (mdy) {
+      const mm = String(mdy[1]).padStart(2, '0');
+      const dd = String(mdy[2]).padStart(2, '0');
+      return `${mdy[3]}-${mm}-${dd}`;
+    }
+    const digits = s.replace(/\D/g, '');
+    if (digits.length === 8) {
+      if (/^\d{4}/.test(digits)) return `${digits.slice(0,4)}-${digits.slice(4,6)}-${digits.slice(6,8)}`;
+      return `${digits.slice(4,8)}-${digits.slice(0,2)}-${digits.slice(2,4)}`;
+    }
+    return s;
+  }
+
   return (
     <Page>
       <PageHeader>
@@ -56,9 +76,9 @@ export default function MarketingSavedList() {
             <option value='NAVER_BLOG'>블로그</option>
             <option value='KAKAO_CHANNEL'>카카오 채널</option>
           </select>
-          <input type="date" value={from} onChange={(e)=>{ setPage(0); setFrom(e.target.value); }} />
+          <input type="date" lang="ko-KR" inputMode="numeric" pattern="^\\d{4}-\\d{2}-\\d{2}$" placeholder="YYYY-MM-DD" value={from} onFocus={(e)=>{ try { (e.currentTarget as any).showPicker?.(); } catch {} }} onChange={(e)=>{ setPage(0); setFrom(normalizeYMDInput(e.target.value)); }} onBlur={(e)=>{ const v = normalizeYMDInput(e.currentTarget.value); if (v !== from) setFrom(v); }} />
           <span>~</span>
-          <input type="date" value={to} onChange={(e)=>{ setPage(0); setTo(e.target.value); }} />
+          <input type="date" lang="ko-KR" inputMode="numeric" pattern="^\\d{4}-\\d{2}-\\d{2}$" placeholder="YYYY-MM-DD" value={to} onFocus={(e)=>{ try { (e.currentTarget as any).showPicker?.(); } catch {} }} onChange={(e)=>{ setPage(0); setTo(normalizeYMDInput(e.target.value)); }} onBlur={(e)=>{ const v = normalizeYMDInput(e.currentTarget.value); if (v !== to) setTo(v); }} />
           <SearchBox>
             <input placeholder="본문 검색" value={q} onChange={(e)=> setQ(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter'){ setPage(0);} }} />
             <GhostButtonSmall as="button" onClick={()=> setPage(0)}>검색</GhostButtonSmall>

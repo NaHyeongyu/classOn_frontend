@@ -168,6 +168,40 @@ export default function Marketing() {
     }
   }
 
+  // Normalize various user-typed date formats into YYYY-MM-DD
+  function normalizeYMDInput(input: string): string {
+    const s = (input || "").trim();
+    if (!s) return "";
+    // If already YYYY-MM-DD, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+    // Accept YYYY.MM.DD or YYYY/MM/DD
+    const ymdMatch = s.match(/^(\d{4})[./-]?(\d{2})[./-]?(\d{2})$/);
+    if (ymdMatch) {
+      const [, y, m, d] = ymdMatch;
+      return `${y}-${m}-${d}`;
+    }
+    // Accept MM/DD/YYYY or MM.DD.YYYY
+    const mdyMatch = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+    if (mdyMatch) {
+      let [, mm, dd, yyyy] = mdyMatch;
+      mm = String(mm).padStart(2, '0');
+      dd = String(dd).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    // Compact 8-digit forms:
+    const digits = s.replace(/\D/g, "");
+    if (digits.length === 8) {
+      if (/^\d{4}/.test(digits)) {
+        const y = digits.slice(0, 4), m = digits.slice(4, 6), d = digits.slice(6, 8);
+        return `${y}-${m}-${d}`;
+      } else {
+        const m = digits.slice(0, 2), d = digits.slice(2, 4), y = digits.slice(4, 8);
+        return `${y}-${m}-${d}`;
+      }
+    }
+    return s;
+  }
+
   async function handleFetch() {
     if (!selectedCourseIds.length) { warning("수업을 하나 이상 선택해주세요."); return; }
     if (!from || !to) { warning("조회 기간(시작/종료일)을 선택해주세요."); return; }
@@ -368,10 +402,20 @@ export default function Marketing() {
                     <span>시작일</span>
                     <DateInput
                       type="date"
+                      lang="ko-KR"
+                      inputMode="numeric"
+                      pattern="^\\d{4}-\\d{2}-\\d{2}$"
+                      placeholder="YYYY-MM-DD"
+                      onFocus={(e) => { try { (e.currentTarget as any).showPicker?.(); } catch {} }}
                       value={from}
                       onChange={(event) => {
-                        setFrom(event.target.value);
+                        const v = normalizeYMDInput(event.target.value);
+                        setFrom(v);
                         setPreset(null);
+                      }}
+                      onBlur={(e) => {
+                        const v = normalizeYMDInput(e.currentTarget.value);
+                        if (v !== from) setFrom(v);
                       }}
                     />
                   </DateField>
@@ -379,10 +423,20 @@ export default function Marketing() {
                     <span>종료일</span>
                     <DateInput
                       type="date"
+                      lang="ko-KR"
+                      inputMode="numeric"
+                      pattern="^\\d{4}-\\d{2}-\\d{2}$"
+                      placeholder="YYYY-MM-DD"
+                      onFocus={(e) => { try { (e.currentTarget as any).showPicker?.(); } catch {} }}
                       value={to}
                       onChange={(event) => {
-                        setTo(event.target.value);
+                        const v = normalizeYMDInput(event.target.value);
+                        setTo(v);
                         setPreset(null);
+                      }}
+                      onBlur={(e) => {
+                        const v = normalizeYMDInput(e.currentTarget.value);
+                        if (v !== to) setTo(v);
                       }}
                     />
                   </DateField>

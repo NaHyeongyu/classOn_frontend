@@ -322,6 +322,7 @@ export default function CourseForm() {
                 <StepTitle>{steps[1].title}</StepTitle>
                 <StepLead>{steps[1].lead}</StepLead>
               </StepHeader>
+              {/* 상단 이전 단계 버튼 제거: 하단 네비만 유지 */}
               <StepGrid>
                 <Field>
                   <Label>반복 여부</Label>
@@ -444,6 +445,7 @@ export default function CourseForm() {
                 <StepTitle>{steps[2].title}</StepTitle>
                 <StepLead>{steps[2].lead}</StepLead>
               </StepHeader>
+              {/* 상단 이전 단계 버튼 제거: 하단 네비만 유지 */}
               <StepGrid>
                 <Field>
                   <Label>정원</Label>
@@ -788,6 +790,11 @@ const StepFooter = styled.div`
   justify-content: space-between;
   align-items: center;
   gap: ${(p) => p.theme.spacing.md};
+`;
+
+const InlineNav = styled.div`
+  display: flex;
+  justify-content: flex-end;
 `;
 
 const NavButton = styled.button`

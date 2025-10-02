@@ -179,6 +179,18 @@ export default function AdminPage() {
             </Table>
           </TableWrap>
         </Section>
+
+        <Section>
+          <Title>범위 선택</Title>
+          <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+            <span className="label" style={{ color:'#6b7280', fontSize:12, fontWeight:700 }}>기간</span>
+            <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+            <span>~</span>
+            <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+            {loginsInRange != null && <span style={{ color:'#334155', fontSize:12 }}>선택 기간 로그인 수: <b>{loginsInRange.toLocaleString('ko-KR')}</b></span>}
+          </div>
+          <Muted>아래 학원 목록의 통계 범위가 위 기간에 맞춰 적용됩니다.</Muted>
+        </Section>
       </Sections>
     </Page>
   );

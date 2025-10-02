@@ -6,7 +6,7 @@ import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useNavigate } from "react-router-dom";
 import { routes } from "@/routes";
 import { useEffect, useState } from "react";
-import { getAdminOverview, getLoginLogs, getPayments, type AdminOverview } from "@/api/admin";
+import { getAdminOverview, getLoginLogs, getPayments, listLoginLogsPaged, type AdminOverview } from "@/api/admin";
 import { listAdminAcademies, type AdminAcademyRow } from "@/api/adminAcademies";
 
 export default function AdminPage() {
@@ -16,6 +16,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<any[]>([]);
   const [pays, setPays] = useState<any[]>([]);
+  const [from, setFrom] = useState<string>(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0,10); });
+  const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0,10));
+  const [loginsInRange, setLoginsInRange] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,8 +40,22 @@ export default function AdminPage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadRange() {
+      try {
+        const res = await listLoginLogsPaged({ from, to, page: 0, size: 1 });
+        if (!cancelled) setLoginsInRange(res.totalElements as number);
+      } catch { if (!cancelled) setLoginsInRange(null); }
+    }
+    void loadRange();
+    return () => { cancelled = true; };
+  }, [from, to]);
+
   const items = useMemo(() => ([
-    { label: "학원 수", value: ov?.academies ?? '—' },
+    { label: "전체 학원 수", value: ov?.academies ?? '—' },
+    { label: "최근 30일 로그인", value: ov?.logins30d ?? '—' },
+    { label: "최근 30일 결제합계(원)", value: ov?.paymentsAmount30d != null ? Math.round((ov.paymentsAmount30d||0)/100).toLocaleString('ko-KR') : '—' },
     { label: "오늘 API 호출", value: ov?.apiCallsToday ?? '—' },
     { label: "오늘 OpenAI 호출", value: ov?.openaiCallsToday ?? '—' },
   ]), [ov]);
@@ -118,7 +135,7 @@ export default function AdminPage() {
 
         <Section>
           <Title>운영 데이터(학원별)</Title>
-          <AcademiesTable />
+          <AcademiesTable from={from} to={to} />
         </Section>
 
         <TwoCol>
@@ -240,7 +257,7 @@ const InfoList = styled.ul`
 /* duplicate Table/TableWrap removed */
 
 const Input = styled.input`
-  height:40px; border:1px solid #e5e7eb; border-radius:10px; padding:0 12px; font-size:14px;
+  height:40px; border:1px solid #e5e7eb; border-radius:10px; padding:0 12px; font-size:14px; background:#fff; color:#0f172a;
 `;
 
 function AcademiesTable() {

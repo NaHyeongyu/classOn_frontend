@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { DashboardPanel } from "./DashboardLayout";
@@ -11,21 +11,28 @@ export default function DashboardAttendance() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const load = useCallback(async () => {
+    setLoading(true); setError(null);
+    try {
+      const res = await getAttendanceToday();
+      setRows(res.filter(r => r.present));
+    } catch (e: any) {
+      setError(e?.message || "출석 정보를 불러오지 못했습니다.");
+    } finally { setLoading(false); }
+  }, []);
+
   useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true); setError(null);
-      try {
-        const res = await getAttendanceToday();
-        if (!cancelled) setRows(res.filter(r => r.present));
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "출석 정보를 불러오지 못했습니다.");
-      } finally { if (!cancelled) setLoading(false); }
-    }
     void load();
     const t = setInterval(load, 60_000); // refresh every minute
-    return () => { cancelled = true; clearInterval(t); };
-  }, []);
+    function onRefresh() { void load(); }
+    window.addEventListener('calendar:classes-refresh', onRefresh as EventListener);
+    window.addEventListener('dashboard:attendance-refresh', onRefresh as EventListener);
+    return () => {
+      clearInterval(t);
+      window.removeEventListener('calendar:classes-refresh', onRefresh as EventListener);
+      window.removeEventListener('dashboard:attendance-refresh', onRefresh as EventListener);
+    };
+  }, [load]);
 
   return (
     <DashboardPanel span={6}>

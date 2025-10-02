@@ -254,6 +254,7 @@ export default function CourseRecordDetail() {
           `/api/courses/${courseId}/records/${record!.id}/attendance`,
         ]);
         emitCalendarClassesRefresh(record?.recordDate ?? ymd ?? undefined);
+        try { window.dispatchEvent(new CustomEvent('dashboard:attendance-refresh', { detail: {} })); } catch {}
       } catch (error) {
         showError(readableError(error, '출석 처리에 실패했습니다.'));
       } finally {

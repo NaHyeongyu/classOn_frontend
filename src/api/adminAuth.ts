@@ -37,4 +37,15 @@ export function adminLogout() {
   clearAdminToken();
   setAdminUser(null);
 }
+
+// Admin bootstrap: create admin user. If an admin already exists, requires admin token.
+export async function createAdminUser(params: { username: string; password: string; name?: string; phone?: string; email?: string; }): Promise<AdminUser> {
+  const token = getAdminToken();
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  return await fetchJSON<AdminUser>('/api/admin/users', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(params),
+  });
+}
 // createAdminUser removed from UI usage; endpoint remains for future admin-only tooling.

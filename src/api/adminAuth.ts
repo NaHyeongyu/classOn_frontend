@@ -41,7 +41,11 @@ export function adminLogout() {
 // Admin bootstrap: create admin user. If an admin already exists, requires admin token.
 export async function createAdminUser(params: { username: string; password: string; name?: string; phone?: string; email?: string; }): Promise<AdminUser> {
   const token = getAdminToken();
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json; charset=UTF-8',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
   return await fetchJSON<AdminUser>('/api/admin/users', {
     method: 'POST',
     headers,

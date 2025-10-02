@@ -260,7 +260,7 @@ const Input = styled.input`
   height:40px; border:1px solid #e5e7eb; border-radius:10px; padding:0 12px; font-size:14px; background:#fff; color:#0f172a;
 `;
 
-function AcademiesTable() {
+function AcademiesTable({ from, to }: { from: string; to: string }) {
   const [rows, setRows] = useState<AdminAcademyRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string| null>(null);
@@ -271,13 +271,13 @@ function AcademiesTable() {
 
   async function load(p = page, s = size, keyword = q) {
     setLoading(true); setError(null);
-    try { const res = await listAdminAcademies({ page: p, size: s, q: keyword || undefined });
+    try { const res = await listAdminAcademies({ page: p, size: s, q: keyword || undefined, from, to });
       setRows(res.content || []); setPage(res.page); setSize(res.size); setTotalPages(res.totalPages);
     } catch (e:any) { setError(e?.message || '불러오지 못했습니다.'); }
     finally { setLoading(false); }
   }
 
-  useEffect(() => { void load(0, size, q); }, []);
+  useEffect(() => { void load(0, size, q); }, [from, to]);
 
   return (
     <div style={{ display:'grid', gap: 8 }}>

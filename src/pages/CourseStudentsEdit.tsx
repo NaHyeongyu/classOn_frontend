@@ -123,12 +123,16 @@ export default function CourseStudentsEdit() {
       if (existing.includes(numericId!)) return;
       const next = Array.from(new Set<number>([...existing, numericId!]));
       await updateStudent(s.id, { courseIds: next } as Partial<StudentPayload>);
-      // Invalidate related caches so other views (CourseDetail, lists) reflect immediately
+      // Invalidate related caches so other views reflect immediately
       invalidateCacheByPrefix([
         `/api/courses/${numericId}`,
         `/api/courses/${numericId}/students`,
         '/api/students',
+        '/api/calendar/classes',
+        '/api/calendar/classes-range',
+        '/api/dashboard/summary',
       ]);
+      try { window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} })); } catch {}
       setEnrolledStudents((prev) => (prev.some(p=>p.id===s.id) ? prev : [...prev, s]));
       setStudentOptions((opts) => opts.map((x) => {
         if (x.id !== s.id) return x;
@@ -165,12 +169,16 @@ export default function CourseStudentsEdit() {
       const existing = Array.isArray(s.courses) ? s.courses.map((c) => c.id) : [];
       const next = existing.filter((cid) => cid !== numericId);
       await updateStudent(s.id, { courseIds: next } as Partial<StudentPayload>);
-      // Invalidate related caches so other views (CourseDetail, lists) reflect immediately
+      // Invalidate related caches so other views reflect immediately
       invalidateCacheByPrefix([
         `/api/courses/${numericId}`,
         `/api/courses/${numericId}/students`,
         '/api/students',
+        '/api/calendar/classes',
+        '/api/calendar/classes-range',
+        '/api/dashboard/summary',
       ]);
+      try { window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} })); } catch {}
       setEnrolledStudents((prev) => prev.filter((x) => x.id !== s.id));
       setStudentOptions((opts) => opts.map((x) => x.id === s.id ? { ...x, courses: x.courses.filter(c => c.id !== numericId) } : x));
     } catch (error) {

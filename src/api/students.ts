@@ -97,7 +97,13 @@ export async function createStudent(payload: StudentPayload): Promise<Student> {
     body: JSON.stringify(payload),
   });
   // Bust caches so lists/KPIs reflect immediately
-  invalidateCacheByPrefix(['/api/students']);
+  invalidateCacheByPrefix([
+    '/api/students',
+    '/api/calendar/classes',
+    '/api/calendar/classes-range',
+    '/api/dashboard/summary',
+  ]);
+  try { window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} })); } catch {}
   return res;
 }
 
@@ -106,13 +112,28 @@ export async function updateStudent(id: number, payload: Partial<StudentPayload>
     method: "PUT",
     body: JSON.stringify(payload),
   });
-  invalidateCacheByPrefix(['/api/students']);
+  // Invalidate student lists + calendar and dashboard summaries
+  invalidateCacheByPrefix([
+    '/api/students',
+    '/api/calendar/classes',
+    '/api/calendar/classes-range',
+    '/api/dashboard/summary',
+  ]);
+  try { window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} })); } catch {}
   return res;
 }
 
 export async function deleteStudent(id: number): Promise<void> {
   await fetchJSON<void>(`/api/students/${id}`, { method: 'DELETE' });
-  invalidateCacheByPrefix(['/api/students']);
+  // When a student is deleted, attendance rows and enrollments change.
+  // Invalidate caches for students, calendar class lists/ranges and dashboard summary.
+  invalidateCacheByPrefix([
+    '/api/students',
+    '/api/calendar/classes',
+    '/api/calendar/classes-range',
+    '/api/dashboard/summary',
+  ]);
+  try { window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} })); } catch {}
 }
 
 // Excel helpers (download/upload)

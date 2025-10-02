@@ -174,7 +174,7 @@ export default function MarketingPreview() {
             </div>
           </GuideCard>
 
-          {platformChoice==='INSTAGRAM' && (
+          {false && platformChoice==='INSTAGRAM' && (
             <GuideCard>
               <h2>전송 프롬프트 (Instagram)</h2>
               <p className="hint">현재 설정이 반영된 프롬프트를 확인하고 복사할 수 있어요.</p>

@@ -15,12 +15,13 @@ const AdminAuthContext = createContext<Ctx | null>(null);
 
 export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
   const [admin, setAdmin] = useState<AdminUser | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
+  // Start in loading state until first validation completes to avoid redirect flicker
+  const [loading, setLoading] = useState<boolean>(true);
 
   const validate = useCallback(async () => {
-    const token = getAdminToken();
-    if (!token) { setAdmin(null); return false; }
     setLoading(true);
+    const token = getAdminToken();
+    if (!token) { setAdmin(null); setLoading(false); return false; }
     try {
       const me = await adminMe();
       setAdmin(me);
@@ -52,4 +53,3 @@ export function useAdminAuth() {
   if (!ctx) throw new Error('useAdminAuth must be used within AdminAuthProvider');
   return ctx;
 }
-

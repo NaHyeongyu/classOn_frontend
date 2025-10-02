@@ -4,23 +4,14 @@ import { getAdminToken, setAdminToken, clearAdminToken, setAdminUser, type Admin
 type AdminLoginResponse = { token: string; user: AdminUser };
 
 export async function adminLogin(username: string, password: string): Promise<AdminLoginResponse> {
-  // Local demo credentials (temporary): allow configured or default admin
-  const demo = readLocalAdminCred();
-  const fallbackUser = { token: `admin-local-${Date.now()}`, user: { id: 0, username, role: 'ADMIN', name: 'Admin' } } as AdminLoginResponse;
-  if ((demo && username === demo.username && password === demo.password) || (!demo && username === 'admin' && password === 'admin1234')) {
-    setAdminToken(fallbackUser.token);
-    setAdminUser(fallbackUser.user);
-    return fallbackUser;
+  // Enforce admin login strictly via admin endpoint and only for allowed username
+  if (username.trim() !== 'skgusrb') {
+    throw new Error('허용되지 않은 관리자 아이디입니다.');
   }
-  // If backend doesn't provide, fall back to shared auth endpoint as a best-effort
-  const prefer = '/api/admin/login';
-  let res: AdminLoginResponse;
-  try {
-    res = await fetchJSON<AdminLoginResponse>(prefer, { method: 'POST', body: JSON.stringify({ username, password }) });
-  } catch {
-    // fallback to regular login path but treat as admin session client-side
-    res = await fetchJSON<AdminLoginResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-  }
+  const res = await fetchJSON<AdminLoginResponse>('/api/admin/login', {
+    method: 'POST',
+    body: JSON.stringify({ username, password }),
+  });
   setAdminToken(res.token);
   setAdminUser(res.user);
   return res;
@@ -46,13 +37,4 @@ export function adminLogout() {
   clearAdminToken();
   setAdminUser(null);
 }
-
-// Temporary local admin credential storage (for demo/testing only)
-export function saveLocalAdminCred(username: string, password: string) {
-  try { localStorage.setItem('admin:cred', JSON.stringify({ username, password })); } catch {}
-}
-export function readLocalAdminCred(): { username: string; password: string } | null {
-  try { const s = localStorage.getItem('admin:cred'); return s ? JSON.parse(s) : null; } catch { return null; }
-}
-
 // createAdminUser removed from UI usage; endpoint remains for future admin-only tooling.

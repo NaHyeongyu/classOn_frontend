@@ -42,7 +42,7 @@ export default function AdminLogin() {
             <MonoPrimary type="submit" disabled={loading}>{loading ? '로그인 중…' : '로그인'}</MonoPrimary>
           </Actions>
         </Form>
-        <Hint>기본 테스트 계정: <code>admin</code> / <code>admin1234</code></Hint>
+        {/* Admin login is currently restricted to a single account */}
       </Card>
     </Wrap>
   );

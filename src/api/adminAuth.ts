@@ -6,7 +6,7 @@ type AdminLoginResponse = { token: string; user: AdminUser };
 export async function adminLogin(username: string, password: string): Promise<AdminLoginResponse> {
   // Enforce admin login strictly via admin endpoint and only for allowed usernames
   const uname = username.trim();
-  if (uname !== 'skgusrb' && uname !== 'classonadmin') {
+  if (uname !== 'classonadmin') {
     throw new Error('허용되지 않은 관리자 아이디입니다.');
   }
   const res = await fetchJSON<AdminLoginResponse>('/api/admin/login', {

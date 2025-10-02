@@ -59,13 +59,13 @@ export default function AdminPage() {
   function refreshNow() { window.location.reload(); }
 
   return (
-    <Wrap>
-      <Header>
-        <div>
-          <H2>관리자</H2>
-          <Sub>운영 중 빠른 확인/정리 도구</Sub>
+    <Page>
+      <Hero>
+        <div className="info">
+          <h1>관리자 대시보드</h1>
+          <p>운영 현황을 빠르게 확인하고 도구를 실행하세요.</p>
         </div>
-        <Actions>
+        <div className="actions">
           {!admin ? (
             <MonoGhost as="button" onClick={()=>nav(routes.admin + '/login')}>관리자 로그인</MonoGhost>
           ) : (
@@ -73,12 +73,19 @@ export default function AdminPage() {
           )}
           <MonoPrimary type="button" onClick={clearCaches}>캐시 초기화</MonoPrimary>
           <MonoGhost as="button" onClick={refreshNow}>새로고침</MonoGhost>
-        </Actions>
-      </Header>
+        </div>
+      </Hero>
+
       {admin ? (
-        <Muted>로그인: {admin.username}{admin.role ? ` (${admin.role})` : ''}</Muted>
+        <StatusBar>
+          <span className="pill">로그인</span>
+          <span className="who">{admin.username}{admin.role ? ` (${admin.role})` : ''}</span>
+        </StatusBar>
       ) : (
-        <Muted>관리자 로그인이 없으므로 일부 기능이 제한될 수 있습니다.</Muted>
+        <StatusBar>
+          <span className="pill warn">주의</span>
+          <span className="who">관리자 로그인이 없으므로 일부 기능이 제한될 수 있습니다.</span>
+        </StatusBar>
       )}
 
       <Sections>
@@ -86,7 +93,7 @@ export default function AdminPage() {
           <Title>요약</Title>
           <Kpis>
             {items.map((it, i) => (
-              <Kpi key={i}>
+              <Kpi key={i} data-variant={(i % 3) + 1}>
                 <span className="label">{it.label}</span>
                 <span className="value">{it.value}</span>
               </Kpi>
@@ -156,15 +163,24 @@ export default function AdminPage() {
           </TableWrap>
         </Section>
       </Sections>
-    </Wrap>
+    </Page>
   );
 }
 
-const Wrap = styled.div` display:grid; gap:12px; `;
-const Header = styled.div` display:flex; align-items:center; justify-content:space-between; `;
-const H2 = styled.h2` margin:0; font-size:22px; color:#111827; `;
-const Sub = styled.p` margin:0; color:#6b7280; `;
-const Actions = styled.div` display:inline-flex; gap:8px; `;
+const Page = styled.div` display:grid; gap:14px; `;
+const Hero = styled.header`
+  display:flex; align-items:center; justify-content:space-between; padding:16px; border:1px solid #e5e7eb; border-radius:14px; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 80%);
+  .info { display:grid; gap:4px; }
+  .info h1 { margin:0; font-size:20px; color:#0f172a; }
+  .info p { margin:0; color:#6b7280; }
+  .actions { display:inline-flex; gap:8px; }
+`;
+const StatusBar = styled.div`
+  display:flex; gap:10px; align-items:center; color:#475569; font-size:12px;
+  .pill { background:#111827; color:#fff; border-radius:999px; padding:4px 8px; font-weight:800; letter-spacing:.02em; }
+  .pill.warn { background:#b91c1c; }
+  .who { color:#334155; }
+`;
 const Sections = styled.div`
   display:grid; gap:16px;
 `;
@@ -172,11 +188,15 @@ const TwoCol = styled.div`
   display:grid; gap:16px;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 `;
-const Kpis = styled.div` display:grid; gap:12px; grid-template-columns: repeat(3, minmax(0, 1fr)); `;
+const Kpis = styled.div` display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); `;
 const Kpi = styled.div`
-  border:1px solid #e5e7eb; border-radius:12px; padding:14px; display:grid; gap:6px; background:#fff;
+  position:relative; border:1px solid #e5e7eb; border-radius:12px; padding:14px; display:grid; gap:6px; background:#fff; overflow:hidden;
+  &:before{ content:''; position:absolute; inset:auto -20% 0 -20%; height:40%; background:var(--kpi-bg,#eef2ff); filter:blur(20px); }
+  &[data-variant='1']{ --kpi-bg:#e0e7ff; }
+  &[data-variant='2']{ --kpi-bg:#dcfce7; }
+  &[data-variant='3']{ --kpi-bg:#fee2e2; }
   .label { color:#6b7280; font-size:12px; font-weight:700; }
-  .value { color:#111827; font-size:18px; font-weight:800; }
+  .value { color:#0f172a; font-size:18px; font-weight:800; }
 `;
 const QuickList = styled.ul`
   list-style:none; padding:0; margin:0; display:grid; gap:8px;
@@ -199,21 +219,25 @@ const MonoGhost = styled.button`
   &:hover{ background:#f9fafb; }
 `;
 
+const Table = styled.table`
+  width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; border:1px solid #e5e7eb; border-radius:12px; background:#fff;
+  thead th { text-align:left; font-size:12px; color:#6b7280; font-weight:800; padding:10px 12px; border-bottom:1px solid #e5e7eb; background:#f9fafb; position:sticky; top:0; }
+  tbody td { font-size:13px; color:#0f172a; padding:10px 12px; border-bottom:1px solid #f1f5f9; }
+  tbody tr:nth-child(odd) td{ background:#fcfcfd; }
+  tbody tr:hover td{ background:#f9fafb; }
+`;
+const TableWrap = styled.div`
+  width:100%; overflow:auto; border:1px solid #f1f5f9; border-radius:12px;
+  table{ min-width: 520px; }
+`;
+
 const InfoList = styled.ul`
   list-style:none; padding:0; margin:0; display:grid; gap:8px;
   li{ display:grid; grid-template-columns: 120px 1fr; }
   .k{ color:#6b7280; font-size:12px; font-weight:700; }
   .v{ color:#111827; font-size:14px; }
 `;
-const Table = styled.table`
-  width:100%; border-collapse: collapse;
-  thead th{ text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb; padding:8px; }
-  tbody td{ padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#111827; }
-`;
-const TableWrap = styled.div`
-  width:100%; overflow:auto; border:1px solid #f1f5f9; border-radius:12px;
-  table{ min-width: 520px; }
-`;
+/* duplicate Table/TableWrap removed */
 
 const Input = styled.input`
   height:40px; border:1px solid #e5e7eb; border-radius:10px; padding:0 12px; font-size:14px;

@@ -15,6 +15,8 @@ export type AdminOverview = {
   academies?: number;
   apiCallsToday?: number;
   openaiCallsToday?: number;
+  logins30d?: number;
+  paymentsAmount30d?: number;
 };
 
 export async function getAdminOverview(): Promise<AdminOverview> {

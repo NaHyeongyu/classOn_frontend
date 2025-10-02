@@ -33,7 +33,7 @@ export default function AdminLogin() {
         <p style={{ color:'#6b7280' }}>관리 전용 기능 접근을 위해 로그인하세요.</p>
         <Form onSubmit={onSubmit}>
           <label>아이디</label>
-          <Input value={username} onChange={(e)=>setUsername(e.target.value)} placeholder="admin@example.com" required />
+          <Input value={username} onChange={(e)=>setUsername(e.target.value)} placeholder="classonadmin" required />
           <label>비밀번호</label>
           <Input type="password" value={password} onChange={(e)=>setPassword(e.target.value)} placeholder="비밀번호" required />
           {error && <Err>{error}</Err>}

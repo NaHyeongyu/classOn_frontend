@@ -16,7 +16,6 @@ export default function Sidebar() {
       { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
-      { key: "admin", label: "관리자", sub: "Admin", to: routes.admin },
     ],
     []
   );

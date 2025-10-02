@@ -245,8 +245,14 @@ export default function CourseRecordDetail() {
         const reason = attNoteMap[studentId]?.trim() || undefined;
         await upsertAttendance(courseId!, record!.id, studentId, { present: target, reason, source: 'MANUAL' });
         setAttMap(m => ({ ...m, [studentId]: target }));
-        // Invalidate dashboard classes/summary caches to reflect latest attendance
-        invalidateCacheByPrefix(['/api/calendar/classes', '/api/dashboard/summary']);
+        // Invalidate calendars and dashboards to reflect latest attendance
+        invalidateCacheByPrefix([
+          '/api/calendar/classes',
+          '/api/calendar/classes-range',
+          '/api/dashboard/summary',
+          '/api/dashboard/attendance-today',
+          `/api/courses/${courseId}/records/${record!.id}/attendance`,
+        ]);
         emitCalendarClassesRefresh(record?.recordDate ?? ymd ?? undefined);
       } catch (error) {
         showError(readableError(error, '출석 처리에 실패했습니다.'));

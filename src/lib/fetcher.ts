@@ -14,6 +14,8 @@ const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_FETCH_TIMEOUT_MS ?? 10000
 const NO_CACHE_PREFIXES = [
   "/api/dashboard/summary",
   "/api/dashboard/attendance-today",
+  "/api/calendar/classes",           // calendar daily view should refresh immediately
+  "/api/calendar/classes-range",     // calendar monthly range should refresh immediately
   "/api/marketing/render", // rendering should always be fresh
   "/api/marketing/recommend",
   "/api/marketing/summary",

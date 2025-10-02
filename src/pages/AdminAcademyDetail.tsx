@@ -190,4 +190,5 @@ const Input = styled.input` height:40px; border:1px solid #e5e7eb; border-radius
 const MonoGhost = styled.button` height:40px; padding:0 12px; border-radius:10px; background:#fff; color:#111827; border:1px solid #e5e7eb; &:hover{ background:#f9fafb; } `;
 const TableWrap = styled.div` width:100%; overflow:auto; border:1px solid #f1f5f9; border-radius:12px; `;
 const Table = styled.table` width:100%; border-collapse:collapse; thead th{ text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb; padding:8px; } tbody td{ padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#111827; }`;
-
+const Muted = styled.div` color:#6b7280; font-size:12px; `;
+const Pager = styled.div` display:flex; gap:8px; align-items:center; justify-content:flex-end; `;

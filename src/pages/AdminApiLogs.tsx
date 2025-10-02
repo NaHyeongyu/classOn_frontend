@@ -38,7 +38,7 @@ export default function AdminApiLogs() {
           <Input placeholder="경로 검색(/api/...)" value={q} onChange={(e)=>setQ(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') void load(0, size); }} />
           <label style={{ display: 'inline-flex', alignItems:'center', gap:6 }}>
             <input type="checkbox" checked={errorsOnly} onChange={(e)=>setErrorsOnly(e.target.checked)} />
-            <span>오류만(>=400)</span>
+            <span>오류만(&gt;=400)</span>
           </label>
           <MonoGhost as="button" type="button" onClick={()=>load(0, size)}>적용</MonoGhost>
         </Filters>
@@ -74,4 +74,3 @@ const TableWrap = styled.div` width:100%; overflow:auto; border:1px solid #f1f5f
 const Table = styled.table` width:100%; border-collapse:collapse; thead th{ text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb; padding:8px; } tbody td{ padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#111827; }`;
 const MonoGhost = styled.button` height:40px; padding:0 12px; border-radius:10px; background:#fff; color:#111827; border:1px solid #e5e7eb; &:hover{ background:#f9fafb; } `;
 const Pager = styled.div` display:flex; gap:8px; align-items:center; justify-content:flex-end; `;
-

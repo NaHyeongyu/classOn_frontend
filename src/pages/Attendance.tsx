@@ -168,7 +168,7 @@ export default function Attendance() {
 
   function buildFlatRows(day: AttendanceDailySummary): FlatRow[] {
     const list: FlatRow[] = [];
-    const attendanceRows = (day.attendances ?? [])
+    const attendanceRows: FlatRow[] = (day.attendances ?? [])
       .slice()
       .sort((a, b) => {
         if (!a.createdAt && !b.createdAt) return 0;
@@ -176,7 +176,7 @@ export default function Attendance() {
         if (!b.createdAt) return -1;
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       })
-      .map((entry, idx) => ({
+      .map((entry, idx): FlatRow => ({
         key: `att-${day.date}-${entry.recordId ?? 'record'}-${entry.studentId ?? 'student'}-${idx}`,
         studentName: entry.studentName || '이름 없음',
         courseTitle: entry.courseTitle,
@@ -186,11 +186,12 @@ export default function Attendance() {
         createdAt: entry.createdAt ?? null,
         reason: entry.reason ?? null,
         source: entry.source ?? null,
-      } satisfies FlatRow));
+      }));
     list.push(...attendanceRows);
-    const unprocessedRows = day.classes
+
+    const unprocessedRows: FlatRow[] = day.classes
       .filter((cls) => cls.unprocessedCount > 0)
-      .map((cls, idx) => ({
+      .map((cls, idx): FlatRow => ({
         key: `unprocessed-${day.date}-${cls.recordId ?? 'record'}-${idx}`,
         studentName: `미처리 ${cls.unprocessedCount}명`,
         courseTitle: cls.courseTitle,
@@ -205,7 +206,7 @@ export default function Attendance() {
           .map((u) => u?.name || null)
           .filter((name): name is string => !!name)
           .sort((a, b) => a.localeCompare(b, 'ko-KR')),
-      } satisfies FlatRow));
+      }));
     list.push(...unprocessedRows);
     return list;
   }

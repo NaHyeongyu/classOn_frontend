@@ -75,9 +75,9 @@ export default function AdminAcademyDetail() {
         </div>
         <Filters>
           <label>기간</label>
-          <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+          <Input type="date" lang="ko-KR" value={from} onChange={(e)=>setFrom(e.target.value)} />
           <span>~</span>
-          <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+          <Input type="date" lang="ko-KR" value={to} onChange={(e)=>setTo(e.target.value)} />
           <MonoGhost as="button" type="button" onClick={()=>{ void loadSummary(); void loadPays(0, paySize); void loadLogins(0, logSize); void loadApi(0, apiSize); }}>적용</MonoGhost>
         </Filters>
       </Header>
@@ -107,7 +107,7 @@ export default function AdminAcademyDetail() {
               <thead><tr><th>시간</th><th>금액</th><th>통화</th><th>상태</th><th>비고</th></tr></thead>
               <tbody>
                 {pays.map((p,i) => (
-                  <tr key={p.id || i}><td>{new Date(p.createdAt).toLocaleString()}</td><td>{(p.amountCents/100).toLocaleString('ko-KR')}</td><td>{p.currency}</td><td>{p.status}</td><td>{p.description || '-'}</td></tr>
+                  <tr key={p.id || i}><td>{new Date(p.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{(p.amountCents/100).toLocaleString('ko-KR')}</td><td>{p.currency}</td><td>{p.status}</td><td>{p.description || '-'}</td></tr>
                 ))}
                 {pays.length === 0 && <tr><td colSpan={5}><Muted>표시할 데이터가 없습니다.</Muted></td></tr>}
               </tbody>
@@ -135,7 +135,7 @@ export default function AdminAcademyDetail() {
               <thead><tr><th>시간</th><th>아이디</th><th>IP</th><th>성공</th></tr></thead>
               <tbody>
                 {logRows.map((r,i) => (
-                  <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString()}</td><td>{r.username}</td><td>{r.ip || '-'}</td><td>{r.success ? 'Y' : 'N'}</td></tr>
+                  <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.username}</td><td>{r.ip || '-'}</td><td>{r.success ? 'Y' : 'N'}</td></tr>
                 ))}
                 {logRows.length === 0 && <tr><td colSpan={4}><Muted>표시할 데이터가 없습니다.</Muted></td></tr>}
               </tbody>
@@ -161,7 +161,7 @@ export default function AdminAcademyDetail() {
               <thead><tr><th>시간</th><th>메서드</th><th>경로</th><th>상태</th><th>IP</th></tr></thead>
               <tbody>
                 {apiRows.map((r,i) => (
-                  <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString()}</td><td>{r.method}</td><td>{r.path}</td><td>{r.status}</td><td>{r.ip || '-'}</td></tr>
+                  <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.method}</td><td>{r.path}</td><td>{r.status}</td><td>{r.ip || '-'}</td></tr>
                 ))}
                 {apiRows.length === 0 && <tr><td colSpan={5}><Muted>표시할 데이터가 없습니다.</Muted></td></tr>}
               </tbody>

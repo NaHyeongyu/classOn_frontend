@@ -165,7 +165,7 @@ export default function AdminPage() {
               <thead><tr><th>시간</th><th>아이디</th><th>IP</th><th>성공</th></tr></thead>
               <tbody>
                 {logs.map((r, i) => (
-                  <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString()}</td><td>{r.username}</td><td>{r.ip || '-'}</td><td>{r.success ? 'Y' : 'N'}</td></tr>
+                  <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.username}</td><td>{r.ip || '-'}</td><td>{r.success ? 'Y' : 'N'}</td></tr>
                 ))}
                 {logs.length === 0 && <tr><td colSpan={4}><Muted>표시할 데이터가 없습니다.</Muted></td></tr>}
               </tbody>
@@ -181,7 +181,7 @@ export default function AdminPage() {
               <thead><tr><th>시간</th><th>금액</th><th>통화</th><th>상태</th><th>비고</th></tr></thead>
               <tbody>
                 {pays.map((p, i) => (
-                  <tr key={p.id || i}><td>{new Date(p.createdAt).toLocaleString()}</td><td>{(p.amountCents/100).toLocaleString('ko-KR')}</td><td>{p.currency}</td><td>{p.status}</td><td>{p.description || '-'}</td></tr>
+                  <tr key={p.id || i}><td>{new Date(p.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{(p.amountCents/100).toLocaleString('ko-KR')}</td><td>{p.currency}</td><td>{p.status}</td><td>{p.description || '-'}</td></tr>
                 ))}
                 {pays.length === 0 && <tr><td colSpan={5}><Muted>표시할 데이터가 없습니다.</Muted></td></tr>}
               </tbody>
@@ -193,9 +193,9 @@ export default function AdminPage() {
           <Title>범위 선택</Title>
           <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
             <span className="label" style={{ color:'#6b7280', fontSize:12, fontWeight:700 }}>기간</span>
-            <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+            <Input type="date" lang="ko-KR" value={from} onChange={(e)=>setFrom(e.target.value)} />
             <span>~</span>
-            <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+            <Input type="date" lang="ko-KR" value={to} onChange={(e)=>setTo(e.target.value)} />
             {loginsInRange != null && <span style={{ color:'#334155', fontSize:12 }}>선택 기간 로그인 수: <b>{loginsInRange.toLocaleString('ko-KR')}</b></span>}
           </div>
           <Muted>아래 학원 목록의 통계 범위가 위 기간에 맞춰 적용됩니다.</Muted>
@@ -330,8 +330,8 @@ function AcademiesTable({ from, to }: { from: string; to: string }) {
                     <a href={routes.admin + '/academies/' + (r.id || '')} style={{ color:'#111827', textDecoration:'underline', fontWeight:800 }}>{r.name}</a>
                     <div style={{ color:'#64748b', fontSize:12 }}>
                       {(r.bizNo || '-')}
-                      {r.createdAt ? ` • 가입일 ${new Date(r.createdAt).toLocaleDateString()}` : ''}
-                      {(() => { const t = [r.loginLastAt, r.apiLastAt, r.paymentLastAt].filter(Boolean).map(x => new Date(x as string).getTime()); if (t.length===0) return ''; const last = new Date(Math.max.apply(null, t)); return ` • 최근활동 ${last.toLocaleDateString()} ${last.toLocaleTimeString()}`; })()}
+                      {r.createdAt ? ` • 가입일 ${new Date(r.createdAt).toLocaleDateString('ko-KR')}` : ''}
+                      {(() => { const t = [r.loginLastAt, r.apiLastAt, r.paymentLastAt].filter(Boolean).map(x => new Date(x as string).getTime()); if (t.length===0) return ''; const last = new Date(Math.max.apply(null, t)); return ` • 최근활동 ${last.toLocaleDateString('ko-KR')} ${last.toLocaleTimeString('ko-KR', { hour12: false })}`; })()}
                     </div>
                   </div>
                 </td>

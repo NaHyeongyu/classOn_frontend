@@ -3,10 +3,13 @@ import StudentsStats from "@/components/students/StudentsStats";
 import StudentsFilters from "@/components/students/StudentsFilters";
 import StudentsTable from "@/components/students/StudentsTable";
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import styled from "styled-components";
+import { SectionCard as Section } from "@/components/common/UI";
 import { useSearchParams } from "react-router-dom";
-import { PageHeader, PrimaryBtn, GhostButtonSmall, GhostButton } from "@/components/common/UI";
+import { PageHeader, PrimaryBtn, GhostButton } from "@/components/common/UI";
 import { downloadStudentsExcel, downloadStudentsTemplate, importStudentsExcel } from "@/api/students";
 import { useToast } from "@/components/common/Toast";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 
 export default function Students() {
   const { show, success, error: showError } = useToast();
@@ -22,6 +25,7 @@ export default function Students() {
   }), []);
   const [filters, setFilters] = useState(initial);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [showImportGuide, setShowImportGuide] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
   // Sync filters -> URL
   useEffect(() => {
@@ -71,24 +75,50 @@ export default function Students() {
   }
   return (
     <Page>
-      <PageHeader>
-        <div>
-          <h2>원생 관리</h2>
-          <p>등록된 원생들을 한눈에 확인해보세요!</p>
-        </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
-          <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
-          <GhostButton as="button" onClick={handleTemplate}>템플릿 다운</GhostButton>
-          <GhostButton as="button" onClick={handleExport}>추출</GhostButton>
-          <GhostButton as="button" onClick={() => fileRef.current?.click()}>엑셀 업로드</GhostButton>
-          <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display:'none' }} onChange={handleImport} />
-        </div>
-      </PageHeader>
-      <StudentsStats />
-      <Card>
-        <StudentsFilters value={filters} onChange={setFilters} onApply={() => setRefreshKey((k) => k + 1)} />
-      </Card>
+      <StickyWrap>
+        <StickyInner>
+          <StickyHeader>
+            <div>
+              <h2>원생 관리</h2>
+              <p>등록된 원생들을 한눈에 확인해보세요!</p>
+            </div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+              <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
+              <GhostButton as="button" onClick={handleTemplate}>템플릿 다운</GhostButton>
+              <GhostButton as="button" onClick={handleExport}>추출</GhostButton>
+              <GhostButton as="button" onClick={() => setShowImportGuide(true)}>엑셀 업로드</GhostButton>
+              <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display:'none' }} onChange={handleImport} />
+            </div>
+          </StickyHeader>
+          <StudentsStats />
+          <FiltersCard>
+            <StudentsFilters value={filters} onChange={setFilters} onApply={() => setRefreshKey((k) => k + 1)} />
+          </FiltersCard>
+        </StickyInner>
+      </StickyWrap>
       <StudentsTable filters={filters} refreshKey={refreshKey} />
+      <ConfirmDialog
+        open={showImportGuide}
+        title="엑셀 업로드 안내"
+        message={(
+          <GuideList>
+            <li>템플릿 헤더 이름과 순서를 변경하지 말아주세요.</li>
+            <li>필수 입력값: 이름 (빈 행은 자동으로 건너뜁니다).</li>
+            <li>상태는 수강중/휴학/대기 중 하나만 입력하거나 비워두면 수강중으로 처리돼요.</li>
+            <li>등록일·생년월일은 YYYY-MM-DD 형식을 사용하거나 엑셀 날짜 서식을 적용해주세요.</li>
+            <li>연락처와 보호자 연락처는 0으로 시작할 수 있으니 텍스트 서식을 권장합니다.</li>
+            <li>보호자 성함·보호자 연락처·주소는 선택 항목이며 필요 시에만 입력하세요.</li>
+            <li>기존 원생은 이름과 연락처로 찾아 업데이트합니다. 연락처가 없으면 신규로 추가될 수 있습니다.</li>
+          </GuideList>
+        )}
+        confirmLabel="업로드 진행"
+        cancelLabel="취소"
+        onCancel={() => setShowImportGuide(false)}
+        onConfirm={() => {
+          setShowImportGuide(false);
+          setTimeout(() => fileRef.current?.click(), 0);
+        }}
+      />
     </Page>
   );
 }
@@ -123,3 +153,39 @@ async function saveBlobAsFile(blob: Blob, filename: string) {
   a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
+
+// Sticky header + stats + filters for Students page
+const StickyWrap = styled.div`
+  position: sticky;
+  top: 0;
+  z-index: 35; /* above table headers */
+  background: ${({ theme }) => theme.colors.surface};
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+`;
+const StickyInner = styled.div`
+  display: grid;
+  gap: 12px;
+  padding: 8px 0 12px;
+`;
+const StickyHeader = styled(PageHeader)`
+  position: static;
+  margin-bottom: 0;
+  box-shadow: none;
+`;
+
+// Allow dropdown/datepickers to overflow above rounded card edges
+const FiltersCard = styled(Section)`
+  overflow: visible;
+  position: relative;
+  z-index: 36;
+`;
+
+const GuideList = styled.ul`
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  color: #374151;
+  li { list-style: disc; }
+`;

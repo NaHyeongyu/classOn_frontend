@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import SelectBox from "@/components/common/SelectBox";
 import { useEffect, useRef, useState } from "react";
 
 type Filters = {
@@ -30,19 +31,34 @@ export default function StudentsFilters({ value, onChange, onApply }: { value: F
     <Bar>
       <Group>
         <Label>상태</Label>
-        <Select value={v.status} onChange={(e) => set("status", e.target.value as any)}>
-          <option value="">전체</option>
-          <option value="ENROLLED">수강중</option>
-          <option value="ON_LEAVE">휴학</option>
-          <option value="PENDING">대기중</option>
-        </Select>
+        <SelectBox ariaLabel="상태" value={v.status || ''} onChange={(val)=> set("status", val as any)} placeholder="전체"
+          options={[
+            { label: '수강중', value: 'ENROLLED' },
+            { label: '휴학', value: 'ON_LEAVE' },
+            { label: '대기중', value: 'PENDING' },
+          ]}
+        />
       </Group>
       <Group>
         <Label>등록일</Label>
         <RangeWrap>
-          <Input type="date" value={v.from} onChange={(e) => set("from", e.target.value)} />
+          <DateInput
+            type="date"
+            lang="ko-KR"
+            data-placeholder="YYYY.MM.DD"
+            data-has-value={Boolean(v.from)}
+            value={v.from}
+            onChange={(e) => set("from", e.target.value)}
+          />
           <Sep>~</Sep>
-          <Input type="date" value={v.to} onChange={(e) => set("to", e.target.value)} />
+          <DateInput
+            type="date"
+            lang="ko-KR"
+            data-placeholder="YYYY.MM.DD"
+            data-has-value={Boolean(v.to)}
+            value={v.to}
+            onChange={(e) => set("to", e.target.value)}
+          />
         </RangeWrap>
       </Group>
       <Group>
@@ -94,11 +110,37 @@ const Group = styled.div`
 const Label = styled.span`
   color: #6b7280; font-size: 12px; font-weight: 700;
 `;
-const Select = styled.select`
-  height: 36px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 10px; background: #fff; width: 100%;
-`;
+// unified via SelectBox
 const Input = styled.input`
   height: 36px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 10px; width: 100%;
+`;
+
+// Korean-friendly date placeholder (YYYY.MM.DD) for empty values
+const DateInput = styled.input`
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 10px;
+  width: 100%;
+  position: relative;
+  background: #fff;
+  /* Show custom placeholder when no value and not focused */
+  &::before {
+    content: attr(data-placeholder);
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #9ca3af;
+    pointer-events: none;
+  }
+  &:focus::before,
+  &[data-has-value='true']::before {
+    content: '';
+  }
+  /* Hide native empty ghost text on Safari */
+  &::-webkit-datetime-edit { color: ${({"data-has-value": hv}: any) => hv ? '#111827' : 'transparent'}; }
+  &::-webkit-calendar-picker-indicator { opacity: 1; }
 `;
 const RangeWrap = styled.div`
   display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center;

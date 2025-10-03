@@ -12,7 +12,14 @@ type Props = {
   onClick?: () => void;
 };
 
-export default function BackButton({ to, label = "뒤로가기", className, backSteps = 1, icon, onClick }: Props) {
+export default function BackButton({
+  to,
+  label = "뒤로가기",
+  className,
+  backSteps = 1,
+  icon,
+  onClick,
+}: Props) {
   const navigate = useNavigate();
   const goBack = () => {
     if (onClick) return onClick();
@@ -52,4 +59,3 @@ const leftIcon = (
     <polyline points="15 18 9 12 15 6" />
   </svg>
 );
-

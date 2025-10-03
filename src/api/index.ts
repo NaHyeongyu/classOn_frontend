@@ -1,6 +1,7 @@
 export * from './auth';
 export * from './brief';
 export * from './calendar';
+export * from './attendance';
 export * from './counsels';
 export * from './courses';
 export * from './dashboard';

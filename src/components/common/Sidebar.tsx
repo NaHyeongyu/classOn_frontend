@@ -14,6 +14,7 @@ export default function Sidebar() {
       { key: "calendar", label: "일정", sub: "Calendar", to: routes.calendar },
       { key: "students", label: "원생관리", sub: "Student Management", to: routes.students },
       { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes },
+      { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
     ],
@@ -120,10 +121,8 @@ function renderIcon(key: string) {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M20 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M4 21v-2a 4 4 0 0 1 3-3.87" />
-          <circle cx="7" cy="7" r="4" />
-          <circle cx="17" cy="7" r="4" />
+          <circle cx="12" cy="7" r="4" />
+          <path d="M5.5 21a6.5 6.5 0 0 1 13 0" />
         </svg>
       );
     case "teachers":
@@ -179,6 +178,25 @@ function renderIcon(key: string) {
           <rect x="14" y="3" width="7" height="7" />
           <rect x="14" y="14" width="7" height="7" />
           <rect x="3" y="14" width="7" height="7" />
+        </svg>
+      );
+    case "attendance":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <line x1="16" y1="2" x2="16" y2="6" />
+          <line x1="8" y1="2" x2="8" y2="6" />
+          <line x1="3" y1="10" x2="21" y2="10" />
+          <path d="M9 16l2 2 4-4" />
         </svg>
       );
     case "marketing":

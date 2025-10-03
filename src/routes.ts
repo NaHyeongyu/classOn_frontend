@@ -23,6 +23,8 @@ export const routes = {
   classHistoryRecord: '/classes/:id/history/:recordId',
   classHistoryDate: '/classes/:id/history/date/:ymd',
 
+  attendance: '/attendance',
+
   payments: '/payments',
   devTools: '/dev-tools',
   admin: '/admin',

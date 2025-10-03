@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import styled from "styled-components";
 import { SectionCard as Section, TitleH3 as Title, GhostBtn as UIGhostBtn, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, TableBase as UITable, buttonVariants, GhostButton as UIGhostButton } from "@/components/common/UI";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { getCourse, type Course, type CourseRecord, listCourseStudents, listCourseRecords, listRecordAttendance, deleteCourse } from "@/api/courses";
+import { getCourse, type Course, type CourseRecord, listCourseStudents, listCourseRecords, listRecordAttendance, deleteCourse, downloadCourseRecordsExcel } from "@/api/courses";
 import { formatMoney } from "@/lib/format";
 import { listStudents, type Student } from "@/api/students";
 import { KPI, UsersIcon, ClassIcon, CheckIcon } from "@/components/dashboard/KPI";
@@ -27,6 +27,7 @@ export default function CourseDetail() {
   const [records, setRecords] = useState<CourseRecord[]>([]);
   const [recLoading, setRecLoading] = useState(false);
   const [recError, setRecError] = useState<string | null>(null);
+  const [exportingRecords, setExportingRecords] = useState(false);
   // History filter state
   const [filterYear, setFilterYear] = useState<number | null>(null);
   // 0 = 전체, 1..12 = 월
@@ -64,6 +65,18 @@ export default function CourseDetail() {
   function pad2(n: number) { return String(n).padStart(2, '0'); }
   function endOfMonthDay(y: number, m1: number) { return new Date(y, m1, 0).getDate(); }
 
+  function buildFilterRange(): { from?: string; to?: string } {
+    if (filterYear == null) return {};
+    let from = `${filterYear}-01-01`;
+    let to = `${filterYear}-12-31`;
+    if (filterMonth >= 1) {
+      const end = endOfMonthDay(filterYear, filterMonth);
+      from = `${filterYear}-${pad2(filterMonth)}-01`;
+      to = `${filterYear}-${pad2(filterMonth)}-${pad2(end)}`;
+    }
+    return { from, to };
+  }
+
   // removed: generateNext14Days (replaced by create single record via detail page)
 
   // Initialize filter year after course loads
@@ -79,14 +92,8 @@ export default function CourseDetail() {
     async function loadByFilter() {
       setRecLoading(true); setRecError(null);
       try {
-        let from = `${filterYear}-01-01`;
-        let to = `${filterYear}-12-31`;
-        if (filterMonth >= 1) {
-          from = `${filterYear}-${pad2(filterMonth)}-01`;
-          const end = endOfMonthDay(filterYear, filterMonth);
-          to = `${filterYear}-${pad2(filterMonth)}-${pad2(end)}`;
-        }
-        const list = await listCourseRecords(numericId!, { from, to });
+        const range = buildFilterRange();
+        const list = await listCourseRecords(numericId!, range);
         if (!cancelled) setRecords(list);
       } catch (e) {
         if (!cancelled) {
@@ -99,6 +106,23 @@ export default function CourseDetail() {
     void loadByFilter();
     return () => { cancelled = true; };
   }, [numericId, filterYear, filterMonth]);
+
+  async function handleExportRecords() {
+    if (!numericId) return;
+    setExportingRecords(true);
+    try {
+      const range = buildFilterRange();
+      const blob = await downloadCourseRecordsExcel(numericId, range);
+      const baseTitle = course?.title || `course_${numericId}`;
+      const dateLabel = range.from && range.to ? `${range.from}_${range.to}` : new Date().toISOString().slice(0, 10);
+      const filename = sanitizeFilename(`${baseTitle}_${dateLabel}_records`);
+      saveBlobAsFile(blob, `${filename}.xlsx`);
+    } catch (e) {
+      showError(readableError(e, '수업 내역 엑셀 추출에 실패했습니다.'));
+    } finally {
+      setExportingRecords(false);
+    }
+  }
 
   // Load attendance for records (server) when available
   useEffect(() => {
@@ -366,6 +390,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
                 <Field><Label>시간</Label><div>{info.time || '-'}</div></Field>
                 <Field><Label>정원</Label><div>{course?.capacity ?? '-'}</div></Field>
                 <Field><Label>수강료</Label><div>{course?.fee != null ? formatMoney(course.fee) : '-'}</div></Field>
+                <Field><Label>생성일</Label><div>{course?.createdAt ? new Date(course.createdAt).toLocaleDateString() : '-'}</div></Field>
                 <Field style={{ gridColumn: '1 / -1' }}>
                   <Label>수업 설명</Label>
                   <Desc>{course?.description || '-'}</Desc>
@@ -421,6 +446,9 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
               <SectionHead>
                 <Title>수업 내역</Title>
                 <div style={{ display:'inline-flex', gap: 8 }}>
+                  <UIGhostButton type="button" onClick={handleExportRecords} disabled={exportingRecords}>
+                    {exportingRecords ? '엑셀 준비 중...' : '엑셀 추출'}
+                  </UIGhostButton>
                   <UIGhostButton type="button" onClick={() => setCollapsedList(v => !v)}>
                     {collapsedList ? '펼치기' : '목록 접기'}
                   </UIGhostButton>
@@ -556,6 +584,23 @@ function statusLabel(s?: Course["status"]) {
   switch (s) { case "IN_PROGRESS": return "진행중"; case "PENDING": return "대기"; case "STOPPED": return "중단"; default: return s || "-"; }
 }
 function studentStatusText(s: Student["status"]) { switch (s) { case "ENROLLED": return "수강중"; case "ON_LEAVE": return "휴학"; case "PENDING": return "대기"; default: return s; } }
+
+function saveBlobAsFile(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function sanitizeFilename(raw: string) {
+  const base = raw ? raw.trim() : 'export';
+  const cleaned = base.replace(/[\\/:*?"<>|]+/g, '_');
+  return cleaned.length ? cleaned : 'export';
+}
 
 function buildInfo(c: Course) {
   const order: Record<'MON'|'TUE'|'WED'|'THU'|'FRI'|'SAT'|'SUN', number> = { MON:0, TUE:1, WED:2, THU:3, FRI:4, SAT:5, SUN:6 };

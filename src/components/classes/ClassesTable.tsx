@@ -29,6 +29,8 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
           size,
           status: (filters.status as any) || undefined,
           q: filters.q || undefined,
+          s: 'createdAt',
+          dir: 'DESC',
         });
         if (!cancelled) {
           setRows(res.content);

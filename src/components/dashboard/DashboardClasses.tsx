@@ -32,6 +32,12 @@ export default function DashboardClasses() {
 
 
   function numOr(...vals: any[]): number { for (const v of vals) { if (typeof v === 'number' && Number.isFinite(v)) return v; } return 0; }
+  function cleanNotes(s?: string | null): string | null {
+    if (!s) return null;
+    const t = String(s).trim();
+    if (t === '정기 수업' || t === '정기수업') return null;
+    return t || null;
+  }
   const items: ClassItem[] = rows.map((r: any) => {
     const s = r.startTime ?? r.start_at ?? r.startAt ?? r.start ?? null;
     const e = r.endTime ?? r.end_at ?? r.endAt ?? r.end ?? null;
@@ -39,6 +45,7 @@ export default function DashboardClasses() {
     const absent = numOr(r.attAbsent, r.absentCount, r.attendanceAbsent, r?.attendance?.absent);
     const unprocessed = numOr(r.attUnprocessed);
     const recId = r.recordId || r.id;
+    const notes = cleanNotes(r.notes || r.content || r.topic || null);
     return {
       subject: r.courseTitle || '수업',
       time: formatTimeRange(s, e),
@@ -49,7 +56,7 @@ export default function DashboardClasses() {
       courseId: r.courseId || undefined,
       date: r.recordDate || r.date,
       recordId: recId,
-      notes: r.notes || r.content || r.topic || null,
+      notes,
       attPresent: present,
       attAbsent: absent,
       attUnprocessed: unprocessed,

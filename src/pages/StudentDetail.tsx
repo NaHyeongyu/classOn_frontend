@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import SelectBox from "@/components/common/SelectBox";
 import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import {
@@ -9,7 +10,7 @@ import {
 } from "@/components/common/UI";
 import BackButton from "@/components/common/BackButton";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { listCounsels, createCounsel, updateCounsel, deleteCounsel, type Counsel } from "@/api/counsels";
+import { listCounsels, createCounsel, updateCounsel, deleteCounsel, downloadCounselsExcel, type Counsel } from "@/api/counsels";
 import { getStudent, getStudentAttendance, type Student, type StudentAttendance } from "@/api/students";
 // formatMoney 사용 제거됨 (MVP)
 import { formatPhone } from "@/lib/format";
@@ -43,15 +44,25 @@ export default function StudentDetail() {
   const [counsels, setCounsels] = useState<Counsel[]>([]);
   const [counselLoading, setCounselLoading] = useState(false);
   const [counselError, setCounselError] = useState<string | null>(null);
+  const [exportingCounsel, setExportingCounsel] = useState(false);
   const [addingCounsel, setAddingCounsel] = useState(false);
-  const [newWhen, setNewWhen] = useState<string>(""); // datetime-local
+  // New counsel form: date + hour/min (default: today with no time selected)
+  const [newDate, setNewDate] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`;
+  });
+  const [newHour, setNewHour] = useState<string>("");
+  const [newMin, setNewMin] = useState<string>("");
   const [newContent, setNewContent] = useState<string>("");
   const [newSubmitting, setNewSubmitting] = useState(false);
   // Edit existing counsel
   const [editingCounselId, setEditingCounselId] = useState<number | null>(null);
   const [confirmCounselId, setConfirmCounselId] = useState<number | null>(null);
   const [confirmCounselBusy, setConfirmCounselBusy] = useState(false);
-  const [editWhen, setEditWhen] = useState<string>("");
+  // Edit counsel form: date + hour/min
+  const [editDate, setEditDate] = useState<string>("");
+  const [editHour, setEditHour] = useState<string>("");
+  const [editMin, setEditMin] = useState<string>("");
   const [editContent, setEditContent] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
   const { error: showError } = useToast();
@@ -125,6 +136,21 @@ export default function StudentDetail() {
     void load();
     return () => { cancelled = true; };
   }, [numericId, activeTab]);
+
+  async function handleCounselExport() {
+    if (!numericId) return;
+    setExportingCounsel(true);
+    try {
+      const blob = await downloadCounselsExcel({ studentId: numericId });
+      const studentName = student?.name || `student_${numericId}`;
+      const filename = sanitizeFilename(`${studentName}_counsels`);
+      saveBlobAsFile(blob, `${filename}.xlsx`);
+    } catch (e: any) {
+      showError(e?.message || '상담 기록 엑셀 추출에 실패했습니다.');
+    } finally {
+      setExportingCounsel(false);
+    }
+  }
 
   // Load saved notes from localStorage (temporary persistence until API exists)
   useEffect(() => {
@@ -219,16 +245,20 @@ export default function StudentDetail() {
     persistMemos(next);
   }
 
+  const hours24 = useMemo(() => Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')), []);
+  const mins5 = useMemo(() => ['00','05','10','15','20','25','30','35','40','45','50','55'], []);
+
   async function onSubmitNewCounsel() {
-    if (!numericId || !newWhen) return;
+    if (!numericId || !newDate || !newHour || !newMin) return;
     setNewSubmitting(true);
     setCounselError(null);
     try {
-      await createCounsel({ studentId: numericId, counselTime: fromLocalInput(newWhen), content: newContent || undefined });
+      const iso = `${newDate}T${newHour}:${newMin}:00`;
+      await createCounsel({ studentId: numericId, counselTime: iso, content: newContent || undefined });
       const res = await listCounsels({ studentId: numericId, size: 100 });
       setCounsels(res.content || []);
       setAddingCounsel(false);
-      setNewWhen("");
+      setNewHour(""); setNewMin("");
       setNewContent("");
     } catch (e: any) {
       setCounselError(e?.message || '저장에 실패했습니다.');
@@ -238,15 +268,16 @@ export default function StudentDetail() {
   }
 
   async function onSaveEdit(id: number) {
-    if (!editWhen) return;
+    if (!editDate || !editHour || !editMin) return;
     setSavingEdit(true);
     setCounselError(null);
     try {
-      await updateCounsel(id, { counselTime: fromLocalInput(editWhen), content: editContent || undefined });
+      const iso = `${editDate}T${editHour}:${editMin}:00`;
+      await updateCounsel(id, { counselTime: iso, content: editContent || undefined });
       const res = await listCounsels({ studentId: numericId, size: 100 });
       setCounsels(res.content || []);
       setEditingCounselId(null);
-      setEditWhen("");
+      setEditDate(""); setEditHour(""); setEditMin("");
       setEditContent("");
     } catch (e: any) {
       setCounselError(e?.message || '수정에 실패했습니다.');
@@ -553,14 +584,19 @@ export default function StudentDetail() {
                     <div>
                       <SmallTitle>상담기록</SmallTitle>
                     </div>
-                    <div>
+                    <div style={{ display:'inline-flex', gap: 8, alignItems:'center' }}>
                       {addingCounsel ? (
                         <>
-                          <ModalBtn type="button" onClick={() => { setAddingCounsel(false); setNewContent(""); setNewWhen(""); }}>취소</ModalBtn>
-                          <UIPrimaryBtn as={"button" as any} onClick={onSubmitNewCounsel} disabled={newSubmitting || !newWhen}>저장</UIPrimaryBtn>
+                          <ModalBtn type="button" onClick={() => { setAddingCounsel(false); setNewContent(""); setNewHour(""); setNewMin(""); }}>취소</ModalBtn>
+                          <UIPrimaryBtn as={"button" as any} onClick={onSubmitNewCounsel} disabled={newSubmitting || !newHour || !newMin}>저장</UIPrimaryBtn>
                         </>
                       ) : (
-                        <UIGhostBtn as={"button" as any} onClick={() => { setAddingCounsel(true); setNewWhen(nowLocalInput()); }}>상담 추가</UIGhostBtn>
+                        <>
+                          <ModalBtn type="button" onClick={handleCounselExport} disabled={exportingCounsel}>
+                            {exportingCounsel ? '엑셀 준비 중...' : '엑셀 추출'}
+                          </ModalBtn>
+                          <UIGhostBtn as={"button" as any} onClick={() => { setAddingCounsel(true); /* default to today without time */ setNewDate(() => { const d=new Date(); return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`; }); setNewHour(""); setNewMin(""); }}>상담 추가</UIGhostBtn>
+                        </>
                       )}
                     </div>
                   </CounselHeader>
@@ -568,8 +604,20 @@ export default function StudentDetail() {
                   {addingCounsel && (
                     <NewCounselForm>
                       <Field>
-                        <Label>상담 일시</Label>
-                        <Input type="datetime-local" value={newWhen} onChange={(e) => setNewWhen(e.target.value)} step={300} />
+                        <Label>상담 일자</Label>
+                        <Input type="date" lang="ko-KR" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+                      </Field>
+                      <Field>
+                        <Label>시간</Label>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <div style={{ flex:1 }}>
+                            <SelectBox ariaLabel="시" value={newHour} onChange={setNewHour} placeholder="시" options={hours24.map(h => ({ label: h, value: h }))} />
+                          </div>
+                          <span>:</span>
+                          <div style={{ flex:1 }}>
+                            <SelectBox ariaLabel="분" value={newMin} onChange={setNewMin} placeholder="분" options={mins5.map(m => ({ label: m, value: m }))} />
+                          </div>
+                        </div>
                       </Field>
                       <Field style={{ gridColumn: "1 / -1" }}>
                         <Label>내용</Label>
@@ -592,7 +640,7 @@ export default function StudentDetail() {
                                 <CounselRow>
                                   <When>{formatKDateTime(c.counselTime)}</When>
                                   <RowActions>
-                                    <ModalBtn type="button" onClick={() => { setEditingCounselId(c.id); setEditWhen(isoToLocalInput(c.counselTime)); setEditContent(c.content || ""); }}>편집</ModalBtn>
+                                    <ModalBtn type="button" onClick={() => { setEditingCounselId(c.id); try { const d = new Date(c.counselTime); setEditDate(`${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`); setEditHour(two(d.getHours())); setEditMin(two(d.getMinutes())); } catch { setEditDate(''); setEditHour(''); setEditMin(''); } setEditContent(c.content || ""); }}>편집</ModalBtn>
                                     <ModalBtn type="button" onClick={() => setConfirmCounselId(c.id)}>삭제</ModalBtn>
                                   </RowActions>
                                 </CounselRow>
@@ -602,8 +650,20 @@ export default function StudentDetail() {
                               <>
                                 <EditGrid>
                                   <Field>
-                                    <Label>상담 일시</Label>
-                                    <Input type="datetime-local" value={editWhen} onChange={(e)=>setEditWhen(e.target.value)} step={300} />
+                                    <Label>상담 일자</Label>
+                                    <Input type="date" lang="ko-KR" value={editDate} onChange={(e)=>setEditDate(e.target.value)} />
+                                  </Field>
+                                  <Field>
+                                    <Label>시간</Label>
+                                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                      <div style={{ flex:1 }}>
+                                        <SelectBox ariaLabel="시" value={editHour} onChange={setEditHour} placeholder="시" options={hours24.map(h => ({ label: h, value: h }))} />
+                                      </div>
+                                      <span>:</span>
+                                      <div style={{ flex:1 }}>
+                                        <SelectBox ariaLabel="분" value={editMin} onChange={setEditMin} placeholder="분" options={mins5.map(m => ({ label: m, value: m }))} />
+                                      </div>
+                                    </div>
                                   </Field>
                                   <Field style={{ gridColumn: '1 / -1' }}>
                                     <Label>내용</Label>
@@ -611,8 +671,8 @@ export default function StudentDetail() {
                                   </Field>
                                 </EditGrid>
                                 <RowActions>
-                                  <ModalBtn type="button" onClick={() => { setEditingCounselId(null); setEditWhen(""); setEditContent(""); }}>취소</ModalBtn>
-                                  <UIPrimaryBtn as={"button" as any} disabled={savingEdit || !editWhen} onClick={() => onSaveEdit(c.id)}>저장</UIPrimaryBtn>
+                                  <ModalBtn type="button" onClick={() => { setEditingCounselId(null); setEditDate(""); setEditHour(""); setEditMin(""); setEditContent(""); }}>취소</ModalBtn>
+                                  <UIPrimaryBtn as={"button" as any} disabled={savingEdit || !editDate || !editHour || !editMin} onClick={() => onSaveEdit(c.id)}>저장</UIPrimaryBtn>
                                 </RowActions>
                               </>
                             )}
@@ -870,6 +930,23 @@ const SkField = styled(SkeletonBase).attrs({ h: 16, mt: 10 })``;
 
 // Arrow icon resides in BackButton
 
+function saveBlobAsFile(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function sanitizeFilename(raw: string) {
+  const base = raw ? raw.trim() : 'export';
+  const cleaned = base.replace(/[\\/:*?"<>|]+/g, '_');
+  return cleaned.length ? cleaned : 'export';
+}
+
 function two(n: number) { return String(n).padStart(2, '0'); }
 function formatDate(iso: string) {
   try {
@@ -969,6 +1046,9 @@ const Input = styled.input`
 `;
 const TextArea = styled.textarea`
   width: 100%; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; font-size: 14px; resize: vertical;
+`;
+const Select = styled.select`
+  height: 36px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 8px; font-size: 14px; background:#fff; color:#0f172a;
 `;
 const CounselRow = styled.div` display:flex; align-items:center; justify-content:space-between; gap:8px; `;
 const RowActions = styled.div` display:inline-flex; gap:12px; `;

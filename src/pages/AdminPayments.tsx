@@ -30,9 +30,9 @@ export default function AdminPayments() {
         <h2>결제 기록</h2>
         <Filters>
           <label>기간</label>
-          <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+          <Input type="date" lang="ko-KR" value={from} onChange={(e)=>setFrom(e.target.value)} />
           <span>~</span>
-          <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+          <Input type="date" lang="ko-KR" value={to} onChange={(e)=>setTo(e.target.value)} />
           <MonoGhost as="button" type="button" onClick={()=>load(0, size)}>적용</MonoGhost>
         </Filters>
       </Header>
@@ -43,7 +43,7 @@ export default function AdminPayments() {
           <tbody>
             {loading && <tr><td colSpan={5}>불러오는 중…</td></tr>}
             {!loading && rows.map((p,i) => (
-              <tr key={p.id || i}><td>{new Date(p.createdAt).toLocaleString()}</td><td>{(p.amountCents/100).toLocaleString('ko-KR')}</td><td>{p.currency}</td><td>{p.status}</td><td>{p.description || '-'}</td></tr>
+              <tr key={p.id || i}><td>{new Date(p.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{(p.amountCents/100).toLocaleString('ko-KR')}</td><td>{p.currency}</td><td>{p.status}</td><td>{p.description || '-'}</td></tr>
             ))}
             {!loading && rows.length === 0 && <tr><td colSpan={5}>표시할 데이터가 없습니다.</td></tr>}
           </tbody>
@@ -67,4 +67,3 @@ const TableWrap = styled.div` width:100%; overflow:auto; border:1px solid #f1f5f
 const Table = styled.table` width:100%; border-collapse:collapse; thead th{ text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb; padding:8px; } tbody td{ padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#111827; }`;
 const MonoGhost = styled.button` height:40px; padding:0 12px; border-radius:10px; background:#fff; color:#111827; border:1px solid #e5e7eb; &:hover{ background:#f9fafb; } `;
 const Pager = styled.div` display:flex; gap:8px; align-items:center; justify-content:flex-end; `;
-

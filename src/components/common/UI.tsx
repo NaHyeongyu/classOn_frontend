@@ -5,7 +5,8 @@ export const Page = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.lg};
   width: 100%;
-  overflow-x: hidden;
+  /* Avoid interfering with sticky children; allow overflow to the viewport */
+  overflow: visible;
 `;
 export const SectionCard = styled.section`
   background: ${(p) => p.theme.colors.surface};
@@ -32,6 +33,12 @@ export const PageHeader = styled.header`
   gap: ${(p) => p.theme.spacing.md};
   align-items: center;
   margin-bottom: ${(p) => p.theme.spacing.sm};
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  background: ${(p) => p.theme.colors.surface};
+  /* remove bottom separation under page headers for cleaner look */
+  box-shadow: none;
   h2 {
     margin: 0;
     font-size: 22px;

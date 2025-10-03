@@ -32,9 +32,9 @@ export default function AdminApiLogs() {
         <h2>API 요청 로그</h2>
         <Filters>
           <label>기간</label>
-          <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+          <Input type="date" lang="ko-KR" value={from} onChange={(e)=>setFrom(e.target.value)} />
           <span>~</span>
-          <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+          <Input type="date" lang="ko-KR" value={to} onChange={(e)=>setTo(e.target.value)} />
           <Input placeholder="경로 검색(/api/...)" value={q} onChange={(e)=>setQ(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') void load(0, size); }} />
           <label style={{ display: 'inline-flex', alignItems:'center', gap:6 }}>
             <input type="checkbox" checked={errorsOnly} onChange={(e)=>setErrorsOnly(e.target.checked)} />
@@ -50,7 +50,7 @@ export default function AdminApiLogs() {
           <tbody>
             {loading && <tr><td colSpan={6}>불러오는 중…</td></tr>}
             {!loading && rows.map((r,i) => (
-              <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString()}</td><td>{r.method}</td><td>{r.path}</td><td>{r.status}</td><td>{r.ip || '-'}</td><td>{r.userId || '-'}</td></tr>
+              <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.method}</td><td>{r.path}</td><td>{r.status}</td><td>{r.ip || '-'}</td><td>{r.userId || '-'}</td></tr>
             ))}
             {!loading && rows.length === 0 && <tr><td colSpan={6}>표시할 데이터가 없습니다.</td></tr>}
           </tbody>

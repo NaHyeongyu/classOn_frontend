@@ -16,6 +16,7 @@ const CourseForm = lazy(() => import("@/pages/CourseForm"));
 const CourseDetail = lazy(() => import("@/pages/CourseDetail"));
 const CourseStudentsEdit = lazy(() => import("@/pages/CourseStudentsEdit"));
 const CourseRecordDetail = lazy(() => import("@/pages/CourseRecordDetail"));
+const Attendance = lazy(() => import("@/pages/Attendance"));
 // Payments/Banking routes removed for MVP
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
@@ -126,6 +127,7 @@ export default function App() {
           <Route path={routes.classesDetailTab} element={<CourseDetail />} />
           <Route path={routes.classHistoryRecord} element={<CourseRecordDetail />} />
           <Route path={routes.classHistoryDate} element={<CourseRecordDetail />} />
+          <Route path={routes.attendance} element={<Attendance />} />
           { /* 상담 전역 라우트 제거됨: 학생 상세 > 상담기록 탭에서 관리 */ }
           <Route path={routes.payments} element={<PaymentsWip />} />
           {enableDev && <Route path={routes.devTools} element={<DevTools />} />}

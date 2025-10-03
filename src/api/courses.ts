@@ -126,10 +126,12 @@ export async function listCourseStudents(id: number): Promise<Student[]> {
   return await fetchJSON<Student[]>(`/api/courses/${id}/students`);
 }
 
-export async function listCourseRecords(id: number, params?: { from?: string; to?: string; }): Promise<CourseRecord[]> {
+export async function listCourseRecords(id: number, params?: { from?: string; to?: string; page?: number; size?: number; }): Promise<CourseRecord[]> {
   const sp = new URLSearchParams();
   if (params?.from) sp.set("from", params.from);
   if (params?.to) sp.set("to", params.to);
+  if (typeof params?.page === 'number') sp.set('page', String(params.page));
+  if (typeof params?.size === 'number') sp.set('size', String(params.size));
   const q = Array.from(sp.keys()).length ? `?${sp}` : "";
   return await fetchJSON<CourseRecord[]>(`/api/courses/${id}/records${q}`);
 }
@@ -240,6 +242,14 @@ export async function downloadCoursesExcel(params?: { status?: Course["status"] 
   if (params?.q && params.q.trim()) sp.set('q', params.q.trim());
   const q = Array.from(sp.keys()).length ? `?${sp}` : '';
   return await fetchBlob(`/api/courses/export${q}`);
+}
+
+export async function downloadCourseRecordsExcel(courseId: number, params?: { from?: string; to?: string; }): Promise<Blob> {
+  const sp = new URLSearchParams();
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  const q = Array.from(sp.keys()).length ? `?${sp}` : '';
+  return await fetchBlob(`/api/courses/${courseId}/records/export${q}`);
 }
 
 export async function downloadCoursesTemplate(): Promise<Blob> {

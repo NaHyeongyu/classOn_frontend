@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { SectionCard, PrimaryButton, GhostBtnSmall as UIGhostBtnSmall, GhostButtonSmall, PageHeader } from "@/components/common/UI";
@@ -43,6 +43,9 @@ export default function Marketing() {
   const genError: string | null = null;
   const [hasSearched, setHasSearched] = useState(false);
   const [results, setResults] = useState<RecordsByCourse>({});
+  const [pagesByCourse, setPagesByCourse] = useState<Record<number, number>>({});
+  const [hasMoreByCourse, setHasMoreByCourse] = useState<Record<number, boolean>>({});
+  const [loadingByCourse, setLoadingByCourse] = useState<Record<number, boolean>>({});
   const [showHelper, setShowHelper] = useState(true);
   const [helperDismissed, setHelperDismissed] = useState(false);
 
@@ -202,6 +205,26 @@ export default function Marketing() {
     return s;
   }
 
+  const PAGE_SIZE = 30;
+
+  async function fetchCoursePage(courseId: number, nextPage: number) {
+    if (!from || !to) return;
+    setLoadingByCourse(m => ({ ...m, [courseId]: true }));
+    try {
+      const resp = await listCourseRecords(courseId, { from, to, page: nextPage, size: PAGE_SIZE });
+      setResults(prev => {
+        const before = prev[courseId] || [];
+        const seen = new Set(before.map(r => r.id));
+        const merged = before.concat(resp.filter(r => !seen.has(r.id)));
+        return { ...prev, [courseId]: merged };
+      });
+      setPagesByCourse(p => ({ ...p, [courseId]: nextPage }));
+      setHasMoreByCourse(h => ({ ...h, [courseId]: (resp.length >= PAGE_SIZE) }));
+    } finally {
+      setLoadingByCourse(m => ({ ...m, [courseId]: false }));
+    }
+  }
+
   async function handleFetch() {
     if (!selectedCourseIds.length) { warning("수업을 하나 이상 선택해주세요."); return; }
     if (!from || !to) { warning("조회 기간(시작/종료일)을 선택해주세요."); return; }
@@ -209,17 +232,16 @@ export default function Marketing() {
     try {
       setHasSearched(true);
       setLoading(true);
-      const entries = await Promise.all(
-        selectedCourseIds.map(
-          async (courseId) =>
-            [courseId, await listCourseRecords(courseId, { from, to })] as const
-        )
-      );
-      const map: RecordsByCourse = {};
-      for (const [courseId, records] of entries) {
-        map[courseId] = records;
-      }
-      setResults(map);
+      // reset maps and load first pages
+      setResults({});
+      const initPages: Record<number, number> = {};
+      const initHas: Record<number, boolean> = {};
+      const initLoad: Record<number, boolean> = {};
+      for (const cid of selectedCourseIds) { initPages[cid] = -1; initHas[cid] = true; initLoad[cid] = false; }
+      setPagesByCourse(initPages);
+      setHasMoreByCourse(initHas);
+      setLoadingByCourse(initLoad);
+      await Promise.all(selectedCourseIds.map(cid => fetchCoursePage(cid, 0)));
     } catch (err) {
       console.error(err);
       showError("수업 내역을 불러오지 못했습니다.");
@@ -236,6 +258,9 @@ export default function Marketing() {
     setPreset(null);
     setHasSearched(false);
     setResults({});
+    setPagesByCourse({});
+    setHasMoreByCourse({});
+    setLoadingByCourse({});
   }
 
   async function handleSummarize() {
@@ -502,7 +527,7 @@ export default function Marketing() {
                       <ResultSection key={course.id}>
                         <ResultSectionHeader>
                           <span className="title">{course.title}</span>
-                          <span className="count">{rows.length}건</span>
+                          <span className="count">{(results[course.id]?.length || 0)}건</span>
                         </ResultSectionHeader>
                         <RecordList>
                           {rows.map((record) => (
@@ -513,6 +538,21 @@ export default function Marketing() {
                               <RecordText>{recordPreview(record)}</RecordText>
                             </RecordItem>
                           ))}
+                          <Sentinel onVisible={() => {
+                            const cid = course.id;
+                            if (loadingByCourse[cid]) return;
+                            if (hasMoreByCourse[cid] === false) return;
+                            const next = (pagesByCourse[cid] ?? 0) + 1;
+                            void fetchCoursePage(cid, next);
+                          }}>
+                            {loadingByCourse[course.id] ? (
+                              <span style={{ color:'#64748b', fontSize:12 }}>불러오는 중…</span>
+                            ) : hasMoreByCourse[course.id] ? (
+                              <span style={{ color:'#9ca3af', fontSize:12 }}>아래로 스크롤하면 더 불러옵니다</span>
+                            ) : (
+                              <span style={{ color:'#9ca3af', fontSize:12 }}>마지막입니다</span>
+                            )}
+                          </Sentinel>
                         </RecordList>
                       </ResultSection>
                     ))}
@@ -533,6 +573,26 @@ export default function Marketing() {
       </ContentGrid>
     </Viewport>
   );
+}
+
+// IntersectionObserver sentinel used for per-course infinite scroll
+function Sentinel({ onVisible, children }: { onVisible: () => void; children?: React.ReactNode }) {
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) {
+        if (e.isIntersecting) {
+          onVisible();
+          break;
+        }
+      }
+    }, { root: null, rootMargin: '200px 0px', threshold: 0 });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [onVisible]);
+  return <div ref={ref} style={{ display:'grid', placeItems:'center', padding:'8px 0' }}>{children}</div>;
 }
 
 function formatCourseMeta(course: Course): string {
@@ -925,11 +985,18 @@ const ResultContent = styled.div`
 `;
 
 const ResultMeta = styled.div`
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: ${(p) => p.theme.spacing.sm};
   font-size: ${(p) => p.theme.font.size.sm};
   color: ${({ theme }) => theme.colors.textMuted};
+  padding: ${(p) => p.theme.spacing.sm} 0;
+  margin-bottom: ${(p) => p.theme.spacing.md};
+  background: ${({ theme }) => theme.colors.surface};
+  box-shadow: 0 12px 16px -14px rgba(15, 23, 42, 0.25);
   span:first-child {
     font-weight: 600;
     color: ${({ theme }) => theme.colors.text};

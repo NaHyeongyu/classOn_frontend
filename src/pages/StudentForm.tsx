@@ -186,7 +186,9 @@ export default function StudentForm() {
     if (!form.name || !form.name.trim()) {
       setFieldErr((prev) => ({ ...prev, name: "이름은 필수입니다." }));
       setTouched((prev) => ({ ...prev, name: true }));
-      try { nameRef.current?.focus(); } catch {}
+      try {
+        nameRef.current?.focus();
+      } catch {}
       return;
     }
     setSaving(true);
@@ -273,14 +275,17 @@ export default function StudentForm() {
                       value={form.name}
                       onChange={(e) => {
                         setForm((f) => ({ ...f, name: e.target.value }));
-                        if (fieldErr.name) setFieldErr((prev) => ({ ...prev, name: undefined }));
+                        if (fieldErr.name)
+                          setFieldErr((prev) => ({ ...prev, name: undefined }));
                       }}
                       onBlur={() => setTouched((t) => ({ ...t, name: true }))}
                       placeholder="홍길동"
                       required
                       disabled={saving}
                       aria-invalid={touched.name && !!fieldErr.name}
-                      aria-describedby={touched.name && fieldErr.name ? 'err-name' : undefined}
+                      aria-describedby={
+                        touched.name && fieldErr.name ? "err-name" : undefined
+                      }
                     />
                     {touched.name && fieldErr.name ? (
                       <FieldErr id="err-name">{fieldErr.name}</FieldErr>
@@ -586,7 +591,7 @@ const Input = styled.input`
     background: #f9fafb;
     color: #6b7280;
   }
-  &[aria-invalid='true'] {
+  &[aria-invalid="true"] {
     border-color: #ef4444;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
   }

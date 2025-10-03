@@ -68,3 +68,33 @@ export async function getCounsel(id: number): Promise<Counsel> {
 export async function deleteCounsel(id: number): Promise<void> {
   await fetchJSON<void>(`/api/counsels/${id}`, { method: 'DELETE' });
 }
+
+// Excel export helper
+const API_BASE_COUNSELS = ((import.meta as any).env?.VITE_API_BASE ?? (import.meta as any).env?.VITE_API_BASE_URL) ?? ((import.meta as any).env?.DEV ? "" : "https://api.myclasson.com/api");
+function resolveCounselUrl(path: string) { return API_BASE_COUNSELS ? new URL(path, API_BASE_COUNSELS).toString() : path; }
+async function fetchCounselBlob(path: string): Promise<Blob> {
+  const url = resolveCounselUrl(path);
+  const token = (await import("../lib/auth")).getToken();
+  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return await res.blob();
+}
+
+export async function downloadCounselsExcel(params?: {
+  studentId?: number;
+  status?: string;
+  from?: string;
+  to?: string;
+  onYmd?: string;
+  q?: string;
+}): Promise<Blob> {
+  const sp = new URLSearchParams();
+  if (typeof params?.studentId === 'number') sp.set('studentId', String(params.studentId));
+  if (params?.status) sp.set('status', params.status);
+  if (params?.from) sp.set('from', params.from);
+  if (params?.to) sp.set('to', params.to);
+  if (params?.onYmd) sp.set('onYmd', params.onYmd);
+  if (params?.q && params.q.trim()) sp.set('q', params.q.trim());
+  const qstr = Array.from(sp.keys()).length ? `?${sp}` : '';
+  return await fetchCounselBlob(`/api/counsels/export${qstr}`);
+}

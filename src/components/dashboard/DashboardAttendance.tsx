@@ -43,7 +43,7 @@ export default function DashboardAttendance() {
           {error && <Err>{error}</Err>}
         </div>
       </Head>
-      <List>
+      <CardList>
         {rows.length === 0 && !loading && (
           <EmptyPlaceholder
             title="오늘 등록된 출석 기록이 없습니다."
@@ -53,19 +53,34 @@ export default function DashboardAttendance() {
             actionVariant="outline"
           />
         )}
-        {rows.map(r => (
-          <Item key={r.id}>
-            <div className="main">
-              <strong>{r.studentName}</strong>
-              <span className="course">{r.courseTitle || '-'}</span>
-            </div>
-            <div className="meta">
-              <Time>{formatTime(r.createdAt)}</Time>
-              <Source data-type={r.source}>{r.source === 'MOBILE' ? '모바일' : '수동'}</Source>
-            </div>
-          </Item>
+        {rows.map((row) => (
+          <AttendanceCard key={row.id}>
+            <CardTop>
+              <CardMain>
+                <strong>{row.studentName}</strong>
+                <span className="course">
+                  {row.courseTitle ? (
+                    row.courseId ? (
+                      <CourseLink type="button" onClick={() => navigate(`/classes/${row.courseId}`)}>
+                        {row.courseTitle}
+                      </CourseLink>
+                    ) : (
+                      row.courseTitle
+                    )
+                  ) : (
+                    "-"
+                  )}
+                </span>
+              </CardMain>
+              <CardMeta>
+                <StatusBadge>출석</StatusBadge>
+                <MetaTime>{formatTime(row.createdAt)}</MetaTime>
+                <SourceBadge data-type={row.source}>{sourceLabel(row.source)}</SourceBadge>
+              </CardMeta>
+            </CardTop>
+          </AttendanceCard>
         ))}
-      </List>
+      </CardList>
     </DashboardPanel>
   );
 }
@@ -79,19 +94,47 @@ function formatTime(iso: string) {
   } catch { return iso; }
 }
 
+function sourceLabel(source: "MOBILE" | "MANUAL") {
+  return source === 'MOBILE' ? '모바일' : '수동';
+}
+
 const Head = styled.div` display:flex; align-items:center; justify-content:space-between; `;
 const Muted = styled.div` color:#6b7280; font-size:12px; margin-top:4px; `;
 const Err = styled.div` color:#b91c1c; font-size:12px; `;
-const List = styled.div` display:grid; gap:8px; margin-top:8px; `;
-const Item = styled.div`
-  background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:10px 12px; display:flex; align-items:center; justify-content:space-between; gap:8px;
-  .main { display:flex; flex-direction:column; gap:2px; }
-  .course { color:#6b7280; font-size:12px; }
-  .meta { display:inline-flex; align-items:center; gap:8px; }
+const CardList = styled.div` display:grid; gap:8px; margin-top:8px; `;
+const AttendanceCard = styled.div`
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  padding:12px 16px;
+  border:1px solid #e5e7eb;
+  border-radius:14px;
+  background:#ffffff;
+  box-shadow:0 1px 2px rgba(15,23,42,0.06);
 `;
-const Source = styled.span`
-  padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 800; border:1px solid #e5e7eb; color:#374151; background:#f9fafb;
+const CardTop = styled.div` display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; `;
+const CardMain = styled.div`
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  strong { font-size:15px; color:#111827; letter-spacing:-0.01em; }
+  .course { font-size:13px; color:#6b7280; }
+`;
+const CardMeta = styled.div` display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; `;
+const MetaTime = styled.span` font-size:12px; color:#6b7280; `;
+const StatusBadge = styled.span`
+  padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:800;
+  background:#dcfce7; color:#16a34a; border:1px solid #bbf7d0;
+`;
+const SourceBadge = styled.span`
+  padding:2px 8px; border-radius:9999px; font-size:12px; font-weight:700; border:1px solid #e5e7eb; color:#374151; background:#f9fafb;
   &[data-type='MOBILE'] { background:#dcfce7; color:#16a34a; border-color:#bbf7d0; }
   &[data-type='MANUAL'] { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
 `;
-const Time = styled.span` color:#6b7280; font-size:12px; `;
+const CourseLink = styled.button`
+  all:unset;
+  cursor:pointer;
+  color:#2563eb;
+  font-weight:600;
+  &:hover { text-decoration:underline; }
+`;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { getOpenAiLogsPaged } from '@/api/admin';
+import SelectBox from '@/components/common/SelectBox';
 
 export default function AdminOpenAiLogs() {
   const [rows, setRows] = useState<any[]>([]);
@@ -33,15 +34,15 @@ export default function AdminOpenAiLogs() {
         <h2>OpenAI 호출 로그</h2>
         <Filters>
           <label>기간</label>
-          <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+          <Input type="date" lang="ko-KR" value={from} onChange={(e)=>setFrom(e.target.value)} />
           <span>~</span>
-          <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+          <Input type="date" lang="ko-KR" value={to} onChange={(e)=>setTo(e.target.value)} />
           <Input placeholder="모델 검색 (gpt-4o, ...)" value={model} onChange={(e)=>setModel(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') void load(0, size); }} />
-          <select value={success} onChange={(e)=>setSuccess(e.target.value as any)}>
-            <option value="all">모두</option>
-            <option value="ok">성공만</option>
-            <option value="fail">실패만</option>
-          </select>
+          <SelectBox ariaLabel="성공여부" value={success} onChange={(v)=>setSuccess(v as any)} placeholder="성공 여부" options={[
+            { label: '모두', value: 'all' },
+            { label: '성공만', value: 'ok' },
+            { label: '실패만', value: 'fail' },
+          ]} />
           <MonoGhost as="button" type="button" onClick={()=>load(0, size)}>적용</MonoGhost>
         </Filters>
       </Header>
@@ -52,7 +53,7 @@ export default function AdminOpenAiLogs() {
           <tbody>
             {loading && <tr><td colSpan={4}>불러오는 중…</td></tr>}
             {!loading && rows.map((r,i) => (
-              <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString()}</td><td>{r.model}</td><td>{r.tokens ?? '-'}</td><td>{r.success ? 'Y' : 'N'}</td></tr>
+              <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.model}</td><td>{r.tokens ?? '-'}</td><td>{r.success ? 'Y' : 'N'}</td></tr>
             ))}
             {!loading && rows.length === 0 && <tr><td colSpan={4}>표시할 데이터가 없습니다.</td></tr>}
           </tbody>
@@ -76,4 +77,3 @@ const TableWrap = styled.div` width:100%; overflow:auto; border:1px solid #f1f5f
 const Table = styled.table` width:100%; border-collapse:collapse; thead th{ text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb; padding:8px; } tbody td{ padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#111827; }`;
 const MonoGhost = styled.button` height:40px; padding:0 12px; border-radius:10px; background:#fff; color:#111827; border:1px solid #e5e7eb; &:hover{ background:#f9fafb; } `;
 const Pager = styled.div` display:flex; gap:8px; align-items:center; justify-content:flex-end; `;
-

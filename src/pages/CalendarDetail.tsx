@@ -4,6 +4,7 @@ import ClassList from "@/components/calendar/detail/ClassList";
 import CounselList from "@/components/calendar/detail/CounselList";
 import TodoList from "@/components/calendar/detail/TodoList";
 import { useEffect, useMemo, useState } from "react";
+import SelectBox from "@/components/common/SelectBox";
 import type { FormEvent } from "react";
 import styled from "styled-components";
 import { GhostButton as UIGhostButton, PrimaryButton as UIPrimaryButton } from "@/components/common/UI";
@@ -62,6 +63,12 @@ export default function CalendarDetail() {
     attUnprocessed?: number;
     attendance?: { present?: number; absent?: number };
   };
+  function cleanNotes(s?: string | null): string | null {
+    if (!s) return null;
+    const t = String(s).trim();
+    if (t === '정기 수업' || t === '정기수업') return null;
+    return t || null;
+  }
   function mapRows(list: RawRow[]): ClassItem[] {
     return list.map((r) => {
       const s = r.startTime ?? r.start_at ?? r.startAt ?? r.start ?? null;
@@ -69,6 +76,7 @@ export default function CalendarDetail() {
       const present = numOr(r.attPresent, r.presentCount, r.attendancePresent, r?.attendance?.present);
       const absent = numOr(r.attAbsent, r.absentCount, r.attendanceAbsent, r?.attendance?.absent);
       const unprocessed = numOr(r.attUnprocessed);
+      const notes = cleanNotes(r.notes || r.content || (r as any).topic || null);
       return {
         subject: r.courseTitle || '수업',
         time: formatRange(s, e),
@@ -79,7 +87,7 @@ export default function CalendarDetail() {
         courseId: r.courseId || undefined,
         date: r.recordDate || r.date || ymdSafe,
         recordId: r.recordId || r.id,
-        notes: r.notes || r.content || r.topic || null,
+        notes,
         attPresent: present,
         attAbsent: absent,
         attUnprocessed: unprocessed,
@@ -297,7 +305,7 @@ export default function CalendarDetail() {
   const [studBusy, setStudBusy] = useState(false);
   const [studErr, setStudErr] = useState<string | null>(null);
   const [selStudent, setSelStudent] = useState<Student | null>(null);
-  const [counselTime, setCounselTime] = useState(""); // HH:mm
+  const [counselTime, setCounselTime] = useState(""); // HH:mm (kept for compatibility)
   const [counselNote, setCounselNote] = useState("");
   const [savingCounsel, setSavingCounsel] = useState(false);
   const [counselErr, setCounselErr] = useState<string | null>(null);
@@ -316,13 +324,10 @@ export default function CalendarDetail() {
   async function onAddCounsel() {
     setCounselOpen(true);
     setCounselErr(null);
-    if (!counselTime) {
-      const now = nowHHMM5();
-      setCounselTime(now);
-      try { const [hh, mm] = now.split(":"); setCounselHour(hh); setCounselMin(mm); } catch { /* noop */ }
-    } else {
-      try { const [hh, mm] = counselTime.split(":"); setCounselHour(hh); setCounselMin(mm); } catch { /* noop */ }
-    }
+    // Default to no time selected; user must choose hour/min explicitly
+    setCounselHour("");
+    setCounselMin("");
+    setCounselTime("");
     if (students.length === 0) {
       setStudBusy(true); setStudErr(null);
       try {
@@ -340,7 +345,9 @@ export default function CalendarDetail() {
   }
   async function onSaveCounsel() {
     if (!selStudent) { setCounselErr('학생을 선택해 주세요.'); return; }
-    const iso = isoFromYmdHm(ymdSafe, counselTime);
+    const hm = (counselHour && counselMin) ? `${counselHour}:${counselMin}` : "";
+    if (!hm) { setCounselErr('시간을 선택해 주세요.'); return; }
+    const iso = isoFromYmdHm(ymdSafe, hm);
     setSavingCounsel(true);
     setCounselErr(null);
     try {
@@ -446,20 +453,22 @@ export default function CalendarDetail() {
                 </div>
                 <Label style={{ marginTop: 10 }}>시간</Label>
                 <Row>
-                  <Select aria-label="시" value={counselHour} onChange={(e)=>setCounselHour(e.target.value)}>
-                    {hours24.map(h => (<option key={h} value={h}>{h}</option>))}
-                  </Select>
+                  <div style={{ flex: 1 }}>
+                    <SelectBox ariaLabel="시" value={counselHour} onChange={setCounselHour} placeholder="시"
+                      options={hours24.map(h => ({ label: h, value: h }))} />
+                  </div>
                   <span>:</span>
-                  <Select aria-label="분" value={counselMin} onChange={(e)=>setCounselMin(e.target.value)}>
-                    {mins5.map(m => (<option key={m} value={m}>{m}</option>))}
-                  </Select>
+                  <div style={{ flex: 1 }}>
+                    <SelectBox ariaLabel="분" value={counselMin} onChange={setCounselMin} placeholder="분"
+                      options={mins5.map(m => ({ label: m, value: m }))} />
+                  </div>
                 </Row>
                 <Label style={{ marginTop: 10 }}>메모 (선택)</Label>
                 <TextArea rows={3} value={counselNote} onChange={(e)=>setCounselNote(e.target.value)} placeholder="상담 메모" />
                 {counselErr && <Err>{counselErr}</Err>}
                 <BtnRow>
                   <UIGhostButton type="button" onClick={() => setCounselOpen(false)}>취소</UIGhostButton>
-                  <UIPrimaryButton type="button" disabled={savingCounsel} onClick={onSaveCounsel}>{savingCounsel ? '저장 중…' : '저장'}</UIPrimaryButton>
+                  <UIPrimaryButton type="button" disabled={savingCounsel || !counselHour || !counselMin || !selStudent} onClick={onSaveCounsel}>{savingCounsel ? '저장 중…' : '저장'}</UIPrimaryButton>
                 </BtnRow>
               </ModalCard>
             </ModalBackdrop>

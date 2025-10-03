@@ -82,10 +82,8 @@ export function UsersIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M20 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M4 21v-2a4 4 0 0 1 3-3.87" />
-      <circle cx="7" cy="7" r="4" />
-      <circle cx="17" cy="7" r="4" />
+      <path d="M20 21v-2a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v2" />
+      <circle cx="12" cy="7" r="4" />
     </svg>
   );
 }
@@ -102,9 +100,10 @@ export function CreditIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <rect x="2" y="5" width="20" height="14" rx="2" />
-      <line x1="2" y1="10" x2="22" y2="10" />
-      <rect x="6" y="14" width="6" height="2" />
+      <rect x="2" y="5" width="20" height="14" rx="3" />
+      <path d="M2 10h20" />
+      <path d="M6 15h6" />
+      <circle cx="18" cy="15" r="1.5" />
     </svg>
   );
 }
@@ -121,7 +120,8 @@ export function CheckIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M20 6L9 17l-5-5" />
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9 12l2 2 4-4" />
     </svg>
   );
 }
@@ -138,8 +138,10 @@ export function ClassIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M22 10L12 4 2 10l10 6 10-6z" />
-      <path d="M6 12v5l6 3 6-3v-5" />
+      <rect x="3" y="4" width="18" height="18" rx="4" />
+      <path d="M16 2v4M8 2v4" />
+      <path d="M3 10h18" />
+      <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
     </svg>
   );
 }
@@ -204,20 +206,21 @@ const shimmerCss = css`
 export const IconBadge = styled.span<{
   $accent?: "indigo" | "emerald" | "green" | "violet";
 }>`
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   font-size: 0;
   ${(p) =>
     p.$accent === "emerald"
-      ? "background:#ecfdf5; color:#059669;"
+      ? "background:linear-gradient(180deg,#ecfdf5 0%,#dcfce7 100%); color:#059669;"
       : p.$accent === "green"
-      ? "background:#dcfce7; color:#16a34a;"
+      ? "background:linear-gradient(180deg,#dcfce7 0%,#bbf7d0 100%); color:#16a34a;"
       : p.$accent === "violet"
-      ? "background:#f3e8ff; color:#7c3aed;"
-      : "background:#eef2ff; color:#4f46e5;"}
+      ? "background:linear-gradient(180deg,#f3e8ff 0%,#e9d5ff 100%); color:#7c3aed;"
+      : "background:linear-gradient(180deg,#eef2ff 0%,#e0e7ff 100%); color:#4f46e5;"}
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.02);
 `;
 
 export const DeltaPill = styled.span<{

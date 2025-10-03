@@ -96,7 +96,6 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
       id: r.id,
       name: r.name,
       age: ageText,
-      birth: r.birthDate || '-',
       phone: formatPhone(r.phoneNumber),
       course: r.courses?.map(c => c.title).join(", ") || "-",
       guardian: formatPhone(r.guardianPhone),
@@ -131,7 +130,6 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
               <th>번호</th>
               <th>코드</th>
               <th>이름</th>
-              <th>생일</th>
               <th>나이</th>
               <th>연락처</th>
               <th>수강수업</th>
@@ -144,13 +142,13 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
             {loading && rows.length === 0 && (
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={`sk-${i}`}>
-                  <td colSpan={10}><Skeleton h={14} /></td>
+                  <td colSpan={9}><Skeleton h={14} /></td>
                 </tr>
               ))
             )}
             {!loading && view.length === 0 && (
               <tr>
-                <td colSpan={10}>
+                <td colSpan={9}>
                   <EmptyState>조건에 맞는 결과가 없습니다.</EmptyState>
                 </td>
               </tr>
@@ -164,7 +162,6 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
                     {r.name}
                   </NameLink>
                 </td>
-                <td>{r.birth || '-'}</td>
                 <td>{r.age}</td>
                 <td>{r.phone || '-'}</td>
                 <td>{r.course || '-'}</td>

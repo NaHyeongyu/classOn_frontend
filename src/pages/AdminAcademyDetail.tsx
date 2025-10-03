@@ -1,194 +1,760 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import styled from 'styled-components';
-import { getAcademySummary, getAcademyPaymentsPaged, getAcademyLoginLogsPaged, getAcademyApiLogsPaged } from '@/api/admin';
+import {
+  Card,
+  CardHeader,
+  CardMeta,
+  ErrorBanner,
+  FieldLabel,
+  GridFull,
+  GridTwo,
+  InlineBadge,
+  Input,
+  MonoGhost,
+  MonoPrimary,
+  Muted,
+  PageHeader,
+  PageSubtitle,
+  PageTitle,
+  PageWrap,
+  Pager,
+  PagerGroup,
+  Select,
+  SkeletonLine,
+  StatsList,
+  Table,
+  TableStatus,
+  TableWrap,
+  Toolbar,
+  ToolbarGroup,
+  ToolbarInfo,
+} from '@/components/admin/AdminStyles';
+import { useToast } from '@/components/common/Toast';
+import { LoadingSpinner } from '@/components/common/Loading';
+import {
+  getAcademySummary,
+  getAcademyPaymentsPaged,
+  getAcademyLoginLogsPaged,
+  getAcademyApiLogsPaged,
+} from '@/api/admin';
+
+type AcademySummary = {
+  id: number;
+  name: string;
+  students: number;
+  courses: number;
+  classesToday: number;
+  apiCalls: number;
+  logins: number;
+  paymentCount: number;
+  paymentAmountCents: number;
+  apiLastAt?: string | null;
+  loginLastAt?: string | null;
+  paymentLastAt?: string | null;
+  createdAt?: string | null;
+};
+
+type AcademyPaymentRow = {
+  id?: number;
+  createdAt: string;
+  amountCents: number;
+  currency?: string | null;
+  status: string;
+  description?: string | null;
+  provider?: string | null;
+};
+
+type AcademyLoginLogRow = {
+  id?: number;
+  createdAt: string;
+  username: string;
+  ip?: string | null;
+  success: boolean;
+};
+
+type AcademyApiLogRow = {
+  id?: number;
+  createdAt: string;
+  method: string;
+  path: string;
+  status: number;
+  ip?: string | null;
+  userId?: string | null;
+};
+
+type PagedResponse<T> = {
+  content: T[];
+  page: number;
+  size: number;
+  totalPages: number;
+  totalElements: number;
+};
 
 export default function AdminAcademyDetail() {
-  const { id } = useParams();
-  const academyId = id as string;
-  const [summary, setSummary] = useState<any | null>(null);
-  const [from, setFrom] = useState<string>(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0,10); });
-  const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0,10));
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { id } = useParams<{ id: string }>();
+  const academyId = id ? Number(id) : NaN;
+  const { error: toastError } = useToast();
 
-  // payments pager
-  const [pays, setPays] = useState<any[]>([]);
-  const [payPage, setPayPage] = useState(0);
-  const [paySize, setPaySize] = useState(20);
-  const [payTotalPages, setPayTotalPages] = useState(0);
+  const [summary, setSummary] = useState<AcademySummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
 
-  // logins pager
-  const [logRows, setLogRows] = useState<any[]>([]);
-  const [logPage, setLogPage] = useState(0);
-  const [logSize, setLogSize] = useState(20);
-  const [logTotalPages, setLogTotalPages] = useState(0);
-  const [logQ, setLogQ] = useState('');
+  const [from, setFrom] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 30);
+    return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0, 10));
 
-  // api logs pager
-  const [apiRows, setApiRows] = useState<any[]>([]);
+  const [payments, setPayments] = useState<AcademyPaymentRow[]>([]);
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
+  const [paymentsPage, setPaymentsPage] = useState(0);
+  const [paymentsSize, setPaymentsSize] = useState(20);
+  const [paymentsTotalPages, setPaymentsTotalPages] = useState(0);
+  const [paymentsTotalElements, setPaymentsTotalElements] = useState(0);
+
+  const [loginRows, setLoginRows] = useState<AcademyLoginLogRow[]>([]);
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginPage, setLoginPage] = useState(0);
+  const [loginSize, setLoginSize] = useState(20);
+  const [loginTotalPages, setLoginTotalPages] = useState(0);
+  const [loginTotalElements, setLoginTotalElements] = useState(0);
+  const [loginInput, setLoginInput] = useState('');
+  const [loginQuery, setLoginQuery] = useState('');
+
+  const [apiRows, setApiRows] = useState<AcademyApiLogRow[]>([]);
+  const [apiLoading, setApiLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [apiPage, setApiPage] = useState(0);
   const [apiSize, setApiSize] = useState(20);
   const [apiTotalPages, setApiTotalPages] = useState(0);
-  const [apiQ, setApiQ] = useState('');
+  const [apiTotalElements, setApiTotalElements] = useState(0);
+  const [apiInput, setApiInput] = useState('');
+  const [apiQuery, setApiQuery] = useState('');
 
-  async function loadSummary() {
-    setLoading(true); setError(null);
+  const paymentsSizeRef = useRef(paymentsSize);
+  const loginSizeRef = useRef(loginSize);
+  const apiSizeRef = useRef(apiSize);
+  const loginQueryRef = useRef(loginQuery);
+  const apiQueryRef = useRef(apiQuery);
+
+  useEffect(() => {
+    paymentsSizeRef.current = paymentsSize;
+  }, [paymentsSize]);
+  useEffect(() => {
+    loginSizeRef.current = loginSize;
+  }, [loginSize]);
+  useEffect(() => {
+    apiSizeRef.current = apiSize;
+  }, [apiSize]);
+  useEffect(() => {
+    loginQueryRef.current = loginQuery;
+  }, [loginQuery]);
+  useEffect(() => {
+    apiQueryRef.current = apiQuery;
+  }, [apiQuery]);
+
+  const loadSummary = useCallback(async () => {
+    if (!Number.isFinite(academyId)) return;
+    setSummaryLoading(true);
+    setSummaryError(null);
     try {
-      const s = await getAcademySummary(academyId, { from, to });
-      setSummary(s);
-    } catch (e: any) { setError(e?.message || '요약을 불러오지 못했습니다.'); }
-    finally { setLoading(false); }
+      const data = await getAcademySummary(academyId, { from, to });
+      setSummary(data as AcademySummary);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '요약을 불러오지 못했습니다.';
+      setSummaryError(message);
+      toastError(message);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [academyId, from, to, toastError]);
+
+  const loadPayments = useCallback(
+    async (pageToLoad: number, sizeToLoad: number) => {
+      if (!Number.isFinite(academyId)) return;
+      setPaymentsLoading(true);
+      setPaymentsError(null);
+      try {
+        const res = await getAcademyPaymentsPaged(academyId, { page: pageToLoad, size: sizeToLoad, from, to });
+        const data = res as PagedResponse<AcademyPaymentRow>;
+        setPayments(data.content || []);
+        setPaymentsPage(data.page);
+        setPaymentsSize(data.size);
+        setPaymentsTotalPages(data.totalPages);
+        setPaymentsTotalElements(data.totalElements ?? data.content?.length ?? 0);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '결제 정보를 불러오지 못했습니다.';
+        setPaymentsError(message);
+        toastError(message);
+      } finally {
+        setPaymentsLoading(false);
+      }
+    },
+    [academyId, from, to, toastError],
+  );
+
+  const loadLogins = useCallback(
+    async (pageToLoad: number, sizeToLoad: number, keyword: string) => {
+      if (!Number.isFinite(academyId)) return;
+      setLoginLoading(true);
+      setLoginError(null);
+      try {
+        const res = await getAcademyLoginLogsPaged(academyId, {
+          page: pageToLoad,
+          size: sizeToLoad,
+          from,
+          to,
+          q: keyword ? keyword : undefined,
+        });
+        const data = res as PagedResponse<AcademyLoginLogRow>;
+        setLoginRows(data.content || []);
+        setLoginPage(data.page);
+        setLoginSize(data.size);
+        setLoginTotalPages(data.totalPages);
+        setLoginTotalElements(data.totalElements ?? data.content?.length ?? 0);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '로그인 기록을 불러오지 못했습니다.';
+        setLoginError(message);
+        toastError(message);
+      } finally {
+        setLoginLoading(false);
+      }
+    },
+    [academyId, from, to, toastError],
+  );
+
+  const loadApiLogs = useCallback(
+    async (pageToLoad: number, sizeToLoad: number, keyword: string) => {
+      if (!Number.isFinite(academyId)) return;
+      setApiLoading(true);
+      setApiError(null);
+      try {
+        const res = await getAcademyApiLogsPaged(academyId, {
+          page: pageToLoad,
+          size: sizeToLoad,
+          from,
+          to,
+          q: keyword ? keyword : undefined,
+        });
+        const data = res as PagedResponse<AcademyApiLogRow>;
+        setApiRows(data.content || []);
+        setApiPage(data.page);
+        setApiSize(data.size);
+        setApiTotalPages(data.totalPages);
+        setApiTotalElements(data.totalElements ?? data.content?.length ?? 0);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'API 로그를 불러오지 못했습니다.';
+        setApiError(message);
+        toastError(message);
+      } finally {
+        setApiLoading(false);
+      }
+    },
+    [academyId, from, to, toastError],
+  );
+
+  useEffect(() => {
+    if (!Number.isFinite(academyId)) return;
+    void loadSummary();
+    void loadPayments(0, paymentsSizeRef.current);
+    void loadLogins(0, loginSizeRef.current, loginQueryRef.current);
+    void loadApiLogs(0, apiSizeRef.current, apiQueryRef.current);
+  }, [academyId, from, to, loadSummary, loadPayments, loadLogins, loadApiLogs]);
+
+  const academyRangeLabel = useMemo(() => {
+    if (!summary) return null;
+    const range = [summary.loginLastAt, summary.apiLastAt, summary.paymentLastAt]
+      .filter(Boolean)
+      .map((v) => new Date(v as string).getTime());
+    if (range.length === 0) return null;
+    const lastDate = new Date(Math.max(...range));
+    return `${lastDate.toLocaleDateString('ko-KR')} ${lastDate.toLocaleTimeString('ko-KR', { hour12: false })}`;
+  }, [summary]);
+
+  const summaryStats = useMemo(() => {
+    if (!summary) return null;
+    return [
+      { label: '학생 수', value: summary.students.toLocaleString('ko-KR') },
+      { label: '수업 수', value: summary.courses.toLocaleString('ko-KR') },
+      { label: '오늘 수업', value: summary.classesToday.toLocaleString('ko-KR') },
+      { label: '기간 API 호출', value: summary.apiCalls.toLocaleString('ko-KR') },
+      { label: '기간 로그인', value: summary.logins.toLocaleString('ko-KR') },
+      { label: '기간 결제 건수', value: summary.paymentCount.toLocaleString('ko-KR') },
+      {
+        label: '기간 결제 합계(원)',
+        value: Math.round((summary.paymentAmountCents || 0) / 100).toLocaleString('ko-KR'),
+      },
+    ];
+  }, [summary]);
+
+  const paymentsRangeLabel = useMemo(() => {
+    if (payments.length === 0) return '표시할 결제가 없습니다.';
+    const start = payments[0]?.createdAt;
+    const end = payments[payments.length - 1]?.createdAt;
+    if (!start || !end) return `${payments.length.toLocaleString('ko-KR')}건 표시 중`;
+    return `${new Date(start).toLocaleDateString('ko-KR')} ~ ${new Date(end).toLocaleDateString('ko-KR')}`;
+  }, [payments]);
+
+  const loginRangeLabel = useMemo(() => {
+    if (loginRows.length === 0) return '표시할 로그인 데이터가 없습니다.';
+    const start = loginRows[0]?.createdAt;
+    const end = loginRows[loginRows.length - 1]?.createdAt;
+    if (!start || !end) return `${loginRows.length.toLocaleString('ko-KR')}건 표시 중`;
+    return `${new Date(start).toLocaleString('ko-KR')} ~ ${new Date(end).toLocaleString('ko-KR')}`;
+  }, [loginRows]);
+
+  const apiRangeLabel = useMemo(() => {
+    if (apiRows.length === 0) return '표시할 API 로그가 없습니다.';
+    const start = apiRows[0]?.createdAt;
+    const end = apiRows[apiRows.length - 1]?.createdAt;
+    if (!start || !end) return `${apiRows.length.toLocaleString('ko-KR')}건 표시 중`;
+    return `${new Date(start).toLocaleString('ko-KR')} ~ ${new Date(end).toLocaleString('ko-KR')}`;
+  }, [apiRows]);
+
+  const appliedPeriod = `${from} ~ ${to}`;
+
+  function handleApplyFilters() {
+    void loadSummary();
+    void loadPayments(0, paymentsSizeRef.current);
+    void loadLogins(0, loginSizeRef.current, loginQueryRef.current);
+    void loadApiLogs(0, apiSizeRef.current, apiQueryRef.current);
   }
 
-  async function loadPays(p = payPage, s = paySize) {
-    try {
-      const res = await getAcademyPaymentsPaged(academyId, { page: p, size: s, from, to });
-      setPays(res.content || []);
-      setPayPage(res.page); setPaySize(res.size); setPayTotalPages(res.totalPages);
-    } catch {}
-  }
-  async function loadLogins(p = logPage, s = logSize) {
-    try {
-      const res = await getAcademyLoginLogsPaged(academyId, { page: p, size: s, from, to, q: logQ || undefined });
-      setLogRows(res.content || []);
-      setLogPage(res.page); setLogSize(res.size); setLogTotalPages(res.totalPages);
-    } catch {}
-  }
-  async function loadApi(p = apiPage, s = apiSize) {
-    try {
-      const res = await getAcademyApiLogsPaged(academyId, { page: p, size: s, from, to, q: apiQ || undefined });
-      setApiRows(res.content || []);
-      setApiPage(res.page); setApiSize(res.size); setApiTotalPages(res.totalPages);
-    } catch {}
+  function handleLoginSearch() {
+    const next = loginInput.trim();
+    setLoginQuery(next);
+    loginQueryRef.current = next;
+    void loadLogins(0, loginSizeRef.current, next);
   }
 
-  useEffect(() => { void loadSummary(); void loadPays(0, paySize); void loadLogins(0, logSize); void loadApi(0, apiSize); }, [academyId]);
-  useEffect(() => { void loadSummary(); void loadPays(0, paySize); void loadLogins(0, logSize); void loadApi(0, apiSize); }, [from, to]);
+  function handleApiSearch() {
+    const next = apiInput.trim();
+    setApiQuery(next);
+    apiQueryRef.current = next;
+    void loadApiLogs(0, apiSizeRef.current, next);
+  }
+
+  const paymentsPageInfo = `페이지 ${paymentsTotalPages === 0 ? 0 : paymentsPage + 1} / ${Math.max(1, paymentsTotalPages)} • 총 ${paymentsTotalElements.toLocaleString('ko-KR')}건`;
+  const loginPageInfo = `페이지 ${loginTotalPages === 0 ? 0 : loginPage + 1} / ${Math.max(1, loginTotalPages)} • 총 ${loginTotalElements.toLocaleString('ko-KR')}건`;
+  const apiPageInfo = `페이지 ${apiTotalPages === 0 ? 0 : apiPage + 1} / ${Math.max(1, apiTotalPages)} • 총 ${apiTotalElements.toLocaleString('ko-KR')}건`;
 
   return (
-    <Wrap>
-      <Header>
-        <div>
-          <h2>학원 상세</h2>
-          <Sub>{summary ? `${summary.name} (#${summary.id})` : '불러오는 중…'}</Sub>
-        </div>
-        <Filters>
-          <label>기간</label>
-          <Input type="date" lang="ko-KR" value={from} onChange={(e)=>setFrom(e.target.value)} />
+    <PageWrap>
+      <PageHeader>
+        <HeaderBlock>
+          <PageTitle>학원 상세</PageTitle>
+          <PageSubtitle>
+            {summary ? (
+              <>
+                #{summary.id} · {summary.name}
+                {academyRangeLabel ? (
+                  <> · 최근 활동 {academyRangeLabel}</>
+                ) : null}
+              </>
+            ) : summaryLoading ? (
+              '학원 정보를 불러오는 중…'
+            ) : (
+              '학원 정보를 불러오지 못했습니다.'
+            )}
+          </PageSubtitle>
+        </HeaderBlock>
+        <ToolbarGroup>
+          <ToolbarInfo>조회 기간</ToolbarInfo>
+          <Input type="date" lang="ko-KR" value={from} onChange={(event) => setFrom(event.target.value)} />
           <span>~</span>
-          <Input type="date" lang="ko-KR" value={to} onChange={(e)=>setTo(e.target.value)} />
-          <MonoGhost as="button" type="button" onClick={()=>{ void loadSummary(); void loadPays(0, paySize); void loadLogins(0, logSize); void loadApi(0, apiSize); }}>적용</MonoGhost>
-        </Filters>
-      </Header>
+          <Input type="date" lang="ko-KR" value={to} onChange={(event) => setTo(event.target.value)} />
+          <MonoPrimary type="button" onClick={handleApplyFilters} disabled={summaryLoading || paymentsLoading || loginLoading || apiLoading}>
+            필터 적용
+          </MonoPrimary>
+        </ToolbarGroup>
+      </PageHeader>
 
-      {error && <Err>{error}</Err>}
+      {summaryError ? (
+        <ErrorBanner role="status">⚠️ {summaryError}</ErrorBanner>
+      ) : null}
 
       <GridTwo>
         <Card>
-          <h3>요약</h3>
-          {summary ? (
-            <ul>
-              <li><span className="k">학생수</span><span className="v">{summary.students}</span></li>
-              <li><span className="k">수업수</span><span className="v">{summary.courses}</span></li>
-              <li><span className="k">오늘 수업</span><span className="v">{summary.classesToday}</span></li>
-              <li><span className="k">기간 API</span><span className="v">{summary.apiCalls}</span></li>
-              <li><span className="k">기간 로그인</span><span className="v">{summary.logins}</span></li>
-              <li><span className="k">기간 결제건수</span><span className="v">{summary.paymentCount}</span></li>
-              <li><span className="k">기간 결제합계(원)</span><span className="v">{Math.round((summary.paymentAmountCents||0)/100).toLocaleString('ko-KR')}</span></li>
-            </ul>
-          ) : (<Muted>요약을 불러오는 중…</Muted>)}
+          <CardHeader>
+            <h3>기간 요약</h3>
+            <CardMeta>{appliedPeriod}</CardMeta>
+          </CardHeader>
+          {summaryLoading ? (
+            <StatsSkeleton>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <SkeletonLine key={index} $height={16} />
+              ))}
+            </StatsSkeleton>
+          ) : summaryStats ? (
+            <StatsList>
+              {summaryStats.map((item) => (
+                <li key={item.label}>
+                  <span className="label">{item.label}</span>
+                  <span className="value">{item.value}</span>
+                </li>
+              ))}
+            </StatsList>
+          ) : (
+            <Muted>표시할 정보가 없습니다.</Muted>
+          )}
         </Card>
 
         <Card>
-          <h3>결제 기록</h3>
+          <CardHeader>
+            <div>
+              <h3>결제 기록</h3>
+              <CardMeta>{paymentsRangeLabel}</CardMeta>
+            </div>
+            <ToolbarInfo>{paymentsPageInfo}</ToolbarInfo>
+          </CardHeader>
           <TableWrap>
             <Table>
-              <thead><tr><th>시간</th><th>금액</th><th>통화</th><th>상태</th><th>비고</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>시간</th>
+                  <th>금액(원)</th>
+                  <th>통화</th>
+                  <th>상태</th>
+                  <th>비고</th>
+                </tr>
+              </thead>
               <tbody>
-                {pays.map((p,i) => (
-                  <tr key={p.id || i}><td>{new Date(p.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{(p.amountCents/100).toLocaleString('ko-KR')}</td><td>{p.currency}</td><td>{p.status}</td><td>{p.description || '-'}</td></tr>
-                ))}
-                {pays.length === 0 && <tr><td colSpan={5}><Muted>표시할 데이터가 없습니다.</Muted></td></tr>}
+                {paymentsLoading ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <TableStatus>
+                        <SpinnerInline aria-hidden />
+                        <span>결제 데이터를 불러오는 중…</span>
+                      </TableStatus>
+                    </td>
+                  </tr>
+                ) : paymentsError ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <TableStatus $variant="error">⚠️ {paymentsError}</TableStatus>
+                    </td>
+                  </tr>
+                ) : payments.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <TableStatus>표시할 결제 데이터가 없습니다.</TableStatus>
+                    </td>
+                  </tr>
+                ) : (
+                  payments.map((row, index) => (
+                    <tr key={row.id ?? index}>
+                      <td>{formatDateTime(row.createdAt)}</td>
+                      <td>{Math.round((row.amountCents || 0) / 100).toLocaleString('ko-KR')}</td>
+                      <td>{row.currency || 'KRW'}</td>
+                      <td>{row.status}</td>
+                      <td>{row.description || row.provider || '-'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </Table>
           </TableWrap>
           <Pager>
-            <MonoGhost as="button" type="button" onClick={()=>loadPays(Math.max(0, payPage-1), paySize)} disabled={payPage<=0}>이전</MonoGhost>
-            <span>{payPage+1} / {Math.max(1,payTotalPages)}</span>
-            <MonoGhost as="button" type="button" onClick={()=>loadPays(Math.min(payTotalPages-1, payPage+1), paySize)} disabled={payPage>=payTotalPages-1}>다음</MonoGhost>
+            <ToolbarInfo>총 {paymentsTotalElements.toLocaleString('ko-KR')}건</ToolbarInfo>
+            <PagerGroup>
+              <FieldLabel htmlFor="academy-payments-size">페이지 크기</FieldLabel>
+              <Select
+                id="academy-payments-size"
+                value={paymentsSize}
+                onChange={(event) => {
+                  const nextSize = Number(event.target.value);
+                  setPaymentsSize(nextSize);
+                  paymentsSizeRef.current = nextSize;
+                  void loadPayments(0, nextSize);
+                }}
+              >
+                {[20, 50, 100].map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}개씩
+                  </option>
+                ))}
+              </Select>
+              <MonoGhost
+                as="button"
+                type="button"
+                onClick={() => loadPayments(Math.max(0, paymentsPage - 1), paymentsSize)}
+                disabled={paymentsPage <= 0 || paymentsLoading}
+              >
+                이전
+              </MonoGhost>
+              <InlineBadge>{paymentsPage + 1}</InlineBadge>
+              <MonoGhost
+                as="button"
+                type="button"
+                onClick={() => loadPayments(Math.min(paymentsTotalPages - 1, paymentsPage + 1), paymentsSize)}
+                disabled={paymentsPage >= paymentsTotalPages - 1 || paymentsLoading}
+              >
+                다음
+              </MonoGhost>
+            </PagerGroup>
           </Pager>
         </Card>
       </GridTwo>
 
-      <GridTwo>
+      <GridFull>
         <Card>
-          <HeaderRow>
-            <h3>로그인 기록</h3>
-            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-              <Input placeholder="아이디 검색" value={logQ} onChange={(e)=>setLogQ(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') void loadLogins(0, logSize); }} />
-              <MonoGhost as="button" type="button" onClick={()=>loadLogins(0, logSize)}>검색</MonoGhost>
+          <CardHeader>
+            <div>
+              <h3>로그인 기록</h3>
+              <CardMeta>{loginRangeLabel}</CardMeta>
             </div>
-          </HeaderRow>
+            <ToolbarInfo>{loginPageInfo}</ToolbarInfo>
+          </CardHeader>
+          <Toolbar>
+            <ToolbarGroup>
+              <FieldLabel htmlFor="academy-login-search">아이디 검색</FieldLabel>
+              <Input
+                id="academy-login-search"
+                placeholder="아이디 검색"
+                value={loginInput}
+                onChange={(event) => setLoginInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleLoginSearch();
+                  }
+                }}
+              />
+              <MonoGhost as="button" type="button" onClick={handleLoginSearch} disabled={loginLoading}>
+                검색
+              </MonoGhost>
+            </ToolbarGroup>
+          </Toolbar>
           <TableWrap>
             <Table>
-              <thead><tr><th>시간</th><th>아이디</th><th>IP</th><th>성공</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>시간</th>
+                  <th>아이디</th>
+                  <th>IP</th>
+                  <th>성공</th>
+                </tr>
+              </thead>
               <tbody>
-                {logRows.map((r,i) => (
-                  <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.username}</td><td>{r.ip || '-'}</td><td>{r.success ? 'Y' : 'N'}</td></tr>
-                ))}
-                {logRows.length === 0 && <tr><td colSpan={4}><Muted>표시할 데이터가 없습니다.</Muted></td></tr>}
+                {loginLoading ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <TableStatus>
+                        <SpinnerInline aria-hidden />
+                        <span>로그인 기록을 불러오는 중…</span>
+                      </TableStatus>
+                    </td>
+                  </tr>
+                ) : loginError ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <TableStatus $variant="error">⚠️ {loginError}</TableStatus>
+                    </td>
+                  </tr>
+                ) : loginRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={4}>
+                      <TableStatus>표시할 데이터가 없습니다.</TableStatus>
+                    </td>
+                  </tr>
+                ) : (
+                  loginRows.map((row, index) => (
+                    <tr key={row.id ?? index}>
+                      <td>{formatDateTime(row.createdAt)}</td>
+                      <td>{row.username}</td>
+                      <td>{row.ip || '-'}</td>
+                      <td>{row.success ? '성공' : '실패'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </Table>
           </TableWrap>
           <Pager>
-            <MonoGhost as="button" type="button" onClick={()=>loadLogins(Math.max(0, logPage-1), logSize)} disabled={logPage<=0}>이전</MonoGhost>
-            <span>{logPage+1} / {Math.max(1,logTotalPages)}</span>
-            <MonoGhost as="button" type="button" onClick={()=>loadLogins(Math.min(logTotalPages-1, logPage+1), logSize)} disabled={logPage>=logTotalPages-1}>다음</MonoGhost>
+            <ToolbarInfo>총 {loginTotalElements.toLocaleString('ko-KR')}건</ToolbarInfo>
+            <PagerGroup>
+              <FieldLabel htmlFor="academy-login-size">페이지 크기</FieldLabel>
+              <Select
+                id="academy-login-size"
+                value={loginSize}
+                onChange={(event) => {
+                  const nextSize = Number(event.target.value);
+                  setLoginSize(nextSize);
+                  loginSizeRef.current = nextSize;
+                  void loadLogins(0, nextSize, loginQuery);
+                }}
+              >
+                {[20, 50, 100].map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}개씩
+                  </option>
+                ))}
+              </Select>
+              <MonoGhost
+                as="button"
+                type="button"
+                onClick={() => loadLogins(Math.max(0, loginPage - 1), loginSizeRef.current, loginQueryRef.current)}
+                disabled={loginPage <= 0 || loginLoading}
+              >
+                이전
+              </MonoGhost>
+              <InlineBadge>{loginPage + 1}</InlineBadge>
+              <MonoGhost
+                as="button"
+                type="button"
+                onClick={() => loadLogins(Math.min(loginTotalPages - 1, loginPage + 1), loginSizeRef.current, loginQueryRef.current)}
+                disabled={loginPage >= loginTotalPages - 1 || loginLoading}
+              >
+                다음
+              </MonoGhost>
+            </PagerGroup>
           </Pager>
         </Card>
 
         <Card>
-          <HeaderRow>
-            <h3>API 요청 로그</h3>
-            <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-              <Input placeholder="경로 검색" value={apiQ} onChange={(e)=>setApiQ(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') void loadApi(0, apiSize); }} />
-              <MonoGhost as="button" type="button" onClick={()=>loadApi(0, apiSize)}>검색</MonoGhost>
+          <CardHeader>
+            <div>
+              <h3>API 요청 로그</h3>
+              <CardMeta>{apiRangeLabel}</CardMeta>
             </div>
-          </HeaderRow>
+            <ToolbarInfo>{apiPageInfo}</ToolbarInfo>
+          </CardHeader>
+          <Toolbar>
+            <ToolbarGroup>
+              <FieldLabel htmlFor="academy-api-search">경로 검색</FieldLabel>
+              <Input
+                id="academy-api-search"
+                placeholder="예: /api/admin"
+                value={apiInput}
+                onChange={(event) => setApiInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    handleApiSearch();
+                  }
+                }}
+              />
+              <MonoGhost as="button" type="button" onClick={handleApiSearch} disabled={apiLoading}>
+                검색
+              </MonoGhost>
+            </ToolbarGroup>
+          </Toolbar>
           <TableWrap>
             <Table>
-              <thead><tr><th>시간</th><th>메서드</th><th>경로</th><th>상태</th><th>IP</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>시간</th>
+                  <th>메서드</th>
+                  <th>경로</th>
+                  <th>상태</th>
+                  <th>IP</th>
+                  <th>사용자 ID</th>
+                </tr>
+              </thead>
               <tbody>
-                {apiRows.map((r,i) => (
-                  <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.method}</td><td>{r.path}</td><td>{r.status}</td><td>{r.ip || '-'}</td></tr>
-                ))}
-                {apiRows.length === 0 && <tr><td colSpan={5}><Muted>표시할 데이터가 없습니다.</Muted></td></tr>}
+                {apiLoading ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <TableStatus>
+                        <SpinnerInline aria-hidden />
+                        <span>API 로그를 불러오는 중…</span>
+                      </TableStatus>
+                    </td>
+                  </tr>
+                ) : apiError ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <TableStatus $variant="error">⚠️ {apiError}</TableStatus>
+                    </td>
+                  </tr>
+                ) : apiRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>
+                      <TableStatus>표시할 데이터가 없습니다.</TableStatus>
+                    </td>
+                  </tr>
+                ) : (
+                  apiRows.map((row, index) => (
+                    <tr key={row.id ?? index}>
+                      <td>{formatDateTime(row.createdAt)}</td>
+                      <td>{row.method}</td>
+                      <td>{row.path}</td>
+                      <td>{row.status}</td>
+                      <td>{row.ip || '-'}</td>
+                      <td>{row.userId || '-'}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </Table>
           </TableWrap>
           <Pager>
-            <MonoGhost as="button" type="button" onClick={()=>loadApi(Math.max(0, apiPage-1), apiSize)} disabled={apiPage<=0}>이전</MonoGhost>
-            <span>{apiPage+1} / {Math.max(1,apiTotalPages)}</span>
-            <MonoGhost as="button" type="button" onClick={()=>loadApi(Math.min(apiTotalPages-1, apiPage+1), apiSize)} disabled={apiPage>=apiTotalPages-1}>다음</MonoGhost>
+            <ToolbarInfo>총 {apiTotalElements.toLocaleString('ko-KR')}건</ToolbarInfo>
+            <PagerGroup>
+              <FieldLabel htmlFor="academy-api-size">페이지 크기</FieldLabel>
+              <Select
+                id="academy-api-size"
+                value={apiSize}
+                onChange={(event) => {
+                  const nextSize = Number(event.target.value);
+                  setApiSize(nextSize);
+                  apiSizeRef.current = nextSize;
+                  void loadApiLogs(0, nextSize, apiQueryRef.current);
+                }}
+              >
+                {[20, 50, 100].map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}개씩
+                  </option>
+                ))}
+              </Select>
+              <MonoGhost
+                as="button"
+                type="button"
+                onClick={() => loadApiLogs(Math.max(0, apiPage - 1), apiSizeRef.current, apiQueryRef.current)}
+                disabled={apiPage <= 0 || apiLoading}
+              >
+                이전
+              </MonoGhost>
+              <InlineBadge>{apiPage + 1}</InlineBadge>
+              <MonoGhost
+                as="button"
+                type="button"
+                onClick={() => loadApiLogs(Math.min(apiTotalPages - 1, apiPage + 1), apiSizeRef.current, apiQueryRef.current)}
+                disabled={apiPage >= apiTotalPages - 1 || apiLoading}
+              >
+                다음
+              </MonoGhost>
+            </PagerGroup>
           </Pager>
         </Card>
-      </GridTwo>
-    </Wrap>
+      </GridFull>
+    </PageWrap>
   );
 }
 
-const Wrap = styled.div` display:grid; gap:16px; `;
-const Header = styled.div` display:flex; align-items:center; justify-content:space-between; gap:12px; `;
-const Filters = styled.div` display:flex; gap:8px; align-items:center; flex-wrap:wrap; `;
-const Sub = styled.div` color:#6b7280; font-size:12px; `;
-const Err = styled.div` color:#b91c1c; font-size:13px; `;
-const GridTwo = styled.div` display:grid; gap:16px; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); `;
-const Card = styled.div` border:1px solid #e5e7eb; border-radius:12px; background:#fff; padding:12px; display:grid; gap:8px; `;
-const HeaderRow = styled.div` display:flex; align-items:center; justify-content:space-between; `;
-const Input = styled.input` height:40px; border:1px solid #e5e7eb; border-radius:10px; padding:0 12px; font-size:14px; `;
-const MonoGhost = styled.button` height:40px; padding:0 12px; border-radius:10px; background:#fff; color:#111827; border:1px solid #e5e7eb; &:hover{ background:#f9fafb; } `;
-const TableWrap = styled.div` width:100%; overflow:auto; border:1px solid #f1f5f9; border-radius:12px; `;
-const Table = styled.table` width:100%; border-collapse:collapse; thead th{ text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb; padding:8px; } tbody td{ padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#111827; }`;
-const Muted = styled.div` color:#6b7280; font-size:12px; `;
-const Pager = styled.div` display:flex; gap:8px; align-items:center; justify-content:flex-end; `;
+function formatDateTime(value?: string | null) {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+const HeaderBlock = styled.div`
+  display: grid;
+  gap: 4px;
+`;
+
+const StatsSkeleton = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+
+const SpinnerInline = styled(LoadingSpinner)`
+  width: 16px;
+  height: 16px;
+`;

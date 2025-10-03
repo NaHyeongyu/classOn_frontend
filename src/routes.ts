@@ -28,6 +28,7 @@ export const routes = {
   payments: '/payments',
   devTools: '/dev-tools',
   admin: '/admin',
+  adminStats: '/admin/stats',
 
   marketing: '/marketing',
   marketingGuide: '/marketing/guide',

@@ -39,6 +39,7 @@ const AdminLogins = lazy(() => import("@/pages/AdminLogins"));
 const AdminApiLogs = lazy(() => import("@/pages/AdminApiLogs"));
 const AdminOpenAiLogs = lazy(() => import("@/pages/AdminOpenAiLogs"));
 const AdminPayments = lazy(() => import("@/pages/AdminPayments"));
+const AdminStats = lazy(() => import("@/pages/AdminStats"));
 const AdminAcademyDetail = lazy(() => import("@/pages/AdminAcademyDetail"));
 import { PageLoading, LoadingSpinner } from "@/components/common/Loading";
 import { RouteTransition, TopProgressBar } from "@/components/common/RouteTransition";
@@ -150,6 +151,7 @@ export default function App() {
           <Route path={routes.admin + '/api-logs'} element={<AdminApiLogs />} />
           <Route path={routes.admin + '/openai-logs'} element={<AdminOpenAiLogs />} />
           <Route path={routes.admin + '/payments'} element={<AdminPayments />} />
+          <Route path={routes.adminStats} element={<AdminStats />} />
           <Route path={routes.admin + '/academies/:id'} element={<AdminAcademyDetail />} />
         </Route>
         <Route path={routes.admin + '/login'} element={<AdminLogin />} />

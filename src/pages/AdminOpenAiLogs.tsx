@@ -1,79 +1,337 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import styled from 'styled-components';
+import {
+  Card,
+  CardHeader,
+  CardMeta,
+  ErrorBanner,
+  FieldLabel,
+  InlineBadge,
+  Input,
+  MonoGhost,
+  MonoPrimary,
+  Muted,
+  PageHeader,
+  PageSubtitle,
+  PageTitle,
+  PageWrap,
+  Pager,
+  PagerGroup,
+  Select,
+  Table,
+  TableStatus,
+  TableWrap,
+  Toolbar,
+  ToolbarGroup,
+  ToolbarInfo,
+} from '@/components/admin/AdminStyles';
+import { useToast } from '@/components/common/Toast';
+import { LoadingSpinner } from '@/components/common/Loading';
 import { getOpenAiLogsPaged } from '@/api/admin';
-import SelectBox from '@/components/common/SelectBox';
+
+type OpenAiLogRow = {
+  id?: number;
+  createdAt: string;
+  model?: string | null;
+  tokens?: number | null;
+  success: boolean;
+  latencyMs?: number | null;
+};
+
+type PagedResponse<T> = {
+  content: T[];
+  page: number;
+  size: number;
+  totalPages: number;
+  totalElements: number;
+};
+
+type SuccessFilter = 'all' | 'success' | 'fail';
 
 export default function AdminOpenAiLogs() {
-  const [rows, setRows] = useState<any[]>([]);
+  const { error: toastError } = useToast();
+
+  const [rows, setRows] = useState<OpenAiLogRow[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [size, setSize] = useState(20);
   const [totalPages, setTotalPages] = useState(0);
-  const [model, setModel] = useState('');
-  const [success, setSuccess] = useState<'all'|'ok'|'fail'>('all');
-  const [from, setFrom] = useState<string>(() => { const d = new Date(); d.setDate(d.getDate() - 7); return d.toISOString().slice(0,10); });
-  const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0,10));
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [totalElements, setTotalElements] = useState(0);
 
-  async function load(p = page, s = size) {
-    setLoading(true); setError(null);
-    try {
-      const successBool = success === 'all' ? undefined : (success === 'ok');
-      const res = await getOpenAiLogsPaged({ page: p, size: s, model: model || undefined, success: successBool, from, to });
-      setRows(res.content || []);
-      setPage(res.page); setSize(res.size); setTotalPages(res.totalPages);
-    } catch (e: any) { setError(e?.message || '불러오지 못했습니다.'); }
-    finally { setLoading(false); }
-  }
+  const [from, setFrom] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 7);
+    return d.toISOString().slice(0, 10);
+  });
+  const [to, setTo] = useState(() => new Date().toISOString().slice(0, 10));
 
-  useEffect(() => { void load(0, size); }, []);
+  const [modelInput, setModelInput] = useState('');
+  const [modelQuery, setModelQuery] = useState('');
+  const [successFilterInput, setSuccessFilterInput] = useState<SuccessFilter>('all');
+  const [successFilter, setSuccessFilter] = useState<SuccessFilter>('all');
+
+  const sizeRef = useRef(size);
+  const modelQueryRef = useRef(modelQuery);
+  const successFilterRef = useRef(successFilter);
+
+  useEffect(() => {
+    sizeRef.current = size;
+  }, [size]);
+  useEffect(() => {
+    modelQueryRef.current = modelQuery;
+  }, [modelQuery]);
+  useEffect(() => {
+    successFilterRef.current = successFilter;
+  }, [successFilter]);
+
+  const loadOpenAiLogs = useCallback(
+    async (pageToLoad: number, sizeToLoad: number, filters: { model: string; success: SuccessFilter; from: string; to: string }) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await getOpenAiLogsPaged({
+          page: pageToLoad,
+          size: sizeToLoad,
+          model: filters.model ? filters.model : undefined,
+          success: filters.success === 'all' ? undefined : filters.success === 'success',
+          from: filters.from,
+          to: filters.to,
+        });
+        const data = res as PagedResponse<OpenAiLogRow>;
+        setRows(data.content || []);
+        setPage(data.page);
+        setSize(data.size);
+        setTotalPages(data.totalPages);
+        setTotalElements(data.totalElements ?? data.content?.length ?? 0);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'OpenAI 로그를 불러오지 못했습니다.';
+        setError(message);
+        toastError(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [toastError],
+  );
+
+  useEffect(() => {
+    void loadOpenAiLogs(0, sizeRef.current, {
+      model: modelQueryRef.current,
+      success: successFilterRef.current,
+      from,
+      to,
+    });
+  }, [loadOpenAiLogs, from, to]);
+
+  const handleApplyFilters = useCallback(() => {
+    const nextModel = modelInput.trim();
+    setModelQuery(nextModel);
+    setSuccessFilter(successFilterInput);
+    modelQueryRef.current = nextModel;
+    successFilterRef.current = successFilterInput;
+    void loadOpenAiLogs(0, sizeRef.current, {
+      model: nextModel,
+      success: successFilterInput,
+      from,
+      to,
+    });
+  }, [modelInput, successFilterInput, from, to, loadOpenAiLogs]);
+
+  const rangeLabel = useMemo(() => `${from} ~ ${to}`, [from, to]);
+
+  const displayedRange = useMemo(() => {
+    if (rows.length === 0) return '표시할 데이터가 없습니다.';
+    const first = rows[0]?.createdAt;
+    const last = rows[rows.length - 1]?.createdAt;
+    if (!first || !last) return `${rows.length.toLocaleString('ko-KR')}건 표시 중`;
+    return `${formatDateTime(first)} ~ ${formatDateTime(last)}`;
+  }, [rows]);
+
+  const pageInfo = `페이지 ${totalPages === 0 ? 0 : page + 1} / ${Math.max(1, totalPages)} • 총 ${totalElements.toLocaleString('ko-KR')}건`;
 
   return (
-    <Wrap>
-      <Header>
-        <h2>OpenAI 호출 로그</h2>
-        <Filters>
-          <label>기간</label>
-          <Input type="date" lang="ko-KR" value={from} onChange={(e)=>setFrom(e.target.value)} />
+    <PageWrap>
+      <PageHeader>
+        <div>
+          <PageTitle>OpenAI 호출 로그</PageTitle>
+          <PageSubtitle>{displayedRange}</PageSubtitle>
+        </div>
+        <ToolbarGroup>
+          <FieldLabel htmlFor="openai-log-from">기간</FieldLabel>
+          <Input id="openai-log-from" type="date" lang="ko-KR" value={from} onChange={(event) => setFrom(event.target.value)} />
           <span>~</span>
-          <Input type="date" lang="ko-KR" value={to} onChange={(e)=>setTo(e.target.value)} />
-          <Input placeholder="모델 검색 (gpt-4o, ...)" value={model} onChange={(e)=>setModel(e.target.value)} onKeyDown={(e)=>{ if (e.key==='Enter') void load(0, size); }} />
-          <SelectBox ariaLabel="성공여부" value={success} onChange={(v)=>setSuccess(v as any)} placeholder="성공 여부" options={[
-            { label: '모두', value: 'all' },
-            { label: '성공만', value: 'ok' },
-            { label: '실패만', value: 'fail' },
-          ]} />
-          <MonoGhost as="button" type="button" onClick={()=>load(0, size)}>적용</MonoGhost>
-        </Filters>
-      </Header>
-      {error && <Err>{error}</Err>}
-      <TableWrap>
-        <Table>
-          <thead><tr><th>시간</th><th>모델</th><th>토큰</th><th>성공</th></tr></thead>
-          <tbody>
-            {loading && <tr><td colSpan={4}>불러오는 중…</td></tr>}
-            {!loading && rows.map((r,i) => (
-              <tr key={r.id || i}><td>{new Date(r.createdAt).toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' })}</td><td>{r.model}</td><td>{r.tokens ?? '-'}</td><td>{r.success ? 'Y' : 'N'}</td></tr>
-            ))}
-            {!loading && rows.length === 0 && <tr><td colSpan={4}>표시할 데이터가 없습니다.</td></tr>}
-          </tbody>
-        </Table>
-      </TableWrap>
-      <Pager>
-        <MonoGhost as="button" type="button" onClick={()=>load(Math.max(0, page-1), size)} disabled={page<=0}>이전</MonoGhost>
-        <span>{page+1} / {Math.max(1,totalPages)}</span>
-        <MonoGhost as="button" type="button" onClick={()=>load(Math.min(totalPages-1, page+1), size)} disabled={page>=totalPages-1}>다음</MonoGhost>
-      </Pager>
-    </Wrap>
+          <Input id="openai-log-to" type="date" lang="ko-KR" value={to} onChange={(event) => setTo(event.target.value)} />
+          <FieldLabel htmlFor="openai-log-model">모델</FieldLabel>
+          <Input
+            id="openai-log-model"
+            placeholder="예: gpt-4o"
+            value={modelInput}
+            onChange={(event) => setModelInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                handleApplyFilters();
+              }
+            }}
+          />
+          <Select
+            aria-label="성공 여부"
+            value={successFilterInput}
+            onChange={(event) => setSuccessFilterInput(event.target.value as SuccessFilter)}
+          >
+            <option value="all">전체</option>
+            <option value="success">성공만</option>
+            <option value="fail">실패만</option>
+          </Select>
+          <MonoPrimary type="button" onClick={handleApplyFilters} disabled={loading}>
+            필터 적용
+          </MonoPrimary>
+        </ToolbarGroup>
+      </PageHeader>
+
+      {error ? <ErrorBanner role="status">⚠️ {error}</ErrorBanner> : null}
+
+      <Card>
+        <CardHeader>
+          <div>
+            <h3>호출 목록</h3>
+            <CardMeta>{pageInfo}</CardMeta>
+          </div>
+          <ToolbarInfo>{rangeLabel}</ToolbarInfo>
+        </CardHeader>
+        <Toolbar>
+          <ToolbarInfo>
+            모델 필터: {modelQuery ? modelQuery : '전체'} · 성공 필터: {successFilterLabel(successFilter)}
+          </ToolbarInfo>
+          <ToolbarGroup>
+            <FieldLabel htmlFor="openai-log-size">페이지 크기</FieldLabel>
+            <Select
+              id="openai-log-size"
+              value={size}
+              onChange={(event) => {
+                const nextSize = Number(event.target.value);
+                setSize(nextSize);
+                sizeRef.current = nextSize;
+                void loadOpenAiLogs(0, nextSize, {
+                  model: modelQueryRef.current,
+                  success: successFilterRef.current,
+                  from,
+                  to,
+                });
+              }}
+            >
+              {[20, 50, 100].map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}개씩
+                </option>
+              ))}
+            </Select>
+          </ToolbarGroup>
+        </Toolbar>
+        <TableWrap>
+          <Table>
+            <thead>
+              <tr>
+                <th>시간</th>
+                <th>모델</th>
+                <th>토큰</th>
+                <th>성공</th>
+                <th>레이턴시(ms)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={5}>
+                    <TableStatus>
+                      <SpinnerInline aria-hidden />
+                      <span>OpenAI 로그를 불러오는 중…</span>
+                    </TableStatus>
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={5}>
+                    <TableStatus>표시할 데이터가 없습니다.</TableStatus>
+                  </td>
+                </tr>
+              ) : (
+                rows.map((row, index) => (
+                  <tr key={row.id ?? index}>
+                    <td>{formatDateTime(row.createdAt)}</td>
+                    <td>{row.model || '-'}</td>
+                    <td>{row.tokens != null ? row.tokens.toLocaleString('ko-KR') : '-'}</td>
+                    <td>{row.success ? '성공' : '실패'}</td>
+                    <td>{row.latencyMs != null ? row.latencyMs.toLocaleString('ko-KR') : '-'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </Table>
+        </TableWrap>
+        <Pager>
+          <ToolbarInfo>총 {totalElements.toLocaleString('ko-KR')}건</ToolbarInfo>
+          <PagerGroup>
+            <MonoGhost
+              as="button"
+              type="button"
+              onClick={() =>
+                loadOpenAiLogs(Math.max(0, page - 1), sizeRef.current, {
+                  model: modelQueryRef.current,
+                  success: successFilterRef.current,
+                  from,
+                  to,
+                })
+              }
+              disabled={page <= 0 || loading}
+            >
+              이전
+            </MonoGhost>
+            <InlineBadge>{totalPages === 0 ? 0 : page + 1}</InlineBadge>
+            <MonoGhost
+              as="button"
+              type="button"
+              onClick={() =>
+                loadOpenAiLogs(Math.min(totalPages - 1, page + 1), sizeRef.current, {
+                  model: modelQueryRef.current,
+                  success: successFilterRef.current,
+                  from,
+                  to,
+                })
+              }
+              disabled={page >= totalPages - 1 || loading}
+            >
+              다음
+            </MonoGhost>
+          </PagerGroup>
+        </Pager>
+        {!loading && rows.length > 0 ? (
+          <Muted>현재 {rows.length.toLocaleString('ko-KR')}건의 호출이 표시되고 있습니다.</Muted>
+        ) : null}
+      </Card>
+    </PageWrap>
   );
 }
 
-const Wrap = styled.div` display:grid; gap:12px; `;
-const Header = styled.div` display:flex; align-items:center; justify-content:space-between; gap:12px; `;
-const Filters = styled.div` display:flex; gap:8px; align-items:center; flex-wrap:wrap; `;
-const Input = styled.input` height:40px; border:1px solid #e5e7eb; border-radius:10px; padding:0 12px; font-size:14px; `;
-const Err = styled.div` color:#b91c1c; font-size:13px; `;
-const TableWrap = styled.div` width:100%; overflow:auto; border:1px solid #f1f5f9; border-radius:12px; `;
-const Table = styled.table` width:100%; border-collapse:collapse; thead th{ text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb; padding:8px; } tbody td{ padding:8px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#111827; }`;
-const MonoGhost = styled.button` height:40px; padding:0 12px; border-radius:10px; background:#fff; color:#111827; border:1px solid #e5e7eb; &:hover{ background:#f9fafb; } `;
-const Pager = styled.div` display:flex; gap:8px; align-items:center; justify-content:flex-end; `;
+function successFilterLabel(filter: SuccessFilter) {
+  switch (filter) {
+    case 'success':
+      return '성공만';
+    case 'fail':
+      return '실패만';
+    default:
+      return '전체';
+  }
+}
+
+function formatDateTime(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+const SpinnerInline = styled(LoadingSpinner)`
+  width: 16px;
+  height: 16px;
+`;

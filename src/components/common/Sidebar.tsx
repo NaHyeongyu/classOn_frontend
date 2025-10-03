@@ -15,6 +15,7 @@ export default function Sidebar() {
       { key: "students", label: "원생관리", sub: "Student Management", to: routes.students },
       { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes },
       { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance },
+      // { key: "stats", label: "통계", sub: "Analytics", to: routes.stats },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
     ],

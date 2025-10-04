@@ -83,10 +83,21 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
       default: return s;
     }
   }
+  function courseTypeLabel(type?: Course['courseType']) {
+    switch (type) {
+      case 'INDIVIDUAL':
+        return '개인';
+      case 'GROUP':
+        return '단체';
+      default:
+        return '단체';
+    }
+  }
   const view = useMemo(() => rows.map(r => ({
     id: r.id,
     title: r.title,
     code: r.code,
+    courseType: courseTypeLabel(r.courseType),
     rawStatus: r.status,
     statusText: statusLabel(r.status),
     days: buildDays(r),
@@ -108,11 +119,12 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
         </div>
       </Head>
       <Scroller>
-        <Table style={{ minWidth: 820 }}>
+        <Table style={{ minWidth: 900 }}>
           <thead>
             <tr>
               <th>코드</th>
               <th>수업명</th>
+              <th>유형</th>
               <th>요일</th>
               <th>시간</th>
               <th>수강인원</th>
@@ -127,6 +139,7 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
                 <td>
                   <NameBtn type="button" onClick={() => navigate(`/classes/${r.id}`)}>{r.title}</NameBtn>
                 </td>
+                <td>{r.courseType}</td>
                 <td>{r.days}</td>
                 <td>{r.time}</td>
                 <td>{r.enrolled}</td>

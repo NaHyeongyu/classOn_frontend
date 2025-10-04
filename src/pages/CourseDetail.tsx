@@ -78,6 +78,17 @@ export default function CourseDetail() {
   }
 
   // removed: generateNext14Days (replaced by create single record via detail page)
+  function courseTypeLabel(type?: Course['courseType']) {
+    switch (type) {
+      case 'INDIVIDUAL':
+        return '개인 수업';
+      case 'GROUP':
+        return '단체 수업';
+      default:
+        return '단체 수업';
+    }
+  }
+
 
   // Initialize filter year after course loads
   useEffect(() => {
@@ -386,6 +397,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
               <GridTwo>
                 <Field><Label>코드</Label><div><code>{course?.code}</code></div></Field>
                 <Field><Label>상태</Label><div><StatusChip data-type={course?.status}>{statusLabel(course?.status)}</StatusChip></div></Field>
+                <Field><Label>수업 형태</Label><div>{courseTypeLabel(course?.courseType)}</div></Field>
                 <Field><Label>요일</Label><div>{info.days || '-'}</div></Field>
                 <Field><Label>시간</Label><div>{info.time || '-'}</div></Field>
                 <Field><Label>정원</Label><div>{course?.capacity ?? '-'}</div></Field>

@@ -20,6 +20,7 @@ type FormState = {
   title: string;
   description?: string;
   status: Course["status"];
+  courseType: 'INDIVIDUAL' | 'GROUP';
   capacity?: number;
   fee?: number;
   courseTime?: string;
@@ -32,6 +33,7 @@ const DEFAULT_FORM: FormState = {
   title: "",
   description: "",
   status: "IN_PROGRESS",
+  courseType: 'GROUP',
 };
 
 export default function CourseForm() {
@@ -73,6 +75,7 @@ export default function CourseForm() {
     },
   ] as const;
   const isLastStep = step === steps.length - 1;
+  const isIndividual = form.courseType === 'INDIVIDUAL';
 
   function pad2(n: number) {
     return String(n).padStart(2, "0");
@@ -84,6 +87,21 @@ export default function CourseForm() {
   }
 
   const minuteOptions = useMemo(() => Array.from({ length: 12 }, (_, i) => pad2(i * 5)), []);
+  const courseTypeOptions = useMemo(
+    () => ([
+      {
+        value: 'INDIVIDUAL' as const,
+        label: '개인 수업',
+        description: '1명의 학생과 진행되는 1:1 수업',
+      },
+      {
+        value: 'GROUP' as const,
+        label: '단체 수업',
+        description: '여러 학생이 함께 참여하는 그룹 수업',
+      },
+    ]),
+    [],
+  );
 
   useEffect(() => {
     if (!isEdit || !numericId) return;
@@ -98,7 +116,9 @@ export default function CourseForm() {
             title: found.title,
             description: found.description,
             status: found.status,
-            capacity: found.capacity,
+            courseType: found.courseType ?? 'GROUP',
+            capacity:
+              (found.courseType ?? 'GROUP') === 'INDIVIDUAL' ? 1 : found.capacity,
             fee: found.fee,
             courseTime: found.courseTime,
             recurrenceDays: found.recurrenceDays,
@@ -254,22 +274,26 @@ export default function CourseForm() {
           ) : null}
 
           <Stepper>
-            {steps.map((meta, idx) => (
-              <StepChip
-                key={meta.key}
-                type="button"
-                data-active={idx === step}
-                data-done={idx < step}
-                onClick={() => {
-                  if (idx > step && !validateStep(step)) return;
-                  setStep(idx);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              >
-                <span className="index">{idx + 1}</span>
-                <span className="label">{meta.title}</span>
-              </StepChip>
-            ))}
+            {steps.map((meta, idx) => {
+              const canClick = idx < step;
+              return (
+                <StepChip
+                  key={meta.key}
+                  type="button"
+                  data-active={idx === step}
+                  data-done={idx < step}
+                  disabled={!canClick}
+                  onClick={() => {
+                    if (!canClick) return;
+                    setStep(idx);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                >
+                  <span className="index">{idx + 1}</span>
+                  <span className="label">{meta.title}</span>
+                </StepChip>
+              );
+            })}
           </Stepper>
 
           {step === 0 ? (
@@ -311,6 +335,34 @@ export default function CourseForm() {
                     <option value="PENDING">대기</option>
                     <option value="STOPPED">중단</option>
                   </Select>
+                </Field>
+                <Field as="div">
+                  <Label>수업 형태</Label>
+                  <TypeToggleGroup role="radiogroup" aria-label="수업 형태">
+                    {courseTypeOptions.map((option) => (
+                      <TypeToggleButton
+                        key={option.value}
+                        type="button"
+                        data-active={form.courseType === option.value}
+                        onClick={() =>
+                          setForm((f) => {
+                            const next: FormState = {
+                              ...f,
+                              courseType: option.value,
+                            };
+                            if (option.value === 'INDIVIDUAL') {
+                              next.capacity = 1;
+                            }
+                            return next;
+                          })
+                        }
+                      >
+                        <span className="title">{option.label}</span>
+                        <span className="desc">{option.description}</span>
+                      </TypeToggleButton>
+                    ))}
+                  </TypeToggleGroup>
+                  <Hint>수업 형태에 따라 통계와 요금 정책을 나눌 수 있어요.</Hint>
                 </Field>
               </StepGrid>
             </StepCard>
@@ -451,7 +503,9 @@ export default function CourseForm() {
                   <Label>정원</Label>
                   <Input
                     type="number"
+                    min={1}
                     value={form.capacity ?? ""}
+                    disabled={isIndividual}
                     onChange={(e) =>
                       setForm((f) => ({
                         ...f,
@@ -462,6 +516,9 @@ export default function CourseForm() {
                     }
                     placeholder="예: 12"
                   />
+                  {isIndividual ? (
+                    <Hint>개인 수업은 정원이 1명으로 고정됩니다.</Hint>
+                  ) : null}
                 </Field>
                 <Field>
                   <Label>수강료</Label>
@@ -520,11 +577,11 @@ export default function CourseForm() {
               <span />
             )}
             {!isLastStep ? (
-              <PrimaryAction type="button" onClick={goNext}>
+              <PrimaryAction key="next" type="button" onClick={goNext}>
                 다음 단계
               </PrimaryAction>
             ) : (
-              <PrimaryAction type="submit" disabled={saving}>
+              <PrimaryAction key="submit" type="submit" disabled={saving}>
                 {saving ? "저장 중..." : isEdit ? "수업 수정 완료" : "수업 저장"}
               </PrimaryAction>
             )}
@@ -651,6 +708,38 @@ const ChipBtn = styled.button`
     cursor: not-allowed;
   }
 `;
+const TypeToggleGroup = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+const TypeToggleButton = styled.button`
+  display: grid;
+  gap: ${(p) => p.theme.spacing.xs};
+  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.md};
+  min-width: 140px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.lg};
+  background: #fff;
+  text-align: left;
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: #334155;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  .title {
+    font-weight: 700;
+    color: #111827;
+  }
+  .desc {
+    font-size: ${(p) => p.theme.font.size.xs};
+    color: #64748b;
+  }
+  &[data-active="true"] {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+    background: rgba(99, 102, 241, 0.06);
+    .title { color: #4338ca; }
+  }
+`;
 const TimeRow = styled.div`
   display: grid;
   grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
@@ -728,6 +817,11 @@ const StepChip = styled.button`
   font-weight: 600;
   cursor: pointer;
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+    pointer-events: none;
+  }
   .index {
     width: 22px;
     height: 22px;

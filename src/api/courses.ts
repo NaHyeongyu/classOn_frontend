@@ -10,6 +10,7 @@ export type Course = {
   status: "IN_PROGRESS" | "STOPPED" | "PENDING";
   capacity?: number;
   fee?: number;
+  courseType?: 'INDIVIDUAL' | 'GROUP';
   createdAt: string;
   courseTime?: string;
   enrolledCount?: number;
@@ -76,6 +77,7 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
     status: payload.status,
     capacity: payload.capacity,
     fee: payload.fee,
+    courseType: payload.courseType ?? 'GROUP',
     courseTime: payload.courseTime,
     recurrenceDays: payload.recurrenceDays,
     startTime: payload.startTime,
@@ -103,6 +105,7 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
     status: payload.status,
     capacity: payload.capacity,
     fee: payload.fee,
+    courseType: payload.courseType ?? 'GROUP',
     courseTime: payload.courseTime,
     recurrenceDays: payload.recurrenceDays,
     startTime: payload.startTime,

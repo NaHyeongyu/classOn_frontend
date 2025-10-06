@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { SectionCard, PrimaryButton, GhostBtnSmall as UIGhostBtnSmall, GhostButtonSmall, PageHeader } from "@/components/common/UI";
 import { EmptyPlaceholder } from "@/components/common/EmptyPlaceholder";
-import InfoBanner from "@/components/common/InfoBanner";
 import {
   listCourses,
   listCourseRecords,
@@ -46,8 +45,7 @@ export default function Marketing() {
   const [pagesByCourse, setPagesByCourse] = useState<Record<number, number>>({});
   const [hasMoreByCourse, setHasMoreByCourse] = useState<Record<number, boolean>>({});
   const [loadingByCourse, setLoadingByCourse] = useState<Record<number, boolean>>({});
-  const [showHelper, setShowHelper] = useState(true);
-  const [helperDismissed, setHelperDismissed] = useState(false);
+  // guide banner removed for a cleaner UI
 
   const navigate = useNavigate();
   const { error: showError, warning } = useToast();
@@ -283,32 +281,9 @@ export default function Marketing() {
           <HeaderActions>
             <UIGhostBtnSmall to="/marketing/saved">저장 내역</UIGhostBtnSmall>
             <UIGhostBtnSmall to="/classes">수업 관리</UIGhostBtnSmall>
-            {!showHelper && helperDismissed ? (
-              <GhostButtonSmall
-                as="button"
-                type="button"
-                onClick={() => setShowHelper(true)}
-              >
-                도움말 보기
-              </GhostButtonSmall>
-            ) : null}
           </HeaderActions>
         </PageHeader>
-        {showHelper ? (
-          <InfoBanner
-            title="AI 마케팅 요약 시작 가이드"
-            description="수업 기록을 선택하고 조회한 뒤 요약 만들기로 넘어가세요. 1분 안에 결과를 확인할 수 있어요."
-            tips={[
-              "좌측에서 최대 3개의 수업을 선택하고 조회 기간을 정해주세요.",
-              "조회 결과가 아래에 나타나면 내용을 확인한 뒤 필요하면 기간을 다시 조정해보세요.",
-              "요약 만들기 버튼을 누르면 AI 분석 화면으로 이동해 콘텐츠 초안을 받을 수 있어요.",
-            ]}
-            onClose={() => {
-              setShowHelper(false);
-              setHelperDismissed(true);
-            }}
-          />
-        ) : null}
+        {/* Guide banner removed */}
       </HeaderWrap>
 
       <ContentGrid>

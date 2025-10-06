@@ -387,6 +387,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
       {info && (
         <Columns>
           <Left>
+            <StickyLeft>
             <Section>
               <SectionHead>
                 <Title>수업 정보</Title>
@@ -452,6 +453,7 @@ function localAttendanceMap(recordId: number): Record<number, boolean> {
               </TableEx>
               </TableScroller>
             </Section>
+            </StickyLeft>
           </Left>
           <Right>
             <Section>
@@ -675,6 +677,21 @@ const Crumbs = styled.div` color:#9ca3af; font-size:12px; margin-top: -6px; marg
 const KPIGrid = styled.div` display:grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap:12px; `;
 const Columns = styled.div` display:flex; gap:12px; align-items:flex-start; `;
 const Left = styled.div` flex:4 1 0; display:grid; gap:12px; align-content:flex-start; `;
+const StickyLeft = styled.div`
+  position: sticky;
+  top: var(--sticky-top, 64px); /* align with PageHeader sticky height */
+  z-index: 31; /* above PageHeader's z-index(30) siblings */
+  background: ${({ theme }) => theme.colors.surface};
+  display: grid;
+  gap: 12px;
+  align-content: flex-start;
+  align-self: start; /* ensure sticky box isn't stretched by parent grid/flex */
+  height: max-content; /* collapse to content height for proper sticky behavior */
+  will-change: top; /* hint for smoother stick */
+  @media (max-width: 900px) {
+    position: static; /* mobile: disable sticky to avoid cramped UI */
+  }
+`;
 const Right = styled.div` flex:6 1 0; display:grid; gap:12px; align-content:flex-start; `;
 const SectionHead = styled.div` display:flex; align-items:flex-end; justify-content:space-between; margin-bottom:8px; `;
 // 진행 현황 섹션 제거로 불필요한 스타일 삭제됨

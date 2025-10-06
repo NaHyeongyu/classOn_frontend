@@ -29,8 +29,6 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
           size,
           status: (filters.status as any) || undefined,
           q: filters.q || undefined,
-          s: 'createdAt',
-          dir: 'DESC',
         });
         if (!cancelled) {
           setRows(res.content);
@@ -93,18 +91,22 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
         return '단체';
     }
   }
-  const view = useMemo(() => rows.map(r => ({
-    id: r.id,
-    title: r.title,
-    code: r.code,
-    courseType: courseTypeLabel(r.courseType),
-    rawStatus: r.status,
-    statusText: statusLabel(r.status),
-    days: buildDays(r),
-    time: buildTimeRange(r),
-    enrolled: r.enrolledCount ?? '-',
-    next: r.nextClassDate || '-',
-  })), [rows]);
+  const view = useMemo(() => rows.map((r, idx) => {
+    const seqDesc = Math.max(0, totalElements - (page * size) - idx);
+    return ({
+      seq: seqDesc,
+      id: r.id,
+      title: r.title,
+      code: r.code,
+      courseType: courseTypeLabel(r.courseType),
+      rawStatus: r.status,
+      statusText: statusLabel(r.status),
+      days: buildDays(r),
+      time: buildTimeRange(r),
+      enrolled: r.enrolledCount ?? '-',
+      next: r.nextClassDate || '-',
+    });
+  }), [rows, page, size, totalElements]);
 
   function changePage(p: number) { if (p >= 0 && p < totalPages) setPage(p); }
 
@@ -119,10 +121,20 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
         </div>
       </Head>
       <Scroller>
-        <Table style={{ minWidth: 900 }}>
+        <StyledTable>
+          <colgroup>
+            <col style={{ width: '7%' }} />    {/* 번호 */}
+            <col style={{ width: '28%' }} />   {/* 수업명 */}
+            <col style={{ width: '10%' }} />   {/* 유형 */}
+            <col style={{ width: '12%' }} />   {/* 요일 */}
+            <col style={{ width: '18%' }} />   {/* 시간 */}
+            <col style={{ width: '9%' }} />    {/* 수강인원 */}
+            <col style={{ width: '10%' }} />   {/* 다음 수업 */}
+            <col style={{ width: '6%' }} />    {/* 상태 */}
+          </colgroup>
           <thead>
             <tr>
-              <th>코드</th>
+              <th>번호</th>
               <th>수업명</th>
               <th>유형</th>
               <th>요일</th>
@@ -135,9 +147,11 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
           <tbody>
             {view.map(r => (
               <tr key={r.id}>
-                <td><code>{r.code}</code></td>
+                <td>{r.seq}</td>
                 <td>
-                  <NameBtn type="button" onClick={() => navigate(`/classes/${r.id}`)}>{r.title}</NameBtn>
+                  <NameBtn type="button" onClick={() => navigate(`/classes/${r.id}`)} title={r.title}>
+                    <TitleText>{r.title}</TitleText>
+                  </NameBtn>
                 </td>
                 <td>{r.courseType}</td>
                 <td>{r.days}</td>
@@ -148,7 +162,7 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
               </tr>
             ))}
           </tbody>
-        </Table>
+        </StyledTable>
       </Scroller>
       <Pager>
         <Btn onClick={() => changePage(page-1)} disabled={page===0}>이전</Btn>
@@ -191,3 +205,34 @@ const Btn = styled.button<{disabled?:boolean}>`
 const PageSize = styled.div` display:inline-flex; align-items:center; gap:6px; margin-left:12px; color:#6b7280; font-size:12px; select{ height:28px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; padding:0 8px; }`;
 // Buttons from common UI
 const CardInner = styled.div` position: relative; `;
+const StyledTable = styled(Table)`
+  table-layout: fixed;
+  width: 100%;
+  thead th {
+    background: #f8fafc;
+    color: #334155;
+    font-weight: 800;
+    text-align: center;
+  }
+  thead th, tbody td {
+    vertical-align: middle;
+    padding: 12px;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    /* vertical separators between columns */
+    border-right: 1px solid #f1f5f9;
+  }
+  thead th:last-child, tbody td:last-child { border-right: none; }
+  tbody td { font-size: 13.5px; color: #0f172a; }
+`;
+const TitleText = styled.span`
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  line-height: 1.4;
+  max-height: calc(1.4em * 2);
+`;

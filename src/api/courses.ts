@@ -19,6 +19,8 @@ export type Course = {
   startTime?: string; // HH:mm:ss
   endTime?: string;   // HH:mm:ss
   recurring?: boolean;
+  primaryStudentId?: number | null;
+  primaryStudentName?: string | null;
 };
 
 export type CourseRecord = {
@@ -31,6 +33,8 @@ export type CourseRecord = {
   notes?: string;
   content?: string;
   createdAt: string;
+  performanceScore?: number | null;
+  performanceNote?: string | null;
 };
 
 export type Attendance = {
@@ -83,6 +87,7 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
     startTime: payload.startTime,
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
+    primaryStudentId: payload.primaryStudentId,
   });
   const res = await fetchJSON<Course>(`/api/courses`, { method: "POST", body });
   // Invalidate related caches so auto-generated records/summary reflect immediately
@@ -93,8 +98,10 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
       res?.id ? `/api/courses/${res.id}/records` : '/api/courses/',
       '/api/calendar/classes',
       '/api/calendar/classes-range',
+      '/api/dashboard/summary',
     ]);
   } catch {}
+  try { window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'create', id: res.id } })); } catch {}
   return res;
 }
 
@@ -111,6 +118,7 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
     startTime: payload.startTime,
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
+    primaryStudentId: payload.primaryStudentId,
   });
   const res = await fetchJSON<Course>(`/api/courses/${id}`, { method: "PUT", body });
   try {
@@ -120,8 +128,10 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
       `/api/courses/${id}/records`,
       '/api/calendar/classes',
       '/api/calendar/classes-range',
+      '/api/dashboard/summary',
     ]);
   } catch {}
+  try { window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'update', id } })); } catch {}
   return res;
 }
 
@@ -139,7 +149,11 @@ export async function listCourseRecords(id: number, params?: { from?: string; to
   return await fetchJSON<CourseRecord[]>(`/api/courses/${id}/records${q}`);
 }
 
-export async function updateCourseRecord(courseId: number, recordId: number, payload: Partial<Pick<CourseRecord, 'recordDate'|'startTime'|'endTime'|'topic'|'notes'|'content'>>): Promise<CourseRecord> {
+export async function updateCourseRecord(
+  courseId: number,
+  recordId: number,
+  payload: Partial<Pick<CourseRecord, 'recordDate'|'startTime'|'endTime'|'topic'|'notes'|'content'|'performanceScore'|'performanceNote'>>
+): Promise<CourseRecord> {
   const body = JSON.stringify(payload);
   return await fetchJSON<CourseRecord>(`/api/courses/${courseId}/records/${recordId}`, { method: 'PUT', body });
 }
@@ -148,7 +162,10 @@ export async function deleteCourseRecord(courseId: number, recordId: number): Pr
   await fetchJSON<void>(`/api/courses/${courseId}/records/${recordId}`, { method: 'DELETE' });
 }
 
-export async function createCourseRecord(courseId: number, payload: { recordDate: string; startTime?: string; endTime?: string; topic?: string; notes?: string; content?: string; }): Promise<CourseRecord> {
+export async function createCourseRecord(
+  courseId: number,
+  payload: { recordDate: string; startTime?: string; endTime?: string; topic?: string; notes?: string; content?: string; performanceScore?: number | null; performanceNote?: string | null; }
+): Promise<CourseRecord> {
   const body = JSON.stringify(payload);
   return await fetchJSON<CourseRecord>(`/api/courses/${courseId}/records`, { method: 'POST', body });
 }
@@ -226,6 +243,17 @@ export async function downloadRecordAttachmentBlob(courseId: number, recordId: n
 
 export async function deleteCourse(id: number): Promise<void> {
   await fetchJSON<void>(`/api/courses/${id}`, { method: 'DELETE' });
+  try {
+    invalidateCacheByPrefix([
+      '/api/courses',
+      `/api/courses/${id}`,
+      `/api/courses/${id}/records`,
+      '/api/calendar/classes',
+      '/api/calendar/classes-range',
+      '/api/dashboard/summary',
+    ]);
+  } catch {}
+  try { window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'delete', id } })); } catch {}
 }
 
 // Excel helpers (download/upload)

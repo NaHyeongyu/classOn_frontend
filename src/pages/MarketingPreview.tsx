@@ -233,7 +233,7 @@ export default function MarketingPreview() {
       </Layout>
 
       <Footer>
-        <GhostButtonSmall as="button" onClick={() => navigate('/marketing/guide')}>← 이전</GhostButtonSmall>
+        <GhostButtonSmall as="button" onClick={() => navigate('/marketing')}>← 이전</GhostButtonSmall>
         <PrimaryButton as="button" onClick={goNext}>다음 단계</PrimaryButton>
       </Footer>
 

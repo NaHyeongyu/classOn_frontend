@@ -14,6 +14,11 @@ export default function Classes() {
   const [filters, setFilters] = useState({ status: initial.status as "" | "IN_PROGRESS" | "STOPPED" | "PENDING", q: initial.q });
   const [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => {
+    function handleRefresh() { setRefreshKey(k => k + 1); }
+    window.addEventListener('courses:refresh', handleRefresh);
+    return () => window.removeEventListener('courses:refresh', handleRefresh);
+  }, []);
+  useEffect(() => {
     const sp = new URLSearchParams();
     if (filters.status) sp.set('status', filters.status);
     if (filters.q && filters.q.trim()) sp.set('q', filters.q.trim());

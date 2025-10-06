@@ -14,9 +14,12 @@ import { listCounsels, createCounsel, updateCounsel, deleteCounsel, downloadCoun
 import { getStudent, getStudentAttendance, type Student, type StudentAttendance } from "@/api/students";
 // formatMoney 사용 제거됨 (MVP)
 import { formatPhone } from "@/lib/format";
+import { calcRisk, recommendActions, type RiskResult } from "@/features/risk/riskUtils";
+import { summarizeRecords, type SummarizeItem } from "@/api/summarize";
+import { getStudentGrades, type GradeEntry } from "@/features/grades/gradesStorage";
 import { useToast } from "@/components/common/Toast";
 
-type TabKey = "courses" | "attendance" | "counsels";
+type TabKey = "courses" | "attendance" | "counsels" | "grades";
 
 export default function StudentDetail() {
   const navigate = useNavigate();
@@ -66,6 +69,16 @@ export default function StudentDetail() {
   const [editContent, setEditContent] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
   const { error: showError } = useToast();
+  // Predictive risk
+  const [risk, setRisk] = useState<RiskResult | null>(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState<string | null>(null);
+  // Counsel AI summary
+  const [counselSummary, setCounselSummary] = useState<string>("");
+  const [counselSummaryLoading, setCounselSummaryLoading] = useState(false);
+  const [counselSummaryError, setCounselSummaryError] = useState<string | null>(null);
+  // Grades (display only)
+  const [grades, setGrades] = useState<GradeEntry[]>([]);
   const intlAge = useMemo(() => {
     if (!student?.birthDate) return undefined;
     const [y, m, d] = student.birthDate.split("-").map(Number);
@@ -83,6 +96,7 @@ export default function StudentDetail() {
       case "courses":
       case "attendance":
       case "counsels":
+      case "grades":
         return tabParam as TabKey;
       default:
         return "courses";
@@ -117,6 +131,30 @@ export default function StudentDetail() {
     return () => { cancelled = true; };
   }, [numericId]);
 
+  // Load minimal data for predictive risk (attendance + counsels)
+  useEffect(() => {
+    if (!numericId || Number.isNaN(numericId)) return;
+    let cancelled = false;
+    async function loadRisk() {
+      setRiskLoading(true); setRiskError(null);
+      try {
+        const [att, cons] = await Promise.all([
+          getStudentAttendance(numericId, { size: 200 }),
+          listCounsels({ studentId: numericId, size: 100 }),
+        ]);
+        if (cancelled) return;
+        const computed = calcRisk(att.content || [], cons.content || [], { days: 30 });
+        setRisk(computed);
+      } catch (e: any) {
+        if (!cancelled) setRiskError(e?.message || '예측 분석 정보를 불러오지 못했습니다.');
+      } finally {
+        if (!cancelled) setRiskLoading(false);
+      }
+    }
+    void loadRisk();
+    return () => { cancelled = true; };
+  }, [numericId]);
+
   // Load counsels when switching to the tab or student changes
   useEffect(() => {
     if (!numericId || activeTab !== "counsels") return;
@@ -137,6 +175,12 @@ export default function StudentDetail() {
     return () => { cancelled = true; };
   }, [numericId, activeTab]);
 
+  // Load grades (display-only)
+  useEffect(() => {
+    if (!numericId || Number.isNaN(numericId)) return;
+    setGrades(getStudentGrades(numericId));
+  }, [numericId]);
+
   async function handleCounselExport() {
     if (!numericId) return;
     setExportingCounsel(true);
@@ -149,6 +193,28 @@ export default function StudentDetail() {
       showError(e?.message || '상담 기록 엑셀 추출에 실패했습니다.');
     } finally {
       setExportingCounsel(false);
+    }
+  }
+
+  async function handleCounselSummarize() {
+    if (!numericId) return;
+    try {
+      setCounselSummaryLoading(true);
+      setCounselSummaryError(null);
+      const items: SummarizeItem[] = (counsels || []).slice(0, 50).map((c) => ({
+        date: (c.counselTime || '').slice(0, 10),
+        content: (c.content || '').replace(/\s+/g, ' ').slice(0, 500),
+      }));
+      if (!items.length) {
+        setCounselSummaryError('요약할 상담 기록이 없습니다.');
+        return;
+      }
+      const resp = await summarizeRecords(items, { language: 'ko' });
+      setCounselSummary(resp.summary || '요약이 비어 있습니다.');
+    } catch (e: any) {
+      setCounselSummaryError(e?.message || '요약 생성에 실패했습니다.');
+    } finally {
+      setCounselSummaryLoading(false);
     }
   }
 
@@ -318,12 +384,572 @@ export default function StudentDetail() {
             </Card>
           </Left>
           <Right>
+            {/* 예측 분석 */}
+            <Card>
+              <CardHead>
+                <SectionTitle>예측 분석</SectionTitle>
+                <CardActions>
+                  <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UISmallBtn>
+                </CardActions>
+              </CardHead>
+              {riskLoading ? (
+                <SectionBody>
+                  <Skeleton w={180} h={14} />
+                  <Skeleton w={420} h={14} mt={8} />
+                </SectionBody>
+              ) : riskError ? (
+                <SectionBody>
+                  <Error>{riskError}</Error>
+                </SectionBody>
+              ) : risk ? (
+                <SectionBody>
+                  <RiskRow>
+                    <RiskPill data-level={risk.level}>
+                      {risk.level === 'RISK' ? '위험 단계' : risk.level === 'CAUTION' ? '주의 단계' : '양호'}
+                    </RiskPill>
+                    <RiskMetrics>
+                      <span>출석률 {risk.metrics.attRate30 != null ? `${risk.metrics.attRate30}%` : '—'}</span>
+                      <Dot />
+                      <span>결석 {risk.metrics.absences30}회</span>
+                      <Dot />
+                      <span>부정 신호 {risk.metrics.negativeCounselCount30}건</span>
+                    </RiskMetrics>
+                  </RiskRow>
+                  {risk.reasons.length > 0 && (
+                    <ReasonList>
+                      {risk.reasons.slice(0,3).map((r, i) => (<li key={i}>{r}</li>))}
+                    </ReasonList>
+                  )}
+                  <RecList>
+                    {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
+                  </RecList>
+                  <ActionRow>
+                    <UISmallBtn as={"button" as any} onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
+                    <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UISmallBtn>
+                  </ActionRow>
+                </SectionBody>
+              ) : (
+                <SectionBody>
+                  <Muted>예측 분석 정보를 준비 중입니다.</Muted>
+                </SectionBody>
+              )}
+            </Card>
+
+            {/* 시험/성적 */}
+            <Card>
+              <CardHead>
+                <SectionTitle>시험/성적</SectionTitle>
+                <CardActions>
+                  {!gradeOpen ? (
+                    <UISmallBtn as={"button" as any} onClick={() => setGradeOpen(true)}>추가</UISmallBtn>
+                  ) : (
+                    <UISmallBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                  )}
+                </CardActions>
+              </CardHead>
+              {gradeOpen && (
+                <SectionBody>
+                  {gErr && <Error>{gErr}</Error>}
+                  <EditGrid>
+                    <div>
+                      <Label>일자</Label>
+                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>과목/시험</Label>
+                      <Input placeholder="예: 중간고사 수학" value={gSubject} onChange={(e)=>setGSubject(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>점수</Label>
+                      <Input placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>만점</Label>
+                      <Input placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>등급</Label>
+                      <Input placeholder="예: A / 상" value={gLevel} onChange={(e)=>setGLevel(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>메모</Label>
+                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
+                    </div>
+                  </EditGrid>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <UIPrimaryBtn as={"button" as any} onClick={() => {
+                      if (!numericId) return;
+                      setGErr(null);
+                      if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
+                      const score = gScore.trim() ? Number(gScore) : undefined;
+                      const outOf = gOutOf.trim() ? Number(gOutOf) : undefined;
+                      if (gScore.trim() && Number.isNaN(score)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
+                      if (gOutOf.trim() && Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
+                      setGradeBusy(true);
+                      try {
+                        addStudentGrade(numericId, { date: gDate, subject: gSubject || undefined, score, outOf, level: gLevel || undefined, note: gNote || undefined });
+                        setGrades(getStudentGrades(numericId));
+                        setGNote(''); setGLevel(''); setGOutOf(''); setGScore('');
+                      } finally { setGradeBusy(false); }
+                    }}>
+                      {gradeBusy ? '저장 중…' : '저장'}
+                    </UIPrimaryBtn>
+                    <UIGhostBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostBtn>
+                  </div>
+                </SectionBody>
+              )}
+              <Divider />
+              <SectionBody>
+                {grades.length === 0 ? (
+                  <Empty>등록된 성적이 없습니다.</Empty>
+                ) : (
+                  <List>
+                    {grades.map(g => (
+                      <ListItem key={g.id}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
+                          <div style={{ display:'grid' }}>
+                            <strong>{g.subject || '성적'}</strong>
+                            <SmallMuted>{g.date}</SmallMuted>
+                          </div>
+                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
+                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
+                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
+                            <UIGhostBtn as={"button" as any} onClick={() => { if (!numericId) return; removeStudentGrade(numericId, g.id); setGrades(getStudentGrades(numericId)); }}>삭제</UIGhostBtn>
+                          </div>
+                        </div>
+                        {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </SectionBody>
+            </Card>
+            {/* 예측 분석 */}
+            <Card>
+              <CardHead>
+                <SectionTitle>예측 분석</SectionTitle>
+                <CardActions>
+                  <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UISmallBtn>
+                </CardActions>
+              </CardHead>
+              {riskLoading ? (
+                <SectionBody>
+                  <Skeleton w={180} h={14} />
+                  <Skeleton w={420} h={14} mt={8} />
+                </SectionBody>
+              ) : riskError ? (
+                <SectionBody>
+                  <Error>{riskError}</Error>
+                </SectionBody>
+              ) : risk ? (
+                <SectionBody>
+                  <RiskRow>
+                    <RiskPill data-level={risk.level}>
+                      {risk.level === 'RISK' ? '위험 단계' : risk.level === 'CAUTION' ? '주의 단계' : '양호'}
+                    </RiskPill>
+                    <RiskMetrics>
+                      <span>출석률 {risk.metrics.attRate30 != null ? `${risk.metrics.attRate30}%` : '—'}</span>
+                      <Dot />
+                      <span>결석 {risk.metrics.absences30}회</span>
+                      <Dot />
+                      <span>부정 신호 {risk.metrics.negativeCounselCount30}건</span>
+                    </RiskMetrics>
+                  </RiskRow>
+                  {risk.reasons.length > 0 && (
+                    <ReasonList>
+                      {risk.reasons.slice(0,3).map((r, i) => (<li key={i}>{r}</li>))}
+                    </ReasonList>
+                  )}
+                  <RecList>
+                    {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
+                  </RecList>
+                  <ActionRow>
+                    <UISmallBtn as={"button" as any} onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
+                    <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UISmallBtn>
+                  </ActionRow>
+                </SectionBody>
+              ) : (
+                <SectionBody>
+                  <Muted>예측 분석 정보를 준비 중입니다.</Muted>
+                </SectionBody>
+              )}
+            </Card>
+
+            {/* 시험/성적 */}
+            <Card>
+              <CardHead>
+                <SectionTitle>시험/성적</SectionTitle>
+                <CardActions>
+                  {!gradeOpen ? (
+                    <UISmallBtn as={"button" as any} onClick={() => setGradeOpen(true)}>추가</UISmallBtn>
+                  ) : (
+                    <UISmallBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                  )}
+                </CardActions>
+              </CardHead>
+              {gradeOpen && (
+                <SectionBody>
+                  {gErr && <Error>{gErr}</Error>}
+                  <EditGrid>
+                    <div>
+                      <Label>일자</Label>
+                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>과목/시험</Label>
+                      <Input placeholder="예: 중간고사 수학" value={gSubject} onChange={(e)=>setGSubject(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>점수</Label>
+                      <Input placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>만점</Label>
+                      <Input placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>등급</Label>
+                      <Input placeholder="예: A / 상" value={gLevel} onChange={(e)=>setGLevel(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>메모</Label>
+                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
+                    </div>
+                  </EditGrid>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <UIPrimaryBtn as={"button" as any} onClick={() => {
+                      if (!numericId) return;
+                      setGErr(null);
+                      if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
+                      const score = gScore.trim() ? Number(gScore) : undefined;
+                      const outOf = gOutOf.trim() ? Number(gOutOf) : undefined;
+                      if (gScore.trim() && Number.isNaN(score)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
+                      if (gOutOf.trim() && Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
+                      setGradeBusy(true);
+                      try {
+                        addStudentGrade(numericId, { date: gDate, subject: gSubject || undefined, score, outOf, level: gLevel || undefined, note: gNote || undefined });
+                        setGrades(getStudentGrades(numericId));
+                        setGNote(''); setGLevel(''); setGOutOf(''); setGScore('');
+                      } finally { setGradeBusy(false); }
+                    }}>
+                      {gradeBusy ? '저장 중…' : '저장'}
+                    </UIPrimaryBtn>
+                    <UIGhostBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostBtn>
+                  </div>
+                </SectionBody>
+              )}
+              <Divider />
+              <SectionBody>
+                {grades.length === 0 ? (
+                  <Empty>등록된 성적이 없습니다.</Empty>
+                ) : (
+                  <List>
+                    {grades.map(g => (
+                      <ListItem key={g.id}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
+                          <div style={{ display:'grid' }}>
+                            <strong>{g.subject || '성적'}</strong>
+                            <SmallMuted>{g.date}</SmallMuted>
+                          </div>
+                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
+                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
+                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
+                            <UIGhostBtn as={"button" as any} onClick={() => { if (!numericId) return; removeStudentGrade(numericId, g.id); setGrades(getStudentGrades(numericId)); }}>삭제</UIGhostBtn>
+                          </div>
+                        </div>
+                        {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </SectionBody>
+            </Card>
+            {/* Predictive analytics */}
+            <Card>
+              <CardHead>
+                <SectionTitle>예측 분석</SectionTitle>
+                <CardActions>
+                  <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UISmallBtn>
+                </CardActions>
+              </CardHead>
+              {riskLoading ? (
+                <SectionBody>
+                  <Skeleton w={180} h={14} />
+                  <Skeleton w={420} h={14} mt={8} />
+                </SectionBody>
+              ) : riskError ? (
+                <SectionBody>
+                  <Error>{riskError}</Error>
+                </SectionBody>
+              ) : risk ? (
+                <SectionBody>
+                  <RiskRow>
+                    <RiskPill data-level={risk.level}>
+                      {risk.level === 'RISK' ? '위험 단계' : risk.level === 'CAUTION' ? '주의 단계' : '양호'}
+                    </RiskPill>
+                    <RiskMetrics>
+                      <span>출석률 {risk.metrics.attRate30 != null ? `${risk.metrics.attRate30}%` : '—'}</span>
+                      <Dot />
+                      <span>결석 {risk.metrics.absences30}회</span>
+                      <Dot />
+                      <span>부정 신호 {risk.metrics.negativeCounselCount30}건</span>
+                    </RiskMetrics>
+                  </RiskRow>
+                  {risk.reasons.length > 0 && (
+                    <ReasonList>
+                      {risk.reasons.slice(0,3).map((r, i) => (<li key={i}>{r}</li>))}
+                    </ReasonList>
+                  )}
+                  <RecList>
+                    {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
+                  </RecList>
+                  <ActionRow>
+                    <UISmallBtn as={"button" as any} onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
+                    <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UISmallBtn>
+                  </ActionRow>
+                </SectionBody>
+              ) : (
+                <SectionBody>
+                  <Muted>예측 분석 정보를 준비 중입니다.</Muted>
+                </SectionBody>
+              )}
+            </Card>
+
+            {/* Grades */}
+            <Card>
+              <CardHead>
+                <SectionTitle>시험/성적</SectionTitle>
+                <CardActions>
+                  {!gradeOpen ? (
+                    <UISmallBtn as={"button" as any} onClick={() => setGradeOpen(true)}>추가</UISmallBtn>
+                  ) : (
+                    <UISmallBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                  )}
+                </CardActions>
+              </CardHead>
+              {gradeOpen && (
+                <SectionBody>
+                  {gErr && <Error>{gErr}</Error>}
+                  <EditGrid>
+                    <div>
+                      <Label>일자</Label>
+                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>과목/시험</Label>
+                      <Input placeholder="예: 중간고사 수학" value={gSubject} onChange={(e)=>setGSubject(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>점수</Label>
+                      <Input placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>만점</Label>
+                      <Input placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>등급</Label>
+                      <Input placeholder="예: A / 상" value={gLevel} onChange={(e)=>setGLevel(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>메모</Label>
+                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
+                    </div>
+                  </EditGrid>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <UIPrimaryBtn as={"button" as any} onClick={() => {
+                      if (!numericId) return;
+                      setGErr(null);
+                      if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
+                      const score = gScore.trim() ? Number(gScore) : undefined;
+                      const outOf = gOutOf.trim() ? Number(gOutOf) : undefined;
+                      if (gScore.trim() && Number.isNaN(score)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
+                      if (gOutOf.trim() && Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
+                      setGradeBusy(true);
+                      try {
+                        addStudentGrade(numericId, { date: gDate, subject: gSubject || undefined, score, outOf, level: gLevel || undefined, note: gNote || undefined });
+                        setGrades(getStudentGrades(numericId));
+                        setGNote(''); setGLevel(''); setGOutOf(''); setGScore('');
+                      } finally { setGradeBusy(false); }
+                    }}>
+                      {gradeBusy ? '저장 중…' : '저장'}
+                    </UIPrimaryBtn>
+                    <UIGhostBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostBtn>
+                  </div>
+                </SectionBody>
+              )}
+              <Divider />
+              <SectionBody>
+                {grades.length === 0 ? (
+                  <Empty>등록된 성적이 없습니다.</Empty>
+                ) : (
+                  <List>
+                    {grades.map(g => (
+                      <ListItem key={g.id}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
+                          <div style={{ display:'grid' }}>
+                            <strong>{g.subject || '성적'}</strong>
+                            <SmallMuted>{g.date}</SmallMuted>
+                          </div>
+                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
+                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
+                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
+                            <UIGhostBtn as={"button" as any} onClick={() => { if (!numericId) return; removeStudentGrade(numericId, g.id); setGrades(getStudentGrades(numericId)); }}>삭제</UIGhostBtn>
+                          </div>
+                        </div>
+                        {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </SectionBody>
+            </Card>
+            {/* Predictive analytics */}
+            <Card>
+              <CardHead>
+                <SectionTitle>예측 분석</SectionTitle>
+                <CardActions>
+                  <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UISmallBtn>
+                </CardActions>
+              </CardHead>
+              {riskLoading ? (
+                <SectionBody>
+                  <Skeleton w={180} h={14} />
+                  <Skeleton w={420} h={14} mt={8} />
+                </SectionBody>
+              ) : riskError ? (
+                <SectionBody>
+                  <Error>{riskError}</Error>
+                </SectionBody>
+              ) : risk ? (
+                <SectionBody>
+                  <RiskRow>
+                    <RiskPill data-level={risk.level}>
+                      {risk.level === 'RISK' ? '위험 단계' : risk.level === 'CAUTION' ? '주의 단계' : '양호'}
+                    </RiskPill>
+                    <RiskMetrics>
+                      <span>출석률 {risk.metrics.attRate30 != null ? `${risk.metrics.attRate30}%` : '—'}</span>
+                      <Dot />
+                      <span>결석 {risk.metrics.absences30}회</span>
+                      <Dot />
+                      <span>부정 신호 {risk.metrics.negativeCounselCount30}건</span>
+                    </RiskMetrics>
+                  </RiskRow>
+                  {risk.reasons.length > 0 && (
+                    <ReasonList>
+                      {risk.reasons.slice(0,3).map((r, i) => (<li key={i}>{r}</li>))}
+                    </ReasonList>
+                  )}
+                  <RecList>
+                    {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
+                  </RecList>
+                  <ActionRow>
+                    <UISmallBtn as={"button" as any} onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
+                    <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UISmallBtn>
+                  </ActionRow>
+                </SectionBody>
+              ) : (
+                <SectionBody>
+                  <Muted>예측 분석 정보를 준비 중입니다.</Muted>
+                </SectionBody>
+              )}
+            </Card>
+
+            {/* Grades */}
+            <Card>
+              <CardHead>
+                <SectionTitle>시험/성적</SectionTitle>
+                <CardActions>
+                  {!gradeOpen ? (
+                    <UISmallBtn as={"button" as any} onClick={() => setGradeOpen(true)}>추가</UISmallBtn>
+                  ) : (
+                    <UISmallBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                  )}
+                </CardActions>
+              </CardHead>
+              {gradeOpen && (
+                <SectionBody>
+                  {gErr && <Error>{gErr}</Error>}
+                  <EditGrid>
+                    <div>
+                      <Label>일자</Label>
+                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>과목/시험</Label>
+                      <Input placeholder="예: 중간고사 수학" value={gSubject} onChange={(e)=>setGSubject(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>점수</Label>
+                      <Input placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>만점</Label>
+                      <Input placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>등급</Label>
+                      <Input placeholder="예: A / 상" value={gLevel} onChange={(e)=>setGLevel(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>메모</Label>
+                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
+                    </div>
+                  </EditGrid>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <UIPrimaryBtn as={"button" as any} onClick={() => {
+                      if (!numericId) return;
+                      setGErr(null);
+                      if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
+                      const score = gScore.trim() ? Number(gScore) : undefined;
+                      const outOf = gOutOf.trim() ? Number(gOutOf) : undefined;
+                      if (gScore.trim() && Number.isNaN(score)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
+                      if (gOutOf.trim() && Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
+                      setGradeBusy(true);
+                      try {
+                        addStudentGrade(numericId, { date: gDate, subject: gSubject || undefined, score, outOf, level: gLevel || undefined, note: gNote || undefined });
+                        setGrades(getStudentGrades(numericId));
+                        setGNote(''); setGLevel(''); setGOutOf(''); setGScore('');
+                      } finally { setGradeBusy(false); }
+                    }}>
+                      {gradeBusy ? '저장 중…' : '저장'}
+                    </UIPrimaryBtn>
+                    <UIGhostBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostBtn>
+                  </div>
+                </SectionBody>
+              )}
+              <Divider />
+              <SectionBody>
+                {grades.length === 0 ? (
+                  <Empty>등록된 성적이 없습니다.</Empty>
+                ) : (
+                  <List>
+                    {grades.map(g => (
+                      <ListItem key={g.id}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
+                          <div style={{ display:'grid' }}>
+                            <strong>{g.subject || '성적'}</strong>
+                            <SmallMuted>{g.date}</SmallMuted>
+                          </div>
+                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
+                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
+                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
+                            <UIGhostBtn as={"button" as any} onClick={() => { if (!numericId) return; removeStudentGrade(numericId, g.id); setGrades(getStudentGrades(numericId)); }}>삭제</UIGhostBtn>
+                          </div>
+                        </div>
+                        {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </SectionBody>
+            </Card>
             <Card>
               <MiniHead>
                 <Tabs>
                   <TabButton data-active>{/* active visual only */}수강수업 <Badge>0</Badge></TabButton>
                   <TabButton>출석현황</TabButton>
-                  {/* 결제 탭 제거 (MVP) */}
+                  <TabButton>성적</TabButton>
                   <TabButton>상담기록</TabButton>
                 </Tabs>
               </MiniHead>
@@ -502,6 +1128,7 @@ export default function StudentDetail() {
                   </TabButton>
                   <TabButton data-active={activeTab === "attendance"} onClick={() => navigate(`/students/${numericId}/attendance`)}>출석현황</TabButton>
                   {/* 결제 탭 제거 (MVP) */}
+                  <TabButton data-active={activeTab === "grades"} onClick={() => navigate(`/students/${numericId}/grades`)}>성적</TabButton>
                   <TabButton data-active={activeTab === "counsels"} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담기록</TabButton>
                 </Tabs>
               </MiniHead>
@@ -576,10 +1203,53 @@ export default function StudentDetail() {
                 </SectionBody>
               )}
 
+              {activeTab === "grades" && (
+                <SectionBody>
+                  <SmallTitle>시험/성적</SmallTitle>
+                  <Divider />
+                  {grades.length === 0 ? (
+                    <Empty>등록된 성적이 없습니다.</Empty>
+                  ) : (
+                    <List>
+                      {grades.map(g => (
+                        <ListItem key={g.id}>
+                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
+                            <div style={{ display:'grid' }}>
+                              <strong>{g.subject || '성적'}</strong>
+                              <SmallMuted>{g.date}</SmallMuted>
+                            </div>
+                            <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
+                              <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
+                              {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
+                            </div>
+                          </div>
+                          {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
+                        </ListItem>
+                      ))}
+                    </List>
+                  )}
+                </SectionBody>
+              )}
               {/* 결제 탭 본문 제거 (MVP) */}
 
               {activeTab === "counsels" && (
                 <SectionBody>
+                  <div style={{ display:'grid', gap:8 }}>
+                    <SmallTitle>상담 AI 요약</SmallTitle>
+                    <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                      <UIPrimaryBtn as={"button" as any} onClick={handleCounselSummarize} disabled={counselSummaryLoading}>
+                        {counselSummaryLoading ? '요약 생성 중…' : '요약 생성'}
+                      </UIPrimaryBtn>
+                      {!!counselSummary && (
+                        <UIGhostBtn as={"button" as any} onClick={() => { try { navigator.clipboard?.writeText(counselSummary); } catch {} }}>복사</UIGhostBtn>
+                      )}
+                      {counselSummaryError && <Error style={{ marginLeft: 6 }}>{counselSummaryError}</Error>}
+                    </div>
+                    {!!counselSummary && (
+                      <NotesBox as="pre" style={{ whiteSpace: 'pre-wrap' }}>{counselSummary}</NotesBox>
+                    )}
+                  </div>
+                  <Divider />
                   <CounselHeader>
                     <div>
                       <SmallTitle>상담기록</SmallTitle>
@@ -869,6 +1539,22 @@ const ListItem = styled.div`
 const Empty = styled.div`
   color: #6b7280; font-size: 13px; text-align: center; border: 1px dashed #e5e7eb; border-radius: 10px; padding: 16px; background: #fafafa;
 `;
+
+// Risk styles
+const RiskRow = styled.div` display:flex; align-items:center; gap:12px; flex-wrap:wrap; `;
+const RiskPill = styled.span`
+  display:inline-flex; align-items:center; justify-content:center; gap:6px;
+  padding: 4px 10px; border-radius: 9999px; font-weight: 800; font-size: 12px;
+  color:#0f172a; background:#f3f4f6; border:1px solid #e5e7eb;
+  &[data-level='CAUTION']{ background:#fef3c7; color:#b45309; border-color:#fcd34d; }
+  &[data-level='RISK']{ background:#fee2e2; color:#b91c1c; border-color:#fecaca; }
+  &[data-level='LOW']{ background:#dcfce7; color:#15803d; border-color:#bbf7d0; }
+`;
+const RiskMetrics = styled.div` color:#475569; font-size:12px; display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap; `;
+const Dot = styled.i` width:4px; height:4px; background:#cbd5e1; display:inline-block; border-radius:50%; `;
+const ReasonList = styled.ul` margin:10px 0 0; padding-left: 18px; color:#334155; font-size:13px; `;
+const RecList = styled.ul` margin:10px 0; padding-left: 18px; color:#111827; font-size:13px; `;
+const ActionRow = styled.div` display:flex; gap:8px; flex-wrap:wrap; `;
 
 // Actions under basic info
 // Button from common UI

@@ -27,7 +27,6 @@ const DevTools = lazy(() => import("@/pages/DevTools"));
 const Marketing = lazy(() => import("@/pages/Marketing"));
 const PaymentsWip = lazy(() => import("@/pages/PaymentsWip"));
 const MarketingSummary = lazy(() => import("@/pages/MarketingSummary"));
-const MarketingGuide = lazy(() => import("@/pages/MarketingGuide"));
 const MarketingPreview = lazy(() => import("@/pages/MarketingPreview"));
 const MarketingGenerating = lazy(() => import("@/pages/MarketingGenerating"));
 const MarketingRendering = lazy(() => import("@/pages/MarketingRendering"));
@@ -133,7 +132,7 @@ export default function App() {
           <Route path={routes.payments} element={<PaymentsWip />} />
           {enableDev && <Route path={routes.devTools} element={<DevTools />} />}
           <Route path={routes.marketing} element={<Marketing />} />
-          <Route path={routes.marketingGuide} element={<MarketingGuide />} />
+          { /* Marketing guide removed */ }
           <Route path={routes.marketingPreview} element={<MarketingPreview />} />
           <Route path={routes.marketingGenerating} element={<MarketingGenerating />} />
           <Route path={routes.marketingRendering} element={<MarketingRendering />} />

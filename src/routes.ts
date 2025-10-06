@@ -31,7 +31,6 @@ export const routes = {
   adminStats: '/admin/stats',
 
   marketing: '/marketing',
-  marketingGuide: '/marketing/guide',
   marketingPreview: '/marketing/preview',
   marketingGenerating: '/marketing/generating',
   marketingRendering: '/marketing/rendering',

@@ -102,6 +102,11 @@ const Bar = styled.div`
   display: grid; grid-template-columns: 0.6fr 1.2fr 1fr 2.7fr; gap: 12px; align-items: end;
   @media (max-width: 1080px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   @media (max-width: 720px) { grid-template-columns: 1fr; }
+  /* Make filters sticky when scrolling under the header block */
+  position: sticky;
+  top: 64px; /* adjust if page header height differs */
+  z-index: 37;
+  background: #fff;
 `;
 const Group = styled.div`
   display: grid; gap: 8px; align-items: start;

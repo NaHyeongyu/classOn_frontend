@@ -9,8 +9,15 @@ export default function ClassesStats() {
   const [total, setTotal] = useState<number>(0);
   const [inProgress, setInProgress] = useState<number>(0);
   const [todayCount, setTodayCount] = useState<number>(0);
+  const [version, setVersion] = useState(0);
 
   const today = useMemo(() => formatYMD(new Date()), []);
+
+  useEffect(() => {
+    const handleRefresh = () => setVersion((v) => v + 1);
+    window.addEventListener('courses:refresh', handleRefresh);
+    return () => window.removeEventListener('courses:refresh', handleRefresh);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -35,7 +42,7 @@ export default function ClassesStats() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [today]);
+  }, [today, version]);
 
   return (
     <Row>
@@ -97,4 +104,3 @@ const calendarIcon = (
     <line x1="3" y1="10" x2="21" y2="10" />
   </svg>
 );
-

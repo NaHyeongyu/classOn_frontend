@@ -15,6 +15,7 @@ import {
   type Course,
   updateCourse,
 } from "@/api/courses";
+import { listStudents, type Student } from "@/api/students";
 
 type FormState = {
   title: string;
@@ -27,13 +28,19 @@ type FormState = {
   recurrenceDays?: string;
   startTime?: string;
   endTime?: string;
+  primaryStudentId?: number | null;
+  primaryStudentName?: string;
 };
+
+type StudentOption = Pick<Student, "id" | "name" | "code" | "status">;
 
 const DEFAULT_FORM: FormState = {
   title: "",
   description: "",
   status: "IN_PROGRESS",
   courseType: 'GROUP',
+  primaryStudentId: null,
+  primaryStudentName: "",
 };
 
 export default function CourseForm() {
@@ -49,6 +56,7 @@ export default function CourseForm() {
   const [fieldErr, setFieldErr] = useState<{
     title?: string;
     schedule?: string;
+    student?: string;
   }>({});
 
   const [form, setForm] = useState<FormState>(() => ({ ...DEFAULT_FORM }));
@@ -56,6 +64,11 @@ export default function CourseForm() {
   const toggleDay = useToggleDay(form, setForm);
   const [recurring, setRecurring] = useState(true);
   const [step, setStep] = useState(0);
+  const [studentOptions, setStudentOptions] = useState<StudentOption[]>([]);
+  const [studentLoading, setStudentLoading] = useState(false);
+  const [studentError, setStudentError] = useState<string | null>(null);
+  const [studentsLoaded, setStudentsLoaded] = useState(false);
+  const [studentFilter, setStudentFilter] = useState("");
 
   const steps = [
     {
@@ -102,6 +115,63 @@ export default function CourseForm() {
     ]),
     [],
   );
+  const filteredStudents = useMemo(() => {
+    const keyword = studentFilter.trim().toLowerCase();
+    if (!keyword) return studentOptions;
+    return studentOptions.filter((opt) => {
+      const name = opt.name?.toLowerCase() ?? "";
+      const code = opt.code?.toLowerCase() ?? "";
+      return name.includes(keyword) || code.includes(keyword);
+    });
+  }, [studentOptions, studentFilter]);
+
+  useEffect(() => {
+    if (!isIndividual || studentsLoaded) return;
+    let cancelled = false;
+    async function loadStudents() {
+      setStudentLoading(true);
+      setStudentError(null);
+      try {
+        const size = 100;
+        let page = 0;
+        let aggregated: StudentOption[] = [];
+        while (true) {
+          const res = await listStudents({ page, size });
+          const { content, last } = res;
+          const mapped = content.map((s) => ({ id: s.id, name: s.name, code: s.code, status: s.status }));
+          aggregated = aggregated.concat(mapped);
+          if (last || content.length === 0 || page > 200) break;
+          page += 1;
+        }
+          if (!cancelled) {
+            const unique = new Map<number, StudentOption>();
+            for (const row of aggregated) unique.set(row.id, row);
+            if (form.primaryStudentId && !unique.has(form.primaryStudentId)) {
+              unique.set(form.primaryStudentId, {
+                id: form.primaryStudentId,
+                name: form.primaryStudentName || `학생 #${form.primaryStudentId}`,
+                code: undefined,
+                status: 'ENROLLED',
+              });
+            }
+          const ordered = Array.from(unique.values()).sort((a, b) =>
+            (a.name || "").localeCompare(b.name || "", 'ko-KR')
+          );
+          setStudentOptions(ordered);
+          setStudentsLoaded(true);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setStudentError(getErrorMessage(error, "학생 목록을 불러오지 못했습니다."));
+          setStudentsLoaded(true);
+        }
+      } finally {
+        if (!cancelled) setStudentLoading(false);
+      }
+    }
+    void loadStudents();
+    return () => { cancelled = true; };
+  }, [isIndividual, studentsLoaded, form.primaryStudentId, form.primaryStudentName]);
 
   useEffect(() => {
     if (!isEdit || !numericId) return;
@@ -124,6 +194,8 @@ export default function CourseForm() {
             recurrenceDays: found.recurrenceDays,
             startTime: found.startTime ? found.startTime.slice(0, 5) : "",
             endTime: found.endTime ? found.endTime.slice(0, 5) : "",
+            primaryStudentId: found.primaryStudentId ?? null,
+            primaryStudentName: found.primaryStudentName ?? "",
           });
           setFeeInput(
             found.fee != null ? formatNumberKR(found.fee) : ""
@@ -149,6 +221,10 @@ export default function CourseForm() {
     setFieldErr({});
     if (!form.title || !form.title.trim()) {
       setFieldErr((prev) => ({ ...prev, title: "수업명을 입력해 주세요." }));
+      return;
+    }
+    if (isIndividual && !form.primaryStudentId) {
+      setFieldErr((prev) => ({ ...prev, student: "학생을 선택해 주세요." }));
       return;
     }
     setSaving(true);
@@ -194,7 +270,7 @@ export default function CourseForm() {
         setSuccess("수업이 추가되었습니다.");
       }
 
-      // 학생 추가는 편집 화면에서 즉시 반영하므로 여기서는 별도 처리 없음
+      // 개인 수업 학생 선택은 저장 시 바로 반영됩니다.
       navigate(`/classes`, { replace: true });
     } catch (error) {
       setError(getErrorMessage(error, "저장에 실패했습니다."));
@@ -212,6 +288,14 @@ export default function CourseForm() {
       setFieldErr((prev) => ({ ...prev, title: undefined }));
     }
     if (current === 1) {
+      if (form.courseType === 'INDIVIDUAL' && !form.primaryStudentId) {
+        setFieldErr((prev) => ({
+          ...prev,
+          student: "학생을 선택해 주세요.",
+        }));
+        return false;
+      }
+      setFieldErr((prev) => ({ ...prev, student: undefined }));
       if (
         recurring &&
         (!form.recurrenceDays ||
@@ -344,7 +428,7 @@ export default function CourseForm() {
                         key={option.value}
                         type="button"
                         data-active={form.courseType === option.value}
-                        onClick={() =>
+                        onClick={() => {
                           setForm((f) => {
                             const next: FormState = {
                               ...f,
@@ -352,10 +436,18 @@ export default function CourseForm() {
                             };
                             if (option.value === 'INDIVIDUAL') {
                               next.capacity = 1;
+                              next.primaryStudentId = null;
+                              next.primaryStudentName = "";
+                            } else {
+                              next.primaryStudentId = null;
+                              next.primaryStudentName = "";
                             }
                             return next;
-                          })
-                        }
+                          });
+                          if (option.value !== 'INDIVIDUAL') {
+                            setFieldErr((prev) => ({ ...prev, student: undefined }));
+                          }
+                        }}
                       >
                         <span className="title">{option.label}</span>
                         <span className="desc">{option.description}</span>
@@ -376,6 +468,63 @@ export default function CourseForm() {
               </StepHeader>
               {/* 상단 이전 단계 버튼 제거: 하단 네비만 유지 */}
               <StepGrid>
+                {isIndividual ? (
+                  <Field>
+                    <Label>
+                      담당 학생<span>*</span>
+                    </Label>
+                    <Input
+                      type="search"
+                      placeholder="학생 이름이나 코드를 입력해 주세요"
+                      value={studentFilter}
+                      onChange={(e) => setStudentFilter(e.target.value)}
+                    />
+                    <StudentList
+                      role="listbox"
+                      data-invalid={fieldErr.student ? 'true' : undefined}
+                      aria-busy={studentLoading}
+                    >
+                      {studentLoading ? (
+                        <StudentPlaceholder>학생 목록을 불러오는 중입니다…</StudentPlaceholder>
+                      ) : studentError ? (
+                        <StudentPlaceholder>{studentError}</StudentPlaceholder>
+                      ) : filteredStudents.length === 0 ? (
+                        <StudentPlaceholder>
+                          등록된 학생이 없습니다. 원생 등록 후 다시 시도해 주세요.
+                        </StudentPlaceholder>
+                      ) : (
+                        filteredStudents.map((opt) => (
+                          <StudentOptionBtn
+                            key={opt.id}
+                            type="button"
+                            role="option"
+                            data-active={form.primaryStudentId === opt.id}
+                            aria-selected={form.primaryStudentId === opt.id}
+                            onClick={() => {
+                              setForm((f) => ({
+                                ...f,
+                                primaryStudentId: opt.id,
+                                primaryStudentName: opt.name,
+                              }));
+                              if (fieldErr.student) {
+                                setFieldErr((prev) => ({ ...prev, student: undefined }));
+                              }
+                            }}
+                          >
+                            <span className="name">{opt.name}</span>
+                            {opt.code ? <span className="meta">{opt.code}</span> : null}
+                          </StudentOptionBtn>
+                        ))
+                      )}
+                    </StudentList>
+                    {form.primaryStudentId ? (
+                      <Hint>
+                        선택된 학생: {form.primaryStudentName || `학생 #${form.primaryStudentId}`}
+                      </Hint>
+                    ) : null}
+                    {fieldErr.student ? <FieldErr>{fieldErr.student}</FieldErr> : null}
+                  </Field>
+                ) : null}
                 <Field>
                   <Label>반복 여부</Label>
                   <Toggle>
@@ -655,6 +804,10 @@ const Select = styled.select`
     border-color: #6366f1;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
   }
+  &[aria-invalid='true'] {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
 `;
 const TextArea = styled.textarea`
   border: 1px solid ${(p) => p.theme.colors.border};
@@ -739,6 +892,57 @@ const TypeToggleButton = styled.button`
     background: rgba(99, 102, 241, 0.06);
     .title { color: #4338ca; }
   }
+`;
+const StudentList = styled.div`
+  margin-top: ${(p) => p.theme.spacing.sm};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  background: #fff;
+  max-height: 240px;
+  overflow-y: auto;
+  display: grid;
+  gap: ${(p) => p.theme.spacing.xs};
+  padding: ${(p) => p.theme.spacing.sm};
+  &[data-invalid='true'] {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  }
+`;
+const StudentOptionBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${(p) => p.theme.spacing.sm};
+  width: 100%;
+  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.md};
+  border: 1px solid transparent;
+  border-radius: ${(p) => p.theme.radii.md};
+  background: transparent;
+  cursor: pointer;
+  font-size: ${(p) => p.theme.font.size.md};
+  color: #111827;
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+  .name {
+    font-weight: 600;
+  }
+  .meta {
+    font-size: ${(p) => p.theme.font.size.sm};
+    color: #64748b;
+  }
+  &:hover {
+    background: #f8fafc;
+  }
+  &[data-active='true'] {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.12);
+  }
+`;
+const StudentPlaceholder = styled.div`
+  padding: ${(p) => p.theme.spacing.md};
+  text-align: center;
+  color: #64748b;
+  font-size: ${(p) => p.theme.font.size.sm};
 `;
 const TimeRow = styled.div`
   display: grid;
@@ -826,24 +1030,25 @@ const StepChip = styled.button`
     width: 22px;
     height: 22px;
     border-radius: 999px;
-    background: #e2e8f0;
-    color: #475569;
+    background: #e5e7eb;
+    color: #6b7280;
     display: grid;
     place-items: center;
     font-weight: 700;
   }
   &[data-active='true'] {
-    border-color: #6366f1;
+    border-color: #c7d2fe;
     background: #eef2ff;
-    color: #312e81;
+    color: #1f2937;
+    box-shadow: 0 6px 18px rgba(79, 70, 229, 0.15);
     .index {
       background: #6366f1;
       color: #fff;
     }
   }
   &[data-done='true'] {
-    border-color: #6366f1;
-    color: #312e81;
+    border-color: #c7d2fe;
+    color: #1f2937;
     .index {
       background: #4f46e5;
       color: #fff;

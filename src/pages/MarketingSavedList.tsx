@@ -90,7 +90,6 @@ export default function MarketingSavedList() {
             <Empty>아직 저장된 항목이 없습니다.</Empty>
             <div style={{ display:'flex', gap:8, justifyContent:'flex-start', marginTop: 8 }}>
               <GhostButtonSmall as="a" href="/marketing">마케팅 홈으로</GhostButtonSmall>
-              <GhostButtonSmall as="a" href="/marketing/guide">가이드 보기</GhostButtonSmall>
             </div>
           </>
         ) : (

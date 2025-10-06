@@ -36,10 +36,10 @@ type FlatRow = {
 };
 
 const statusFilters: { value: StatusFilter; label: string }[] = [
+  { value: "ALL", label: "전체" },
   { value: "PRESENT", label: "출석" },
   { value: "ABSENT", label: "결석" },
   { value: "UNPROCESSED", label: "미처리" },
-  { value: "ALL", label: "전체" },
 ];
 
 function labelDate(ymd: string): string {
@@ -108,16 +108,11 @@ export default function Attendance() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("PRESENT");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   function changeView(next: ViewMode) {
+    // Preserve user's current status filter across view changes
     setViewMode(next);
-    if (next === 'daily' && statusFilter === 'ALL') {
-      setStatusFilter('PRESENT');
-    }
-    if (next === 'class' && statusFilter !== 'ALL') {
-      setStatusFilter('ALL');
-    }
   }
 
   useEffect(() => {
@@ -352,7 +347,6 @@ export default function Attendance() {
                     <thead>
                       <tr>
                         <th>수업</th>
-                        <th>코드</th>
                         <th>시간</th>
                         <th className="num">출석</th>
                         <th className="num">결석</th>
@@ -369,7 +363,6 @@ export default function Attendance() {
                               {cls.topic && <small>{cls.topic}</small>}
                             </TitleCell>
                           </td>
-                          <td>{cls.courseCode ? <code>{cls.courseCode}</code> : '-'}</td>
                           <td>{timeRange(cls.startTime, cls.endTime)}</td>
                           <td className="num">{cls.presentCount}</td>
                           <td className="num">{cls.absentCount}</td>
@@ -527,7 +520,7 @@ const Controls = styled.div`
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin: 24px 0 12px;
+  margin: 0 0 12px;
 `;
 
 const ViewTabs = styled.div`

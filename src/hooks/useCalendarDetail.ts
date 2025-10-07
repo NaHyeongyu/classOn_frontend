@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { formatYMD, parseYMD, stripTime, WEEK_LABELS } from "../features/calendar/dateUtils";
+import { formatYMD, parseYMD, stripTime } from "../features/calendar/dateUtils";
 import type { ClassItem, CounselItem,  } from "../types/calendarDetail";
 import { useCoursesCalendar } from "../features/calendar/useCoursesCalendar";
 import { listCounsels, type Counsel, type PageResult } from "../api/counsels";
 import { peekCache } from "../lib/fetcher";
+import { formatKoreanDate } from "@/lib/format";
 
 export function useCalendarDetail(ymd?: string) {
   const date = useMemo(() => (ymd ? parseYMD(ymd) : stripTime(new Date())), [ymd]);
-  const label = `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일 (${WEEK_LABELS[date.getDay()]})`;
+  const labelComputed = formatKoreanDate(date, { includeWeekday: true });
+  const label = labelComputed === '—'
+    ? `${date.getFullYear()}년 ${date.getMonth() + 1}월 ${date.getDate()}일`
+    : labelComputed;
 
   const { classesForDate } = useCoursesCalendar({ dates: [[date]] });
   const classes = useMemo<ClassItem[]>(() => classesForDate(date), [classesForDate, date]);

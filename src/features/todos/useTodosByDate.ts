@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listTodosByDate, type Todo } from "../../api/todos";
 import { peekCache } from "../../lib/fetcher";
+import { readableError } from "@/lib/errors";
 
 export function useTodosByDate(ymd: string) {
   const [data, setData] = useState<Todo[] | null>(null);
@@ -31,9 +32,9 @@ export function useTodosByDate(ymd: string) {
       // Ignore late results for previous ymd
       if (ymdRef.current !== ymd) return;
       setData(list);
-    } catch (e: any) {
-      if (e?.name === "AbortError") return; // aborted due to ymd change/unmount
-      setError(e?.message || "Failed to load todos");
+    } catch (e) {
+      if ((e as { name?: string })?.name === "AbortError") return; // aborted due to ymd change/unmount
+      setError(readableError(e, "Failed to load todos"));
     } finally {
       if (ymdRef.current === ymd) {
         setLoading(false);

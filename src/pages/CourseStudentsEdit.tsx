@@ -5,12 +5,15 @@ import {
   SectionCard as Section,
   TitleH3 as Title,
   SmallBtn as UISmallBtn,
+  PrimaryButtonSm as UIPrimaryButtonSm,
 } from "../components/common/UI";
 import { getCourse, listCourseStudents } from "@/api/courses";
 import type { Course } from "@/api/courses";
 import { listStudents, type Student, updateStudent, type StudentPayload } from "@/api/students";
 import BackButton from "@/components/common/BackButton";
 import { invalidateCacheByPrefix } from "@/lib/fetcher";
+import { getErrorMessage } from "@/lib/errors";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 export default function CourseStudentsEdit() {
   const { id } = useParams();
@@ -31,6 +34,11 @@ export default function CourseStudentsEdit() {
   const [enrolledError, setEnrolledError] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
+  const { confirm: confirmUnenroll, dialog: confirmUnenrollDialog } = useConfirmDialog({
+    confirmLabel: "해제",
+    cancelLabel: "취소",
+    tone: "danger",
+  });
 
   useEffect(() => {
     if (!numericId) return;
@@ -164,6 +172,12 @@ export default function CourseStudentsEdit() {
 
   async function onUnenroll(s: Student) {
     if (!numericId) return;
+    const label = s.name?.trim() || "선택한";
+    const confirmed = await confirmUnenroll({
+      title: "수업에서 해제할까요?",
+      message: `${label} 학생을 이 수업에서 해제합니다. 되돌릴 수 없습니다.`,
+    });
+    if (!confirmed) return;
     try {
       setRemovingId(s.id);
       const existing = Array.isArray(s.courses) ? s.courses.map((c) => c.id) : [];
@@ -193,6 +207,7 @@ export default function CourseStudentsEdit() {
 
   return (
     <Wrap>
+      {confirmUnenrollDialog}
       <Head>
         <BackButton to={`/classes/${numericId ?? ''}`} label="뒤로" />
         <h2>수강생 수정</h2>
@@ -227,9 +242,14 @@ export default function CourseStudentsEdit() {
                         {alreadyEnrolled ? (
                           <SmallBtn type="button" disabled title="이미 등록된 학생">등록됨</SmallBtn>
                         ) : (
-                          <SmallBtn type="button" onClick={()=>onEnroll(s)} disabled={addingId===s.id || atCapacity} title={atCapacity?"정원 초과":"추가"}>
-                            {addingId===s.id ? "추가 중..." : "추가"}
-                          </SmallBtn>
+                          <UIPrimaryButtonSm
+                            type="button"
+                            onClick={() => onEnroll(s)}
+                            disabled={addingId === s.id || atCapacity}
+                            title={atCapacity ? "정원 초과" : "추가"}
+                          >
+                            {addingId === s.id ? "추가 중..." : "추가"}
+                          </UIPrimaryButtonSm>
                         )}
                       </RowActions>
                     </Row>
@@ -253,7 +273,7 @@ export default function CourseStudentsEdit() {
                       <StatusTag data-type={s.status}>{statusText(s.status)}</StatusTag>
                     </div>
                     <RowActions>
-                      <SmallBtn type="button" data-variant="danger" onClick={()=>onUnenroll(s)} disabled={removingId===s.id}>
+                      <SmallBtn type="button" data-variant="danger" onClick={() => void onUnenroll(s)} disabled={removingId===s.id}>
                         {removingId===s.id ? "해제 중..." : "해제"}
                       </SmallBtn>
                     </RowActions>
@@ -266,12 +286,6 @@ export default function CourseStudentsEdit() {
       </Section>
     </Wrap>
   );
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message || fallback;
-  if (typeof error === 'string') return error || fallback;
-  return fallback;
 }
 
 // styles
@@ -295,10 +309,6 @@ const SmallBtn = styled(UISmallBtn)`
     background:#111827;
     color:#fff;
     border-color:#111827;
-  }
-  &[data-variant='danger']{
-    border-color:#fecaca;
-    color:#b91c1c;
   }
 `;
 const SmallMuted = styled.span` margin-left:8px; color:#9ca3af; font-size:12px; `;

@@ -67,7 +67,7 @@ const Count = styled.span`
 `;
 const More = styled.button`
   height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700; font-size: 14px; cursor: pointer;
-  &:hover { background: #f9fafb; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceMuted}; }
 `;
 const List = styled.div`
   margin-top: 10px;
@@ -87,7 +87,7 @@ const Item = styled.div`
   padding: 10px 12px;
   background: #fff;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  &:hover { background: #fafafa; border-color: #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceMuted}; border-color: ${({ theme }) => theme.colors.borderMuted}; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 `;
 const Dot = styled.span`
   width: 10px; height: 10px; border-radius: 9999px; background: #4f46e5; margin-top: 3px;

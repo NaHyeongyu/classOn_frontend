@@ -57,6 +57,13 @@ export type Attachment = {
 // Re-export for existing imports from this module
 export type { PageResult } from "../types/paging";
 
+const DEFAULT_API_BASE = "https://api.myclasson.com/api";
+const API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : DEFAULT_API_BASE);
+
+function resolveApiUrl(path: string): string {
+  return API_BASE ? new URL(path, API_BASE).toString() : path;
+}
+
 export async function listCourses(params?: { status?: Course["status"] | ""; q?: string; page?: number; size?: number; onYmd?: string; s?: 'title'|'status'|'capacity'|'fee'|'startTime'|'endTime'|'createdAt'; dir?: 'ASC'|'DESC' }): Promise<PageResult<Course>> {
   const sp = new URLSearchParams();
   if (params?.status) sp.set("status", params.status);
@@ -100,8 +107,14 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
       '/api/calendar/classes-range',
       '/api/dashboard/summary',
     ]);
-  } catch {}
-  try { window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'create', id: res.id } })); } catch {}
+  } catch {
+    /* ignore cache invalidation failures */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'create', id: res.id } }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
   return res;
 }
 
@@ -130,8 +143,14 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
       '/api/calendar/classes-range',
       '/api/dashboard/summary',
     ]);
-  } catch {}
-  try { window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'update', id } })); } catch {}
+  } catch {
+    /* ignore cache invalidation failures */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'update', id } }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
   return res;
 }
 
@@ -168,19 +187,6 @@ export async function createCourseRecord(
 ): Promise<CourseRecord> {
   const body = JSON.stringify(payload);
   return await fetchJSON<CourseRecord>(`/api/courses/${courseId}/records`, { method: 'POST', body });
-}
-
-export async function generateCourseRecords(courseId: number, params?: { from?: string; to?: string; }): Promise<{ created: number }> {
-  const sp = new URLSearchParams();
-  if (params?.from) sp.set('from', params.from);
-  if (params?.to) sp.set('to', params.to);
-  const q = Array.from(sp.keys()).length ? `?${sp}` : '';
-  return await fetchJSON<{ created: number }>(`/api/courses/${courseId}/records/generate${q}`, { method: 'POST' });
-}
-
-export async function deleteCourseRecordsRange(courseId: number, params: { from: string; to: string; }): Promise<void> {
-  const sp = new URLSearchParams({ from: params.from, to: params.to });
-  await fetchJSON<void>(`/api/courses/${courseId}/records?${sp}`, { method: 'DELETE' });
 }
 
 export async function listRecordAttendance(courseId: number, recordId: number): Promise<Attendance[]> {
@@ -233,8 +239,7 @@ export async function deleteRecordAttachment(courseId: number, recordId: number,
 
 export async function downloadRecordAttachmentBlob(courseId: number, recordId: number, fileId: number): Promise<Blob> {
   // Reuse blob fetch helper used by Excel utilities to include Authorization header
-  const API_BASE = ((import.meta as any).env?.VITE_API_BASE ?? (import.meta as any).env?.VITE_API_BASE_URL) ?? ((import.meta as any).env?.DEV ? "" : "https://api.myclasson.com/api");
-  const url = API_BASE ? new URL(`/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`, API_BASE).toString() : `/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`;
+  const url = resolveApiUrl(`/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`);
   const token = (await import("../lib/auth")).getToken();
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
@@ -252,27 +257,23 @@ export async function deleteCourse(id: number): Promise<void> {
       '/api/calendar/classes-range',
       '/api/dashboard/summary',
     ]);
-  } catch {}
-  try { window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'delete', id } })); } catch {}
+  } catch {
+    /* ignore cache invalidation failures */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'delete', id } }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
 }
 
 // Excel helpers (download/upload)
-const API_BASE_COURSE = ((import.meta as any).env?.VITE_API_BASE ?? (import.meta as any).env?.VITE_API_BASE_URL) ?? ((import.meta as any).env?.DEV ? "" : "https://api.myclasson.com/api");
-function resolveURL(path: string) { return API_BASE_COURSE ? new URL(path, API_BASE_COURSE).toString() : path; }
 async function fetchBlob(path: string): Promise<Blob> {
-  const url = resolveURL(path);
+  const url = resolveApiUrl(path);
   const token = (await import("../lib/auth")).getToken();
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
   return await res.blob();
-}
-
-export async function downloadCoursesExcel(params?: { status?: Course["status"] | ""; q?: string; }): Promise<Blob> {
-  const sp = new URLSearchParams();
-  if (params?.status) sp.set('status', params.status);
-  if (params?.q && params.q.trim()) sp.set('q', params.q.trim());
-  const q = Array.from(sp.keys()).length ? `?${sp}` : '';
-  return await fetchBlob(`/api/courses/export${q}`);
 }
 
 export async function downloadCourseRecordsExcel(courseId: number, params?: { from?: string; to?: string; }): Promise<Blob> {
@@ -281,19 +282,4 @@ export async function downloadCourseRecordsExcel(courseId: number, params?: { fr
   if (params?.to) sp.set('to', params.to);
   const q = Array.from(sp.keys()).length ? `?${sp}` : '';
   return await fetchBlob(`/api/courses/${courseId}/records/export${q}`);
-}
-
-export async function downloadCoursesTemplate(): Promise<Blob> {
-  return await fetchBlob(`/api/courses/template`);
-}
-
-export async function importCoursesExcel(file: File): Promise<{ created: number; updated: number; skipped: number; errors: string[] }>{
-  const url = resolveURL(`/api/courses/import`);
-  const token = (await import("../lib/auth")).getToken();
-  const form = new FormData();
-  form.append('file', file);
-  const res = await fetch(url, { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
-  const text = await res.text().catch(() => '');
-  if (!res.ok) throw new Error(text || `HTTP ${res.status} ${res.statusText}`);
-  return text ? JSON.parse(text) : { created:0, updated:0, skipped:0, errors:[] };
 }

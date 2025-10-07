@@ -9,6 +9,7 @@ import { getAdminOverview, getLoginLogs, getPayments, listLoginLogsPaged, type A
 import { listAdminAcademies, type AdminAcademyRow } from "@/api/adminAcademies";
 import { useToast } from "@/components/common/Toast";
 import { LoadingSpinner } from "@/components/common/Loading";
+import { formatKoreanDate, formatKoreanDateTime } from "@/lib/format";
 
 type AdminLoginLog = Awaited<ReturnType<typeof getLoginLogs>> extends Array<infer T> ? T : never;
 type AdminPaymentRow = Awaited<ReturnType<typeof getPayments>> extends Array<infer T> ? T : never;
@@ -220,6 +221,11 @@ export default function AdminPage() {
             <li>
               <MonoGhost as="a" href={routes.admin + '/payments'}>결제 기록 보기</MonoGhost>
             </li>
+            {import.meta.env.VITE_ENABLE_FEEDBACK === 'true' && (
+              <li>
+                <MonoGhost as="a" href={routes.admin + '/feedbacks'}>피드백 보기</MonoGhost>
+              </li>
+            )}
           </QuickList>
         </Section>
 
@@ -668,8 +674,20 @@ function AcademiesTable({ from, to }: { from: string; to: string }) {
                     <a href={routes.admin + '/academies/' + (r.id || '')} style={{ color:'#111827', textDecoration:'underline', fontWeight:800 }}>{r.name}</a>
                     <div style={{ color:'#64748b', fontSize:12 }}>
                       {(r.bizNo || '-')}
-                      {r.createdAt ? ` • 가입일 ${new Date(r.createdAt).toLocaleDateString('ko-KR')}` : ''}
-                      {(() => { const t = [r.loginLastAt, r.apiLastAt, r.paymentLastAt].filter(Boolean).map(x => new Date(x as string).getTime()); if (t.length===0) return ''; const last = new Date(Math.max.apply(null, t)); return ` • 최근활동 ${last.toLocaleDateString('ko-KR')} ${last.toLocaleTimeString('ko-KR', { hour12: false })}`; })()}
+                      {r.createdAt ? (() => {
+                        const label = formatKoreanDate(r.createdAt, { includeWeekday: true });
+                        return ` • 가입일 ${label === '—' ? r.createdAt : label}`;
+                      })() : ''}
+                      {(() => {
+                        const timestamps = [r.loginLastAt, r.apiLastAt, r.paymentLastAt]
+                          .filter(Boolean)
+                          .map((x) => new Date(x as string).getTime())
+                          .filter((t) => Number.isFinite(t));
+                        if (timestamps.length === 0) return '';
+                        const last = new Date(Math.max(...timestamps));
+                        const label = formatKoreanDateTime(last, { includeWeekday: true });
+                        return ` • 최근활동 ${label === '—' ? last.toLocaleString('ko-KR',{ hour12: false }) : label}`;
+                      })()}
                     </div>
                   </div>
                 </td>

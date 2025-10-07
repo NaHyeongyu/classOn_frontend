@@ -9,11 +9,7 @@ import { useCoursesCalendar } from "@/features/calendar/useCoursesCalendar";
 import { useTodoEvents } from "@/features/todos/useTodoEvents";
 import { useCounselEvents } from "@/features/counsels/useCounselEvents";
 import { getClassesRange } from "@/api/calendar";
-import {
-  PageHeader,
-  SmallBtn as UISmallBtn,
-  SectionCard,
-} from "@/components/common/UI";
+import { SectionCard } from "@/components/common/UI";
 
 export default function Calendar() {
   const navigate = useNavigate();
@@ -46,7 +42,7 @@ export default function Calendar() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       const tag = (e.target as HTMLElement | null)?.tagName?.toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || (e as any).isComposing) return;
+      if (tag === 'input' || tag === 'textarea' || e.isComposing) return;
       if (e.key === 'ArrowLeft') { e.preventDefault(); prevMonth(); }
       else if (e.key === 'ArrowRight') { e.preventDefault(); nextMonth(); }
       else if (e.key.toLowerCase() === 't') { e.preventDefault(); setViewDate(new Date()); }
@@ -59,26 +55,28 @@ export default function Calendar() {
     <Viewport>
       <Card>
         <Centered>
-          <HeaderWrap>
-            <PageHeader>
-              <div>
+          <HeaderArea>
+            <HeaderGrid>
+              <TitleGroup>
                 <h2>캘린더</h2>
                 <p>일정을 한눈에 확인해보세요</p>
-              </div>
-              <MonthNav>
+              </TitleGroup>
+              <MonthToolbar>
                 <NavBtn type="button" onClick={prevMonth} aria-label="이전 달">
-                  ‹
+                  {'<'}
                 </NavBtn>
-                <MonthLabel>{label}</MonthLabel>
+                <MonthBadge>{label}</MonthBadge>
                 <NavBtn type="button" onClick={nextMonth} aria-label="다음 달">
-                  ›
+                  {'>'}
                 </NavBtn>
+              </MonthToolbar>
+              <RightActions>
                 <TodayBtn type="button" onClick={() => setViewDate(new Date())}>
                   오늘
                 </TodayBtn>
-              </MonthNav>
-            </PageHeader>
-          </HeaderWrap>
+              </RightActions>
+            </HeaderGrid>
+          </HeaderArea>
 
           <CalendarSurface>
             <Weekdays />
@@ -96,12 +94,6 @@ export default function Calendar() {
               }}
             />
           </CalendarSurface>
-
-          <Legend>
-            <LegendPill $variant="class">수업</LegendPill>
-            <LegendPill $variant="counsel">상담</LegendPill>
-            <LegendPill $variant="todo">할 일</LegendPill>
-          </Legend>
         </Centered>
       </Card>
     </Viewport>
@@ -118,32 +110,71 @@ const Card = styled.section`
   height: 100%;
   display: flex;
   flex-direction: column;
-  gap: ${(p) => p.theme.spacing.lg};
+  gap: 0;
   background: transparent;
   border-radius: ${(p) => p.theme.radii.xl};
-  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.xs}
-    ${(p) => p.theme.spacing.lg};
+  padding: 0;
   min-height: 0; /* allow children to shrink within viewport */
 `;
 
 const Centered = styled.div`
-  /* Center the calendar content and cap overly wide screens */
   width: 100%;
-  max-width: 1360px; /* align with app content width */
+  max-width: 1480px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  @media (min-width: 1536px) {
-    max-width: 1480px; /* match ContentInner large cap */
+  padding: 0;
+  @media (min-width: 1440px) {
+    max-width: 1600px;
   }
 `;
 
-const HeaderWrap = styled.div`
-  padding: 0 ${(p) => p.theme.spacing.xs};
-  display: grid;
+const HeaderArea = styled.div`
+  padding: 0;
+`;
+
+const RightActions = styled.div`
+  justify-self: end;
+  display: flex;
   gap: ${(p) => p.theme.spacing.sm};
+  @media (max-width: 768px) {
+    justify-self: center;
+  }
+`;
+
+const TitleGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  h2 {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    color: #111827;
+  }
+  p {
+    margin: 0;
+    color: #6b7280;
+    font-size: 14px;
+  }
+`;
+
+const HeaderGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: ${(p) => p.theme.spacing.md};
+  align-items: center;
+  padding-bottom: ${(p) => p.theme.spacing.sm};
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    ${TitleGroup} {
+      align-items: center;
+    }
+  }
 `;
 
 const CalendarSurface = styled(SectionCard)`
@@ -154,66 +185,62 @@ const CalendarSurface = styled(SectionCard)`
   border-radius: ${(p) => p.theme.radii.xl};
   gap: ${(p) => p.theme.spacing.md};
   min-height: 0; /* ensure grid can size within */
+  min-height: 500px;
   @media (min-width: 1280px) {
     padding: ${(p) => p.theme.spacing.xl};
+    min-height: 560px;
   }
 `;
 
-const Legend = styled.div`
-  padding: 0 ${(p) => p.theme.spacing.xs};
+const MonthToolbar = styled.div`
   display: flex;
+  align-items: center;
+  justify-content: center;
   gap: ${(p) => p.theme.spacing.sm};
   flex-wrap: wrap;
 `;
 
-const LegendPill = styled.span<{ $variant: "class" | "counsel" | "todo" }>`
+const MonthBadge = styled.span`
+  min-width: 140px;
+  text-align: center;
+  font-weight: 600;
+  font-size: 25px;
+  letter-spacing: -0.01em;
+  color: #111827;
+  padding: 6px 12px;
+`;
+
+const NavBtn = styled.button`
+  appearance: none;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
-  font-size: ${(p) => p.theme.font.size.sm};
+  justify-content: center;
+  cursor: pointer;
+  &:hover { color: #1f2937; }
+  &:active { transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid #111827; border-radius: 12px; outline-offset: 2px; }
+`;
+
+const TodayBtn = styled.button`
+  appearance: none;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid #4f46e5;
+  background: transparent;
+  color: #4f46e5;
+  font-size: 14px;
   font-weight: 600;
-  padding: ${(p) => p.theme.spacing.xs} ${(p) => p.theme.spacing.md};
-  border-radius: 999px;
-  background: ${({ $variant }) =>
-    $variant === "class"
-      ? "#ede9fe"
-      : $variant === "counsel"
-      ? "#dbeafe"
-      : "#d1fae5"};
-  color: ${({ $variant }) =>
-    $variant === "class"
-      ? "#6d28d9"
-      : $variant === "counsel"
-      ? "#1d4ed8"
-      : "#047857"};
-`;
-
-const MonthNav = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: ${(p) => p.theme.spacing.sm};
-  flex-wrap: wrap;
-`;
-
-const MonthLabel = styled.span`
-  min-width: 120px;
-  text-align: center;
-  font-weight: 700;
-  font-size: 16px;
-  color: ${({ theme }) => theme.colors.text};
-`;
-
-const NavBtn = styled(UISmallBtn)`
-  width: 40px;
-  height: 40px;
-  padding: 0;
-  font-size: 18px;
-  font-weight: 700;
-`;
-
-const TodayBtn = styled(UISmallBtn)`
-  height: 40px;
-  padding: 0 ${(p) => p.theme.spacing.lg};
-  font-size: ${(p) => p.theme.font.size.md};
-  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+  &:hover { background: rgba(79, 70, 229, 0.08); }
+  &:active { background: rgba(79, 70, 229, 0.16); transform: translateY(1px); }
+  &:focus-visible { outline: 2px solid #4f46e5; border-radius: 12px; outline-offset: 2px; }
 `;

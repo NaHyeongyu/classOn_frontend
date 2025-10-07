@@ -31,7 +31,7 @@ export default function StudentsFilters({ value, onChange, onApply }: { value: F
     <Bar>
       <Group>
         <Label>상태</Label>
-        <SelectBox ariaLabel="상태" value={v.status || ''} onChange={(val)=> set("status", val as any)} placeholder="전체"
+        <SelectBox ariaLabel="상태" value={v.status || ''} onChange={(val)=> set("status", val as Filters['status'])} placeholder="전체"
           options={[
             { label: '수강중', value: 'ENROLLED' },
             { label: '휴학', value: 'ON_LEAVE' },
@@ -144,7 +144,8 @@ const DateInput = styled.input`
     content: '';
   }
   /* Hide native empty ghost text on Safari */
-  &::-webkit-datetime-edit { color: ${({"data-has-value": hv}: any) => hv ? '#111827' : 'transparent'}; }
+  &::-webkit-datetime-edit { color: transparent; }
+  &[data-has-value='true']::-webkit-datetime-edit { color: #111827; }
   &::-webkit-calendar-picker-indicator { opacity: 1; }
 `;
 const RangeWrap = styled.div`

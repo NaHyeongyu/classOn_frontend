@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 // EN: AuthContext provides user state and auth actions across the app
 // KO: 앱 전역에 사용자 상태와 인증 액션을 제공하는 컨텍스트

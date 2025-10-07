@@ -11,6 +11,7 @@ export const PageHeader = styled.header`
   align-items: center;
   justify-content: space-between;
   gap: 14px;
+  margin-bottom: 0;
 `;
 
 export const PageTitle = styled.h2`
@@ -297,4 +298,3 @@ export const ErrorBanner = styled.div`
   border-radius: 12px;
   font-size: 13px;
 `;
-

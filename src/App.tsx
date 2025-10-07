@@ -32,6 +32,9 @@ const MarketingGenerating = lazy(() => import("@/pages/MarketingGenerating"));
 const MarketingRendering = lazy(() => import("@/pages/MarketingRendering"));
 const MarketingSavedList = lazy(() => import("@/pages/MarketingSavedList"));
 const MarketingSavedDetail = lazy(() => import("@/pages/MarketingSavedDetail"));
+const ReportWip = lazy(() => import("@/pages/ReportWip"));
+const Feedback = lazy(() => import("@/pages/Feedback"));
+const FeedbackChangelog = lazy(() => import("@/pages/FeedbackChangelog"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminLogin = lazy(() => import("@/pages/AdminLogin"));
 const AdminLogins = lazy(() => import("@/pages/AdminLogins"));
@@ -40,6 +43,7 @@ const AdminOpenAiLogs = lazy(() => import("@/pages/AdminOpenAiLogs"));
 const AdminPayments = lazy(() => import("@/pages/AdminPayments"));
 const AdminStats = lazy(() => import("@/pages/AdminStats"));
 const AdminAcademyDetail = lazy(() => import("@/pages/AdminAcademyDetail"));
+const AdminFeedbacks = lazy(() => import("@/pages/AdminFeedbacks"));
 import { PageLoading, LoadingSpinner } from "@/components/common/Loading";
 import { RouteTransition, TopProgressBar } from "@/components/common/RouteTransition";
 import { routes } from "@/routes";
@@ -99,7 +103,8 @@ const MenuBtn = styled.button`
 import { AdminAuthProvider, useAdminAuth } from "@/hooks/useAdminAuth";
 
 export default function App() {
-  const enableDev = (import.meta as any).env?.VITE_ENABLE_DEV_ROUTES === 'true';
+  const enableDev = import.meta.env.VITE_ENABLE_DEV_ROUTES === 'true';
+  const enableFeedback = import.meta.env.VITE_ENABLE_FEEDBACK === 'true';
   return (
     <ToastProvider>
     <AdminAuthProvider>
@@ -139,6 +144,9 @@ export default function App() {
           <Route path={routes.marketingSummary} element={<MarketingSummary />} />
           <Route path={routes.marketingSaved} element={<MarketingSavedList />} />
           <Route path={routes.marketingSavedDetail} element={<MarketingSavedDetail />} />
+          <Route path={routes.report} element={<ReportWip />} />
+          <Route path={routes.feedback} element={<Feedback />} />
+          {enableFeedback && <Route path={routes.feedbackChangelog} element={<FeedbackChangelog />} />}
           { /* Todos page removed; manage todos within Calendar Detail */ }
         </Route>
       </Route>
@@ -150,6 +158,7 @@ export default function App() {
           <Route path={routes.admin + '/api-logs'} element={<AdminApiLogs />} />
           <Route path={routes.admin + '/openai-logs'} element={<AdminOpenAiLogs />} />
           <Route path={routes.admin + '/payments'} element={<AdminPayments />} />
+          {enableFeedback && <Route path={routes.admin + '/feedbacks'} element={<AdminFeedbacks />} />}
           <Route path={routes.adminStats} element={<AdminStats />} />
           <Route path={routes.admin + '/academies/:id'} element={<AdminAcademyDetail />} />
         </Route>

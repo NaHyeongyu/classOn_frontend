@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { listCounsels, type Counsel, type PageResult } from "../../api/counsels";
 import type { CalendarEvent } from "../../types/calendar";
 import { formatYMD } from "../calendar/dateUtils";
+import { readableError } from "@/lib/errors";
 
 // Prefetch counsel counts for the currently visible dates.
 export function useCounselEvents(visibleDates?: Date[]) {
@@ -44,8 +45,8 @@ export function useCounselEvents(visibleDates?: Date[]) {
           map[day] = (map[day] || 0) + 1;
         }
         setCounts(map);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "상담 정보를 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "상담 정보를 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }

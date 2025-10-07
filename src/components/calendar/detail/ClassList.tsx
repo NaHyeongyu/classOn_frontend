@@ -1,8 +1,9 @@
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import type { ClassItem } from "../../../types/calendarDetail";
-import { SmallBtn as UISmallBtn, buttonVariants } from "../../common/UI";
+import { SmallBtn as UISmallBtn, PrimaryButtonSm } from "../../common/UI";
 import { EmptyPlaceholder } from "../../common/EmptyPlaceholder";
+import { formatKoreanDate } from "@/lib/format";
 
 type Props = {
   items?: ClassItem[] | null;
@@ -31,9 +32,9 @@ export default function ClassList({
         </HeaderLeft>
         {canAdd && (
           <Actions>
-            <ActionBtn type="button" onClick={onAdd}>
+            <AddBtn type="button" onClick={onAdd}>
               {actionLabel}
-            </ActionBtn>
+            </AddBtn>
           </Actions>
         )}
       </SectionHeader>
@@ -128,27 +129,14 @@ export default function ClassList({
 
 function formatDateLabel(ymd?: string) {
   if (!ymd) return "-";
-  try {
-    const d = new Date(ymd);
-    if (Number.isNaN(d.getTime())) return ymd;
-    const day = "일월화수목금토"[d.getDay()];
-    return `${ymd} (${day})`;
-  } catch {
-    return ymd;
-  }
+  const formatted = formatKoreanDate(ymd, { includeWeekday: true });
+  return formatted === "—" ? ymd : formatted;
 }
+
 function formatDateBadge(ymd?: string) {
   if (!ymd) return "-";
-  try {
-    const d = new Date(ymd);
-    if (Number.isNaN(d.getTime())) return ymd;
-    const month = String(d.getMonth() + 1).padStart(2, "0");
-    const date = String(d.getDate()).padStart(2, "0");
-    const day = "일월화수목금토"[d.getDay()];
-    return `${month}월 ${date}일 (${day})`;
-  } catch {
-    return ymd;
-  }
+  const formatted = formatKoreanDate(ymd, { includeYear: false, includeWeekday: true });
+  return formatted === "—" ? ymd : formatted;
 }
 function typeLabel(ymd?: string, timeRange?: string) {
   if (!ymd) return "";
@@ -226,13 +214,7 @@ const SectionIcon = styled.span`
   color: ${(p) => p.theme.colors.primary};
 `;
 const Actions = styled.div``;
-const ActionBtn = styled.button`
-  ${buttonVariants.outline};
-  height: 40px;
-  padding: 0 16px;
-  font-size: 14px;
-  font-weight: 600;
-`;
+const AddBtn = styled(PrimaryButtonSm)``;
 const Grid = styled.div`
   display: grid;
   grid-template-columns: 1fr;

@@ -3,6 +3,7 @@ import { SectionCard as TableCard, Scroller, TableBase as Table, EmptyState, Ske
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { listStudents, type Student, type PageResult } from "../../api/students";
+import { readableError } from "@/lib/errors";
 import { formatPhone } from "../../lib/format";
 import { visiblePages } from "../../lib/pagination";
 // No row-level destructive actions here; deletion is available only on edit page.
@@ -49,7 +50,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
         const res: PageResult<Student> = await listStudents({
           page,
           size,
-          status: (filters.status as any) || undefined,
+          status: filters.status || undefined,
           q: filters.q || undefined,
           from: filters.from || undefined,
           to: filters.to || undefined,
@@ -61,8 +62,8 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
           setTotalPages(res.totalPages);
           setTotalElements(res.totalElements);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "원생 불러오기에 실패했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "원생 불러오기에 실패했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -159,12 +160,10 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
               </tr>
             )}
             {view.map((r) => (
-              <tr key={r.id}>
+              <tr key={r.id} onClick={() => navigate(`/students/${r.id}/courses`)} data-clickable="true">
                 <td>{r.seq}</td>
                 <td>
-                  <NameLink type="button" onClick={() => navigate(`/students/${r.id}/courses`)} title="상세 보기">
-                    <NameText title={r.name}>{r.name}</NameText>
-                  </NameLink>
+                  <NameText title={r.name}>{r.name}</NameText>
                 </td>
                 <td>{r.phone || '-'}</td>
                 <td>{r.age}</td>
@@ -211,10 +210,7 @@ const Muted = styled.div`
 `;
 // Buttons from common UI
 // Scroller/Table from common UI
-const NameLink = styled.button`
-  all: unset; cursor: pointer; color: #1f2937; font-weight: 800;
-  &:hover { text-decoration: underline; }
-`;
+/* Row is clickable; name itself uses normal text */
 const Chip = styled.span<{ type: ChipType }>`
   padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 800;
   ${({ type }) => type === '수강중' ? 'background:#dcfce7; color:#16a34a;' : type === '휴학' ? 'background:#fef3c7; color:#b45309;' : 'background:#f3e8ff; color:#7c3aed;'}
@@ -255,6 +251,8 @@ const StyledTable = styled(Table)`
   }
   thead th:last-child, tbody td:last-child { border-right: none; }
   tbody td { font-size: 13.5px; color: #0f172a; }
+  tbody tr[data-clickable='true'] { cursor: pointer; }
+  tbody tr[data-clickable='true']:active td { background: ${({ theme }) => theme.colors.surfaceAlt}; }
   /* 숫자 폰트 형태 정리: 번호(1열), 나이(4열) */
   thead th:nth-child(1), tbody td:nth-child(1),
   thead th:nth-child(4), tbody td:nth-child(4) { font-feature-settings: 'tnum'; }

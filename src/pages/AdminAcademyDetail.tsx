@@ -38,6 +38,7 @@ import {
   getAcademyLoginLogsPaged,
   getAcademyApiLogsPaged,
 } from '@/api/admin';
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/format';
 
 type AcademySummary = {
   id: number;
@@ -296,7 +297,9 @@ export default function AdminAcademyDetail() {
     const start = payments[0]?.createdAt;
     const end = payments[payments.length - 1]?.createdAt;
     if (!start || !end) return `${payments.length.toLocaleString('ko-KR')}건 표시 중`;
-    return `${new Date(start).toLocaleDateString('ko-KR')} ~ ${new Date(end).toLocaleDateString('ko-KR')}`;
+    const startText = formatKoreanDate(start, { includeWeekday: true });
+    const endText = formatKoreanDate(end, { includeWeekday: true });
+    return `${startText === '—' ? start : startText} ~ ${endText === '—' ? end : endText}`;
   }, [payments]);
 
   const loginRangeLabel = useMemo(() => {
@@ -304,7 +307,9 @@ export default function AdminAcademyDetail() {
     const start = loginRows[0]?.createdAt;
     const end = loginRows[loginRows.length - 1]?.createdAt;
     if (!start || !end) return `${loginRows.length.toLocaleString('ko-KR')}건 표시 중`;
-    return `${new Date(start).toLocaleString('ko-KR')} ~ ${new Date(end).toLocaleString('ko-KR')}`;
+    const startText = formatKoreanDateTime(start, { includeWeekday: true });
+    const endText = formatKoreanDateTime(end, { includeWeekday: true });
+    return `${startText === '—' ? start : startText} ~ ${endText === '—' ? end : endText}`;
   }, [loginRows]);
 
   const apiRangeLabel = useMemo(() => {
@@ -312,7 +317,9 @@ export default function AdminAcademyDetail() {
     const start = apiRows[0]?.createdAt;
     const end = apiRows[apiRows.length - 1]?.createdAt;
     if (!start || !end) return `${apiRows.length.toLocaleString('ko-KR')}건 표시 중`;
-    return `${new Date(start).toLocaleString('ko-KR')} ~ ${new Date(end).toLocaleString('ko-KR')}`;
+    const startText = formatKoreanDateTime(start, { includeWeekday: true });
+    const endText = formatKoreanDateTime(end, { includeWeekday: true });
+    return `${startText === '—' ? start : startText} ~ ${endText === '—' ? end : endText}`;
   }, [apiRows]);
 
   const appliedPeriod = `${from} ~ ${to}`;
@@ -739,9 +746,8 @@ export default function AdminAcademyDetail() {
 
 function formatDateTime(value?: string | null) {
   if (!value) return '-';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+  const formatted = formatKoreanDateTime(value, { includeWeekday: true });
+  return formatted === '—' ? value : formatted;
 }
 
 const HeaderBlock = styled.div`

@@ -21,17 +21,24 @@ import { listStudents, type Student } from "@/api/students";
 import { createCounsel, listCounsels, type Counsel, type PageResult as PageCounsel } from "@/api/counsels";
 import { invalidateTodosCache } from "@/features/todos/cache";
 import { formatPhone } from "@/lib/format";
+import { readableError } from "@/lib/errors";
 import {
   DetailPage,
   DetailColumns,
   DetailLeft,
   DetailRight,
 } from "@/components/calendar/detail/DetailLayout";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 export default function CalendarDetail() {
   const navigate = useNavigate();
   const { ymd } = useParams();
   const { warning } = useToast();
+  const { confirm: confirmDelete, dialog: confirmDeleteDialog } = useConfirmDialog({
+    confirmLabel: "삭제",
+    cancelLabel: "취소",
+    tone: "danger",
+  });
   const ymdSafe = ymd ?? formatYMD(new Date());
   const { label, classes: classesDerived, counsels, prevYMD, nextYMD, todayYMD } =
     useCalendarDetail(ymdSafe);
@@ -217,6 +224,12 @@ export default function CalendarDetail() {
   // Toggle removed in UI; status changes handled in detail edit or future bulk actions
 
   async function onDelete(id: number) {
+    const target = (data || []).find((item) => item.id === id);
+    const confirmed = await confirmDelete({
+      title: "할 일을 삭제할까요?",
+      message: target?.title ? `"${target.title}" 항목을 삭제합니다. 되돌릴 수 없습니다.` : "선택한 할 일을 삭제합니다. 되돌릴 수 없습니다.",
+    });
+    if (!confirmed) return;
     try {
       await deleteTodo(id);
       invalidateTodosCache(ymdSafe);
@@ -365,9 +378,10 @@ export default function CalendarDetail() {
 
   return (
     <DetailPage>
+      {confirmDeleteDialog}
       <CalendarDetailHeader
         label={label}
-        onBack={() => navigate(-1)}
+        onBack={() => navigate('/calendar')}
         onPrev={() => navigate(`/calendar/${prevYMD()}`)}
         onNext={() => navigate(`/calendar/${nextYMD()}`)}
         onToday={() => navigate(`/calendar/${todayYMD()}`)}
@@ -561,12 +575,12 @@ const ModalCard = styled.div`
   color: #111827;
 `;
 const Row = styled.div` display:flex; align-items:center; gap:12px; `;
-const CourseList = styled.div` max-height: 220px; overflow: auto; border: 1px solid #f1f5f9; border-radius: 10px; margin-top: 6px; `;
+const CourseList = styled.div` max-height: 220px; overflow: auto; border: 1px solid #f1f5f9; border-radius: 10px; margin-top: 6px; background: #fff; `;
 const CourseRow = styled.div`
   padding: 8px 10px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;
   border-bottom: 1px solid #f1f5f9;
   &[data-selected='true']{ background:#eef2ff; }
-  &:hover{ background:#f9fafb; }
+  &:hover{ background:${({ theme }) => theme.colors.surfaceMuted}; }
 `;
 // Separate list styles for student picker (use button for better accessibility)
 const StudentList = styled(CourseList)``;
@@ -574,7 +588,7 @@ const StudentRow = styled.button`
   width: 100%; text-align: left; background: transparent; border: 0; padding: 8px 10px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;
   border-bottom: 1px solid #f1f5f9;
   &[data-selected='true']{ background:#eef2ff; }
-  &:hover{ background:#f9fafb; }
+  &:hover{ background:${({ theme }) => theme.colors.surfaceMuted}; }
 `;
 const Err = styled.div` color:#b91c1c; font-size:12px; margin-top:6px; `;
 
@@ -639,11 +653,3 @@ const SelectedBox = styled.div`
   .label { color:#4f46e5; font-weight: 800; }
   .name { font-weight: 800; }
 `;
-
-function readableError(e: unknown, fallback: string) {
-  if (typeof e === 'string') return e;
-  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
-    return (e as { message?: string }).message || fallback;
-  }
-  return fallback;
-}

@@ -4,20 +4,25 @@ import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import {
   TableBase as UITable,
-  GhostBtn as UIGhostBtn,
-  PrimaryBtn as UIPrimaryBtn,
+  GhostBtn as UIGhostLink,
+  GhostButton as UIGhostButton,
+  PrimaryButton as UIPrimaryButton,
+  PrimaryButtonSm as UIPrimaryButtonSm,
   SmallBtn as UISmallBtn,
 } from "@/components/common/UI";
 import BackButton from "@/components/common/BackButton";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { listCounsels, createCounsel, updateCounsel, deleteCounsel, downloadCounselsExcel, type Counsel } from "@/api/counsels";
-import { getStudent, getStudentAttendance, type Student, type StudentAttendance } from "@/api/students";
+import { getStudent, getStudentAttendance, deleteStudent, type Student, type StudentAttendance } from "@/api/students";
+import { listExams, listExamResults, createExam, upsertExamResults } from "@/api/exams";
 // formatMoney 사용 제거됨 (MVP)
-import { formatPhone } from "@/lib/format";
-import { calcRisk, recommendActions, type RiskResult } from "@/features/risk/riskUtils";
+import { formatPhone, formatKoreanDateTime } from "@/lib/format";
+// import { calcRisk, recommendActions, type RiskResult } from "@/features/risk/riskUtils"; // RISK FEATURE DISABLED
 import { summarizeRecords, type SummarizeItem } from "@/api/summarize";
-import { getStudentGrades, type GradeEntry } from "@/features/grades/gradesStorage";
+import { getStudentGrades, addStudentGrade, removeStudentGrade, type GradeEntry } from "@/features/grades/gradesStorage";
 import { useToast } from "@/components/common/Toast";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { readableError } from "@/lib/errors";
 
 type TabKey = "courses" | "attendance" | "counsels" | "grades";
 
@@ -29,6 +34,7 @@ export default function StudentDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>("");
+  const [deleting, setDeleting] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notesInput, setNotesInput] = useState("");
   // Tuition UI removed (MVP)
@@ -68,17 +74,35 @@ export default function StudentDetail() {
   const [editMin, setEditMin] = useState<string>("");
   const [editContent, setEditContent] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
-  const { error: showError } = useToast();
-  // Predictive risk
-  const [risk, setRisk] = useState<RiskResult | null>(null);
-  const [riskLoading, setRiskLoading] = useState(false);
-  const [riskError, setRiskError] = useState<string | null>(null);
+  const { error: showError, success: showSuccess } = useToast();
+  const { confirm: confirmDelete, dialog: deleteConfirmDialog } = useConfirmDialog({
+    confirmLabel: "삭제",
+    cancelLabel: "취소",
+    tone: "danger",
+  });
+  // Predictive risk (disabled) – placeholders to avoid runtime refs
+  // Predictive risk feature disabled
   // Counsel AI summary
   const [counselSummary, setCounselSummary] = useState<string>("");
   const [counselSummaryLoading, setCounselSummaryLoading] = useState(false);
   const [counselSummaryError, setCounselSummaryError] = useState<string | null>(null);
-  // Grades (display only)
+  // Grades (display and quick add)
   const [grades, setGrades] = useState<GradeEntry[]>([]);
+  const [examGrades, setExamGrades] = useState<GradeEntry[]>([]);
+  const [examGradesLoading, setExamGradesLoading] = useState(false);
+  const [examGradesError, setExamGradesError] = useState<string | null>(null);
+  const [gradeOpen, setGradeOpen] = useState(false);
+  const [gradeBusy, setGradeBusy] = useState(false);
+  const [gErr, setGErr] = useState<string | null>(null);
+  const [gDate, setGDate] = useState<string>("");
+  const [gCourseId, setGCourseId] = useState<number | "">("");
+  const [gTitle, setGTitle] = useState<string>("");
+  const [gMode, setGMode] = useState<'percent'|'letter'>('percent');
+  const [gScore, setGScore] = useState<string>("");
+  const [gOutOf, setGOutOf] = useState<string>("100");
+  const [gLevel, setGLevel] = useState<string>("");
+  const [gNote, setGNote] = useState<string>("");
+  const [gSubject, setGSubject] = useState<string>("");
   const intlAge = useMemo(() => {
     if (!student?.birthDate) return undefined;
     const [y, m, d] = student.birthDate.split("-").map(Number);
@@ -121,8 +145,8 @@ export default function StudentDetail() {
       try {
         const res = await getStudent(numericId);
         if (!cancelled) setStudent(res);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "원생 정보를 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "원생 정보를 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -131,29 +155,26 @@ export default function StudentDetail() {
     return () => { cancelled = true; };
   }, [numericId]);
 
-  // Load minimal data for predictive risk (attendance + counsels)
-  useEffect(() => {
-    if (!numericId || Number.isNaN(numericId)) return;
-    let cancelled = false;
-    async function loadRisk() {
-      setRiskLoading(true); setRiskError(null);
-      try {
-        const [att, cons] = await Promise.all([
-          getStudentAttendance(numericId, { size: 200 }),
-          listCounsels({ studentId: numericId, size: 100 }),
-        ]);
-        if (cancelled) return;
-        const computed = calcRisk(att.content || [], cons.content || [], { days: 30 });
-        setRisk(computed);
-      } catch (e: any) {
-        if (!cancelled) setRiskError(e?.message || '예측 분석 정보를 불러오지 못했습니다.');
-      } finally {
-        if (!cancelled) setRiskLoading(false);
-      }
-    }
-    void loadRisk();
-    return () => { cancelled = true; };
-  }, [numericId]);
+  // Load minimal data for predictive risk (disabled)
+  // useEffect(() => {
+  //   if (!numericId || Number.isNaN(numericId)) return;
+  //   let cancelled = false;
+  //   async function loadRisk() {
+  //     setRiskLoading(true); setRiskError(null);
+  //     try {
+  //       const att = await getStudentAttendance(numericId, { size: 200 });
+  //       if (cancelled) return;
+  //       const computed = calcRisk(att.content || [], [], { days: 30 });
+  //       setRisk(computed);
+  //     } catch (e: any) {
+  //       if (!cancelled) setRiskError(e?.message || '예측 분석 정보를 불러오지 못했습니다.');
+  //     } finally {
+  //       if (!cancelled) setRiskLoading(false);
+  //     }
+  //   }
+  //   void loadRisk();
+  //   return () => { cancelled = true; };
+  // }, [numericId]);
 
   // Load counsels when switching to the tab or student changes
   useEffect(() => {
@@ -165,8 +186,8 @@ export default function StudentDetail() {
       try {
         const res = await listCounsels({ studentId: numericId, size: 100 });
         if (!cancelled) setCounsels(res.content || []);
-      } catch (e: any) {
-        if (!cancelled) setCounselError(e?.message || "상담 기록을 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setCounselError(readableError(e, "상담 기록을 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setCounselLoading(false);
       }
@@ -181,6 +202,129 @@ export default function StudentDetail() {
     setGrades(getStudentGrades(numericId));
   }, [numericId]);
 
+  // helper to (re)load exam grades for current student
+  async function reloadExamGrades() {
+    if (!numericId) return;
+    const courses = student?.courses || [];
+    if (!courses.length) { setExamGrades([]); return; }
+    setExamGradesLoading(true); setExamGradesError(null);
+    try {
+      const examsPerCourse = await Promise.all(courses.map(async (c) => {
+        const list = await listExams(c.id);
+        return list.map((ex) => ({ courseId: c.id, courseTitle: c.title, exam: ex }));
+      }));
+      const pairs = examsPerCourse.flat();
+      const results = await Promise.all(pairs.map(async ({ courseId, courseTitle, exam }) => {
+        const rows = await listExamResults(courseId, exam.id);
+        const mine = rows.find(r => r.studentId === numericId);
+        if (!mine) return null;
+        const date = exam.examDate || (exam.createdAt ? exam.createdAt.slice(0,10) : '');
+        const entry: GradeEntry = {
+          id: `exam:${courseId}:${exam.id}:${numericId}`,
+          date,
+          subject: exam.title,
+          courseId,
+          score: mine.score,
+          outOf: mine.outOf,
+          level: mine.level,
+          note: mine.note,
+        };
+        return entry;
+      }));
+      const filtered = results.filter((x): x is GradeEntry => !!x);
+      setExamGrades(filtered);
+    } catch (e) {
+      setExamGradesError(readableError(e, '시험 성적을 불러오지 못했습니다.'));
+    } finally {
+      setExamGradesLoading(false);
+    }
+  }
+
+  // Load exam-based grades linked to student's courses when Grades tab is active
+  useEffect(() => {
+    if (!numericId || activeTab !== 'grades') return;
+    void reloadExamGrades();
+  }, [numericId, activeTab, student?.courses]);
+
+  const displayGrades = useMemo(() => {
+    // Use only exam-based grades; manual grades removed
+    const list = examGrades.slice();
+    return list.sort((a, b) => {
+      const ta = Date.parse(a.date || '');
+      const tb = Date.parse(b.date || '');
+      return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
+    });
+  }, [examGrades]);
+
+  // EXAM input options for add form
+  const EXAM_MODE_OPTIONS = [
+    { value: 'percent' as const, label: '백분율 입력', description: '0~100점 점수로 기록합니다.' },
+    { value: 'letter' as const, label: '등급 입력', description: 'A~F 등급으로 기록합니다.' },
+  ];
+
+  function initGradeForm() {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const d = String(today.getDate()).padStart(2, '0');
+    setGDate(`${y}-${m}-${d}`);
+    const firstCourseId = student?.courses?.[0]?.id;
+    setGCourseId(firstCourseId ?? '');
+    setGTitle('');
+    setGMode('percent');
+    setGScore('');
+    setGOutOf('100');
+    setGLevel('');
+    setGNote('');
+    setGSubject('');
+  }
+
+  useEffect(() => {
+    if (gradeOpen) initGradeForm();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gradeOpen]);
+
+  async function handleAddExamResult() {
+    if (!numericId) return;
+    setGErr(null);
+    const courseId = typeof gCourseId === 'number' ? gCourseId : Number(gCourseId);
+    if (!courseId || Number.isNaN(courseId)) { setGErr('수업을 선택해 주세요.'); return; }
+    if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
+    const title = (gTitle || '').trim();
+    if (!title) { setGErr('시험 제목을 입력해 주세요.'); return; }
+    let score: number | undefined = undefined;
+    let outOf: number | undefined = undefined;
+    let level: string | undefined = undefined;
+    if (gMode === 'percent') {
+      const s = (gScore || '').trim();
+      if (s) {
+        const n = Number(s);
+        if (Number.isNaN(n)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
+        score = Math.max(0, Math.min(100, Math.round(n)));
+        const o = (gOutOf || '').trim();
+        outOf = o ? Number(o) : 100;
+        if (Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
+      }
+    } else {
+      const lv = (gLevel || '').trim();
+      level = lv || undefined;
+    }
+    setGradeBusy(true);
+    try {
+      const exam = await createExam(courseId, { title, examDate: gDate, kind: 'TEST', inputMode: gMode });
+      await upsertExamResults(courseId, exam.id, [{ studentId: numericId, score, outOf, level, note: (gNote || '').trim() || undefined }]);
+      try { (await import('@/lib/fetcher')).invalidateCacheByPrefix(`/api/courses/${courseId}/exams/${exam.id}/results`); } catch {}
+      showSuccess('시험 성적을 추가했습니다.');
+      await reloadExamGrades();
+      initGradeForm();
+      setGradeOpen(false);
+    } catch (e) {
+      setGErr(readableError(e, '시험 성적을 추가하지 못했습니다.'));
+    } finally {
+      setGradeBusy(false);
+    }
+  }
+
   async function handleCounselExport() {
     if (!numericId) return;
     setExportingCounsel(true);
@@ -189,8 +333,8 @@ export default function StudentDetail() {
       const studentName = student?.name || `student_${numericId}`;
       const filename = sanitizeFilename(`${studentName}_counsels`);
       saveBlobAsFile(blob, `${filename}.xlsx`);
-    } catch (e: any) {
-      showError(e?.message || '상담 기록 엑셀 추출에 실패했습니다.');
+    } catch (e) {
+      showError(readableError(e, '상담 기록 엑셀 추출에 실패했습니다.'));
     } finally {
       setExportingCounsel(false);
     }
@@ -211,8 +355,8 @@ export default function StudentDetail() {
       }
       const resp = await summarizeRecords(items, { language: 'ko' });
       setCounselSummary(resp.summary || '요약이 비어 있습니다.');
-    } catch (e: any) {
-      setCounselSummaryError(e?.message || '요약 생성에 실패했습니다.');
+    } catch (e) {
+      setCounselSummaryError(readableError(e, '요약 생성에 실패했습니다.'));
     } finally {
       setCounselSummaryLoading(false);
     }
@@ -249,8 +393,8 @@ export default function StudentDetail() {
       try {
         const res = await getStudentAttendance(numericId, { size: 200 });
         if (!cancelled) setAttRows(res?.content || []);
-      } catch (e: any) {
-        if (!cancelled) setAttError(e?.message || '출석 정보를 불러오지 못했습니다.');
+      } catch (e) {
+        if (!cancelled) setAttError(readableError(e, '출석 정보를 불러오지 못했습니다.'));
       } finally {
         if (!cancelled) setAttLoading(false);
       }
@@ -311,6 +455,50 @@ export default function StudentDetail() {
     persistMemos(next);
   }
 
+  async function requestDeleteGrade(entry: GradeEntry) {
+    if (!numericId) return;
+    const subject = entry.subject?.trim();
+    const label = [entry.date, subject].filter(Boolean).join(" · ");
+    const confirmed = await confirmDelete({
+      title: "성적을 삭제할까요?",
+      message: label ? `${label} 기록을 삭제합니다. 되돌릴 수 없습니다.` : "선택한 성적 기록을 삭제합니다. 되돌릴 수 없습니다.",
+    });
+    if (!confirmed) return;
+    removeStudentGrade(numericId, entry.id);
+    setGrades(getStudentGrades(numericId));
+  }
+
+  async function requestDeleteMemo(id: number) {
+    const confirmed = await confirmDelete({
+      title: "메모를 삭제할까요?",
+      message: "삭제한 메모는 복구할 수 없습니다.",
+    });
+    if (!confirmed) return;
+    removeMemo(id);
+  }
+
+  async function requestDeleteStudent() {
+    if (!numericId) return;
+    const targetName = student?.name?.trim();
+    const confirmed = await confirmDelete({
+      title: "원생을 삭제할까요?",
+      message: targetName
+        ? `'${targetName}' 원생의 데이터를 삭제합니다. 되돌릴 수 없습니다.`
+        : "선택한 원생의 데이터를 삭제합니다. 되돌릴 수 없습니다.",
+    });
+    if (!confirmed) return;
+    setDeleting(true);
+    try {
+      await deleteStudent(numericId);
+      showSuccess("원생을 삭제했습니다.");
+      navigate("/students");
+    } catch (e) {
+      showError(readableError(e, "원생 삭제에 실패했습니다."));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   const hours24 = useMemo(() => Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')), []);
   const mins5 = useMemo(() => ['00','05','10','15','20','25','30','35','40','45','50','55'], []);
 
@@ -326,8 +514,8 @@ export default function StudentDetail() {
       setAddingCounsel(false);
       setNewHour(""); setNewMin("");
       setNewContent("");
-    } catch (e: any) {
-      setCounselError(e?.message || '저장에 실패했습니다.');
+    } catch (e) {
+      setCounselError(readableError(e, '저장에 실패했습니다.'));
     } finally {
       setNewSubmitting(false);
     }
@@ -345,8 +533,8 @@ export default function StudentDetail() {
       setEditingCounselId(null);
       setEditDate(""); setEditHour(""); setEditMin("");
       setEditContent("");
-    } catch (e: any) {
-      setCounselError(e?.message || '수정에 실패했습니다.');
+    } catch (e) {
+      setCounselError(readableError(e, '수정에 실패했습니다.'));
     } finally {
       setSavingEdit(false);
     }
@@ -358,7 +546,7 @@ export default function StudentDetail() {
         <BackButton to="/students" label="뒤로" />
         <h2>원생 상세</h2>
       </TopBar>
-      <Crumbs>원생 관리 &gt; {student?.name || '상세'}</Crumbs>
+      {/* Breadcrumb removed per request */}
       {loading && (
         <Columns>
           <Left>
@@ -384,12 +572,120 @@ export default function StudentDetail() {
             </Card>
           </Left>
           <Right>
-            {/* 예측 분석 */}
-            <Card>
+            {/* 예측 분석 (RISK FEATURE DISABLED) */}
+
+            {/* Legacy local grades disabled */}
+            {false && (<Card>
+              <CardHead>
+                <SectionTitle>시험/성적</SectionTitle>
+                <CardActions>
+                  {!gradeOpen ? (
+                    <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
+                  ) : (
+                    <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                  )}
+                </CardActions>
+              </CardHead>
+              {gradeOpen && (
+                <SectionBody>
+                  {gErr && <Error>{gErr}</Error>}
+                  <EditGrid>
+                    <div>
+                      <Label>일자</Label>
+                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
+                    </div>
+                    <div>
+                      <Label>수업</Label>
+                      <SelectBox
+                        value={String(gCourseId || '')}
+                        onChange={(v)=> setGCourseId(v ? Number(v) : '')}
+                        options={(student?.courses || []).map(c => ({ value: String(c.id), label: c.title }))}
+                        placeholder="수업 선택"
+                      />
+                    </div>
+                    <div>
+                      <Label>시험 제목</Label>
+                      <Input placeholder="예: 중간고사 수학" value={gTitle} onChange={(e)=>setGTitle(e.currentTarget.value)} />
+                    </div>
+                    <div style={{ gridColumn: '1 / -1' }}>
+                      <Label>입력 방식</Label>
+                      <div style={{ display:'inline-flex', gap:8, marginLeft:8 }}>
+                        {EXAM_MODE_OPTIONS.map((op) => (
+                          <label key={op.value} style={{ display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer' }}>
+                            <input type="radio" name="gMode" checked={gMode === op.value} onChange={() => setGMode(op.value)} />
+                            <span>{op.label}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {gMode === 'percent' ? (
+                      <>
+                        <div>
+                          <Label>점수</Label>
+                          <Input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
+                        </div>
+                        <div>
+                          <Label>만점</Label>
+                          <Input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
+                        </div>
+                      </>
+                    ) : (
+                      <div>
+                        <Label>등급</Label>
+                        <SelectBox
+                          value={gLevel}
+                          onChange={(v)=>setGLevel(v)}
+                          options={[{value:'',label:'-'}].concat(['A','B','C','D','E','F'].map(x=>({ value:x, label:x })))}
+                        />
+                      </div>
+                    )}
+                    <div>
+                      <Label>메모</Label>
+                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
+                    </div>
+                  </EditGrid>
+                  <div style={{ display:'flex', gap:8 }}>
+                    <UIPrimaryButton type="button" onClick={() => void handleAddExamResult()} disabled={gradeBusy}>
+                      {gradeBusy ? '저장 중…' : '시험 결과 저장'}
+                    </UIPrimaryButton>
+                    <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
+                  </div>
+                </SectionBody>
+              )}
+              <Divider />
+              <SectionBody>
+                {displayGrades.length === 0 ? (
+                  <Empty>등록된 성적이 없습니다.</Empty>
+                ) : (
+                  <List>
+                    {displayGrades.map((g: any) => (
+                      <ListItem key={g.id}>
+                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
+                          <div style={{ display:'grid' }}>
+                            <strong>{g.subject || '성적'}{g.__origin === 'exam' ? ' · 시험' : ''}</strong>
+                            <SmallMuted>{g.date}</SmallMuted>
+                          </div>
+                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
+                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
+                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
+                            {g.__origin !== 'exam' && (
+                              <UIGhostButton type="button" data-variant="danger" onClick={() => void requestDeleteGrade(g)}>삭제</UIGhostButton>
+                            )}
+                          </div>
+                        </div>
+                  {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </SectionBody>
+            </Card>)}
+            {/* 예측 분석 (RISK FEATURE DISABLED) */}
+            {/* <Card>
               <CardHead>
                 <SectionTitle>예측 분석</SectionTitle>
                 <CardActions>
-                  <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UISmallBtn>
+                    <UIPrimaryButtonSm type="button" onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UIPrimaryButtonSm>
                 </CardActions>
               </CardHead>
               {riskLoading ? (
@@ -424,8 +720,8 @@ export default function StudentDetail() {
                     {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
                   </RecList>
                   <ActionRow>
-                    <UISmallBtn as={"button" as any} onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
-                    <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UISmallBtn>
+                    <UISmallBtn type="button" onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
+                    <UIPrimaryButtonSm type="button" onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UIPrimaryButtonSm>
                   </ActionRow>
                 </SectionBody>
               ) : (
@@ -433,17 +729,17 @@ export default function StudentDetail() {
                   <Muted>예측 분석 정보를 준비 중입니다.</Muted>
                 </SectionBody>
               )}
-            </Card>
+            </Card> */}
 
             {/* 시험/성적 */}
-            <Card>
+            {false && (<Card>
               <CardHead>
                 <SectionTitle>시험/성적</SectionTitle>
                 <CardActions>
                   {!gradeOpen ? (
-                    <UISmallBtn as={"button" as any} onClick={() => setGradeOpen(true)}>추가</UISmallBtn>
+                    <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
                   ) : (
-                    <UISmallBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                    <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
                   )}
                 </CardActions>
               </CardHead>
@@ -477,7 +773,7 @@ export default function StudentDetail() {
                     </div>
                   </EditGrid>
                   <div style={{ display:'flex', gap:8 }}>
-                    <UIPrimaryBtn as={"button" as any} onClick={() => {
+                    <UIPrimaryButton type="button" onClick={() => {
                       if (!numericId) return;
                       setGErr(null);
                       if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
@@ -493,8 +789,8 @@ export default function StudentDetail() {
                       } finally { setGradeBusy(false); }
                     }}>
                       {gradeBusy ? '저장 중…' : '저장'}
-                    </UIPrimaryBtn>
-                    <UIGhostBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostBtn>
+                    </UIPrimaryButton>
+                    <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
                   </div>
                 </SectionBody>
               )}
@@ -514,7 +810,7 @@ export default function StudentDetail() {
                           <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
                             <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
                             {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            <UIGhostBtn as={"button" as any} onClick={() => { if (!numericId) return; removeStudentGrade(numericId, g.id); setGrades(getStudentGrades(numericId)); }}>삭제</UIGhostBtn>
+                            <UIGhostButton type="button" data-variant="danger" onClick={() => void requestDeleteGrade(g)}>삭제</UIGhostButton>
                           </div>
                         </div>
                         {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
@@ -523,13 +819,13 @@ export default function StudentDetail() {
                   </List>
                 )}
               </SectionBody>
-            </Card>
-            {/* 예측 분석 */}
-            <Card>
+            </Card>)}
+            {/* Predictive analytics (RISK FEATURE DISABLED) */}
+            {/* <Card>
               <CardHead>
                 <SectionTitle>예측 분석</SectionTitle>
                 <CardActions>
-                  <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UISmallBtn>
+                    <UIPrimaryButtonSm type="button" onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UIPrimaryButtonSm>
                 </CardActions>
               </CardHead>
               {riskLoading ? (
@@ -564,8 +860,8 @@ export default function StudentDetail() {
                     {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
                   </RecList>
                   <ActionRow>
-                    <UISmallBtn as={"button" as any} onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
-                    <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UISmallBtn>
+                    <UISmallBtn type="button" onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
+                    <UIPrimaryButtonSm type="button" onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UIPrimaryButtonSm>
                   </ActionRow>
                 </SectionBody>
               ) : (
@@ -573,17 +869,17 @@ export default function StudentDetail() {
                   <Muted>예측 분석 정보를 준비 중입니다.</Muted>
                 </SectionBody>
               )}
-            </Card>
+            </Card> */}
 
-            {/* 시험/성적 */}
-            <Card>
+            {/* Legacy local grades disabled (duplicate) */}
+            {false && (<Card>
               <CardHead>
                 <SectionTitle>시험/성적</SectionTitle>
                 <CardActions>
                   {!gradeOpen ? (
-                    <UISmallBtn as={"button" as any} onClick={() => setGradeOpen(true)}>추가</UISmallBtn>
+                    <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
                   ) : (
-                    <UISmallBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                    <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
                   )}
                 </CardActions>
               </CardHead>
@@ -617,7 +913,7 @@ export default function StudentDetail() {
                     </div>
                   </EditGrid>
                   <div style={{ display:'flex', gap:8 }}>
-                    <UIPrimaryBtn as={"button" as any} onClick={() => {
+                    <UIPrimaryButton type="button" onClick={() => {
                       if (!numericId) return;
                       setGErr(null);
                       if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
@@ -633,8 +929,8 @@ export default function StudentDetail() {
                       } finally { setGradeBusy(false); }
                     }}>
                       {gradeBusy ? '저장 중…' : '저장'}
-                    </UIPrimaryBtn>
-                    <UIGhostBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostBtn>
+                    </UIPrimaryButton>
+                    <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
                   </div>
                 </SectionBody>
               )}
@@ -654,7 +950,7 @@ export default function StudentDetail() {
                           <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
                             <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
                             {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            <UIGhostBtn as={"button" as any} onClick={() => { if (!numericId) return; removeStudentGrade(numericId, g.id); setGrades(getStudentGrades(numericId)); }}>삭제</UIGhostBtn>
+                            <UIGhostButton type="button" data-variant="danger" onClick={() => void requestDeleteGrade(g)}>삭제</UIGhostButton>
                           </div>
                         </div>
                         {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
@@ -663,67 +959,18 @@ export default function StudentDetail() {
                   </List>
                 )}
               </SectionBody>
-            </Card>
-            {/* Predictive analytics */}
-            <Card>
-              <CardHead>
-                <SectionTitle>예측 분석</SectionTitle>
-                <CardActions>
-                  <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UISmallBtn>
-                </CardActions>
-              </CardHead>
-              {riskLoading ? (
-                <SectionBody>
-                  <Skeleton w={180} h={14} />
-                  <Skeleton w={420} h={14} mt={8} />
-                </SectionBody>
-              ) : riskError ? (
-                <SectionBody>
-                  <Error>{riskError}</Error>
-                </SectionBody>
-              ) : risk ? (
-                <SectionBody>
-                  <RiskRow>
-                    <RiskPill data-level={risk.level}>
-                      {risk.level === 'RISK' ? '위험 단계' : risk.level === 'CAUTION' ? '주의 단계' : '양호'}
-                    </RiskPill>
-                    <RiskMetrics>
-                      <span>출석률 {risk.metrics.attRate30 != null ? `${risk.metrics.attRate30}%` : '—'}</span>
-                      <Dot />
-                      <span>결석 {risk.metrics.absences30}회</span>
-                      <Dot />
-                      <span>부정 신호 {risk.metrics.negativeCounselCount30}건</span>
-                    </RiskMetrics>
-                  </RiskRow>
-                  {risk.reasons.length > 0 && (
-                    <ReasonList>
-                      {risk.reasons.slice(0,3).map((r, i) => (<li key={i}>{r}</li>))}
-                    </ReasonList>
-                  )}
-                  <RecList>
-                    {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
-                  </RecList>
-                  <ActionRow>
-                    <UISmallBtn as={"button" as any} onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
-                    <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UISmallBtn>
-                  </ActionRow>
-                </SectionBody>
-              ) : (
-                <SectionBody>
-                  <Muted>예측 분석 정보를 준비 중입니다.</Muted>
-                </SectionBody>
-              )}
-            </Card>
+            </Card>)}
+            {/* Predictive analytics removed */}
 
-            {/* Grades */}
-            <Card>
+            {/* Legacy local grades disabled (duplicate) */}
+            {false && (<Card>
               <CardHead>
                 <SectionTitle>시험/성적</SectionTitle>
                 <CardActions>
                   {!gradeOpen ? (
-                    <UISmallBtn as={"button" as any} onClick={() => setGradeOpen(true)}>추가</UISmallBtn>
+                    <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
                   ) : (
-                    <UISmallBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                    <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
                   )}
                 </CardActions>
               </CardHead>
@@ -757,7 +1004,7 @@ export default function StudentDetail() {
                     </div>
                   </EditGrid>
                   <div style={{ display:'flex', gap:8 }}>
-                    <UIPrimaryBtn as={"button" as any} onClick={() => {
+                    <UIPrimaryButton type="button" onClick={() => {
                       if (!numericId) return;
                       setGErr(null);
                       if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
@@ -773,8 +1020,8 @@ export default function StudentDetail() {
                       } finally { setGradeBusy(false); }
                     }}>
                       {gradeBusy ? '저장 중…' : '저장'}
-                    </UIPrimaryBtn>
-                    <UIGhostBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostBtn>
+                    </UIPrimaryButton>
+                    <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
                   </div>
                 </SectionBody>
               )}
@@ -794,7 +1041,7 @@ export default function StudentDetail() {
                           <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
                             <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
                             {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            <UIGhostBtn as={"button" as any} onClick={() => { if (!numericId) return; removeStudentGrade(numericId, g.id); setGrades(getStudentGrades(numericId)); }}>삭제</UIGhostBtn>
+                            <UIGhostButton type="button" data-variant="danger" onClick={() => void requestDeleteGrade(g)}>삭제</UIGhostButton>
                           </div>
                         </div>
                         {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
@@ -803,147 +1050,7 @@ export default function StudentDetail() {
                   </List>
                 )}
               </SectionBody>
-            </Card>
-            {/* Predictive analytics */}
-            <Card>
-              <CardHead>
-                <SectionTitle>예측 분석</SectionTitle>
-                <CardActions>
-                  <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UISmallBtn>
-                </CardActions>
-              </CardHead>
-              {riskLoading ? (
-                <SectionBody>
-                  <Skeleton w={180} h={14} />
-                  <Skeleton w={420} h={14} mt={8} />
-                </SectionBody>
-              ) : riskError ? (
-                <SectionBody>
-                  <Error>{riskError}</Error>
-                </SectionBody>
-              ) : risk ? (
-                <SectionBody>
-                  <RiskRow>
-                    <RiskPill data-level={risk.level}>
-                      {risk.level === 'RISK' ? '위험 단계' : risk.level === 'CAUTION' ? '주의 단계' : '양호'}
-                    </RiskPill>
-                    <RiskMetrics>
-                      <span>출석률 {risk.metrics.attRate30 != null ? `${risk.metrics.attRate30}%` : '—'}</span>
-                      <Dot />
-                      <span>결석 {risk.metrics.absences30}회</span>
-                      <Dot />
-                      <span>부정 신호 {risk.metrics.negativeCounselCount30}건</span>
-                    </RiskMetrics>
-                  </RiskRow>
-                  {risk.reasons.length > 0 && (
-                    <ReasonList>
-                      {risk.reasons.slice(0,3).map((r, i) => (<li key={i}>{r}</li>))}
-                    </ReasonList>
-                  )}
-                  <RecList>
-                    {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
-                  </RecList>
-                  <ActionRow>
-                    <UISmallBtn as={"button" as any} onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
-                    <UISmallBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UISmallBtn>
-                  </ActionRow>
-                </SectionBody>
-              ) : (
-                <SectionBody>
-                  <Muted>예측 분석 정보를 준비 중입니다.</Muted>
-                </SectionBody>
-              )}
-            </Card>
-
-            {/* Grades */}
-            <Card>
-              <CardHead>
-                <SectionTitle>시험/성적</SectionTitle>
-                <CardActions>
-                  {!gradeOpen ? (
-                    <UISmallBtn as={"button" as any} onClick={() => setGradeOpen(true)}>추가</UISmallBtn>
-                  ) : (
-                    <UISmallBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
-                  )}
-                </CardActions>
-              </CardHead>
-              {gradeOpen && (
-                <SectionBody>
-                  {gErr && <Error>{gErr}</Error>}
-                  <EditGrid>
-                    <div>
-                      <Label>일자</Label>
-                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>과목/시험</Label>
-                      <Input placeholder="예: 중간고사 수학" value={gSubject} onChange={(e)=>setGSubject(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>점수</Label>
-                      <Input placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>만점</Label>
-                      <Input placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>등급</Label>
-                      <Input placeholder="예: A / 상" value={gLevel} onChange={(e)=>setGLevel(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>메모</Label>
-                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
-                    </div>
-                  </EditGrid>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <UIPrimaryBtn as={"button" as any} onClick={() => {
-                      if (!numericId) return;
-                      setGErr(null);
-                      if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
-                      const score = gScore.trim() ? Number(gScore) : undefined;
-                      const outOf = gOutOf.trim() ? Number(gOutOf) : undefined;
-                      if (gScore.trim() && Number.isNaN(score)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
-                      if (gOutOf.trim() && Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
-                      setGradeBusy(true);
-                      try {
-                        addStudentGrade(numericId, { date: gDate, subject: gSubject || undefined, score, outOf, level: gLevel || undefined, note: gNote || undefined });
-                        setGrades(getStudentGrades(numericId));
-                        setGNote(''); setGLevel(''); setGOutOf(''); setGScore('');
-                      } finally { setGradeBusy(false); }
-                    }}>
-                      {gradeBusy ? '저장 중…' : '저장'}
-                    </UIPrimaryBtn>
-                    <UIGhostBtn as={"button" as any} onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostBtn>
-                  </div>
-                </SectionBody>
-              )}
-              <Divider />
-              <SectionBody>
-                {grades.length === 0 ? (
-                  <Empty>등록된 성적이 없습니다.</Empty>
-                ) : (
-                  <List>
-                    {grades.map(g => (
-                      <ListItem key={g.id}>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
-                          <div style={{ display:'grid' }}>
-                            <strong>{g.subject || '성적'}</strong>
-                            <SmallMuted>{g.date}</SmallMuted>
-                          </div>
-                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
-                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
-                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            <UIGhostBtn as={"button" as any} onClick={() => { if (!numericId) return; removeStudentGrade(numericId, g.id); setGrades(getStudentGrades(numericId)); }}>삭제</UIGhostBtn>
-                          </div>
-                        </div>
-                        {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </SectionBody>
-            </Card>
+            </Card>)}
             <Card>
               <MiniHead>
                 <Tabs>
@@ -970,7 +1077,14 @@ export default function StudentDetail() {
               <CardHead>
                 <SectionTitle>기본 정보</SectionTitle>
                 <CardActions>
-                  <UIGhostBtn as={"button" as any} onClick={() => navigate(`/students/${numericId}/edit`)}>수정</UIGhostBtn>
+                  <UIGhostLink to={`/students/${numericId}/edit`} data-variant="edit">수정</UIGhostLink>
+                  <UIGhostButton
+                    data-variant="danger"
+                    disabled={deleting}
+                    onClick={() => void requestDeleteStudent()}
+                  >
+                    {deleting ? "삭제 중..." : "삭제"}
+                  </UIGhostButton>
                 </CardActions>
               </CardHead>
               {student ? (
@@ -1043,10 +1157,12 @@ export default function StudentDetail() {
                   {editingNotes ? (
                     <>
                       <ModalBtn type="button" onClick={() => { setEditingNotes(false); setNotesInput(notes); }}>취소</ModalBtn>
-                      <UIPrimaryBtn as={"button" as any} onClick={saveNotes}>저장</UIPrimaryBtn>
+                      <UIPrimaryButton type="button" onClick={saveNotes}>저장</UIPrimaryButton>
                     </>
+                  ) : notes ? (
+                    <UIGhostButton type="button" onClick={() => setEditingNotes(true)}>편집</UIGhostButton>
                   ) : (
-                    <UIGhostBtn as={"button" as any} onClick={() => setEditingNotes(true)}>{notes ? "편집" : "메모 추가"}</UIGhostBtn>
+                    <UIPrimaryButtonSm type="button" onClick={() => setEditingNotes(true)}>메모 추가</UIPrimaryButtonSm>
                   )}
                 </CardActions>
               </CardHead>
@@ -1072,7 +1188,7 @@ export default function StudentDetail() {
               <CardHead>
                 <SectionTitle>메모 사항</SectionTitle>
                 <CardActions>
-                  <UIGhostBtn as={"button" as any} onClick={addMemo}>추가</UIGhostBtn>
+                  <UIPrimaryButtonSm type="button" onClick={addMemo}>추가</UIPrimaryButtonSm>
                 </CardActions>
               </CardHead>
               <MemoNew>
@@ -1098,12 +1214,12 @@ export default function StudentDetail() {
                         {editingMemoId === m.id ? (
                           <>
                             <ModalBtn type="button" onClick={cancelEditMemo}>취소</ModalBtn>
-                            <UIPrimaryBtn as={"button" as any} onClick={saveEditMemo}>저장</UIPrimaryBtn>
+                            <UIPrimaryButton type="button" onClick={saveEditMemo}>저장</UIPrimaryButton>
                           </>
                         ) : (
                           <>
                             <ModalBtn type="button" onClick={() => beginEditMemo(m.id)}>편집</ModalBtn>
-                            <ModalBtn type="button" onClick={() => removeMemo(m.id)}>삭제</ModalBtn>
+                            <ModalBtn type="button" data-variant="danger" onClick={() => void requestDeleteMemo(m.id)}>삭제</ModalBtn>
                           </>
                         )}
                       </MemoActions>
@@ -1205,28 +1321,114 @@ export default function StudentDetail() {
 
               {activeTab === "grades" && (
                 <SectionBody>
-                  <SmallTitle>시험/성적</SmallTitle>
-                  <Divider />
-                  {grades.length === 0 ? (
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 8 }}>
+                    <SmallTitle style={{ margin:0 }}>시험/성적</SmallTitle>
+                    {!gradeOpen ? (
+                      <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
+                    ) : (
+                      <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
+                    )}
+                  </div>
+                  {gradeOpen && (
+                    <div style={{ marginBottom: 10 }}>
+                      {gErr && <Error>{gErr}</Error>}
+                      <EditGrid>
+                        <div>
+                          <Label>일자</Label>
+                          <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
+                        </div>
+                        <div>
+                          <Label>수업</Label>
+                          <SelectBox
+                            value={String(gCourseId || '')}
+                            onChange={(v)=> setGCourseId(v ? Number(v) : '')}
+                            options={(student?.courses || []).map(c => ({ value: String(c.id), label: c.title }))}
+                            placeholder="수업 선택"
+                          />
+                        </div>
+                        <div>
+                          <Label>시험 제목</Label>
+                          <Input placeholder="예: 중간고사 수학" value={gTitle} onChange={(e)=>setGTitle(e.currentTarget.value)} />
+                        </div>
+                        <div style={{ gridColumn: '1 / -1' }}>
+                          <Label>입력 방식</Label>
+                          <div style={{ display:'inline-flex', gap:8, marginLeft:8 }}>
+                            {EXAM_MODE_OPTIONS.map((op) => (
+                              <label key={op.value} style={{ display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer' }}>
+                                <input type="radio" name="gMode" checked={gMode === op.value} onChange={() => setGMode(op.value)} />
+                                <span>{op.label}</span>
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                        {gMode === 'percent' ? (
+                          <>
+                            <div>
+                              <Label>점수</Label>
+                              <Input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
+                            </div>
+                            <div>
+                              <Label>만점</Label>
+                              <Input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
+                            </div>
+                          </>
+                        ) : (
+                          <div>
+                            <Label>등급</Label>
+                            <SelectBox
+                              value={gLevel}
+                              onChange={(v)=>setGLevel(v)}
+                              options={[{value:'',label:'-'}].concat(['A','B','C','D','E','F'].map(x=>({ value:x, label:x })))}
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <Label>메모</Label>
+                          <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
+                        </div>
+                      </EditGrid>
+                      <div style={{ display:'flex', gap:8 }}>
+                        <UIPrimaryButton type="button" onClick={() => void handleAddExamResult()} disabled={gradeBusy}>
+                          {gradeBusy ? '저장 중…' : '시험 결과 저장'}
+                        </UIPrimaryButton>
+                        <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
+                      </div>
+                    </div>
+                  )}
+                  {examGradesError && <Error>{examGradesError}</Error>}
+                  {examGradesLoading && <Muted>시험 성적을 불러오는 중...</Muted>}
+                  {displayGrades.length === 0 ? (
                     <Empty>등록된 성적이 없습니다.</Empty>
                   ) : (
-                    <List>
-                      {grades.map(g => (
-                        <ListItem key={g.id}>
-                          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
-                            <div style={{ display:'grid' }}>
-                              <strong>{g.subject || '성적'}</strong>
-                              <SmallMuted>{g.date}</SmallMuted>
-                            </div>
-                            <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
-                              <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
-                              {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            </div>
-                          </div>
-                          {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
-                        </ListItem>
-                      ))}
-                    </List>
+                    <UITable style={{ minWidth: 720 }}>
+                      <thead>
+                        <tr>
+                          <th>시험/과목</th>
+                          <th>수업</th>
+                          <th>일자</th>
+                          <th>성적</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayGrades.map((g: any) => {
+                          const courseTitle = (student?.courses || []).find(c => c.id === g.courseId)?.title || '-';
+                          const scoreText = g.level ? g.level : (g.score != null ? `${g.score}${g.outOf != null ? `/${g.outOf}` : ''}` : '-');
+                          return (
+                            <tr key={g.id}>
+                              <td>
+                                <div style={{ display:'grid' }}>
+                                  <strong>{g.subject || '성적'}</strong>
+                                  {g.note && <SmallMuted style={{ maxWidth: 420, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{g.note}</SmallMuted>}
+                                </div>
+                              </td>
+                              <td>{courseTitle}</td>
+                              <td>{g.date}</td>
+                              <td>{scoreText}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </UITable>
                   )}
                 </SectionBody>
               )}
@@ -1234,38 +1436,35 @@ export default function StudentDetail() {
 
               {activeTab === "counsels" && (
                 <SectionBody>
-                  <div style={{ display:'grid', gap:8 }}>
-                    <SmallTitle>상담 AI 요약</SmallTitle>
-                    <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                      <UIPrimaryBtn as={"button" as any} onClick={handleCounselSummarize} disabled={counselSummaryLoading}>
-                        {counselSummaryLoading ? '요약 생성 중…' : '요약 생성'}
-                      </UIPrimaryBtn>
-                      {!!counselSummary && (
-                        <UIGhostBtn as={"button" as any} onClick={() => { try { navigator.clipboard?.writeText(counselSummary); } catch {} }}>복사</UIGhostBtn>
-                      )}
-                      {counselSummaryError && <Error style={{ marginLeft: 6 }}>{counselSummaryError}</Error>}
-                    </div>
-                    {!!counselSummary && (
+                  {counselSummaryError && <Error style={{ marginBottom: 8 }}>{counselSummaryError}</Error>}
+                  {!!counselSummary && (
+                    <div style={{ display:'grid', gap:8, marginBottom:12 }}>
+                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
+                        <SmallTitle style={{ margin:0 }}>상담 AI 요약</SmallTitle>
+                      <UIGhostButton type="button" onClick={() => { try { navigator.clipboard?.writeText(counselSummary); } catch {} }}>복사</UIGhostButton>
+                      </div>
                       <NotesBox as="pre" style={{ whiteSpace: 'pre-wrap' }}>{counselSummary}</NotesBox>
-                    )}
-                  </div>
-                  <Divider />
+                    </div>
+                  )}
                   <CounselHeader>
                     <div>
                       <SmallTitle>상담기록</SmallTitle>
                     </div>
                     <div style={{ display:'inline-flex', gap: 8, alignItems:'center' }}>
+                      <AiButton type="button" onClick={handleCounselSummarize} disabled={counselSummaryLoading}>
+                        {counselSummaryLoading ? 'AI 요약 중…' : 'AI 요약'}
+                      </AiButton>
                       {addingCounsel ? (
                         <>
                           <ModalBtn type="button" onClick={() => { setAddingCounsel(false); setNewContent(""); setNewHour(""); setNewMin(""); }}>취소</ModalBtn>
-                          <UIPrimaryBtn as={"button" as any} onClick={onSubmitNewCounsel} disabled={newSubmitting || !newHour || !newMin}>저장</UIPrimaryBtn>
+                          <UIPrimaryButton type="button" onClick={onSubmitNewCounsel} disabled={newSubmitting || !newHour || !newMin}>저장</UIPrimaryButton>
                         </>
                       ) : (
                         <>
                           <ModalBtn type="button" onClick={handleCounselExport} disabled={exportingCounsel}>
                             {exportingCounsel ? '엑셀 준비 중...' : '엑셀 추출'}
                           </ModalBtn>
-                          <UIGhostBtn as={"button" as any} onClick={() => { setAddingCounsel(true); /* default to today without time */ setNewDate(() => { const d=new Date(); return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`; }); setNewHour(""); setNewMin(""); }}>상담 추가</UIGhostBtn>
+                          <UIPrimaryButtonSm type="button" onClick={() => { setAddingCounsel(true); /* default to today without time */ setNewDate(() => { const d=new Date(); return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`; }); setNewHour(""); setNewMin(""); }}>상담 추가</UIPrimaryButtonSm>
                         </>
                       )}
                     </div>
@@ -1311,7 +1510,7 @@ export default function StudentDetail() {
                                   <When>{formatKDateTime(c.counselTime)}</When>
                                   <RowActions>
                                     <ModalBtn type="button" onClick={() => { setEditingCounselId(c.id); try { const d = new Date(c.counselTime); setEditDate(`${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`); setEditHour(two(d.getHours())); setEditMin(two(d.getMinutes())); } catch { setEditDate(''); setEditHour(''); setEditMin(''); } setEditContent(c.content || ""); }}>편집</ModalBtn>
-                                    <ModalBtn type="button" onClick={() => setConfirmCounselId(c.id)}>삭제</ModalBtn>
+                                    <ModalBtn type="button" data-variant="danger" onClick={() => setConfirmCounselId(c.id)}>삭제</ModalBtn>
                                   </RowActions>
                                 </CounselRow>
                                 <CounselContent>{(c.content || '').trim() || '내용 없음'}</CounselContent>
@@ -1342,7 +1541,7 @@ export default function StudentDetail() {
                                 </EditGrid>
                                 <RowActions>
                                   <ModalBtn type="button" onClick={() => { setEditingCounselId(null); setEditDate(""); setEditHour(""); setEditMin(""); setEditContent(""); }}>취소</ModalBtn>
-                                  <UIPrimaryBtn as={"button" as any} disabled={savingEdit || !editDate || !editHour || !editMin} onClick={() => onSaveEdit(c.id)}>저장</UIPrimaryBtn>
+                                  <UIPrimaryButton type="button" disabled={savingEdit || !editDate || !editHour || !editMin} onClick={() => onSaveEdit(c.id)}>저장</UIPrimaryButton>
                                 </RowActions>
                               </>
                             )}
@@ -1358,6 +1557,7 @@ export default function StudentDetail() {
         </Columns>
       )}
 
+      {deleteConfirmDialog}
       <ConfirmDialog
         open={confirmCounselId != null}
         title="상담 일정 삭제"
@@ -1398,9 +1598,7 @@ const TopBar = styled.div`
   display: flex; align-items: center; gap: 10px;
   h2 { margin: 0; font-size: 20px; color: #0f172a; }
 `;
-const Crumbs = styled.div`
-  color: #9ca3af; font-size: 12px; margin-top: -6px; margin-bottom: 4px;
-`;
+// Breadcrumb removed
 // Back button unified via shared component
 const Columns = styled.div`
   display: grid; grid-template-columns: 360px 1fr; gap: 14px; align-items: start;
@@ -1564,6 +1762,61 @@ const ModalBtn = styled(UISmallBtn)`
   padding: 0 16px;
   font-size: 14px;
 `;
+
+const AiButton = styled.button`
+  appearance: none;
+  height: 40px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.2s ease;
+  box-shadow: 0 18px 36px rgba(99, 102, 241, 0.25);
+  & > * {
+    position: relative;
+    z-index: 1;
+  }
+  &:before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 100%);
+    mix-blend-mode: screen;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+    pointer-events: none;
+  }
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 24px 44px rgba(99, 102, 241, 0.3);
+    filter: saturate(1.1);
+    &:before { opacity: 0.8; }
+  }
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 12px 26px rgba(79, 70, 229, 0.25);
+  }
+  &:focus-visible {
+    outline: 2px solid rgba(129, 140, 248, 0.7);
+    outline-offset: 3px;
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: progress;
+    transform: none;
+    box-shadow: 0 10px 24px rgba(99, 102, 241, 0.16);
+  }
+`;
 // Button from common UI
 
 // Notes section styles
@@ -1635,17 +1888,7 @@ function sanitizeFilename(raw: string) {
 
 function two(n: number) { return String(n).padStart(2, '0'); }
 function formatDate(iso: string) {
-  try {
-    const d = new Date(iso);
-    const y = d.getFullYear();
-    const m = two(d.getMonth()+1);
-    const da = two(d.getDate());
-    const hh = two(d.getHours());
-    const mi = two(d.getMinutes());
-    return `${y}-${m}-${da} ${hh}:${mi}`;
-  } catch {
-    return iso;
-  }
+  return formatKoreanDateTime(iso, { includeWeekday: true });
 }
 
 // Attendance helpers

@@ -1,4 +1,4 @@
-import { KPI, UsersIcon, DeltaPill } from "./KPI";
+import { KPI, UsersIcon } from "./KPI";
 import type { DashboardSummary } from "../../types/dashboard";
 
 type Props = {
@@ -15,15 +15,15 @@ export default function KpiTotalStudents({
   onRetry,
 }: Props) {
   const value = data ? `${data.totalStudents}명` : "—";
-  const delta = data ? `+${data.deltaStudents}` : "—";
+  // delta hidden per request
   return (
     <KPI
       title="총 원생 수"
       icon={<UsersIcon />}
       iconAccent="indigo"
       value={value}
-      footerLeft="전월 대비"
-      footerRight={<DeltaPill $tone="positive">{delta}</DeltaPill>}
+      footerLeft={undefined}
+      footerRight={undefined}
       loading={loading}
       error={error}
       onRetry={onRetry}

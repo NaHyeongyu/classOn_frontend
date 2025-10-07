@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
 import {
-  PrimaryBtn as UIPrimaryBtn,
+  PrimaryButton as UIPrimaryBtn,
   SectionCard as Section,
   TitleH3 as SectionTitle,
 } from "@/components/common/UI";
@@ -14,6 +14,7 @@ import {
   type Student,
   type StudentPayload,
 } from "@/api/students";
+import { readableError } from "@/lib/errors";
 
 const statusLabel: Record<Student["status"], string> = {
   ENROLLED: "수강중",
@@ -151,9 +152,9 @@ export default function StudentForm() {
             setDobD("");
           }
         }
-      } catch (e: any) {
+      } catch (e) {
         if (!cancelled)
-          setError(e?.message || "원생 정보를 불러오지 못했습니다.");
+          setError(readableError(e, "원생 정보를 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -186,9 +187,7 @@ export default function StudentForm() {
     if (!form.name || !form.name.trim()) {
       setFieldErr((prev) => ({ ...prev, name: "이름은 필수입니다." }));
       setTouched((prev) => ({ ...prev, name: true }));
-      try {
-        nameRef.current?.focus();
-      } catch {}
+      nameRef.current?.focus();
       return;
     }
     setSaving(true);
@@ -198,7 +197,7 @@ export default function StudentForm() {
         name: form.name.trim(),
         status: form.status || "ENROLLED",
       };
-      if (intlAge != null) (payload as any).age = intlAge;
+      if (intlAge != null) payload.age = intlAge;
       let res: Student;
       if (isEdit && numericId) {
         res = await updateStudent(numericId, payload);
@@ -209,8 +208,8 @@ export default function StudentForm() {
         setSuccess("원생이 추가되었습니다.");
         navigate(`/students/${res.id}`, { replace: true });
       }
-    } catch (e: any) {
-      setError(e?.message || "저장에 실패했습니다.");
+    } catch (e) {
+      setError(readableError(e, "저장에 실패했습니다."));
     } finally {
       setSaving(false);
     }
@@ -228,7 +227,6 @@ export default function StudentForm() {
         </HeadLeft>
         <HeadActions>
           <UIPrimaryBtn
-            as={"button" as any}
             type="button"
             onClick={() => {
               const formEl = document.getElementById(
@@ -237,9 +235,11 @@ export default function StudentForm() {
               if (!formEl) return;
               try {
                 // Prefer requestSubmit to trigger onSubmit + validation
-                (formEl as any).requestSubmit
-                  ? (formEl as any).requestSubmit()
-                  : formEl.submit();
+                if ("requestSubmit" in formEl && typeof (formEl as HTMLFormElement).requestSubmit === 'function') {
+                  (formEl as HTMLFormElement).requestSubmit();
+                } else {
+                  formEl.submit();
+                }
               } catch {
                 formEl.submit();
               }
@@ -559,7 +559,7 @@ const Field = styled.label`
   display: grid;
   gap: 6px;
   align-items: start;
-` as any;
+`;
 const Label = styled.div`
   color: #475569;
   font-size: 13px;
@@ -783,36 +783,7 @@ const StatusButton = styled.button`
   }
 `;
 
-// Danger Zone (edit only)
-const DangerZone = styled.section`
-  background: #fff1f2;
-  border: 1px solid #ffe4e6;
-  border-radius: 14px;
-  padding: 14px;
-  display: grid;
-  gap: 8px;
-`;
-const ZoneTitle = styled.div`
-  color: #be123c;
-  font-weight: 900;
-`;
-const ZoneDesc = styled.div`
-  color: #9f1239;
-  font-size: 12px;
-`;
-const DangerBtn = styled.button`
-  height: 40px;
-  padding: 0 16px;
-  border-radius: 10px;
-  border: 1px solid #e11d48;
-  background: #e11d48;
-  color: #fff;
-  font-weight: 800;
-  font-size: 14px;
-  justify-self: start;
-  opacity: 0.6;
-  cursor: not-allowed;
-`;
+// Danger Zone styles removed (unused)
 
 // Skeletons
 const shimmer = keyframes`

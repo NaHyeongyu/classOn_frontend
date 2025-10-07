@@ -70,8 +70,11 @@ export async function deleteCounsel(id: number): Promise<void> {
 }
 
 // Excel export helper
-const API_BASE_COUNSELS = ((import.meta as any).env?.VITE_API_BASE ?? (import.meta as any).env?.VITE_API_BASE_URL) ?? ((import.meta as any).env?.DEV ? "" : "https://api.myclasson.com/api");
-function resolveCounselUrl(path: string) { return API_BASE_COUNSELS ? new URL(path, API_BASE_COUNSELS).toString() : path; }
+const COUNSEL_API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : "https://api.myclasson.com/api");
+
+function resolveCounselUrl(path: string): string {
+  return COUNSEL_API_BASE ? new URL(path, COUNSEL_API_BASE).toString() : path;
+}
 async function fetchCounselBlob(path: string): Promise<Blob> {
   const url = resolveCounselUrl(path);
   const token = (await import("../lib/auth")).getToken();

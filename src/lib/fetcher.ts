@@ -16,13 +16,8 @@ const NO_CACHE_PREFIXES = [
   "/api/dashboard/attendance-today",
   "/api/calendar/classes",           // calendar daily view should refresh immediately
   "/api/calendar/classes-range",     // calendar monthly range should refresh immediately
-  "/api/marketing/render", // rendering should always be fresh
-  "/api/marketing/recommend",
-  "/api/marketing/summary",
-  "/api/marketing/platforms",
-  "/api/marketing/copy",
-  "/api/marketing/run",
   "/api/records/render",
+  "/api/attendance/daily",
 ];
 
 function resolveURL(path: string) {
@@ -124,7 +119,7 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
   if (isGet && !noCache && cachedBody && ts && Date.now() - ts < CACHE_TTL_MS) {
     try {
       return JSON.parse(cachedBody) as T;
-    } catch {}
+    } catch { /* ignore cache parse failure */ }
   }
   const isFormData = init?.body instanceof FormData;
   const headers: Record<string, string> = {
@@ -185,7 +180,7 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
       // Fallback to plain text or status text
       message = text?.trim() || res.statusText || '요청에 실패했습니다.';
     }
-    const err: any = new Error(message);
+    const err = new Error(message) as Error & { status?: number; code?: string | number };
     err.status = res.status;
     if (code) err.code = code;
     throw err;

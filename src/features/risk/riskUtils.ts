@@ -66,14 +66,14 @@ export function calcRisk(
   const reasons: string[] = [];
   let level: RiskLevel = 'LOW';
   if (attRate30 != null) {
-    if (attRate30 < 0.6) { level = 'RISK'; reasons.push('최근 출석률 60% 미만'); }
-    else if (attRate30 < 0.8) { level = level === 'RISK' ? 'RISK' : 'CAUTION'; reasons.push('최근 출석률 80% 미만'); }
+    if (attRate30 < 0.5) { level = 'RISK'; reasons.push('최근 출석률 50% 미만'); }
+    else if (attRate30 < 0.8) { level = 'CAUTION'; reasons.push('최근 출석률 80% 미만'); }
   } else {
     reasons.push('최근 30일 출석 데이터 없음');
   }
   if (absences30 >= 2) { level = 'RISK'; reasons.push(`최근 30일 결석 ${absences30}회`); }
   if (negativeCounselCount30 >= 2) { level = 'RISK'; reasons.push('상담 메모 부정 신호 다수'); }
-  else if (negativeCounselCount30 >= 1) { level = level === 'RISK' ? 'RISK' : 'CAUTION'; reasons.push('상담 메모 부정 신호'); }
+  else if (negativeCounselCount30 >= 1) { if (level !== 'RISK') level = 'CAUTION'; reasons.push('상담 메모 부정 신호'); }
 
   const metrics: RiskMetrics = { attRate30: attRate30 != null ? Math.round(attRate30 * 100) : null, totalSessions30, absences30, lastAbsentDays, negativeCounselCount30 };
   return { level, metrics, reasons };
@@ -94,4 +94,3 @@ export function recommendActions(res: RiskResult): string[] {
   }
   return out;
 }
-

@@ -1,4 +1,4 @@
-import { KPI, CheckIcon, DeltaPill } from "./KPI";
+import { KPI, CheckIcon } from "./KPI";
 import type { DashboardSummary } from "../../types/dashboard";
 
 type Props = {
@@ -25,7 +25,7 @@ export default function KpiAttendance({
       iconAccent="green"
       value={value}
       footerLeft={denom}
-      footerRight={<DeltaPill $tone="neutral">오늘</DeltaPill>}
+      footerRight={undefined}
       loading={loading}
       error={error}
       onRetry={onRetry}

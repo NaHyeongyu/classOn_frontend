@@ -18,7 +18,6 @@ export function InfoBanner({ title, description, tips, onClose, className }: Inf
         {tips && tips.length ? (
           <ul>
             {tips.map((tip, idx) => (
-              // eslint-disable-next-line react/no-array-index-key
               <li key={idx}>{tip}</li>
             ))}
           </ul>

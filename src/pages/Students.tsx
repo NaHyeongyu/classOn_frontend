@@ -1,4 +1,4 @@
-import { Page, Card } from "@/components/students/StudentsLayout";
+import { Page } from "@/components/students/StudentsLayout";
 import StudentsStats from "@/components/students/StudentsStats";
 import StudentsFilters from "@/components/students/StudentsFilters";
 import StudentsTable from "@/components/students/StudentsTable";
@@ -8,6 +8,7 @@ import { SectionCard as Section } from "@/components/common/UI";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader, PrimaryBtn, GhostButton } from "@/components/common/UI";
 import { downloadStudentsExcel, downloadStudentsTemplate, importStudentsExcel } from "@/api/students";
+import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 
@@ -45,8 +46,8 @@ export default function Students() {
       });
       await saveBlobAsFile(blob, 'students.xlsx');
       success('엑셀 추출이 완료되었습니다.');
-    } catch (e: any) {
-      showError(e?.message || '엑셀 추출에 실패했습니다.');
+    } catch (e) {
+      showError(readableError(e, '엑셀 추출에 실패했습니다.'));
     }
   }
 
@@ -55,8 +56,8 @@ export default function Students() {
       const blob = await downloadStudentsTemplate();
       await saveBlobAsFile(blob, 'students_template.xlsx');
       success('템플릿을 다운로드했습니다.');
-    } catch (e: any) {
-      showError(e?.message || '템플릿 다운로드에 실패했습니다.');
+    } catch (e) {
+      showError(readableError(e, '템플릿 다운로드에 실패했습니다.'));
     }
   }
 
@@ -67,8 +68,8 @@ export default function Students() {
       const res = await importStudentsExcel(file);
       show(`생성 ${res.created}, 수정 ${res.updated}, 건너뜀 ${res.skipped}`);
       setRefreshKey((k) => k + 1);
-    } catch (e: any) {
-      showError(e?.message || '엑셀 업로드에 실패했습니다.');
+    } catch (e) {
+      showError(readableError(e, '엑셀 업로드에 실패했습니다.'));
     } finally {
       ev.target.value = '';
     }
@@ -138,7 +139,11 @@ function filtersToParams(f: { status: ""|"ENROLLED"|"ON_LEAVE"|"PENDING"; from: 
 }
 
 function paramToFilters(sp: URLSearchParams) {
-  const status = sp.get('status') as any || '';
+  const statusParam = sp.get('status');
+  const status: ""|"ENROLLED"|"ON_LEAVE"|"PENDING" =
+    statusParam === 'ENROLLED' || statusParam === 'ON_LEAVE' || statusParam === 'PENDING'
+      ? statusParam
+      : '';
   const from = sp.get('from') || '';
   const to = sp.get('to') || '';
   const ageMin = sp.get('ageMin') || '';
@@ -160,12 +165,13 @@ const StickyWrap = styled.div`
   top: 0;
   z-index: 35; /* above table headers */
   background: ${({ theme }) => theme.colors.surface};
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  /* remove bottom divider under sticky filter area */
+  border-bottom: 0;
 `;
 const StickyInner = styled.div`
   display: grid;
   gap: 12px;
-  padding: 8px 0 12px;
+  padding: 8px 0 0;
 `;
 const StickyHeader = styled(PageHeader)`
   position: static;

@@ -32,7 +32,6 @@ export default function CalendarGrid({ viewDate, dates, onSelectDate, getEvents 
       {dates.map((d, i) => {
         const isCurrent = d.getMonth() === viewDate.getMonth();
         const isToday = isSameDate(d, new Date());
-        const weekday = d.getDay();
         const events = isCurrent ? getEvents(d) : [];
         const idx = i;
         return (
@@ -58,7 +57,7 @@ export default function CalendarGrid({ viewDate, dates, onSelectDate, getEvents 
             role="gridcell"
             aria-selected={idx === focusIdx}
           >
-            <DateNum $red={weekday === 0 || weekday === 6} $today={isToday}>
+            <DateNum $today={isToday}>
               {d.getDate()}
             </DateNum>
             <Events>
@@ -96,25 +95,26 @@ const Grid = styled.div`
   flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  /* Exactly 5 rows, each sharing height evenly regardless of content */
-  grid-template-rows: repeat(5, minmax(0, 1fr));
-  gap: 8px;
-  padding: 0 2px;
+  grid-template-rows: repeat(5, minmax(100px, 1fr));
+  gap: 6px;
+  padding: 0 4px;
   height: 100%;
   min-height: 0;
   @media (min-width: 1024px) {
-    gap: 10px;
-    padding: 0 4px;
+    grid-template-rows: repeat(5, minmax(120px, 1fr));
+    gap: 8px;
+    padding: 0 6px;
   }
   @media (min-width: 1536px) {
-    gap: 12px;
+    grid-template-rows: repeat(5, minmax(135px, 1fr));
+    gap: 10px;
   }
 `;
 const Cell = styled.div<{ $dim?: boolean; $today?: boolean }>`
   background: ${(p) => (p.$dim ? "#f8fafc" : "#ffffff")};
   border: 1px solid ${(p) => (p.$today ? "#c7d2fe" : "#e2e8f0")};
   border-radius: 14px;
-  padding: 10px;
+  padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -127,12 +127,12 @@ const Cell = styled.div<{ $dim?: boolean; $today?: boolean }>`
   box-shadow: ${(p) => (p.$today ? "0 0 0 2px rgba(99, 102, 241, 0.18)" : "0 2px 6px rgba(15, 23, 42, 0.04)")};
   &:hover { border-color: #cbd5f5; box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08); transform: translateY(-2px); }
   &:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28); border-color: #93c5fd; }
-  @media (min-width: 1280px) { padding: 12px; }
+  @media (min-width: 1280px) { padding: 16px; gap: 10px; }
 `;
-const DateNum = styled.div<{ $red?: boolean; $today?: boolean }>`
-  font-size: 13px;
-  font-weight: 800;
-  color: ${(p) => (p.$today ? "#4338ca" : p.$red ? "#ef4444" : "#475569")};
+const DateNum = styled.div<{ $today?: boolean }>`
+  font-size: 14px;
+  font-weight: 700;
+  color: ${(p) => (p.$today ? "#4338ca" : "#111827")};
   width: fit-content;
   padding: 2px 6px;
   border-radius: 8px;

@@ -28,6 +28,7 @@ import {
 import { useToast } from '@/components/common/Toast';
 import { LoadingSpinner } from '@/components/common/Loading';
 import { listLoginLogsPaged } from '@/api/admin';
+import { formatKoreanDateTime } from '@/lib/format';
 
 type AdminLoginRow = {
   id?: number;
@@ -244,9 +245,8 @@ export default function AdminLogins() {
 }
 
 function formatDateTime(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString('ko-KR', { dateStyle: 'medium', timeStyle: 'short' });
+  const formatted = formatKoreanDateTime(value, { includeWeekday: true });
+  return formatted === '—' ? value : formatted;
 }
 
 const SpinnerInline = styled(LoadingSpinner)`

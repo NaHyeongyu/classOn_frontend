@@ -59,7 +59,3 @@ export async function completeTodo(id: number, done = true): Promise<Todo> {
   const join = `?done=${done ? "true" : "false"}`;
   return await fetchJSON<Todo>(`/api/todos/${id}/complete${join}`, { method: "POST" });
 }
-
-export async function fetchDueReminders(): Promise<Todo[]> {
-  return await fetchJSON<Todo[]>(`/api/todos/reminders-due`);
-}

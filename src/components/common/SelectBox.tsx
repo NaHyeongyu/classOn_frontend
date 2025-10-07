@@ -26,7 +26,6 @@ export default function SelectBox({ value, onChange, options, placeholder, disab
   }, [options, value]);
 
   const toggle = useCallback(() => { if (!disabled) setOpen(o => !o); }, [disabled]);
-  const close = useCallback(() => setOpen(false), []);
   const select = useCallback((idx: number) => {
     const opt = options[idx];
     if (!opt) return;
@@ -134,4 +133,3 @@ const MenuItem = styled.div`
 const Empty = styled.div`
   padding: 8px 10px; color:#6b7280; font-size: 13px;
 `;
-

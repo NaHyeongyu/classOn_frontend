@@ -103,7 +103,11 @@ export async function createStudent(payload: StudentPayload): Promise<Student> {
     '/api/calendar/classes-range',
     '/api/dashboard/summary',
   ]);
-  try { window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} })); } catch {}
+  try {
+    window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
   return res;
 }
 
@@ -119,7 +123,11 @@ export async function updateStudent(id: number, payload: Partial<StudentPayload>
     '/api/calendar/classes-range',
     '/api/dashboard/summary',
   ]);
-  try { window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} })); } catch {}
+  try {
+    window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
   return res;
 }
 
@@ -133,14 +141,21 @@ export async function deleteStudent(id: number): Promise<void> {
     '/api/calendar/classes-range',
     '/api/dashboard/summary',
   ]);
-  try { window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} })); } catch {}
+  try {
+    window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
 }
 
 // Excel helpers (download/upload)
-const API_BASE_STU = ((import.meta as any).env?.VITE_API_BASE ?? (import.meta as any).env?.VITE_API_BASE_URL) ?? ((import.meta as any).env?.DEV ? "" : "https://api.myclasson.com/api");
-function resolveURL(path: string) { return API_BASE_STU ? new URL(path, API_BASE_STU).toString() : path; }
+const STUDENT_API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : "https://api.myclasson.com/api");
+
+function resolveStudentUrl(path: string): string {
+  return STUDENT_API_BASE ? new URL(path, STUDENT_API_BASE).toString() : path;
+}
 async function fetchBlob(path: string): Promise<Blob> {
-  const url = resolveURL(path);
+  const url = resolveStudentUrl(path);
   const token = (await import("../lib/auth")).getToken();
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
@@ -169,7 +184,7 @@ export async function downloadStudentsTemplate(): Promise<Blob> {
 }
 
 export async function importStudentsExcel(file: File): Promise<{ created: number; updated: number; skipped: number; errors: string[] }>{
-  const url = resolveURL(`/api/students/import`);
+  const url = resolveStudentUrl(`/api/students/import`);
   const token = (await import("../lib/auth")).getToken();
   const form = new FormData();
   form.append('file', file);
@@ -186,11 +201,11 @@ export async function bulkUpdateStudentCourses(args: {
   courseIds: number[];
   mode?: 'append'|'replace'|'remove';
 }): Promise<{ updated: number; errors: string[] }> {
-  const body: any = {
+  const body: Record<string, unknown> = {
     studentIds: args.studentIds ?? [],
-    selectAll: !!args.selectAll,
+    selectAll: Boolean(args.selectAll),
     courseIds: args.courseIds,
-    mode: args.mode || 'append',
+    mode: args.mode ?? 'append',
   };
   if (args.selectAll && args.filters) {
     if (args.filters.status) body.status = args.filters.status;

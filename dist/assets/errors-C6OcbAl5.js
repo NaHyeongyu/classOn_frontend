@@ -1,0 +1,1 @@
+function n(e){if(typeof e=="string")return e;if(e&&typeof e=="object"&&"message"in e&&typeof e.message=="string")return e.message??void 0}function s(e,t){return n(e)||t}function a(e,t){return s(e,t)}export{a as g,s as r};

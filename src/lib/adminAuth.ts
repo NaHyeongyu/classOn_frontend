@@ -11,10 +11,10 @@ export function getAdminToken(): string | null {
   try { return localStorage.getItem(ADMIN_TOKEN_KEY); } catch { return null; }
 }
 export function setAdminToken(token: string) {
-  try { localStorage.setItem(ADMIN_TOKEN_KEY, token); } catch {}
+  try { localStorage.setItem(ADMIN_TOKEN_KEY, token); } catch { /* ignore storage errors */ }
 }
 export function clearAdminToken() {
-  try { localStorage.removeItem(ADMIN_TOKEN_KEY); } catch {}
+  try { localStorage.removeItem(ADMIN_TOKEN_KEY); } catch { /* ignore storage errors */ }
 }
 
 export function getAdminUser(): AdminUser | null {
@@ -24,6 +24,5 @@ export function setAdminUser(u: AdminUser | null) {
   try {
     if (u) localStorage.setItem('admin:user', JSON.stringify(u));
     else localStorage.removeItem('admin:user');
-  } catch {}
+  } catch { /* ignore storage errors */ }
 }
-

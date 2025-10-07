@@ -7,10 +7,12 @@ import ClassesStats from "@/components/classes/ClassesStats";
 
 export default function Classes() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const initial = useMemo(() => ({
-    status: (searchParams.get('status') as any) || "",
-    q: searchParams.get('q') || "",
-  }), []);
+  const initial = useMemo(() => {
+    const s = searchParams.get('status');
+    const status: "" | "IN_PROGRESS" | "STOPPED" | "PENDING" =
+      s === 'IN_PROGRESS' || s === 'STOPPED' || s === 'PENDING' ? s : '';
+    return ({ status, q: searchParams.get('q') || '' });
+  }, []);
   const [filters, setFilters] = useState({ status: initial.status as "" | "IN_PROGRESS" | "STOPPED" | "PENDING", q: initial.q });
   const [refreshKey, setRefreshKey] = useState(0);
   useEffect(() => {

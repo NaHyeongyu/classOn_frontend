@@ -3,6 +3,7 @@ import { listTodosByDate } from "../../api/todos";
 import type { CalendarEvent } from "../../types/calendar";
 import { formatYMD } from "../calendar/dateUtils";
 import { peekCache } from "../../lib/fetcher";
+import { readableError } from "@/lib/errors";
 
 // Prefetch todo counts for the currently visible dates.
 export function useTodoEvents(visibleDates?: Date[]) {
@@ -28,7 +29,7 @@ export function useTodoEvents(visibleDates?: Date[]) {
           for (const y of ymds) {
             const sp = new URLSearchParams({ dueYmd: y, status: "PENDING" });
             const key = `/api/todos?${sp.toString()}`;
-            const cached = peekCache<any[]>(key);
+            const cached = peekCache<unknown[]>(key);
             if (cached.data) seed[y] = (cached.data || []).length;
           }
           if (Object.keys(seed).length && !cancelled)
@@ -60,8 +61,8 @@ export function useTodoEvents(visibleDates?: Date[]) {
           for (const [k, v] of entries) next[k] = v;
           return next;
         });
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "할 일 정보를 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "할 일 정보를 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }

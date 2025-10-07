@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { adminLogin as apiLogin, adminLogout as apiLogout, adminMe } from '@/api/adminAuth';
 import type { AdminUser } from '@/lib/adminAuth';

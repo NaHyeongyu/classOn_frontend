@@ -8,7 +8,7 @@ import {
   SectionCard as Section,
   TitleH3 as Title,
 } from "@/components/common/UI";
-import InfoBanner from "@/components/common/InfoBanner";
+// InfoBanner removed per request
 import {
   createCourse,
   getCourse,
@@ -16,6 +16,7 @@ import {
   updateCourse,
 } from "@/api/courses";
 import { listStudents, type Student } from "@/api/students";
+import { getErrorMessage } from "@/lib/errors";
 
 type FormState = {
   title: string;
@@ -52,7 +53,7 @@ export default function CourseForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [showGuide, setShowGuide] = useState(true);
+  // Tip/guide banner removed
   const [fieldErr, setFieldErr] = useState<{
     title?: string;
     schedule?: string;
@@ -340,22 +341,7 @@ export default function CourseForm() {
         <FormSk />
       ) : (
         <Form id="course-form" onSubmit={onSubmit}>
-          {showGuide ? (
-            <InfoBanner
-              title={isEdit ? "수업 정보를 빠르게 수정하는 팁" : "수업 등록 체크리스트"}
-              description={
-                isEdit
-                  ? "변경한 내용은 저장 즉시 반영됩니다. 수강생에게 공지해야 하는 정보는 메모나 캘린더 댓글로 남겨두면 좋아요."
-                  : "기본 정보 → 일정 → 추가 설정 순으로 차근차근 입력하면 절차를 놓치지 않아요."
-              }
-              tips={[
-                "반복 요일과 시간을 먼저 정해두면 공지 작성이 수월해집니다.",
-                "정원과 수강료를 입력하면 대시보드 통계에 자동 반영돼요.",
-                "저장은 마지막 단계에서 한 번만 눌러도 됩니다.",
-              ]}
-              onClose={() => setShowGuide(false)}
-            />
-          ) : null}
+          {/* Tip/guide banner removed */}
 
           <Stepper>
             {steps.map((meta, idx) => {
@@ -1014,24 +1000,27 @@ const StepChip = styled.button`
   gap: ${(p) => p.theme.spacing.sm};
   padding: ${(p) => p.theme.spacing.xs} ${(p) => p.theme.spacing.md};
   border-radius: 999px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #475569;
+  border: 1px solid #dbeafe;
+  background: #f8fafb;
+  color: #334155;
   font-size: ${(p) => p.theme.font.size.sm};
   font-weight: 600;
   cursor: pointer;
   transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
   &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
+    cursor: default;
     pointer-events: none;
+  }
+  &:not(:disabled):hover {
+    border-color: #c7d2fe;
+    background: #eef2ff;
   }
   .index {
     width: 22px;
     height: 22px;
     border-radius: 999px;
-    background: #e5e7eb;
-    color: #6b7280;
+    background: #e0e7ff;
+    color: #4338ca;
     display: grid;
     place-items: center;
     font-weight: 700;
@@ -1048,6 +1037,7 @@ const StepChip = styled.button`
   }
   &[data-done='true'] {
     border-color: #c7d2fe;
+    background: #f5f3ff;
     color: #1f2937;
     .index {
       background: #4f46e5;
@@ -1184,12 +1174,6 @@ function useToggleDay(
       : current.filter((x) => x !== d);
     setForm((f) => ({ ...f, recurrenceDays: joinDays(next) }));
   };
-}
-
-function getErrorMessage(error: unknown, fallback: string): string {
-  if (error instanceof Error) return error.message || fallback;
-  if (typeof error === "string") return error || fallback;
-  return fallback;
 }
 
 const Toggle = styled.div`

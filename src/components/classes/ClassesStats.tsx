@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { useEffect, useMemo, useState } from "react";
 import { listCourses, type Course, type PageResult } from "../../api/courses";
 import { formatYMD } from "../../features/calendar/dateUtils";
+import { readableError } from "@/lib/errors";
 
 export default function ClassesStats() {
   const [loading, setLoading] = useState(true);
@@ -34,8 +35,8 @@ export default function ClassesStats() {
           setInProgress(p.totalElements);
           setTodayCount(d.totalElements);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "수업 요약 정보를 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "수업 요약 정보를 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }

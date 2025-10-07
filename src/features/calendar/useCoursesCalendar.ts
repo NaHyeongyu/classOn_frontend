@@ -4,6 +4,7 @@ import type { ClassItem } from "../../types/calendarDetail";
 import { formatYMD } from "./dateUtils";
 import { getClassesRange } from "../../api/calendar";
 import { peekCache } from "../../lib/fetcher";
+import { readableError } from "@/lib/errors";
 
 function hhmm(t?: string) {
   if (!t) return "";
@@ -122,12 +123,4 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
   }, [byYmd]);
 
   return { loading, error, classesForDate, eventsForDate };
-}
-
-function readableError(e: unknown, fallback: string) {
-  if (typeof e === 'string') return e;
-  if (e && typeof e === 'object' && 'message' in e && typeof (e as { message?: unknown }).message === 'string') {
-    return (e as { message?: string }).message || fallback;
-  }
-  return fallback;
 }

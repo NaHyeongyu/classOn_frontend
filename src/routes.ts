@@ -37,6 +37,9 @@ export const routes = {
   marketingSummary: '/marketing/summary',
   marketingSaved: '/marketing/saved',
   marketingSavedDetail: '/marketing/saved/:id',
+  report: '/report',
+  feedback: '/feedback',
+  feedbackChangelog: '/feedback/changelog',
 } as const;
 
 export const paths = {

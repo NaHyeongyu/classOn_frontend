@@ -12,13 +12,16 @@ export default function DashboardAttendance() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    setLoading(true); setError(null);
+    setLoading(true);
+    setError(null);
     try {
       const res = await getAttendanceToday();
-      setRows(res.filter(r => r.present));
-    } catch (e: any) {
-      setError(e?.message || "출석 정보를 불러오지 못했습니다.");
-    } finally { setLoading(false); }
+      setRows(res.filter((r) => r.present));
+    } catch (err) {
+      setError(toErrorMessage(err, "출석 정보를 불러오지 못했습니다."));
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -37,11 +40,13 @@ export default function DashboardAttendance() {
   return (
     <DashboardPanel span={6}>
       <Head>
-        <div>
-          <strong>출석 학생</strong>
-          <Muted>{loading ? "불러오는 중..." : `${rows.length}건`}</Muted>
-          {error && <Err>{error}</Err>}
-        </div>
+        <HeadInfo>
+          <Title>출석 학생</Title>
+          <HeadMeta>
+            <Muted>{loading ? "불러오는 중…" : `${rows.length}건`}</Muted>
+            {error ? <Err>{error}</Err> : null}
+          </HeadMeta>
+        </HeadInfo>
       </Head>
       <CardList>
         {rows.length === 0 && !loading && (
@@ -57,8 +62,8 @@ export default function DashboardAttendance() {
           <AttendanceCard key={row.id}>
             <CardTop>
               <CardMain>
-                <strong>{row.studentName}</strong>
-                <span className="course">
+                <StudentName>{row.studentName}</StudentName>
+                <CourseName>
                   {row.courseTitle ? (
                     row.courseId ? (
                       <CourseLink type="button" onClick={() => navigate(`/classes/${row.courseId}`)}>
@@ -70,11 +75,11 @@ export default function DashboardAttendance() {
                   ) : (
                     "-"
                   )}
-                </span>
+                </CourseName>
               </CardMain>
               <CardMeta>
                 <StatusBadge>출석</StatusBadge>
-                <MetaTime>{formatTime(row.createdAt)}</MetaTime>
+                <MetaItem>{formatTime(row.createdAt)}</MetaItem>
                 <SourceBadge data-type={row.source}>{sourceLabel(row.source)}</SourceBadge>
               </CardMeta>
             </CardTop>
@@ -87,54 +92,155 @@ export default function DashboardAttendance() {
 
 function formatTime(iso: string) {
   try {
-    const d = new Date(iso);
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mm = String(date.getMinutes()).padStart(2, "0");
     return `${hh}:${mm}`;
-  } catch { return iso; }
+  } catch {
+    return iso;
+  }
 }
 
 function sourceLabel(source: "MOBILE" | "MANUAL") {
-  return source === 'MOBILE' ? '모바일' : '수동';
+  return source === "MOBILE" ? "모바일" : "수동";
 }
 
-const Head = styled.div` display:flex; align-items:center; justify-content:space-between; `;
-const Muted = styled.div` color:#6b7280; font-size:12px; margin-top:4px; `;
-const Err = styled.div` color:#b91c1c; font-size:12px; `;
-const CardList = styled.div` display:grid; gap:8px; margin-top:8px; `;
-const AttendanceCard = styled.div`
-  display:flex;
-  flex-direction:column;
-  gap:6px;
-  padding:12px 16px;
-  border:1px solid #e5e7eb;
-  border-radius:14px;
-  background:#ffffff;
-  box-shadow:0 1px 2px rgba(15,23,42,0.06);
+function toErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}
+
+const Head = styled.header`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${(p) => p.theme.spacing.md};
+  flex-wrap: wrap;
 `;
-const CardTop = styled.div` display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; `;
+
+const HeadInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.xs};
+`;
+
+const Title = styled.h3`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.lg};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  color: ${(p) => p.theme.colors.text};
+`;
+
+const HeadMeta = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.xs};
+`;
+
+const Muted = styled.span`
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
+`;
+
+const Err = styled.span`
+  color: ${(p) => p.theme.colors.danger};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+`;
+
+const CardList = styled.div`
+  display: grid;
+  gap: ${(p) => p.theme.spacing.sm};
+  margin-top: ${(p) => p.theme.spacing.sm};
+`;
+
+const AttendanceCard = styled.article`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.sm};
+  padding: ${(p) => p.theme.spacing.md} ${(p) => p.theme.spacing.lg};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  background: ${(p) => p.theme.colors.surface};
+  box-shadow: ${(p) => p.theme.shadow.low};
+`;
+
+const CardTop = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${(p) => p.theme.spacing.md};
+  flex-wrap: wrap;
+`;
+
 const CardMain = styled.div`
-  display:flex;
-  flex-direction:column;
-  gap:2px;
-  strong { font-size:15px; color:#111827; letter-spacing:-0.01em; }
-  .course { font-size:13px; color:#6b7280; }
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.xs};
+  min-width: 0;
 `;
-const CardMeta = styled.div` display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; `;
-const MetaTime = styled.span` font-size:12px; color:#6b7280; `;
+
+const StudentName = styled.strong`
+  font-size: ${(p) => p.theme.font.size.lg};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  color: ${(p) => p.theme.colors.text};
+  letter-spacing: -0.01em;
+`;
+
+const CourseName = styled.span`
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const CardMeta = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.xs};
+  flex-wrap: wrap;
+`;
+
+const MetaItem = styled.span`
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
 const StatusBadge = styled.span`
-  padding:2px 10px; border-radius:9999px; font-size:12px; font-weight:800;
-  background:#dcfce7; color:#16a34a; border:1px solid #bbf7d0;
+  display: inline-flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.xs};
+  padding: 4px ${(p) => p.theme.spacing.sm};
+  border-radius: 9999px;
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.bold};
+  background: ${(p) => p.theme.colors.successSurface};
+  color: ${(p) => p.theme.colors.success};
+  border: 1px solid rgba(5, 150, 105, 0.3);
 `;
+
 const SourceBadge = styled.span`
-  padding:2px 8px; border-radius:9999px; font-size:12px; font-weight:700; border:1px solid #e5e7eb; color:#374151; background:#f9fafb;
-  &[data-type='MOBILE'] { background:#dcfce7; color:#16a34a; border-color:#bbf7d0; }
-  &[data-type='MANUAL'] { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
+  padding: 2px ${(p) => p.theme.spacing.sm};
+  border-radius: 9999px;
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.medium};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  color: ${(p) => p.theme.colors.text};
+  background: ${(p) => p.theme.colors.surfaceAlt};
+
+  &[data-type='MOBILE'] {
+    background: ${(p) => p.theme.colors.successSurface};
+    color: ${(p) => p.theme.colors.success};
+    border-color: rgba(5, 150, 105, 0.3);
+  }
 `;
+
 const CourseLink = styled.button`
-  all:unset;
-  cursor:pointer;
-  color:#2563eb;
-  font-weight:600;
-  &:hover { text-decoration:underline; }
+  all: unset;
+  cursor: pointer;
+  color: ${(p) => p.theme.colors.info};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  &:hover {
+    text-decoration: underline;
+  }
 `;

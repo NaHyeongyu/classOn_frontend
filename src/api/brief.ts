@@ -9,10 +9,11 @@ export type BriefResponse = {
 };
 
 export async function briefRecords(items: SummarizeItem[], options?: BriefOptions) {
+  const timeoutRaw = import.meta.env.VITE_BRIEF_TIMEOUT_MS;
+  const timeoutMs = Number(timeoutRaw ?? 45_000);
   return await fetchJSON<BriefResponse>("/api/records/brief", {
     method: "POST",
     body: JSON.stringify({ items, options }),
-    timeoutMs: Number((import.meta as any).env?.VITE_BRIEF_TIMEOUT_MS ?? 45000),
+    timeoutMs,
   });
 }
-

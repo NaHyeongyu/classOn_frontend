@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import styled from "styled-components";
+import { useNavigate } from "react-router-dom";
+import { DashboardPanel } from "./DashboardLayout";
 import { getClassesOn, type TodayClass } from "../../api/calendar";
 import { formatYMD } from "../../features/calendar/dateUtils";
+import { formatTimeRangeLabel } from "../../lib/format";
 import ClassList from "../calendar/detail/ClassList";
 import type { ClassItem } from "../../types/calendarDetail";
-import { useNavigate } from "react-router-dom";
 
 export default function DashboardClasses() {
   const navigate = useNavigate();
@@ -19,8 +21,8 @@ export default function DashboardClasses() {
       try {
         const res = await getClassesOn(formatYMD(new Date()));
         if (!cancelled) setRows(res);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "오늘 수업을 불러오지 못했습니다.");
+      } catch (err) {
+        if (!cancelled) setError(resolveErrorMessage(err, "오늘 수업을 불러오지 못했습니다."));
       } finally { /* no-op */ }
     }
     void load();
@@ -30,32 +32,34 @@ export default function DashboardClasses() {
     return () => { cancelled = true; clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
   }, []);
 
-
-  function numOr(...vals: any[]): number { for (const v of vals) { if (typeof v === 'number' && Number.isFinite(v)) return v; } return 0; }
-  function cleanNotes(s?: string | null): string | null {
-    if (!s) return null;
-    const t = String(s).trim();
-    if (t === '정기 수업' || t === '정기수업') return null;
-    return t || null;
-  }
-  const items: ClassItem[] = rows.map((r: any) => {
-    const s = r.startTime ?? r.start_at ?? r.startAt ?? r.start ?? null;
-    const e = r.endTime ?? r.end_at ?? r.endAt ?? r.end ?? null;
-    const present = numOr(r.attPresent, r.presentCount, r.attendancePresent, r?.attendance?.present);
-    const absent = numOr(r.attAbsent, r.absentCount, r.attendanceAbsent, r?.attendance?.absent);
-    const unprocessed = numOr(r.attUnprocessed);
-    const recId = r.recordId || r.id;
-    const notes = cleanNotes(r.notes || r.content || r.topic || null);
+  const items: ClassItem[] = rows.map((row) => {
+    const record = row as TodayClassRow;
+    const start = pickFirstString(record, ["startTime", "start_at", "startAt", "start"]);
+    const end = pickFirstString(record, ["endTime", "end_at", "endAt", "end"]);
+    const attendance = typeof record.attendance === "object" && record.attendance !== null
+      ? (record.attendance as Record<string, unknown>)
+      : null;
+    const present = pickFirstNumber(record, ["attPresent", "presentCount", "attendancePresent"])
+      ?? pickFirstNumberFromAttendance(attendance, ["present"])
+      ?? 0;
+    const absent = pickFirstNumber(record, ["attAbsent", "absentCount", "attendanceAbsent"])
+      ?? pickFirstNumberFromAttendance(attendance, ["absent"])
+      ?? 0;
+    const unprocessed = pickFirstNumber(record, ["attUnprocessed", "unprocessedCount"]) ?? 0;
+    const recId = pickFirstNumber(record, ["recordId", "id"]);
+    const notes = cleanNotes(
+      pickFirstString(record, ["notes", "content", "topic"])
+    );
     return {
-      subject: r.courseTitle || '수업',
-      time: formatTimeRange(s, e),
+      subject: row.courseTitle || "수업",
+      time: formatTimeRangeLabel(start, end),
       room: '-',
       teacher: '-',
       student: '-',
       done: false,
-      courseId: r.courseId || undefined,
-      date: r.recordDate || r.date,
-      recordId: recId,
+      courseId: row.courseId || undefined,
+      date: row.recordDate || pickFirstString(record, ["date"]),
+      recordId: typeof recId === "number" ? recId : undefined,
       notes,
       attPresent: present,
       attAbsent: absent,
@@ -64,8 +68,8 @@ export default function DashboardClasses() {
   });
 
   return (
-    <div style={{ gridColumn: 'span 6', minHeight: 0, display: 'flex' }}>
-      <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+    <DashboardPanel span={6} rowSpan={2}>
+      <Scrollable>
         <ClassList
           items={items}
           actionLabel="더보기"
@@ -74,17 +78,64 @@ export default function DashboardClasses() {
           showNotes={true}
         />
         {error && <Err>{error}</Err>}
-      </div>
-    </div>
+      </Scrollable>
+    </DashboardPanel>
   );
 }
 
-function toHHMM(x?: string | null) {
-  if (!x) return "--:--";
-  try { const m = String(x).match(/(\d{2}):(\d{2})/); return m ? `${m[1]}:${m[2]}` : "--:--"; } catch { return "--:--"; }
-}
-function formatTimeRange(start?: string | null, end?: string | null) {
-  return `${toHHMM(start)} ~ ${toHHMM(end)}`;
+const Err = styled.div`
+  color: ${(p) => p.theme.colors.danger};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+`;
+const Scrollable = styled.div`
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+
+type TodayClassRow = TodayClass & Record<string, unknown>;
+
+function pickFirstString(obj: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "string" && value.trim()) {
+      return value;
+    }
+  }
+  return null;
 }
 
-const Err = styled.div` color:#b91c1c; font-size:12px; `;
+function pickFirstNumber(obj: Record<string, unknown>, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = obj[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function pickFirstNumberFromAttendance(
+  attendance: Record<string, unknown> | null,
+  keys: string[]
+): number | null {
+  if (!attendance) return null;
+  return pickFirstNumber(attendance, keys);
+}
+
+function cleanNotes(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (trimmed === "정기 수업" || trimmed === "정기수업") return null;
+  return trimmed || null;
+}
+
+function resolveErrorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string" && error.trim()) return error;
+  return fallback;
+}

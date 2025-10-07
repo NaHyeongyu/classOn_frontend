@@ -26,16 +26,16 @@ export function saveMarketingPost(post: Omit<SavedMarketing, 'id'|'createdAt'>):
   const rec: SavedMarketing = { id: String(now), createdAt: now, ...post };
   const list = getSavedMarketingPosts();
   const next = [rec, ...list].slice(0, 50);
-  try { localStorage.setItem(SAVED_MARKETING_KEY, JSON.stringify(next)); } catch {}
+  try { localStorage.setItem(SAVED_MARKETING_KEY, JSON.stringify(next)); } catch { /* ignore storage errors */ }
   return rec;
 }
 
 export function clearSavedMarketingPosts() {
-  try { localStorage.removeItem(SAVED_MARKETING_KEY); } catch {}
+  try { localStorage.removeItem(SAVED_MARKETING_KEY); } catch { /* ignore storage errors */ }
 }
 
 export function removeSavedMarketingPost(id: string) {
   const list = getSavedMarketingPosts();
   const next = list.filter((p) => p.id !== id);
-  try { localStorage.setItem(SAVED_MARKETING_KEY, JSON.stringify(next)); } catch {}
+  try { localStorage.setItem(SAVED_MARKETING_KEY, JSON.stringify(next)); } catch { /* ignore storage errors */ }
 }

@@ -1,33 +1,81 @@
-import styled from "styled-components";
-import type { ReactNode } from "react";
+import styled, { css } from "styled-components";
+import type { CSSProperties, ReactNode } from "react";
 
 export function DashboardGrid({ children }: { children: ReactNode }) {
   return <Wrapper>{children}</Wrapper>;
 }
 
-export function DashboardPanel({ span = 6, bg = "#ffffff", children }: { span?: number; bg?: string; children: ReactNode }) {
+type PanelProps = {
+  span?: number;
+  rowSpan?: number;
+  children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
+};
+
+export function DashboardPanel({
+  span = 6,
+  rowSpan = 1,
+  className,
+  style,
+  children,
+}: PanelProps) {
   return (
-    <Panel style={{ gridColumn: `span ${span}`, background: bg }}>{children}</Panel>
+    <Panel
+      className={className}
+      style={style}
+      $span={span}
+      $rowSpan={rowSpan}
+    >
+      {children}
+    </Panel>
   );
 }
 
 const Wrapper = styled.section`
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
-  grid-template-rows: auto auto 1fr; /* KPI row + two content rows fill viewport */
-  gap: 16px;
-  height: calc(100vh - 48px); /* account for content padding (24px top/bottom) */
-  overflow: hidden; /* page-level no scroll */
+  grid-auto-rows: minmax(0, auto);
+  gap: ${(p) => p.theme.spacing.pageGap};
+  width: 100%;
+
+  @media (max-width: 1200px) {
+    gap: ${(p) => p.theme.spacing.lg};
+  }
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: ${(p) => p.theme.spacing.md};
+  }
 `;
 
-const Panel = styled.div`
-  min-height: 0; /* allow to shrink inside the row */
-  border-radius: 12px;
-  border: 1px solid #e5e7eb;
-  padding: 16px;
-  color: #111827;
+const Panel = styled.section<{ $span: number; $rowSpan: number }>`
   display: flex;
   flex-direction: column;
-  overflow: auto; /* internal scroll only, page stays fixed */
-  font-weight: 600;
+  gap: ${(p) => p.theme.spacing.md};
+  min-height: 0;
+  grid-column: span ${({ $span }) => $span};
+  ${({ $rowSpan }) =>
+    $rowSpan > 1
+      ? css`
+          grid-row: span ${$rowSpan};
+        `
+      : null};
+  border-radius: ${(p) => p.theme.radii.md};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: ${(p) => p.theme.colors.surface};
+  box-shadow: ${(p) => p.theme.shadow.low};
+  padding: ${(p) => p.theme.spacing.lg};
+  color: ${(p) => p.theme.colors.text};
+  overflow: hidden;
+
+  @media (max-width: 1024px) {
+    grid-column: 1 / -1;
+    ${({ $rowSpan }) =>
+      $rowSpan > 1
+        ? css`
+            grid-row: auto;
+          `
+        : null};
+  }
 `;

@@ -1,35 +1,32 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { SectionCard, PrimaryButton, GhostBtnSmall as UIGhostBtnSmall, GhostButtonSmall, PageHeader } from "@/components/common/UI";
 import { EmptyPlaceholder } from "@/components/common/EmptyPlaceholder";
-import {
-  listCourses,
-  listCourseRecords,
-  type Course,
-  type CourseRecord,
-} from "@/api/courses";
-import { type SummarizeItem } from "@/api/summarize";
+import { listCourseRecords, type Course, type CourseRecord } from "@/api/courses";
+import type { SummarizeItem } from "@/api/summarize";
 import { useToast } from "@/components/common/Toast";
-// saved posts are shown on dedicated pages
+import { formatTimeRangeLabel } from "@/lib/format";
+import { MAX_MARKETING_SELECTED_COURSES } from "@/features/marketing/constants";
+import { useMarketingCourses } from "@/features/marketing/hooks";
+import { formatCourseMeta, formatKoreanDate, formatRangeSummary, normalizeYMDInput, recordPreview, toErrorMessage, ymd } from "@/features/marketing/utils";
+import type { MarketingPresetKey } from "@/features/marketing/types";
 
 type RecordsByCourse = Record<number, CourseRecord[]>;
-type PresetKey = "7d" | "30d" | "thisMonth" | "lastMonth";
+type PresetKey = MarketingPresetKey;
 
 type CourseSection = {
   course: Course;
   rows: CourseRecord[];
 };
 
-type RangeSummary = {
+type LocalRangeSummary = {
   label: string;
   days: number | null;
 };
 
 export default function Marketing() {
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loadingCourses, setLoadingCourses] = useState(true);
-  const [coursesError, setCoursesError] = useState<string | null>(null);
+  const { courses, loading: loadingCourses, error: coursesError } = useMarketingCourses();
 
   const [courseQuery, setCourseQuery] = useState("");
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
@@ -38,41 +35,17 @@ export default function Marketing() {
   const [preset, setPreset] = useState<PresetKey | null>(null);
 
   const [loading, setLoading] = useState(false);
-  const genLoading = false;
-  const genError: string | null = null;
   const [hasSearched, setHasSearched] = useState(false);
   const [results, setResults] = useState<RecordsByCourse>({});
   const [pagesByCourse, setPagesByCourse] = useState<Record<number, number>>({});
   const [hasMoreByCourse, setHasMoreByCourse] = useState<Record<number, boolean>>({});
   const [loadingByCourse, setLoadingByCourse] = useState<Record<number, boolean>>({});
+  const [recordsError, setRecordsError] = useState<string | null>(null);
   // guide banner removed for a cleaner UI
 
   const navigate = useNavigate();
   const { error: showError, warning } = useToast();
   
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadCourses() {
-      try {
-        setLoadingCourses(true);
-        setCoursesError(null);
-        const page = await listCourses({ status: "IN_PROGRESS", size: 500 });
-        if (!cancelled) setCourses(page.content ?? []);
-      } catch (err) {
-        console.error(err);
-        if (!cancelled)
-          setCoursesError("수업 목록을 불러오는 데 실패했습니다.");
-      } finally {
-        if (!cancelled) setLoadingCourses(false);
-      }
-    }
-    void loadCourses();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   const filteredCourses = useMemo(() => {
     const q = courseQuery.trim().toLowerCase();
     if (!q) return courses;
@@ -83,6 +56,8 @@ export default function Marketing() {
     () => courses.filter((course) => selectedCourseIds.includes(course.id)),
     [courses, selectedCourseIds]
   );
+
+  const todayYmd = useMemo(() => ymd(new Date()), []);
 
   const jsonData = useMemo(() => {
     const items: SummarizeItem[] = [];
@@ -117,25 +92,18 @@ export default function Marketing() {
     [courseSections]
   );
 
-  const rangeSummary = useMemo<RangeSummary>(
+  const rangeSummary = useMemo<LocalRangeSummary>(
     () => formatRangeSummary(from, to),
     [from, to]
   );
 
-  function toggleCourse(id: number) {
+function toggleCourse(id: number) {
     setSelectedCourseIds((prev) => {
       const has = prev.includes(id);
       if (has) return prev.filter((courseId) => courseId !== id);
-      if (prev.length >= 3) return prev;
+      if (prev.length >= MAX_MARKETING_SELECTED_COURSES) return prev;
       return [...prev, id];
     });
-  }
-
-  function ymd(d: Date) {
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, "0");
-    const da = String(d.getDate()).padStart(2, "0");
-    return `${y}-${m}-${da}`;
   }
 
   function setPresetRange(key: PresetKey, start: Date, end: Date) {
@@ -143,7 +111,7 @@ export default function Marketing() {
     setTo(ymd(end));
     setPreset(key);
   }
-
+  
   function applyPreset(key: PresetKey) {
     const today = new Date();
     const end = new Date(
@@ -169,43 +137,47 @@ export default function Marketing() {
     }
   }
 
-  // Normalize various user-typed date formats into YYYY-MM-DD
-  function normalizeYMDInput(input: string): string {
-    const s = (input || "").trim();
-    if (!s) return "";
-    // If already YYYY-MM-DD, return as-is
-    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-    // Accept YYYY.MM.DD or YYYY/MM/DD
-    const ymdMatch = s.match(/^(\d{4})[./-]?(\d{2})[./-]?(\d{2})$/);
-    if (ymdMatch) {
-      const [, y, m, d] = ymdMatch;
-      return `${y}-${m}-${d}`;
+function openNativeDatePicker(input: HTMLInputElement) {
+    try {
+      (input as HTMLInputElement & { showPicker?: () => void }).showPicker?.();
+    } catch {
+      // Some browsers do not expose showPicker; safe to ignore.
     }
-    // Accept MM/DD/YYYY or MM.DD.YYYY
-    const mdyMatch = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
-    if (mdyMatch) {
-      let [, mm, dd, yyyy] = mdyMatch;
-      mm = String(mm).padStart(2, '0');
-      dd = String(dd).padStart(2, '0');
-      return `${yyyy}-${mm}-${dd}`;
-    }
-    // Compact 8-digit forms:
-    const digits = s.replace(/\D/g, "");
-    if (digits.length === 8) {
-      if (/^\d{4}/.test(digits)) {
-        const y = digits.slice(0, 4), m = digits.slice(4, 6), d = digits.slice(6, 8);
-        return `${y}-${m}-${d}`;
-      } else {
-        const m = digits.slice(0, 2), d = digits.slice(2, 4), y = digits.slice(4, 8);
-        return `${y}-${m}-${d}`;
-      }
-    }
-    return s;
   }
 
-  const PAGE_SIZE = 30;
+const PAGE_SIZE = 30;
 
-  async function fetchCoursePage(courseId: number, nextPage: number) {
+function isRecordInProgress(record: CourseRecord, todayYmd: string): boolean {
+  if (!record.recordDate || record.recordDate !== todayYmd) return false;
+  if (!record.startTime || !record.endTime) return false;
+
+  const start = toDateTime(record.recordDate, record.startTime);
+  const end = toDateTime(record.recordDate, record.endTime);
+  if (!start || !end) return false;
+
+  const now = new Date();
+  return now >= start && now <= end;
+}
+
+function toDateTime(dateYmd: string, timeHm: string): Date | null {
+  const [year, month, day] = dateYmd.split('-').map(Number);
+  const timeMatch = timeHm.match(/(\d{2}):(\d{2})/);
+  if (
+    !Number.isFinite(year) ||
+    !Number.isFinite(month) ||
+    !Number.isFinite(day) ||
+    !timeMatch
+  )
+    return null;
+
+  const [, hh, mm] = timeMatch;
+  const date = new Date();
+  date.setFullYear(year, month - 1, day);
+  date.setHours(Number(hh), Number(mm), 0, 0);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+async function fetchCoursePage(courseId: number, nextPage: number) {
     if (!from || !to) return;
     setLoadingByCourse(m => ({ ...m, [courseId]: true }));
     try {
@@ -230,6 +202,7 @@ export default function Marketing() {
     try {
       setHasSearched(true);
       setLoading(true);
+      setRecordsError(null);
       // reset maps and load first pages
       setResults({});
       const initPages: Record<number, number> = {};
@@ -241,8 +214,9 @@ export default function Marketing() {
       setLoadingByCourse(initLoad);
       await Promise.all(selectedCourseIds.map(cid => fetchCoursePage(cid, 0)));
     } catch (err) {
-      console.error(err);
-      showError("수업 내역을 불러오지 못했습니다.");
+      const message = toErrorMessage(err, "수업 내역을 불러오지 못했습니다.");
+      setRecordsError(message);
+      showError(message);
     } finally {
       setLoading(false);
     }
@@ -291,9 +265,6 @@ export default function Marketing() {
           <FilterCard>
             <PanelHeader>
               <PanelTitle>수업 내역 조회</PanelTitle>
-              <PanelSub>
-                수업을 선택하고 기간을 지정해 기록을 불러올 수 있어요.
-              </PanelSub>
             </PanelHeader>
 
             <FilterBody>
@@ -336,8 +307,7 @@ export default function Marketing() {
                   <CourseList role="list" aria-label="수업 목록">
                     {filteredCourses.map((course) => {
                       const selected = selectedCourseIds.includes(course.id);
-                      const atLimit =
-                        !selected && selectedCourseIds.length >= 3;
+                      const atLimit = !selected && selectedCourseIds.length >= MAX_MARKETING_SELECTED_COURSES;
                       return (
                         <CourseButton
                           key={course.id}
@@ -345,9 +315,7 @@ export default function Marketing() {
                           role="listitem"
                           data-selected={selected || undefined}
                           data-disabled={atLimit || undefined}
-                          onClick={() => {
-                            if (!atLimit || selected) toggleCourse(course.id);
-                          }}
+                          onClick={() => { if (!atLimit || selected) toggleCourse(course.id); }}
                         >
                           <div className="title">{course.title}</div>
                           <div className="meta">{formatCourseMeta(course)}</div>
@@ -357,39 +325,25 @@ export default function Marketing() {
                   </CourseList>
                 </CourseListWrap>
                 {!selectedCourseIds.length ? (
-                  <CardHint>최대 3개까지 선택할 수 있어요.</CardHint>
+                  <CardHint>
+                    최대 {MAX_MARKETING_SELECTED_COURSES}개까지 선택할 수 있어요.
+                  </CardHint>
                 ) : null}
               </FieldBlock>
 
               <FieldBlock>
                 <FieldLabel>빠른 기간 선택</FieldLabel>
                 <QuickGrid>
-                  <QuickButton
-                    type="button"
-                    data-active={preset === "7d"}
-                    onClick={() => applyPreset("7d")}
-                  >
+                  <QuickButton type="button" data-active={preset === "7d"} onClick={() => applyPreset("7d")}>
                     최근 7일
                   </QuickButton>
-                  <QuickButton
-                    type="button"
-                    data-active={preset === "30d"}
-                    onClick={() => applyPreset("30d")}
-                  >
+                  <QuickButton type="button" data-active={preset === "30d"} onClick={() => applyPreset("30d")}>
                     최근 30일
                   </QuickButton>
-                  <QuickButton
-                    type="button"
-                    data-active={preset === "thisMonth"}
-                    onClick={() => applyPreset("thisMonth")}
-                  >
+                  <QuickButton type="button" data-active={preset === "thisMonth"} onClick={() => applyPreset("thisMonth")}>
                     이번 달
                   </QuickButton>
-                  <QuickButton
-                    type="button"
-                    data-active={preset === "lastMonth"}
-                    onClick={() => applyPreset("lastMonth")}
-                  >
+                  <QuickButton type="button" data-active={preset === "lastMonth"} onClick={() => applyPreset("lastMonth")}>
                     지난 달
                   </QuickButton>
                 </QuickGrid>
@@ -406,7 +360,7 @@ export default function Marketing() {
                       inputMode="numeric"
                       pattern="^\\d{4}-\\d{2}-\\d{2}$"
                       placeholder="YYYY-MM-DD"
-                      onFocus={(e) => { try { (e.currentTarget as any).showPicker?.(); } catch {} }}
+                      onFocus={(event) => openNativeDatePicker(event.currentTarget)}
                       value={from}
                       onChange={(event) => {
                         const v = normalizeYMDInput(event.target.value);
@@ -427,7 +381,7 @@ export default function Marketing() {
                       inputMode="numeric"
                       pattern="^\\d{4}-\\d{2}-\\d{2}$"
                       placeholder="YYYY-MM-DD"
-                      onFocus={(e) => { try { (e.currentTarget as any).showPicker?.(); } catch {} }}
+                      onFocus={(event) => openNativeDatePicker(event.currentTarget)}
                       value={to}
                       onChange={(event) => {
                         const v = normalizeYMDInput(event.target.value);
@@ -449,25 +403,16 @@ export default function Marketing() {
             </FilterBody>
             <StickyActions>
               <ActionRow>
-                <PrimaryButton
-                  type="button"
-                  onClick={handleFetch}
-                  disabled={loading}
-                >
+                <PrimaryButton type="button" onClick={handleFetch} disabled={loading}>
                   {loading ? "조회 중..." : "조회하기"}
                 </PrimaryButton>
-                <GhostButtonSmall
-                  as="button"
-                  type="button"
-                  onClick={handleReset}
-                >
+                <GhostButtonSmall as="button" type="button" onClick={handleReset}>
                   초기화
                 </GhostButtonSmall>
               </ActionRow>
             </StickyActions>
           </FilterCard>
         </FilterColumn>
-
         <ResultColumn>
           <ResultCard>
             <PanelHeader>
@@ -498,6 +443,9 @@ export default function Marketing() {
                   </ResultMeta>
 
                   <SectionStack>
+                    {recordsError ? (
+                      <ResultError role="alert">{recordsError}</ResultError>
+                    ) : null}
                     {courseSections.map(({ course, rows }) => (
                       <ResultSection key={course.id}>
                         <ResultSectionHeader>
@@ -505,20 +453,55 @@ export default function Marketing() {
                           <span className="count">{(results[course.id]?.length || 0)}건</span>
                         </ResultSectionHeader>
                         <RecordList>
-                          {rows.map((record) => (
-                            <RecordItem key={`${course.id}:${record.id}`}>
-                              <RecordDate>
-                                {formatKoreanDate(record.recordDate)}
-                              </RecordDate>
-                              <RecordText>{recordPreview(record)}</RecordText>
-                            </RecordItem>
-                          ))}
+                          {rows.map((record) => {
+                            const timeRange = formatTimeRangeLabel(record.startTime, record.endTime);
+                            const hasTime = !timeRange.includes("--");
+                            const topic = record.topic?.trim();
+                            const preview = recordPreview(record);
+                            const segments = preview
+                              .split(/\n+/)
+                              .map((line) => line.trim())
+                              .filter(Boolean);
+                            const summary = segments[0] ?? "(기록된 내용이 없습니다)";
+                            const detailLines = segments
+                              .slice(1)
+                              .map((line) => line.replace(/^[-•]\s*/u, ''))
+                              .filter(Boolean);
+                            const inProgress = isRecordInProgress(record, todayYmd);
+
+                            return (
+                              <RecordItem key={`${course.id}:${record.id}`}>
+                                <RecordDateBadge>
+                                  <RecordDateText>{formatKoreanDate(record.recordDate)}</RecordDateText>
+                                  {hasTime ? <RecordTime>{timeRange}</RecordTime> : null}
+                                </RecordDateBadge>
+                                <RecordBody>
+                                  <RecordHeader>
+                                    {topic ? <RecordTopic>{topic}</RecordTopic> : null}
+                                    {inProgress ? <RecordStatus>진행 중</RecordStatus> : null}
+                                  </RecordHeader>
+                                  <RecordSummary>{summary}</RecordSummary>
+                                  {detailLines.length ? (
+                                    <RecordDetails>
+                                      {detailLines.map((line, idx) => (
+                                        <RecordDetail key={`${record.id}-detail-${idx}`}>{line}</RecordDetail>
+                                      ))}
+                                    </RecordDetails>
+                                  ) : null}
+                                </RecordBody>
+                              </RecordItem>
+                            );
+                          })}
                           <Sentinel onVisible={() => {
                             const cid = course.id;
                             if (loadingByCourse[cid]) return;
                             if (hasMoreByCourse[cid] === false) return;
                             const next = (pagesByCourse[cid] ?? 0) + 1;
-                            void fetchCoursePage(cid, next);
+                            void fetchCoursePage(cid, next).catch((err) => {
+                              const message = toErrorMessage(err, "수업 내역을 불러오지 못했습니다.");
+                              setRecordsError(message);
+                              showError(message);
+                            });
                           }}>
                             {loadingByCourse[course.id] ? (
                               <span style={{ color:'#64748b', fontSize:12 }}>불러오는 중…</span>
@@ -537,10 +520,14 @@ export default function Marketing() {
             </ResultBody>
             <ResultStickyActions>
               <ResultActionRow>
-                {genError && <InlineError>{genError}</InlineError>}
-                <PrimaryButton type="button" onClick={handleSummarize} disabled={genLoading}>
-                  {genLoading ? '생성 중…' : '요약 만들기'}
-                </PrimaryButton>
+                <AiButton
+                  type="button"
+                  onClick={handleSummarize}
+                  disabled={!totalRecords}
+                  aria-label="AI요약"
+                >
+                  AI요약
+                </AiButton>
               </ResultActionRow>
             </ResultStickyActions>
           </ResultCard>
@@ -551,9 +538,9 @@ export default function Marketing() {
 }
 
 // IntersectionObserver sentinel used for per-course infinite scroll
-function Sentinel({ onVisible, children }: { onVisible: () => void; children?: React.ReactNode }) {
-  const ref = React.useRef<HTMLDivElement | null>(null);
-  React.useEffect(() => {
+function Sentinel({ onVisible, children }: { onVisible: () => void; children?: ReactNode }) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const io = new IntersectionObserver((entries) => {
@@ -568,60 +555,6 @@ function Sentinel({ onVisible, children }: { onVisible: () => void; children?: R
     return () => io.disconnect();
   }, [onVisible]);
   return <div ref={ref} style={{ display:'grid', placeItems:'center', padding:'8px 0' }}>{children}</div>;
-}
-
-function formatCourseMeta(course: Course): string {
-  const time =
-    course.courseTime || buildTimeRange(course.startTime, course.endTime);
-  const next = course.nextClassDate
-    ? `다음 수업 ${formatKoreanDate(course.nextClassDate)}`
-    : "";
-  return [time, next].filter(Boolean).join(" · ") || "일정 정보 없음";
-}
-
-function buildTimeRange(start?: string, end?: string) {
-  if (!start && !end) return "";
-  const s = start ? start.slice(0, 5) : "?";
-  const e = end ? end.slice(0, 5) : "?";
-  return `${s} ~ ${e}`;
-}
-
-function formatKoreanDate(ymd?: string) {
-  if (!ymd) return "-";
-  const [year, month, day] = ymd.split("-");
-  if (!year || !month || !day) return ymd;
-  return `${Number(year)}년 ${Number(month)}월 ${Number(day)}일`;
-}
-
-function countDaysInclusive(start?: string, end?: string): number | null {
-  if (!start || !end) return null;
-  try {
-    const s = new Date(start);
-    const e = new Date(end);
-    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return null;
-    const diff = Math.abs(e.getTime() - s.getTime());
-    return Math.floor(diff / (1000 * 60 * 60 * 24)) + 1;
-  } catch {
-    return null;
-  }
-}
-
-function formatRangeSummary(from?: string, to?: string): RangeSummary {
-  if (!from || !to) {
-    return { label: "기간을 선택하면 조회 안내가 표시돼요.", days: null };
-  }
-  const label = `${formatKoreanDate(from)} ~ ${formatKoreanDate(to)}`;
-  const days = countDaysInclusive(from, to);
-  return { label, days };
-}
-
-function recordPreview(record: CourseRecord): string {
-  return (
-    record.content?.trim() ||
-    record.notes?.trim() ||
-    record.topic?.trim() ||
-    "(기록된 내용이 없습니다)"
-  );
 }
 
 const Viewport = styled.div`
@@ -808,6 +741,7 @@ const CourseButton = styled.button`
   }
   &:hover {
     border-color: ${({ theme }) => theme.colors.borderMuted};
+    background: ${({ theme }) => theme.colors.surfaceMuted};
     box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
   }
   &[data-selected="true"] {
@@ -937,7 +871,8 @@ const StickyActions = styled.div`
   position: sticky;
   bottom: 0;
   background: ${({ theme }) => theme.colors.surface};
-  border-top: 1px solid ${({ theme }) => theme.colors.borderMuted};
+  /* remove dividing line under filter section */
+  border-top: 0;
   padding-top: ${(p) => p.theme.spacing.md};
   margin-top: ${(p) => p.theme.spacing.sm};
 `;
@@ -979,6 +914,13 @@ const ResultMeta = styled.div`
   }
 `;
 
+const ResultError = styled.span`
+  display: block;
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: ${(p) => p.theme.font.size.sm};
+`;
+
 const SectionStack = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.lg};
@@ -1015,26 +957,111 @@ const RecordList = styled.div`
 `;
 
 const RecordItem = styled.div`
-  display: grid;
-  gap: ${(p) => p.theme.spacing.xs};
-  border-radius: ${(p) => p.theme.radii.md};
-  border: 1px solid ${({ theme }) => theme.colors.borderMuted};
+  display: flex;
+  align-items: flex-start;
+  gap: ${(p) => p.theme.spacing.lg};
   padding: ${(p) => p.theme.spacing.md};
+  border-radius: ${(p) => p.theme.radii.lg};
+  border: 1px solid ${({ theme }) => theme.colors.borderMuted};
+  background: #ffffff;
+  box-shadow: 0 10px 24px -18px rgba(15, 23, 42, 0.35);
+  transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: ${({ theme }) => theme.colors.primarySurface};
+    box-shadow: 0 16px 32px -20px rgba(79, 70, 229, 0.28);
+  }
+`;
+
+const RecordDateBadge = styled.div`
+  min-width: 124px;
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
   background: ${({ theme }) => theme.colors.surfaceMuted};
+  border: 1px solid ${({ theme }) => theme.colors.borderMuted};
+  color: ${({ theme }) => theme.colors.text};
+  text-align: center;
 `;
 
-const RecordDate = styled.div`
-  font-size: ${(p) => p.theme.font.size.sm};
-  color: ${({ theme }) => theme.colors.textMuted};
+const RecordDateText = styled.span`
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.35;
+`;
+
+const RecordTime = styled.span`
+  font-size: 11px;
   font-weight: 600;
+  color: ${({ theme }) => theme.colors.textMuted};
+  letter-spacing: 0.04em;
 `;
 
-const RecordText = styled.p`
+const RecordBody = styled.div`
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+`;
+
+const RecordHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.xs};
+  flex-wrap: wrap;
+`;
+
+const RecordTopic = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: ${({ theme }) => theme.colors.primary};
+  background: rgba(99, 102, 241, 0.14);
+  border-radius: 999px;
+  padding: 4px 12px;
+`;
+
+const RecordSummary = styled.p`
   margin: 0;
   font-size: 13px;
+  font-weight: 600;
   color: ${({ theme }) => theme.colors.text};
-  line-height: 1.5;
-  white-space: pre-wrap;
+  line-height: 1.6;
+  padding-left: ${(p) => p.theme.spacing.md};
+  border-left: 3px solid ${({ theme }) => theme.colors.primary};
+  word-break: break-word;
+`;
+
+const RecordStatus = styled.span`
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+  background: rgba(16, 185, 129, 0.14);
+  border-radius: 999px;
+  padding: 4px 10px;
+  letter-spacing: 0.04em;
+`;
+
+const RecordDetails = styled.ul`
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+  list-style: disc;
+  font-size: 12.5px;
+  color: ${({ theme }) => theme.colors.textMuted};
+  line-height: 1.6;
+`;
+
+const RecordDetail = styled.li`
+  margin: 0;
+  padding: 0;
   word-break: break-word;
 `;
 
@@ -1055,8 +1082,93 @@ const ResultActionRow = styled.div`
   gap: ${(p) => p.theme.spacing.sm};
 `;
 
-const InlineError = styled.span`
-  color: #b91c1c;
-  font-size: ${(p) => p.theme.font.size.sm};
+const AiButton = styled.button`
+  @keyframes gradientMove {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  @keyframes glowPulse {
+    0% { box-shadow: 0 16px 28px rgba(99, 102, 241, 0.22); }
+    50% { box-shadow: 0 22px 42px rgba(236, 72, 153, 0.28); }
+    100% { box-shadow: 0 16px 28px rgba(99, 102, 241, 0.22); }
+  }
+  @keyframes shimmer {
+    0% { transform: translateX(-120%) skewX(-15deg); opacity: 0; }
+    30% { opacity: 0.5; }
+    60% { opacity: 0.25; }
+    100% { transform: translateX(120%) skewX(-15deg); opacity: 0; }
+  }
+
+  appearance: none;
+  height: 40px;
+  padding: 0 22px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #4f46e5 0%, #8b5cf6 50%, #ec4899 100%);
+  background-size: 200% 200%;
+  color: #ffffff;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: 0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.18s ease, filter 0.2s ease;
+  animation: gradientMove 6s ease infinite, glowPulse 3.2s ease-in-out infinite;
+
+  & > * { position: relative; z-index: 1; }
+
+  &:before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 120% at 10% 10%, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.06) 60%, rgba(255,255,255,0) 80%);
+    mix-blend-mode: screen;
+    opacity: 0.6;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+
+  &:after {
+    content: "";
+    position: absolute;
+    top: -20%;
+    bottom: -20%;
+    left: -10%;
+    width: 30%;
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0) 0%,
+      rgba(255,255,255,0.65) 50%,
+      rgba(255,255,255,0) 100%
+    );
+    mix-blend-mode: screen;
+    filter: blur(2px);
+    transform: translateX(-120%) skewX(-15deg);
+    animation: shimmer 2.4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  &:hover {
+    transform: translateY(-2px) scale(1.02);
+    filter: saturate(1.1);
+    &:before { opacity: 0.8; }
+  }
+  &:active {
+    transform: translateY(0) scale(1.0);
+  }
+  &:focus-visible {
+    outline: 2px solid rgba(129, 140, 248, 0.7);
+    outline-offset: 3px;
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: progress;
+    transform: none;
+    animation-play-state: paused;
+  }
 `;

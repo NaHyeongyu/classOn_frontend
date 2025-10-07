@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import type { CounselItem } from "../../../types/calendarDetail";
-import { buttonVariants } from "../../common/UI";
+import { buttonVariants, PrimaryButtonSm } from "../../common/UI";
 
 type Props = {
   items: CounselItem[];
@@ -18,7 +18,7 @@ export default function CounselList({ items, onAdd, onDetail }: Props) {
         </HeaderLeft>
         <Actions>
           {onAdd ? (
-            <ActionBtn type="button" onClick={onAdd}>+ 상담 추가</ActionBtn>
+            <AddBtn type="button" onClick={onAdd}>+ 상담 추가</AddBtn>
           ) : null}
         </Actions>
       </SectionHeader>
@@ -32,7 +32,7 @@ export default function CounselList({ items, onAdd, onDetail }: Props) {
               <div className="right">
                 <Time>{c.time}</Time>
                 {onDetail && c.studentId ? (
-                  <ActionBtn type="button" onClick={() => onDetail(c.studentId!, c.id)}>상세</ActionBtn>
+                  <SecondaryBtn type="button" onClick={() => onDetail(c.studentId!, c.id)}>상세</SecondaryBtn>
                 ) : null}
               </div>
             </ItemHeader>
@@ -65,7 +65,8 @@ const SectionIcon = styled.span`
   width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: #f3f4f6; color: #4f46e5;
 `;
 const Actions = styled.div``;
-const ActionBtn = styled.button`
+const AddBtn = styled(PrimaryButtonSm)``;
+const SecondaryBtn = styled.button`
   ${buttonVariants.outline};
   height: 40px;
   padding: 0 16px;

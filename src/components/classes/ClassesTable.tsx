@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { SectionCard as Card, Scroller, TableBase as Table } from "../common/UI";
 import { useEffect, useMemo, useState } from "react";
+import { readableError } from "@/lib/errors";
 import { useNavigate } from "react-router-dom";
 import { listCourses, type Course, type PageResult } from "../../api/courses";
 import { visiblePages } from "../../lib/pagination";
@@ -27,7 +28,7 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
         const res: PageResult<Course> = await listCourses({
           page,
           size,
-          status: (filters.status as any) || undefined,
+          status: filters.status || undefined,
           q: filters.q || undefined,
         });
         if (!cancelled) {
@@ -35,8 +36,8 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
           setTotalPages(res.totalPages);
           setTotalElements(res.totalElements);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "수업 불러오기에 실패했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "수업 불러오기에 실패했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -146,12 +147,10 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
           </thead>
           <tbody>
             {view.map(r => (
-              <tr key={r.id}>
+              <tr key={r.id} onClick={() => navigate(`/classes/${r.id}`)} data-clickable="true">
                 <td>{r.seq}</td>
                 <td>
-                  <NameBtn type="button" onClick={() => navigate(`/classes/${r.id}`)} title={r.title}>
-                    <TitleText>{r.title}</TitleText>
-                  </NameBtn>
+                  <TitleText>{r.title}</TitleText>
                 </td>
                 <td>{r.courseType}</td>
                 <td>{r.days}</td>
@@ -189,7 +188,7 @@ const Head = styled.div` display:flex; align-items:center; justify-content:flex-
 const Muted = styled.div` color:#6b7280; font-size:12px; margin-top:4px; `;
 const Err = styled.div` color:#b91c1c; font-size:12px; `;
 // Table provided by common UI
-const NameBtn = styled.button` all:unset; cursor:pointer; color:#1f2937; font-weight:800; &:hover{text-decoration:underline;} `;
+/* Row is clickable; title uses normal text */
 const StatusChip = styled.span`
   padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 800;
   &[data-type='IN_PROGRESS'] { background:#dcfce7; color:#16a34a; }
@@ -226,6 +225,8 @@ const StyledTable = styled(Table)`
   }
   thead th:last-child, tbody td:last-child { border-right: none; }
   tbody td { font-size: 13.5px; color: #0f172a; }
+  tbody tr[data-clickable='true'] { cursor: pointer; }
+  tbody tr[data-clickable='true']:active td { background: ${({ theme }) => theme.colors.surfaceAlt}; }
 `;
 const TitleText = styled.span`
   display: -webkit-box;

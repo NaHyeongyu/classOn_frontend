@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
-import { Page, SectionCard, GhostButtonSmall, PrimaryButton } from '../components/common/UI';
+import { Page, SectionCard, GhostButtonSmall, PrimaryButton, PrimaryButtonSm } from '../components/common/UI';
 import type { SummarizeItem } from '../api/summarize';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 
 const TONE_LABEL: Record<string, string> = {
   WARM_VIVID: '따뜻·생동',
@@ -23,6 +24,11 @@ export default function MarketingGuide() {
   const [platformChoice, setPlatformChoice] = useState<'INSTAGRAM'|'NAVER_BLOG'|'KAKAO_CHANNEL'>('INSTAGRAM');
   const [fx, setFx] = useState(false);
   const [fxIdx] = useState(() => Math.floor(Math.random() * 1000));
+  const { confirm: confirmDelete, dialog: confirmDialog } = useConfirmDialog({
+    confirmLabel: '삭제',
+    cancelLabel: '취소',
+    tone: 'danger',
+  });
 
   const canProceed = items.length > 0 && edBullets.every((b) => b.trim().length > 0) && edBullets.length >= 2;
 
@@ -35,8 +41,18 @@ export default function MarketingGuide() {
     }, 750);
   }
 
+  const handleRemoveBullet = async (index: number) => {
+    const confirmed = await confirmDelete({
+      title: '항목을 삭제할까요?',
+      message: `#${index + 1} 핵심 문장을 삭제합니다.`,
+    });
+    if (!confirmed) return;
+    setEdBullets((prev) => prev.filter((_, i) => i !== index));
+  };
+
   return (
     <Page>
+      {confirmDialog}
       <Header>
         <Stepper>
           <Step data-active>1. 작성 가이드</Step>
@@ -86,14 +102,14 @@ export default function MarketingGuide() {
                     }}
                     placeholder="핵심 문장을 입력하세요"
                   />
-                  <GhostButtonSmall as="button" onClick={() => setEdBullets(edBullets.filter((_, i) => i !== idx))}>
+                  <GhostButtonSmall as="button" data-variant="danger" onClick={() => void handleRemoveBullet(idx)}>
                     삭제
                   </GhostButtonSmall>
                 </BulletItem>
               ))}
-              <GhostButtonSmall as="button" onClick={() => setEdBullets([...edBullets, ''])}>
+              <PrimaryButtonSm type="button" onClick={() => setEdBullets([...edBullets, ''])}>
                 + 항목 추가
-              </GhostButtonSmall>
+              </PrimaryButtonSm>
             </BulletList>
           </GuideCard>
         </MainColumn>

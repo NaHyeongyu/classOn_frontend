@@ -16,7 +16,6 @@ export function buildMonthMatrix(view: Date) {
   const first = new Date(view.getFullYear(), view.getMonth(), 1);
   const startOffset = first.getDay();
   const start = new Date(view.getFullYear(), view.getMonth(), 1 - startOffset);
-  // 5 weeks (35 days) view
   return Array.from({ length: 35 }, (_, i) =>
     new Date(start.getFullYear(), start.getMonth(), start.getDate() + i)
   );

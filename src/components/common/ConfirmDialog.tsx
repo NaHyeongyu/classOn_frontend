@@ -109,13 +109,16 @@ const Action = styled.button`
     ${buttonVariants.primary};
   }
   &[data-role='confirm'][data-tone='danger'] {
-    background: #ef4444;
-    border-color: #dc2626;
+    background: ${(p) => p.theme.colors.dangerSurface};
+    border-color: transparent;
+    color: ${(p) => p.theme.colors.danger};
     &:hover:not(:disabled) {
-      background: #dc2626;
+      background: rgba(194, 65, 65, 0.14);
+      color: ${(p) => p.theme.colors.dangerHover};
     }
     &:active:not(:disabled) {
-      background: #b91c1c;
+      background: rgba(170, 47, 47, 0.18);
+      color: ${(p) => p.theme.colors.dangerActive};
     }
   }
 `;

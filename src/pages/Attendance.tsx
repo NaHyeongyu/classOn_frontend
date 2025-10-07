@@ -1,156 +1,43 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import { getDailyAttendance, type AttendanceDailySummary, type AttendanceClassSummary } from "@/api/attendance";
+import { type AttendanceClassSummary } from "@/api/attendance";
 import { Page as PageWrap, PageHeader, SectionCard as Card, TableBase, PrimaryButton, buttonVariants } from "@/components/common/UI";
 import { EmptyPlaceholder } from "@/components/common/EmptyPlaceholder";
 import { LoadingSpinner } from "@/components/common/Loading";
-
-function formatDateInput(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function addDays(base: Date, offset: number): Date {
-  const d = new Date(base);
-  d.setDate(d.getDate() + offset);
-  return d;
-}
-
-const weekdayFormat = new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric", weekday: "short" });
-
-type ViewMode = "daily" | "class";
-type StatusFilter = "ALL" | "PRESENT" | "ABSENT" | "UNPROCESSED";
-
-type FlatRow = {
-  key: string;
-  studentName: string;
-  courseTitle: string | null;
-  courseId: number | null;
-  recordId: number | null;
-  status: "PRESENT" | "ABSENT" | "UNPROCESSED";
-  createdAt: string | null;
-  reason: string | null;
-  source: "MOBILE" | "MANUAL" | null;
-  count?: number;
-  students?: string[];
-};
-
-const statusFilters: { value: StatusFilter; label: string }[] = [
-  { value: "ALL", label: "전체" },
-  { value: "PRESENT", label: "출석" },
-  { value: "ABSENT", label: "결석" },
-  { value: "UNPROCESSED", label: "미처리" },
-];
-
-function labelDate(ymd: string): string {
-  try {
-    const date = new Date(`${ymd}T00:00:00`);
-    return weekdayFormat.format(date);
-  } catch {
-    return ymd;
-  }
-}
-
-function hm(time: string | null): string {
-  if (!time) return "";
-  const [hh, mm] = time.split(":");
-  return `${hh}:${mm}`;
-}
-
-function timeRange(start: string | null, end: string | null): string {
-  const s = hm(start);
-  const e = hm(end);
-  if (s && e) return `${s} ~ ${e}`;
-  if (s) return `${s} ~`;
-  if (e) return `~ ${e}`;
-  return "-";
-}
-
-function formatClock(iso: string | null): string {
-  if (!iso) return "-";
-  try {
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return "-";
-    const hh = String(d.getHours()).padStart(2, '0');
-    const mm = String(d.getMinutes()).padStart(2, '0');
-    return `${hh}:${mm}`;
-  } catch {
-    return "-";
-  }
-}
-
-function statusLabel(status: FlatRow["status"]): string {
-  switch (status) {
-    case "PRESENT":
-      return "출석";
-    case "ABSENT":
-      return "결석";
-    case "UNPROCESSED":
-    default:
-      return "미처리";
-  }
-}
-
-function sourceLabel(source: "MOBILE" | "MANUAL" | null): string {
-  if (source === "MOBILE") return "모바일";
-  if (source === "MANUAL") return "수동";
-  return "-";
-}
+import { useDailyAttendance } from "@/features/attendance/useDailyAttendance";
+import { STATUS_FILTER_OPTIONS } from "@/features/attendance/constants";
+import { buildFlatRows, filterByStatus, formatClock, labelDate, sourceLabel, statusLabel, timeRange } from "@/features/attendance/utils";
+import type { DailyWithRows, StatusFilter, ViewMode } from "@/features/attendance/types";
 
 export default function Attendance() {
   const navigate = useNavigate();
-  const today = useMemo(() => new Date(), []);
-  const initialDate = useMemo(() => formatDateInput(today), [today]);
-
-  const [form, setForm] = useState({ date: initialDate });
-  const [filters, setFilters] = useState(form);
-  const [rows, setRows] = useState<AttendanceDailySummary[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    formDate,
+    rows,
+    loading,
+    error,
+    setDate,
+    submit,
+    applyQuick: applyQuickSelection,
+  } = useDailyAttendance();
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
 
   function changeView(next: ViewMode) {
-    // Preserve user's current status filter across view changes
     setViewMode(next);
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await getDailyAttendance({
-          from: filters.date,
-          to: filters.date,
-        });
-        if (!cancelled) {
-          setRows(res.map((day) => ({ ...day, attendances: day.attendances ?? [] })));
-        }
-      } catch (err) {
-        if (!cancelled) {
-          const message = err instanceof Error ? err.message : "출결 정보를 불러오지 못했습니다.";
-          setError(message);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [filters.date]);
-
   function handleSubmit(ev: FormEvent<HTMLFormElement>) {
     ev.preventDefault();
-    if (!form.date) {
-      setError("조회할 날짜를 선택해주세요.");
-      return;
+    submit();
+  }
+
+  function handleQuick(offset: number) {
+    applyQuickSelection(offset);
+    if (viewMode !== "daily") {
+      changeView("daily");
     }
-    setError(null);
-    setFilters({ date: form.date });
   }
 
   function goToCourseRecord(courseId?: number | null, recordId?: number | null) {
@@ -161,69 +48,17 @@ export default function Attendance() {
     }
   }
 
-  function buildFlatRows(day: AttendanceDailySummary): FlatRow[] {
-    const list: FlatRow[] = [];
-    const attendanceRows: FlatRow[] = (day.attendances ?? [])
-      .slice()
-      .sort((a, b) => {
-        if (!a.createdAt && !b.createdAt) return 0;
-        if (!a.createdAt) return 1;
-        if (!b.createdAt) return -1;
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      })
-      .map((entry, idx): FlatRow => ({
-        key: `att-${day.date}-${entry.recordId ?? 'record'}-${entry.studentId ?? 'student'}-${idx}`,
-        studentName: entry.studentName || '이름 없음',
-        courseTitle: entry.courseTitle,
-        courseId: entry.courseId ?? null,
-        recordId: entry.recordId ?? null,
-        status: entry.present ? 'PRESENT' : 'ABSENT',
-        createdAt: entry.createdAt ?? null,
-        reason: entry.reason ?? null,
-        source: entry.source ?? null,
-      }));
-    list.push(...attendanceRows);
-
-    const unprocessedRows: FlatRow[] = day.classes
-      .filter((cls) => cls.unprocessedCount > 0)
-      .map((cls, idx): FlatRow => ({
-        key: `unprocessed-${day.date}-${cls.recordId ?? 'record'}-${idx}`,
-        studentName: `미처리 ${cls.unprocessedCount}명`,
-        courseTitle: cls.courseTitle,
-        courseId: cls.courseId ?? null,
-        recordId: cls.recordId ?? null,
-        status: 'UNPROCESSED',
-        createdAt: null,
-        reason: null,
-        source: null,
-        count: cls.unprocessedCount,
-        students: (cls.unprocessedStudents ?? [])
-          .map((u) => u?.name || null)
-          .filter((name): name is string => !!name)
-          .sort((a, b) => a.localeCompare(b, 'ko-KR')),
-      }));
-    list.push(...unprocessedRows);
-    return list;
-  }
-
-  function applyQuick(offset: number) {
-    const base = new Date();
-    const target = addDays(base, offset);
-    const date = formatDateInput(target);
-    setForm({ date });
-    setError(null);
-    setFilters({ date });
-    if (viewMode !== 'daily') {
-      changeView('daily');
-    }
-  }
-
   function goToRecord(entry: AttendanceClassSummary) {
     goToCourseRecord(entry.courseId, entry.recordId ?? null);
   }
 
+  const dailyRows = useMemo<DailyWithRows[]>(() => rows.map((day) => ({
+    day,
+    rows: buildFlatRows(day),
+  })), [rows]);
+
   return (
-    <PageWrap>
+    <PageLocal>
       <PageHeader>
         <div>
           <h2>출결 관리</h2>
@@ -246,22 +81,22 @@ export default function Attendance() {
             onClick={() => changeView("class")}
           >
             수업별 보기
-          </TabButton>
-        </ViewTabs>
-        {viewMode === "daily" && (
-          <StatusFilterBar>
-            {statusFilters.map((option) => (
-              <FilterButton
-                key={option.value}
-                type="button"
-                data-active={statusFilter === option.value || undefined}
-                onClick={() => setStatusFilter(option.value)}
-              >
-                {option.label}
-              </FilterButton>
-            ))}
-          </StatusFilterBar>
-        )}
+           </TabButton>
+         </ViewTabs>
+         {viewMode === "daily" && (
+           <StatusFilterBar>
+             {STATUS_FILTER_OPTIONS.map((option) => (
+               <FilterButton
+                 key={option.value}
+                 type="button"
+                 data-active={statusFilter === option.value || undefined}
+                 onClick={() => setStatusFilter(option.value)}
+               >
+                 {option.label}
+               </FilterButton>
+             ))}
+           </StatusFilterBar>
+         )}
       </Controls>
 
       <Card as="form" onSubmit={handleSubmit}>
@@ -271,18 +106,14 @@ export default function Attendance() {
             <input
               id="attendance-date"
               type="date"
-              value={form.date}
-              onChange={(ev) => {
-                const value = ev.target.value;
-                setForm({ date: value });
-                setError(null);
-              }}
+              value={formDate}
+              onChange={(ev) => setDate(ev.target.value)}
             />
           </Field>
           <QuickButtons>
-            <QuickButton type="button" onClick={() => applyQuick(0)}>오늘</QuickButton>
-            <QuickButton type="button" onClick={() => applyQuick(-1)}>어제</QuickButton>
-            <QuickButton type="button" onClick={() => applyQuick(-2)}>이틀 전</QuickButton>
+            <QuickButton type="button" onClick={() => handleQuick(0)}>오늘</QuickButton>
+            <QuickButton type="button" onClick={() => handleQuick(-1)}>어제</QuickButton>
+            <QuickButton type="button" onClick={() => handleQuick(-2)}>이틀 전</QuickButton>
           </QuickButtons>
           <ApplyButton type="submit">조회</ApplyButton>
         </Filters>
@@ -296,7 +127,7 @@ export default function Attendance() {
         </LoadingBox>
       )}
 
-      {!loading && rows.length === 0 && (
+      {!loading && dailyRows.length === 0 && (
         <Card>
           <EmptyPlaceholder
             title="선택한 날짜에 출결 기록이 없습니다."
@@ -308,23 +139,11 @@ export default function Attendance() {
         </Card>
       )}
 
-      {rows.map((day) => {
-        const flatRows = viewMode === "daily" ? buildFlatRows(day) : [];
+      {dailyRows.map(({ day, rows: flatRows }) => {
         const filteredFlatRows = viewMode === "daily"
-          ? flatRows.filter((row) => {
-              switch (statusFilter) {
-                case "PRESENT":
-                  return row.status === "PRESENT";
-                case "ABSENT":
-                  return row.status === "ABSENT";
-                case "UNPROCESSED":
-                  return row.status === "UNPROCESSED";
-                case "ALL":
-                default:
-                  return true;
-              }
-            })
+          ? filterByStatus(flatRows, statusFilter)
           : [];
+        const sortedFlatRows = filteredFlatRows;
 
         return (
           <Card key={day.date}>
@@ -339,6 +158,7 @@ export default function Attendance() {
                 <CountChip data-type="unprocessed">미처리 {day.unprocessedCount}</CountChip>
               </Chips>
             </DayHeader>
+            {/* Summary graph removed per request */}
 
             {viewMode === "class" ? (
               day.classes.length > 0 ? (
@@ -381,9 +201,9 @@ export default function Attendance() {
             ) : (
               <AttendeeSection>
                 <SectionTitle>출석 학생</SectionTitle>
-                {filteredFlatRows.length > 0 ? (
+                {sortedFlatRows.length > 0 ? (
                   <CardList>
-                    {filteredFlatRows.map((row) => (
+                    {sortedFlatRows.map((row) => (
                       <AttendanceCard key={row.key}>
                         <CardTop>
                           <CardMain>
@@ -448,21 +268,21 @@ export default function Attendance() {
           </Card>
         );
       })}
-    </PageWrap>
+    </PageLocal>
   );
 }
 
 const Filters = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 16px;
+  gap: 2px;
   align-items: flex-end;
 `;
 
 const Field = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   label {
     font-size: 13px;
     color: #4b5563;
@@ -481,7 +301,7 @@ const Field = styled.div`
 const QuickButtons = styled.div`
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 2px;
 `;
 
 const QuickButton = styled.button`
@@ -505,7 +325,7 @@ const ErrorText = styled.div`
 const LoadingBox = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 2px;
   padding: 12px 16px;
   border-radius: 12px;
   border: 1px solid #e5e7eb;
@@ -518,15 +338,15 @@ const Controls = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 4px;
   flex-wrap: wrap;
-  margin: 0 0 12px;
+  margin: 0 0 6px;
 `;
 
 const ViewTabs = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
 `;
 
 const TabButton = styled.button`
@@ -544,7 +364,7 @@ const TabButton = styled.button`
 const StatusFilterBar = styled.div`
   display: inline-flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 4px;
 `;
 
 const FilterButton = styled.button`
@@ -559,12 +379,14 @@ const FilterButton = styled.button`
   }
 `;
 
+/* sort dropdown removed per request */
+
 const DayHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 6px;
+  margin-bottom: 8px;
   strong {
     display: block;
     font-size: 18px;
@@ -582,9 +404,11 @@ const DayHeader = styled.div`
   }
 `;
 
+/* Summary graph styles removed */
+
 const Chips = styled.div`
   display: inline-flex;
-  gap: 10px;
+  gap: 4px;
 `;
 
 const CountChip = styled.span`
@@ -682,9 +506,9 @@ const NoClassText = styled.div`
 `;
 
 const AttendeeSection = styled.div`
-  margin-top: 24px;
+  margin-top: 16px;
   display: grid;
-  gap: 12px;
+  gap: 2px;
 `;
 
 const SectionTitle = styled.h4`
@@ -696,13 +520,13 @@ const SectionTitle = styled.h4`
 
 const CardList = styled.div`
   display: grid;
-  gap: 8px;
+  gap: 4px;
 `;
 
 const AttendanceCard = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   padding: 14px 16px;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
@@ -714,7 +538,7 @@ const CardTop = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 `;
 
@@ -736,7 +560,7 @@ const CardMain = styled.div`
 const CardMeta = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 `;
 
@@ -831,4 +655,7 @@ const StudentChip = styled.span`
   color: #374151;
   font-size: 12px;
   border: 1px solid #e5e7eb;
+`;
+const PageLocal = styled(PageWrap)`
+  gap: 16px;
 `;

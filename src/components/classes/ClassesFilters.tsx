@@ -20,7 +20,7 @@ export default function ClassesFilters({ value, onChange, onApply }: { value: Fi
     <Bar>
       <Group>
         <Label>상태</Label>
-        <Select value={v.status} onChange={(e) => set("status", e.target.value as any)}>
+        <Select value={v.status} onChange={(e) => set("status", e.target.value as Filters["status"])}>
           <option value="">전체</option>
           <option value="IN_PROGRESS">진행중</option>
           <option value="STOPPED">중단</option>

@@ -1,7 +1,7 @@
 import styled from "styled-components";
 import { useEffect, useState } from "react";
 import type { TaskItem } from "../../../types/calendarDetail";
-import { SmallBtn as UISmallBtn, buttonVariants } from "../../common/UI";
+import { SmallBtn as UISmallBtn, PrimaryButtonSm } from "../../common/UI";
 import { EmptyPlaceholder } from "../../common/EmptyPlaceholder";
 
 type Props = {
@@ -35,7 +35,7 @@ export default function TodoList({ inProgress, done, onAdd, onToggle, onDelete, 
           <Count>{inProgress.length}</Count>
         </HeaderLeft>
         <Actions>
-          <ActionBtn type="button" onClick={onAdd}>+ 할일 추가</ActionBtn>
+          <PrimaryButtonSm type="button" onClick={onAdd}>+ 할일 추가</PrimaryButtonSm>
         </Actions>
       </SectionHeader>
       {/* 진행 중 표시 제거 (Removed 'In Progress' label) */}
@@ -54,10 +54,10 @@ export default function TodoList({ inProgress, done, onAdd, onToggle, onDelete, 
               </Left>
               <BtnRow>
                 {typeof t.id === "number" && (
-                  <GhostBtn type="button" onClick={() => onEdit?.(t.id!)}>수정</GhostBtn>
+                  <GhostBtn type="button" data-variant="edit" onClick={() => onEdit?.(t.id!)}>수정</GhostBtn>
                 )}
                 {typeof t.id === "number" && (
-                  <DangerBtn type="button" onClick={() => onDelete?.(t.id!)}>삭제</DangerBtn>
+                  <DangerBtn type="button" onClick={() => void onDelete?.(t.id!)}>삭제</DangerBtn>
                 )}
               </BtnRow>
             </TaskCard>
@@ -82,13 +82,6 @@ const SectionIcon = styled.span`
   width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: #eef2ff; color: #4f46e5;
 `;
 const Actions = styled.div``;
-const ActionBtn = styled.button`
-  ${buttonVariants.outline};
-  height: 40px;
-  padding: 0 16px;
-  font-size: 14px;
-  font-weight: 600;
-`;
 // SubHeader removed
 const Count = styled.span`
   background: #e5e7eb; color: #374151; height: 20px; min-width: 22px; padding: 0 6px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;

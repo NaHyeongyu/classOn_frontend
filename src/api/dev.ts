@@ -5,6 +5,5 @@ export async function seedDemo(params?: { students?: number; courses?: number; c
   const c = params?.courses ?? 10;
   const k = params?.counsels ?? 50;
   const sp = new URLSearchParams({ students: String(s), courses: String(c), counsels: String(k) });
-  return await fetchJSON<Record<string, any>>(`/api/dev/seed?${sp}`, { method: 'POST' });
+  return await fetchJSON<Record<string, unknown>>(`/api/dev/seed?${sp}`, { method: 'POST' });
 }
-

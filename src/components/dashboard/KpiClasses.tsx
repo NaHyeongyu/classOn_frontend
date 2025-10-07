@@ -1,4 +1,4 @@
-import { KPI, ClassIcon, DeltaPill } from "./KPI";
+import { KPI, ClassIcon } from "./KPI";
 import type { DashboardSummary } from "../../types/dashboard";
 
 type Props = {
@@ -18,7 +18,7 @@ export default function KpiClasses({ data, loading, error, onRetry }: Props) {
       iconAccent="violet"
       value={value}
       footerLeft={date}
-      footerRight={<DeltaPill $tone="neutral">일정</DeltaPill>}
+      footerRight={undefined}
       loading={loading}
       error={error}
       onRetry={onRetry}

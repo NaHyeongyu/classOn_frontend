@@ -18,8 +18,6 @@ export function KPI({
   icon,
   iconAccent,
   value,
-  footerLeft,
-  footerRight,
   loading,
   error,
   onRetry,
@@ -53,19 +51,7 @@ export function KPI({
       ) : (
         <KPIValue>{value}</KPIValue>
       )}
-      <KPIFooter>
-        {loading ? (
-          <>
-            <SkeletonPill style={{ width: 90 }} />
-            <SkeletonPill style={{ width: 64 }} />
-          </>
-        ) : (
-          <>
-            <span>{footerLeft}</span>
-            <span>{footerRight}</span>
-          </>
-        )}
-      </KPIFooter>
+      {/* Footer hidden per request */}
     </KPICard>
   );
 }
@@ -284,8 +270,4 @@ const SkeletonValue = styled.div`
   ${shimmerCss}
 `;
 
-const SkeletonPill = styled.div`
-  height: 20px;
-  border-radius: 9999px;
-  ${shimmerCss}
-`;
+/* Skeleton pill removed (unused) */

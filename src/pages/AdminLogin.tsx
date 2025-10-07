@@ -3,6 +3,7 @@ import styled, { css } from 'styled-components';
 import { GhostButtonSmall } from '@/components/common/UI';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { readableError } from '@/lib/errors';
 import { routes } from '@/routes';
 // Removed admin creation; only login remains
 
@@ -20,8 +21,8 @@ export default function AdminLogin() {
     try {
       await login(username.trim(), password);
       nav(routes.admin, { replace: true });
-    } catch (e: any) {
-      setError(e?.message || '로그인에 실패했습니다.');
+    } catch (e) {
+      setError(readableError(e, '로그인에 실패했습니다.'));
     }
   }
 
@@ -53,7 +54,6 @@ const Form = styled.form` display:grid; gap:10px; `;
 const Input = styled.input` height:42px; border:1px solid #e5e7eb; border-radius:10px; padding:0 12px; font-size:14px; background:#fff; color:#111827; `;
 const Actions = styled.div` display:flex; justify-content:flex-end; gap:8px; `;
 const Err = styled.div` color:#b91c1c; font-size:13px; `;
-const Hint = styled.div` color:#6b7280; font-size:12px; `;
 
 const monoButtonBase = css`
   height: 40px; padding: 0 16px; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease;
@@ -64,7 +64,4 @@ const MonoPrimary = styled.button`
   &:hover{ background:#000; border-color:#000; }
   &:disabled{ opacity:.6; cursor:not-allowed; }
 `;
-const MonoGhost = styled.button`
-  ${monoButtonBase};
-  background:#fff; color:#111827; border:1px solid #e5e7eb; &:hover{ background:#f9fafb; }
-`;
+/* MonoGhost removed (unused) */

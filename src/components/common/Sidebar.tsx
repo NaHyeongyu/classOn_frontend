@@ -8,8 +8,9 @@ import { routes } from "@/routes";
 export default function Sidebar() {
   const { logout, user } = useAuth();
   const navigate = useNavigate();
-  const items = useMemo(
-    () => [
+  const enableFeedback = import.meta.env.VITE_ENABLE_FEEDBACK === 'true';
+  const items = useMemo(() => {
+    const base = [
       { key: "dashboard", label: "대시보드", sub: "Dashboard", to: routes.home },
       { key: "calendar", label: "일정", sub: "Calendar", to: routes.calendar },
       { key: "students", label: "원생관리", sub: "Student Management", to: routes.students },
@@ -18,13 +19,18 @@ export default function Sidebar() {
       // { key: "stats", label: "통계", sub: "Analytics", to: routes.stats },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
-    ],
-    []
-  );
+      { key: "report", label: "리포트", sub: "Report", to: routes.report },
+      { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback },
+    ] as { key: string; label: string; sub: string; to: string }[];
+    if (enableFeedback) base.push({ key: "changelog", label: "업데이트 안내", sub: "Patch Notes", to: routes.feedbackChangelog });
+    return base;
+  }, [enableFeedback]);
 
   // Display only academy name in the bottom user box
-  const academyName = (user?.academy && user.academy.name) ? user.academy.name : undefined;
+  const academyName = user?.academy?.name && user.academy.name.trim() ? user.academy.name.trim() : undefined;
   const displayName = academyName || user?.name || user?.username || "사용자";
+  const email = user?.email || user?.username || undefined;
+  const avatarInitial = displayName.charAt(0).toUpperCase();
 
   return (
     <SidebarWrapper>
@@ -54,8 +60,10 @@ export default function Sidebar() {
 
       <BottomInfo>
         <UserBox>
+          <UserAvatar aria-hidden>{avatarInitial}</UserAvatar>
           <div>
             <UserName title={displayName}>{displayName}</UserName>
+            {email ? <UserEmail title={email}>{email}</UserEmail> : null}
           </div>
         </UserBox>
         <LogoutButton type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }}>
@@ -68,8 +76,8 @@ export default function Sidebar() {
 }
 
 function getLogoSrc(): string {
-  const envPath = (import.meta as any).env?.VITE_APP_LOGO_PATH as string | undefined;
-  if (envPath && typeof envPath === 'string') return envPath;
+  const envPath = import.meta.env.VITE_APP_LOGO_PATH;
+  if (envPath && envPath.trim()) return envPath;
   // By convention, place your logo at public/logo/logo.svg (or configure VITE_APP_LOGO_PATH)
   return "/logo/logo.svg";
 }
@@ -226,6 +234,32 @@ function renderIcon(key: string) {
       return (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z" />
+        </svg>
+      );
+    case "feedback":
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V5a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
+          <path d="M8 9h8" />
+          <path d="M8 13h5" />
+        </svg>
+      );
+    case "report":
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M8 7h8" />
+          <path d="M8 11h8" />
+          <path d="M8 15h5" />
+        </svg>
+      );
+    case "changelog":
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 4h16v16H4z" />
+          <path d="M8 8h8" />
+          <path d="M8 12h6" />
+          <path d="M8 16h5" />
         </svg>
       );
     default:

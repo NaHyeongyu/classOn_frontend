@@ -1,6 +1,7 @@
 import styled from "styled-components";
 import { useEffect, useState } from "react";
 import { listStudents, type PageResult, type Student } from "../../api/students";
+import { readableError } from "@/lib/errors";
 
 export default function StudentsStats() {
   const [loading, setLoading] = useState(true);
@@ -27,8 +28,8 @@ export default function StudentsStats() {
           setOnLeave(l.totalElements);
           setPending(p.totalElements);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "요약 정보를 불러오지 못했습니다.");
+      } catch (e) {
+        if (!cancelled) setError(readableError(e, "요약 정보를 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }

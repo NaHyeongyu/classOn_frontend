@@ -405,14 +405,13 @@ export default function CalendarDetail() {
                 <ModalTitle>
                   {editingId == null ? "할 일 추가" : "할 일 수정"}
                 </ModalTitle>
-                <form onSubmit={onSubmitModal}>
+                <form onSubmit={onSubmitModal} noValidate>
                   <Label>제목<span>*</span></Label>
                   <Input
                     value={formTitle}
                     onChange={(e) => { setFormTitle(e.target.value); if (todoErr) setTodoErr(null); }}
                     placeholder="예: 상담 준비"
                     aria-invalid={!!todoErr}
-                    required
                   />
                   {todoErr && <Err>{todoErr}</Err>}
                   <Label>메모 (선택)</Label>

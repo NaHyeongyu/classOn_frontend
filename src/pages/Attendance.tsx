@@ -350,14 +350,14 @@ const ViewTabs = styled.div`
 `;
 
 const TabButton = styled.button`
-  ${buttonVariants.subtle};
+  ${buttonVariants.outline};
   height: 36px;
   padding: 0 18px;
   font-size: 13px;
   &[data-active] {
-    background: #4f46e5;
-    color: #fff;
-    border-color: #4338ca;
+    background: #f3f4f6; /* gray background */
+    color: #111827; /* black text */
+    border-color: #e5e7eb; /* gray border */
   }
 `;
 

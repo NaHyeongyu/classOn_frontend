@@ -624,7 +624,7 @@ const Tab = styled.button<{ $active: boolean }>`
   font-size: ${(p) => p.theme.font.size.sm};
   font-weight: ${(p) => p.theme.font.weight.semiBold};
   cursor: pointer;
-  color: ${(p) => (p.$active ? p.theme.colors.primary : p.theme.colors.textMuted)};
+  color: ${(p) => (p.$active ? p.theme.colors.text : p.theme.colors.textMuted)};
   background: ${(p) => (p.$active ? p.theme.colors.surface : "transparent")};
   transition:
     background ${(p) => p.theme.motion.duration.base} ${(p) => p.theme.motion.easing.standard},
@@ -634,7 +634,7 @@ const Tab = styled.button<{ $active: boolean }>`
   ${({ $active, theme }) =>
     $active
       ? css`
-          border-color: ${theme.colors.primary};
+          border-color: ${theme.colors.border};
         `
       : css`
           border-color: transparent;

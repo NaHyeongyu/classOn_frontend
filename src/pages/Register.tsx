@@ -221,7 +221,7 @@ export default function Register() {
       )}
       {step === 2 && (
         <>
-          <Sub>인증 번호를 보냈어요. 10분 내 입력해 주세요.</Sub>
+          <Sub>인증 번호를 보냈어요. 3분 내 입력해 주세요.</Sub>
           <Form onSubmit={onVerifyCode}>
             <Label>휴대폰 번호</Label>
             <Row>

@@ -12,14 +12,37 @@ import {
 } from "@/components/common/UI";
 import BackButton from "@/components/common/BackButton";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { listCounsels, createCounsel, updateCounsel, deleteCounsel, downloadCounselsExcel, type Counsel } from "@/api/counsels";
-import { getStudent, getStudentAttendance, deleteStudent, type Student, type StudentAttendance } from "@/api/students";
-import { listExams, listExamResults, createExam, upsertExamResults } from "@/api/exams";
+import {
+  listCounsels,
+  createCounsel,
+  updateCounsel,
+  deleteCounsel,
+  downloadCounselsExcel,
+  type Counsel,
+} from "@/api/counsels";
+import {
+  getStudent,
+  getStudentAttendance,
+  deleteStudent,
+  type Student,
+  type StudentAttendance,
+} from "@/api/students";
+import {
+  listExams,
+  listExamResults,
+  createExam,
+  upsertExamResults,
+} from "@/api/exams";
 // formatMoney 사용 제거됨 (MVP)
 import { formatPhone, formatKoreanDateTime } from "@/lib/format";
 // import { calcRisk, recommendActions, type RiskResult } from "@/features/risk/riskUtils"; // RISK FEATURE DISABLED
 import { summarizeRecords, type SummarizeItem } from "@/api/summarize";
-import { getStudentGrades, addStudentGrade, removeStudentGrade, type GradeEntry } from "@/features/grades/gradesStorage";
+import {
+  getStudentGrades,
+  addStudentGrade,
+  removeStudentGrade,
+  type GradeEntry,
+} from "@/features/grades/gradesStorage";
 import { useToast } from "@/components/common/Toast";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { readableError } from "@/lib/errors";
@@ -39,7 +62,12 @@ export default function StudentDetail() {
   const [notesInput, setNotesInput] = useState("");
   // Tuition UI removed (MVP)
   // Per-item memos (temporary local persistence until API ready)
-  type MemoItem = { id: number; text: string; createdAt: string; updatedAt?: string };
+  type MemoItem = {
+    id: number;
+    text: string;
+    createdAt: string;
+    updatedAt?: string;
+  };
   const [memos, setMemos] = useState<MemoItem[]>([]);
   const [newMemo, setNewMemo] = useState("");
   const [editingMemoId, setEditingMemoId] = useState<number | null>(null);
@@ -58,7 +86,7 @@ export default function StudentDetail() {
   // New counsel form: date + hour/min (default: today with no time selected)
   const [newDate, setNewDate] = useState<string>(() => {
     const d = new Date();
-    return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`;
+    return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
   });
   const [newHour, setNewHour] = useState<string>("");
   const [newMin, setNewMin] = useState<string>("");
@@ -75,17 +103,20 @@ export default function StudentDetail() {
   const [editContent, setEditContent] = useState<string>("");
   const [savingEdit, setSavingEdit] = useState(false);
   const { error: showError, success: showSuccess } = useToast();
-  const { confirm: confirmDelete, dialog: deleteConfirmDialog } = useConfirmDialog({
-    confirmLabel: "삭제",
-    cancelLabel: "취소",
-    tone: "danger",
-  });
+  const { confirm: confirmDelete, dialog: deleteConfirmDialog } =
+    useConfirmDialog({
+      confirmLabel: "삭제",
+      cancelLabel: "취소",
+      tone: "danger",
+    });
   // Predictive risk (disabled) – placeholders to avoid runtime refs
   // Predictive risk feature disabled
   // Counsel AI summary
   const [counselSummary, setCounselSummary] = useState<string>("");
   const [counselSummaryLoading, setCounselSummaryLoading] = useState(false);
-  const [counselSummaryError, setCounselSummaryError] = useState<string | null>(null);
+  const [counselSummaryError, setCounselSummaryError] = useState<string | null>(
+    null
+  );
   // Grades (display and quick add)
   const [grades, setGrades] = useState<GradeEntry[]>([]);
   const [examGrades, setExamGrades] = useState<GradeEntry[]>([]);
@@ -97,7 +128,7 @@ export default function StudentDetail() {
   const [gDate, setGDate] = useState<string>("");
   const [gCourseId, setGCourseId] = useState<number | "">("");
   const [gTitle, setGTitle] = useState<string>("");
-  const [gMode, setGMode] = useState<'percent'|'letter'>('percent');
+  const [gMode, setGMode] = useState<"percent" | "letter">("percent");
   const [gScore, setGScore] = useState<string>("");
   const [gOutOf, setGOutOf] = useState<string>("100");
   const [gLevel, setGLevel] = useState<string>("");
@@ -129,10 +160,14 @@ export default function StudentDetail() {
 
   function courseStatusLabel(s: string) {
     switch (s) {
-      case "IN_PROGRESS": return "진행중";
-      case "PENDING": return "대기";
-      case "STOPPED": return "중단";
-      default: return s;
+      case "IN_PROGRESS":
+        return "진행중";
+      case "PENDING":
+        return "대기";
+      case "STOPPED":
+        return "중단";
+      default:
+        return s;
     }
   }
 
@@ -146,13 +181,16 @@ export default function StudentDetail() {
         const res = await getStudent(numericId);
         if (!cancelled) setStudent(res);
       } catch (e) {
-        if (!cancelled) setError(readableError(e, "원생 정보를 불러오지 못했습니다."));
+        if (!cancelled)
+          setError(readableError(e, "원생 정보를 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [numericId]);
 
   // Load minimal data for predictive risk (disabled)
@@ -187,13 +225,16 @@ export default function StudentDetail() {
         const res = await listCounsels({ studentId: numericId, size: 100 });
         if (!cancelled) setCounsels(res.content || []);
       } catch (e) {
-        if (!cancelled) setCounselError(readableError(e, "상담 기록을 불러오지 못했습니다."));
+        if (!cancelled)
+          setCounselError(readableError(e, "상담 기록을 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setCounselLoading(false);
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [numericId, activeTab]);
 
   // Load grades (display-only)
@@ -206,35 +247,49 @@ export default function StudentDetail() {
   async function reloadExamGrades() {
     if (!numericId) return;
     const courses = student?.courses || [];
-    if (!courses.length) { setExamGrades([]); return; }
-    setExamGradesLoading(true); setExamGradesError(null);
+    if (!courses.length) {
+      setExamGrades([]);
+      return;
+    }
+    setExamGradesLoading(true);
+    setExamGradesError(null);
     try {
-      const examsPerCourse = await Promise.all(courses.map(async (c) => {
-        const list = await listExams(c.id);
-        return list.map((ex) => ({ courseId: c.id, courseTitle: c.title, exam: ex }));
-      }));
+      const examsPerCourse = await Promise.all(
+        courses.map(async (c) => {
+          const list = await listExams(c.id);
+          return list.map((ex) => ({
+            courseId: c.id,
+            courseTitle: c.title,
+            exam: ex,
+          }));
+        })
+      );
       const pairs = examsPerCourse.flat();
-      const results = await Promise.all(pairs.map(async ({ courseId, courseTitle, exam }) => {
-        const rows = await listExamResults(courseId, exam.id);
-        const mine = rows.find(r => r.studentId === numericId);
-        if (!mine) return null;
-        const date = exam.examDate || (exam.createdAt ? exam.createdAt.slice(0,10) : '');
-        const entry: GradeEntry = {
-          id: `exam:${courseId}:${exam.id}:${numericId}`,
-          date,
-          subject: exam.title,
-          courseId,
-          score: mine.score,
-          outOf: mine.outOf,
-          level: mine.level,
-          note: mine.note,
-        };
-        return entry;
-      }));
+      const results = await Promise.all(
+        pairs.map(async ({ courseId, courseTitle, exam }) => {
+          const rows = await listExamResults(courseId, exam.id);
+          const mine = rows.find((r) => r.studentId === numericId);
+          if (!mine) return null;
+          const date =
+            exam.examDate ||
+            (exam.createdAt ? exam.createdAt.slice(0, 10) : "");
+          const entry: GradeEntry = {
+            id: `exam:${courseId}:${exam.id}:${numericId}`,
+            date,
+            subject: exam.title,
+            courseId,
+            score: mine.score,
+            outOf: mine.outOf,
+            level: mine.level,
+            note: mine.note,
+          };
+          return entry;
+        })
+      );
       const filtered = results.filter((x): x is GradeEntry => !!x);
       setExamGrades(filtered);
     } catch (e) {
-      setExamGradesError(readableError(e, '시험 성적을 불러오지 못했습니다.'));
+      setExamGradesError(readableError(e, "시험 성적을 불러오지 못했습니다."));
     } finally {
       setExamGradesLoading(false);
     }
@@ -242,7 +297,7 @@ export default function StudentDetail() {
 
   // Load exam-based grades linked to student's courses when Grades tab is active
   useEffect(() => {
-    if (!numericId || activeTab !== 'grades') return;
+    if (!numericId || activeTab !== "grades") return;
     void reloadExamGrades();
   }, [numericId, activeTab, student?.courses]);
 
@@ -250,76 +305,117 @@ export default function StudentDetail() {
     // Use only exam-based grades; manual grades removed
     const list = examGrades.slice();
     return list.sort((a, b) => {
-      const ta = Date.parse(a.date || '');
-      const tb = Date.parse(b.date || '');
+      const ta = Date.parse(a.date || "");
+      const tb = Date.parse(b.date || "");
       return (isNaN(tb) ? 0 : tb) - (isNaN(ta) ? 0 : ta);
     });
   }, [examGrades]);
 
   // EXAM input options for add form
   const EXAM_MODE_OPTIONS = [
-    { value: 'percent' as const, label: '백분율 입력', description: '0~100점 점수로 기록합니다.' },
-    { value: 'letter' as const, label: '등급 입력', description: 'A~F 등급으로 기록합니다.' },
+    {
+      value: "percent" as const,
+      label: "백분율 입력",
+      description: "0~100점 점수로 기록합니다.",
+    },
+    {
+      value: "letter" as const,
+      label: "등급 입력",
+      description: "A~F 등급으로 기록합니다.",
+    },
   ];
 
   function initGradeForm() {
     const today = new Date();
     const y = today.getFullYear();
-    const m = String(today.getMonth() + 1).padStart(2, '0');
-    const d = String(today.getDate()).padStart(2, '0');
+    const m = String(today.getMonth() + 1).padStart(2, "0");
+    const d = String(today.getDate()).padStart(2, "0");
     setGDate(`${y}-${m}-${d}`);
     const firstCourseId = student?.courses?.[0]?.id;
-    setGCourseId(firstCourseId ?? '');
-    setGTitle('');
-    setGMode('percent');
-    setGScore('');
-    setGOutOf('100');
-    setGLevel('');
-    setGNote('');
-    setGSubject('');
+    setGCourseId(firstCourseId ?? "");
+    setGTitle("");
+    setGMode("percent");
+    setGScore("");
+    setGOutOf("100");
+    setGLevel("");
+    setGNote("");
+    setGSubject("");
   }
 
   useEffect(() => {
     if (gradeOpen) initGradeForm();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gradeOpen]);
 
   async function handleAddExamResult() {
     if (!numericId) return;
     setGErr(null);
-    const courseId = typeof gCourseId === 'number' ? gCourseId : Number(gCourseId);
-    if (!courseId || Number.isNaN(courseId)) { setGErr('수업을 선택해 주세요.'); return; }
-    if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
-    const title = (gTitle || '').trim();
-    if (!title) { setGErr('시험 제목을 입력해 주세요.'); return; }
+    const courseId =
+      typeof gCourseId === "number" ? gCourseId : Number(gCourseId);
+    if (!courseId || Number.isNaN(courseId)) {
+      setGErr("수업을 선택해 주세요.");
+      return;
+    }
+    if (!gDate) {
+      setGErr("일자를 입력해 주세요.");
+      return;
+    }
+    const title = (gTitle || "").trim();
+    if (!title) {
+      setGErr("시험 제목을 입력해 주세요.");
+      return;
+    }
     let score: number | undefined = undefined;
     let outOf: number | undefined = undefined;
     let level: string | undefined = undefined;
-    if (gMode === 'percent') {
-      const s = (gScore || '').trim();
+    if (gMode === "percent") {
+      const s = (gScore || "").trim();
       if (s) {
         const n = Number(s);
-        if (Number.isNaN(n)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
+        if (Number.isNaN(n)) {
+          setGErr("점수는 숫자로 입력해 주세요.");
+          return;
+        }
         score = Math.max(0, Math.min(100, Math.round(n)));
-        const o = (gOutOf || '').trim();
+        const o = (gOutOf || "").trim();
         outOf = o ? Number(o) : 100;
-        if (Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
+        if (Number.isNaN(outOf)) {
+          setGErr("만점은 숫자로 입력해 주세요.");
+          return;
+        }
       }
     } else {
-      const lv = (gLevel || '').trim();
+      const lv = (gLevel || "").trim();
       level = lv || undefined;
     }
     setGradeBusy(true);
     try {
-      const exam = await createExam(courseId, { title, examDate: gDate, kind: 'TEST', inputMode: gMode });
-      await upsertExamResults(courseId, exam.id, [{ studentId: numericId, score, outOf, level, note: (gNote || '').trim() || undefined }]);
-      try { (await import('@/lib/fetcher')).invalidateCacheByPrefix(`/api/courses/${courseId}/exams/${exam.id}/results`); } catch {}
-      showSuccess('시험 성적을 추가했습니다.');
+      const exam = await createExam(courseId, {
+        title,
+        examDate: gDate,
+        kind: "TEST",
+        inputMode: gMode,
+      });
+      await upsertExamResults(courseId, exam.id, [
+        {
+          studentId: numericId,
+          score,
+          outOf,
+          level,
+          note: (gNote || "").trim() || undefined,
+        },
+      ]);
+      try {
+        (await import("@/lib/fetcher")).invalidateCacheByPrefix(
+          `/api/courses/${courseId}/exams/${exam.id}/results`
+        );
+      } catch {}
+      showSuccess("시험 성적을 추가했습니다.");
       await reloadExamGrades();
       initGradeForm();
       setGradeOpen(false);
     } catch (e) {
-      setGErr(readableError(e, '시험 성적을 추가하지 못했습니다.'));
+      setGErr(readableError(e, "시험 성적을 추가하지 못했습니다."));
     } finally {
       setGradeBusy(false);
     }
@@ -334,7 +430,7 @@ export default function StudentDetail() {
       const filename = sanitizeFilename(`${studentName}_counsels`);
       saveBlobAsFile(blob, `${filename}.xlsx`);
     } catch (e) {
-      showError(readableError(e, '상담 기록 엑셀 추출에 실패했습니다.'));
+      showError(readableError(e, "상담 기록 엑셀 추출에 실패했습니다."));
     } finally {
       setExportingCounsel(false);
     }
@@ -346,17 +442,17 @@ export default function StudentDetail() {
       setCounselSummaryLoading(true);
       setCounselSummaryError(null);
       const items: SummarizeItem[] = (counsels || []).slice(0, 50).map((c) => ({
-        date: (c.counselTime || '').slice(0, 10),
-        content: (c.content || '').replace(/\s+/g, ' ').slice(0, 500),
+        date: (c.counselTime || "").slice(0, 10),
+        content: (c.content || "").replace(/\s+/g, " ").slice(0, 500),
       }));
       if (!items.length) {
-        setCounselSummaryError('요약할 상담 기록이 없습니다.');
+        setCounselSummaryError("요약할 상담 기록이 없습니다.");
         return;
       }
-      const resp = await summarizeRecords(items, { language: 'ko' });
-      setCounselSummary(resp.summary || '요약이 비어 있습니다.');
+      const resp = await summarizeRecords(items, { language: "ko" });
+      setCounselSummary(resp.summary || "요약이 비어 있습니다.");
     } catch (e) {
-      setCounselSummaryError(readableError(e, '요약 생성에 실패했습니다.'));
+      setCounselSummaryError(readableError(e, "요약 생성에 실패했습니다."));
     } finally {
       setCounselSummaryLoading(false);
     }
@@ -386,21 +482,25 @@ export default function StudentDetail() {
 
   // Load attendance when tab is active
   useEffect(() => {
-    if (!numericId || activeTab !== 'attendance') return;
+    if (!numericId || activeTab !== "attendance") return;
     let cancelled = false;
     async function load() {
-      setAttLoading(true); setAttError(null);
+      setAttLoading(true);
+      setAttError(null);
       try {
         const res = await getStudentAttendance(numericId, { size: 200 });
         if (!cancelled) setAttRows(res?.content || []);
       } catch (e) {
-        if (!cancelled) setAttError(readableError(e, '출석 정보를 불러오지 못했습니다.'));
+        if (!cancelled)
+          setAttError(readableError(e, "출석 정보를 불러오지 못했습니다."));
       } finally {
         if (!cancelled) setAttLoading(false);
       }
     }
     void load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [numericId, activeTab]);
 
   // 결제 내역 로딩 제거 (MVP)
@@ -410,12 +510,16 @@ export default function StudentDetail() {
     const text = (notesInput || "").trim();
     setNotes(text);
     setEditingNotes(false);
-    try { localStorage.setItem(`student:notes:${numericId}`, text); } catch {}
+    try {
+      localStorage.setItem(`student:notes:${numericId}`, text);
+    } catch {}
   }
 
   function persistMemos(next: MemoItem[]) {
     setMemos(next);
-    try { localStorage.setItem(`student:memos:${numericId}`, JSON.stringify(next)); } catch {}
+    try {
+      localStorage.setItem(`student:memos:${numericId}`, JSON.stringify(next));
+    } catch {}
   }
 
   function addMemo() {
@@ -429,7 +533,7 @@ export default function StudentDetail() {
   }
 
   function beginEditMemo(id: number) {
-    const found = memos.find(m => m.id === id);
+    const found = memos.find((m) => m.id === id);
     if (!found) return;
     setEditingMemoId(id);
     setEditingMemoText(found.text);
@@ -439,7 +543,9 @@ export default function StudentDetail() {
     if (editingMemoId == null) return;
     const text = (editingMemoText || "").trim();
     const now = new Date().toISOString();
-    const next = memos.map(m => m.id === editingMemoId ? { ...m, text, updatedAt: now } : m);
+    const next = memos.map((m) =>
+      m.id === editingMemoId ? { ...m, text, updatedAt: now } : m
+    );
     persistMemos(next);
     setEditingMemoId(null);
     setEditingMemoText("");
@@ -451,7 +557,7 @@ export default function StudentDetail() {
   }
 
   function removeMemo(id: number) {
-    const next = memos.filter(m => m.id !== id);
+    const next = memos.filter((m) => m.id !== id);
     persistMemos(next);
   }
 
@@ -461,7 +567,9 @@ export default function StudentDetail() {
     const label = [entry.date, subject].filter(Boolean).join(" · ");
     const confirmed = await confirmDelete({
       title: "성적을 삭제할까요?",
-      message: label ? `${label} 기록을 삭제합니다. 되돌릴 수 없습니다.` : "선택한 성적 기록을 삭제합니다. 되돌릴 수 없습니다.",
+      message: label
+        ? `${label} 기록을 삭제합니다. 되돌릴 수 없습니다.`
+        : "선택한 성적 기록을 삭제합니다. 되돌릴 수 없습니다.",
     });
     if (!confirmed) return;
     removeStudentGrade(numericId, entry.id);
@@ -499,8 +607,27 @@ export default function StudentDetail() {
     }
   }
 
-  const hours24 = useMemo(() => Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0')), []);
-  const mins5 = useMemo(() => ['00','05','10','15','20','25','30','35','40','45','50','55'], []);
+  const hours24 = useMemo(
+    () => Array.from({ length: 24 }, (_, h) => String(h).padStart(2, "0")),
+    []
+  );
+  const mins5 = useMemo(
+    () => [
+      "00",
+      "05",
+      "10",
+      "15",
+      "20",
+      "25",
+      "30",
+      "35",
+      "40",
+      "45",
+      "50",
+      "55",
+    ],
+    []
+  );
 
   async function onSubmitNewCounsel() {
     if (!numericId || !newDate || !newHour || !newMin) return;
@@ -508,14 +635,19 @@ export default function StudentDetail() {
     setCounselError(null);
     try {
       const iso = `${newDate}T${newHour}:${newMin}:00`;
-      await createCounsel({ studentId: numericId, counselTime: iso, content: newContent || undefined });
+      await createCounsel({
+        studentId: numericId,
+        counselTime: iso,
+        content: newContent || undefined,
+      });
       const res = await listCounsels({ studentId: numericId, size: 100 });
       setCounsels(res.content || []);
       setAddingCounsel(false);
-      setNewHour(""); setNewMin("");
+      setNewHour("");
+      setNewMin("");
       setNewContent("");
     } catch (e) {
-      setCounselError(readableError(e, '저장에 실패했습니다.'));
+      setCounselError(readableError(e, "저장에 실패했습니다."));
     } finally {
       setNewSubmitting(false);
     }
@@ -527,14 +659,19 @@ export default function StudentDetail() {
     setCounselError(null);
     try {
       const iso = `${editDate}T${editHour}:${editMin}:00`;
-      await updateCounsel(id, { counselTime: iso, content: editContent || undefined });
+      await updateCounsel(id, {
+        counselTime: iso,
+        content: editContent || undefined,
+      });
       const res = await listCounsels({ studentId: numericId, size: 100 });
       setCounsels(res.content || []);
       setEditingCounselId(null);
-      setEditDate(""); setEditHour(""); setEditMin("");
+      setEditDate("");
+      setEditHour("");
+      setEditMin("");
       setEditContent("");
     } catch (e) {
-      setCounselError(readableError(e, '수정에 실패했습니다.'));
+      setCounselError(readableError(e, "수정에 실패했습니다."));
     } finally {
       setSavingEdit(false);
     }
@@ -572,489 +709,12 @@ export default function StudentDetail() {
             </Card>
           </Left>
           <Right>
-            {/* 예측 분석 (RISK FEATURE DISABLED) */}
-
-            {/* Legacy local grades disabled */}
-            {false && (<Card>
-              <CardHead>
-                <SectionTitle>시험/성적</SectionTitle>
-                <CardActions>
-                  {!gradeOpen ? (
-                    <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
-                  ) : (
-                    <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
-                  )}
-                </CardActions>
-              </CardHead>
-              {gradeOpen && (
-                <SectionBody>
-                  {gErr && <Error>{gErr}</Error>}
-                  <EditGrid>
-                    <div>
-                      <Label>일자</Label>
-                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>수업</Label>
-                      <SelectBox
-                        value={String(gCourseId || '')}
-                        onChange={(v)=> setGCourseId(v ? Number(v) : '')}
-                        options={(student?.courses || []).map(c => ({ value: String(c.id), label: c.title }))}
-                        placeholder="수업 선택"
-                      />
-                    </div>
-                    <div>
-                      <Label>시험 제목</Label>
-                      <Input placeholder="예: 중간고사 수학" value={gTitle} onChange={(e)=>setGTitle(e.currentTarget.value)} />
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                      <Label>입력 방식</Label>
-                      <div style={{ display:'inline-flex', gap:8, marginLeft:8 }}>
-                        {EXAM_MODE_OPTIONS.map((op) => (
-                          <label key={op.value} style={{ display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer' }}>
-                            <input type="radio" name="gMode" checked={gMode === op.value} onChange={() => setGMode(op.value)} />
-                            <span>{op.label}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                    {gMode === 'percent' ? (
-                      <>
-                        <div>
-                          <Label>점수</Label>
-                          <Input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
-                        </div>
-                        <div>
-                          <Label>만점</Label>
-                          <Input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
-                        </div>
-                      </>
-                    ) : (
-                      <div>
-                        <Label>등급</Label>
-                        <SelectBox
-                          value={gLevel}
-                          onChange={(v)=>setGLevel(v)}
-                          options={[{value:'',label:'-'}].concat(['A','B','C','D','E','F'].map(x=>({ value:x, label:x })))}
-                        />
-                      </div>
-                    )}
-                    <div>
-                      <Label>메모</Label>
-                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
-                    </div>
-                  </EditGrid>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <UIPrimaryButton type="button" onClick={() => void handleAddExamResult()} disabled={gradeBusy}>
-                      {gradeBusy ? '저장 중…' : '시험 결과 저장'}
-                    </UIPrimaryButton>
-                    <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
-                  </div>
-                </SectionBody>
-              )}
-              <Divider />
-              <SectionBody>
-                {displayGrades.length === 0 ? (
-                  <Empty>등록된 성적이 없습니다.</Empty>
-                ) : (
-                  <List>
-                    {displayGrades.map((g: any) => (
-                      <ListItem key={g.id}>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
-                          <div style={{ display:'grid' }}>
-                            <strong>{g.subject || '성적'}{g.__origin === 'exam' ? ' · 시험' : ''}</strong>
-                            <SmallMuted>{g.date}</SmallMuted>
-                          </div>
-                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
-                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
-                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            {g.__origin !== 'exam' && (
-                              <UIGhostButton type="button" data-variant="danger" onClick={() => void requestDeleteGrade(g)}>삭제</UIGhostButton>
-                            )}
-                          </div>
-                        </div>
-                  {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </SectionBody>
-            </Card>)}
-            {/* 예측 분석 (RISK FEATURE DISABLED) */}
-            {/* <Card>
-              <CardHead>
-                <SectionTitle>예측 분석</SectionTitle>
-                <CardActions>
-                    <UIPrimaryButtonSm type="button" onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UIPrimaryButtonSm>
-                </CardActions>
-              </CardHead>
-              {riskLoading ? (
-                <SectionBody>
-                  <Skeleton w={180} h={14} />
-                  <Skeleton w={420} h={14} mt={8} />
-                </SectionBody>
-              ) : riskError ? (
-                <SectionBody>
-                  <Error>{riskError}</Error>
-                </SectionBody>
-              ) : risk ? (
-                <SectionBody>
-                  <RiskRow>
-                    <RiskPill data-level={risk.level}>
-                      {risk.level === 'RISK' ? '위험 단계' : risk.level === 'CAUTION' ? '주의 단계' : '양호'}
-                    </RiskPill>
-                    <RiskMetrics>
-                      <span>출석률 {risk.metrics.attRate30 != null ? `${risk.metrics.attRate30}%` : '—'}</span>
-                      <Dot />
-                      <span>결석 {risk.metrics.absences30}회</span>
-                      <Dot />
-                      <span>부정 신호 {risk.metrics.negativeCounselCount30}건</span>
-                    </RiskMetrics>
-                  </RiskRow>
-                  {risk.reasons.length > 0 && (
-                    <ReasonList>
-                      {risk.reasons.slice(0,3).map((r, i) => (<li key={i}>{r}</li>))}
-                    </ReasonList>
-                  )}
-                  <RecList>
-                    {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
-                  </RecList>
-                  <ActionRow>
-                    <UISmallBtn type="button" onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
-                    <UIPrimaryButtonSm type="button" onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UIPrimaryButtonSm>
-                  </ActionRow>
-                </SectionBody>
-              ) : (
-                <SectionBody>
-                  <Muted>예측 분석 정보를 준비 중입니다.</Muted>
-                </SectionBody>
-              )}
-            </Card> */}
-
-            {/* 시험/성적 */}
-            {false && (<Card>
-              <CardHead>
-                <SectionTitle>시험/성적</SectionTitle>
-                <CardActions>
-                  {!gradeOpen ? (
-                    <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
-                  ) : (
-                    <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
-                  )}
-                </CardActions>
-              </CardHead>
-              {gradeOpen && (
-                <SectionBody>
-                  {gErr && <Error>{gErr}</Error>}
-                  <EditGrid>
-                    <div>
-                      <Label>일자</Label>
-                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>과목/시험</Label>
-                      <Input placeholder="예: 중간고사 수학" value={gSubject} onChange={(e)=>setGSubject(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>점수</Label>
-                      <Input placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>만점</Label>
-                      <Input placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>등급</Label>
-                      <Input placeholder="예: A / 상" value={gLevel} onChange={(e)=>setGLevel(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>메모</Label>
-                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
-                    </div>
-                  </EditGrid>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <UIPrimaryButton type="button" onClick={() => {
-                      if (!numericId) return;
-                      setGErr(null);
-                      if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
-                      const score = gScore.trim() ? Number(gScore) : undefined;
-                      const outOf = gOutOf.trim() ? Number(gOutOf) : undefined;
-                      if (gScore.trim() && Number.isNaN(score)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
-                      if (gOutOf.trim() && Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
-                      setGradeBusy(true);
-                      try {
-                        addStudentGrade(numericId, { date: gDate, subject: gSubject || undefined, score, outOf, level: gLevel || undefined, note: gNote || undefined });
-                        setGrades(getStudentGrades(numericId));
-                        setGNote(''); setGLevel(''); setGOutOf(''); setGScore('');
-                      } finally { setGradeBusy(false); }
-                    }}>
-                      {gradeBusy ? '저장 중…' : '저장'}
-                    </UIPrimaryButton>
-                    <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
-                  </div>
-                </SectionBody>
-              )}
-              <Divider />
-              <SectionBody>
-                {grades.length === 0 ? (
-                  <Empty>등록된 성적이 없습니다.</Empty>
-                ) : (
-                  <List>
-                    {grades.map(g => (
-                      <ListItem key={g.id}>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
-                          <div style={{ display:'grid' }}>
-                            <strong>{g.subject || '성적'}</strong>
-                            <SmallMuted>{g.date}</SmallMuted>
-                          </div>
-                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
-                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
-                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            <UIGhostButton type="button" data-variant="danger" onClick={() => void requestDeleteGrade(g)}>삭제</UIGhostButton>
-                          </div>
-                        </div>
-                        {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </SectionBody>
-            </Card>)}
-            {/* Predictive analytics (RISK FEATURE DISABLED) */}
-            {/* <Card>
-              <CardHead>
-                <SectionTitle>예측 분석</SectionTitle>
-                <CardActions>
-                    <UIPrimaryButtonSm type="button" onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 추가</UIPrimaryButtonSm>
-                </CardActions>
-              </CardHead>
-              {riskLoading ? (
-                <SectionBody>
-                  <Skeleton w={180} h={14} />
-                  <Skeleton w={420} h={14} mt={8} />
-                </SectionBody>
-              ) : riskError ? (
-                <SectionBody>
-                  <Error>{riskError}</Error>
-                </SectionBody>
-              ) : risk ? (
-                <SectionBody>
-                  <RiskRow>
-                    <RiskPill data-level={risk.level}>
-                      {risk.level === 'RISK' ? '위험 단계' : risk.level === 'CAUTION' ? '주의 단계' : '양호'}
-                    </RiskPill>
-                    <RiskMetrics>
-                      <span>출석률 {risk.metrics.attRate30 != null ? `${risk.metrics.attRate30}%` : '—'}</span>
-                      <Dot />
-                      <span>결석 {risk.metrics.absences30}회</span>
-                      <Dot />
-                      <span>부정 신호 {risk.metrics.negativeCounselCount30}건</span>
-                    </RiskMetrics>
-                  </RiskRow>
-                  {risk.reasons.length > 0 && (
-                    <ReasonList>
-                      {risk.reasons.slice(0,3).map((r, i) => (<li key={i}>{r}</li>))}
-                    </ReasonList>
-                  )}
-                  <RecList>
-                    {recommendActions(risk).map((s, i) => (<li key={i}>{s}</li>))}
-                  </RecList>
-                  <ActionRow>
-                    <UISmallBtn type="button" onClick={() => navigate('/classes')}>보강 수업 찾기</UISmallBtn>
-                    <UIPrimaryButtonSm type="button" onClick={() => navigate(`/students/${numericId}/counsels`)}>상담 일정</UIPrimaryButtonSm>
-                  </ActionRow>
-                </SectionBody>
-              ) : (
-                <SectionBody>
-                  <Muted>예측 분석 정보를 준비 중입니다.</Muted>
-                </SectionBody>
-              )}
-            </Card> */}
-
-            {/* Legacy local grades disabled (duplicate) */}
-            {false && (<Card>
-              <CardHead>
-                <SectionTitle>시험/성적</SectionTitle>
-                <CardActions>
-                  {!gradeOpen ? (
-                    <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
-                  ) : (
-                    <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
-                  )}
-                </CardActions>
-              </CardHead>
-              {gradeOpen && (
-                <SectionBody>
-                  {gErr && <Error>{gErr}</Error>}
-                  <EditGrid>
-                    <div>
-                      <Label>일자</Label>
-                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>과목/시험</Label>
-                      <Input placeholder="예: 중간고사 수학" value={gSubject} onChange={(e)=>setGSubject(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>점수</Label>
-                      <Input placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>만점</Label>
-                      <Input placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>등급</Label>
-                      <Input placeholder="예: A / 상" value={gLevel} onChange={(e)=>setGLevel(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>메모</Label>
-                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
-                    </div>
-                  </EditGrid>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <UIPrimaryButton type="button" onClick={() => {
-                      if (!numericId) return;
-                      setGErr(null);
-                      if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
-                      const score = gScore.trim() ? Number(gScore) : undefined;
-                      const outOf = gOutOf.trim() ? Number(gOutOf) : undefined;
-                      if (gScore.trim() && Number.isNaN(score)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
-                      if (gOutOf.trim() && Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
-                      setGradeBusy(true);
-                      try {
-                        addStudentGrade(numericId, { date: gDate, subject: gSubject || undefined, score, outOf, level: gLevel || undefined, note: gNote || undefined });
-                        setGrades(getStudentGrades(numericId));
-                        setGNote(''); setGLevel(''); setGOutOf(''); setGScore('');
-                      } finally { setGradeBusy(false); }
-                    }}>
-                      {gradeBusy ? '저장 중…' : '저장'}
-                    </UIPrimaryButton>
-                    <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
-                  </div>
-                </SectionBody>
-              )}
-              <Divider />
-              <SectionBody>
-                {grades.length === 0 ? (
-                  <Empty>등록된 성적이 없습니다.</Empty>
-                ) : (
-                  <List>
-                    {grades.map(g => (
-                      <ListItem key={g.id}>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
-                          <div style={{ display:'grid' }}>
-                            <strong>{g.subject || '성적'}</strong>
-                            <SmallMuted>{g.date}</SmallMuted>
-                          </div>
-                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
-                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
-                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            <UIGhostButton type="button" data-variant="danger" onClick={() => void requestDeleteGrade(g)}>삭제</UIGhostButton>
-                          </div>
-                        </div>
-                        {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </SectionBody>
-            </Card>)}
-            {/* Predictive analytics removed */}
-
-            {/* Legacy local grades disabled (duplicate) */}
-            {false && (<Card>
-              <CardHead>
-                <SectionTitle>시험/성적</SectionTitle>
-                <CardActions>
-                  {!gradeOpen ? (
-                    <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
-                  ) : (
-                    <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
-                  )}
-                </CardActions>
-              </CardHead>
-              {gradeOpen && (
-                <SectionBody>
-                  {gErr && <Error>{gErr}</Error>}
-                  <EditGrid>
-                    <div>
-                      <Label>일자</Label>
-                      <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>과목/시험</Label>
-                      <Input placeholder="예: 중간고사 수학" value={gSubject} onChange={(e)=>setGSubject(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>점수</Label>
-                      <Input placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>만점</Label>
-                      <Input placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>등급</Label>
-                      <Input placeholder="예: A / 상" value={gLevel} onChange={(e)=>setGLevel(e.currentTarget.value)} />
-                    </div>
-                    <div>
-                      <Label>메모</Label>
-                      <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
-                    </div>
-                  </EditGrid>
-                  <div style={{ display:'flex', gap:8 }}>
-                    <UIPrimaryButton type="button" onClick={() => {
-                      if (!numericId) return;
-                      setGErr(null);
-                      if (!gDate) { setGErr('일자를 입력해 주세요.'); return; }
-                      const score = gScore.trim() ? Number(gScore) : undefined;
-                      const outOf = gOutOf.trim() ? Number(gOutOf) : undefined;
-                      if (gScore.trim() && Number.isNaN(score)) { setGErr('점수는 숫자로 입력해 주세요.'); return; }
-                      if (gOutOf.trim() && Number.isNaN(outOf)) { setGErr('만점은 숫자로 입력해 주세요.'); return; }
-                      setGradeBusy(true);
-                      try {
-                        addStudentGrade(numericId, { date: gDate, subject: gSubject || undefined, score, outOf, level: gLevel || undefined, note: gNote || undefined });
-                        setGrades(getStudentGrades(numericId));
-                        setGNote(''); setGLevel(''); setGOutOf(''); setGScore('');
-                      } finally { setGradeBusy(false); }
-                    }}>
-                      {gradeBusy ? '저장 중…' : '저장'}
-                    </UIPrimaryButton>
-                    <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
-                  </div>
-                </SectionBody>
-              )}
-              <Divider />
-              <SectionBody>
-                {grades.length === 0 ? (
-                  <Empty>등록된 성적이 없습니다.</Empty>
-                ) : (
-                  <List>
-                    {grades.map(g => (
-                      <ListItem key={g.id}>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, flexWrap:'wrap' }}>
-                          <div style={{ display:'grid' }}>
-                            <strong>{g.subject || '성적'}</strong>
-                            <SmallMuted>{g.date}</SmallMuted>
-                          </div>
-                          <div style={{ display:'inline-flex', gap:8, alignItems:'center' }}>
-                            <span>{g.score != null ? g.score : '-'}{g.outOf != null ? `/${g.outOf}` : ''}</span>
-                            {g.level && <StatusChip data-type='ENROLLED'>{g.level}</StatusChip>}
-                            <UIGhostButton type="button" data-variant="danger" onClick={() => void requestDeleteGrade(g)}>삭제</UIGhostButton>
-                          </div>
-                        </div>
-                        {g.note && <div style={{ color:'#475569', fontSize:13 }}>{g.note}</div>}
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </SectionBody>
-            </Card>)}
             <Card>
               <MiniHead>
                 <Tabs>
-                  <TabButton data-active>{/* active visual only */}수강수업 <Badge>0</Badge></TabButton>
+                  <TabButton data-active>
+                    {/* active visual only */}수강수업 <Badge>0</Badge>
+                  </TabButton>
                   <TabButton>출석현황</TabButton>
                   <TabButton>성적</TabButton>
                   <TabButton>상담기록</TabButton>
@@ -1077,7 +737,12 @@ export default function StudentDetail() {
               <CardHead>
                 <SectionTitle>기본 정보</SectionTitle>
                 <CardActions>
-                  <UIGhostLink to={`/students/${numericId}/edit`} data-variant="edit">수정</UIGhostLink>
+                  <UIGhostLink
+                    to={`/students/${numericId}/edit`}
+                    data-variant="edit"
+                  >
+                    수정
+                  </UIGhostLink>
                   <UIGhostButton
                     data-variant="danger"
                     disabled={deleting}
@@ -1094,10 +759,16 @@ export default function StudentDetail() {
                       <Avatar>{student.name.slice(0, 1)}</Avatar>
                       <div>
                         <Name>{student.name}</Name>
-                        <SmallMuted>코드 {student.code} · ID {student.id}</SmallMuted>
+                        <SmallMuted>
+                          코드 {student.code} · ID {student.id}
+                        </SmallMuted>
                       </div>
                       <StatusChip data-type={student.status}>
-                        {student.status === "ENROLLED" ? "수강중" : student.status === "ON_LEAVE" ? "휴학" : "대기중"}
+                        {student.status === "ENROLLED"
+                          ? "수강중"
+                          : student.status === "ON_LEAVE"
+                          ? "휴학"
+                          : "대기중"}
                       </StatusChip>
                     </Row>
                     <Field>
@@ -1119,7 +790,11 @@ export default function StudentDetail() {
                     </Field>
                     <Field>
                       <Label>등록일</Label>
-                      <Value>{student.joinedDate || student.createdAt?.slice(0, 10) || "-"}</Value>
+                      <Value>
+                        {student.joinedDate ||
+                          student.createdAt?.slice(0, 10) ||
+                          "-"}
+                      </Value>
                     </Field>
                     {/* 수강료/할인 UI 제거 (MVP) */}
                   </InfoList>
@@ -1141,8 +816,8 @@ export default function StudentDetail() {
                     <Value>{student.parentName || "-"}</Value>
                   </Field>
                   <Field>
-                      <Label>보호자 연락처</Label>
-                      <Value>{formatPhone(student.guardianPhone)}</Value>
+                    <Label>보호자 연락처</Label>
+                    <Value>{formatPhone(student.guardianPhone)}</Value>
                   </Field>
                 </InfoList>
               ) : (
@@ -1156,13 +831,33 @@ export default function StudentDetail() {
                 <CardActions>
                   {editingNotes ? (
                     <>
-                      <ModalBtn type="button" onClick={() => { setEditingNotes(false); setNotesInput(notes); }}>취소</ModalBtn>
-                      <UIPrimaryButton type="button" onClick={saveNotes}>저장</UIPrimaryButton>
+                      <ModalBtn
+                        type="button"
+                        onClick={() => {
+                          setEditingNotes(false);
+                          setNotesInput(notes);
+                        }}
+                      >
+                        취소
+                      </ModalBtn>
+                      <UIPrimaryButton type="button" onClick={saveNotes}>
+                        저장
+                      </UIPrimaryButton>
                     </>
                   ) : notes ? (
-                    <UIGhostButton type="button" onClick={() => setEditingNotes(true)}>편집</UIGhostButton>
+                    <UIGhostButton
+                      type="button"
+                      onClick={() => setEditingNotes(true)}
+                    >
+                      편집
+                    </UIGhostButton>
                   ) : (
-                    <UIPrimaryButtonSm type="button" onClick={() => setEditingNotes(true)}>메모 추가</UIPrimaryButtonSm>
+                    <UIPrimaryButtonSm
+                      type="button"
+                      onClick={() => setEditingNotes(true)}
+                    >
+                      메모 추가
+                    </UIPrimaryButtonSm>
                   )}
                 </CardActions>
               </CardHead>
@@ -1188,7 +883,9 @@ export default function StudentDetail() {
               <CardHead>
                 <SectionTitle>메모 사항</SectionTitle>
                 <CardActions>
-                  <UIPrimaryButtonSm type="button" onClick={addMemo}>추가</UIPrimaryButtonSm>
+                  <UIPrimaryButtonSm type="button" onClick={addMemo}>
+                    추가
+                  </UIPrimaryButtonSm>
                 </CardActions>
               </CardHead>
               <MemoNew>
@@ -1203,29 +900,55 @@ export default function StudentDetail() {
                 {memos.length === 0 && (
                   <Empty>메모가 없습니다. 메모를 추가해 주세요.</Empty>
                 )}
-                {memos.map(m => (
+                {memos.map((m) => (
                   <MemoItemBox key={m.id}>
                     <MemoHeader>
                       <MemoDate>
                         {formatDate(m.updatedAt || m.createdAt)}
-                        {m.updatedAt ? <span style={{ marginLeft: 6, color: '#6b7280' }}>(수정됨)</span> : null}
+                        {m.updatedAt ? (
+                          <span style={{ marginLeft: 6, color: "#6b7280" }}>
+                            (수정됨)
+                          </span>
+                        ) : null}
                       </MemoDate>
                       <MemoActions>
                         {editingMemoId === m.id ? (
                           <>
-                            <ModalBtn type="button" onClick={cancelEditMemo}>취소</ModalBtn>
-                            <UIPrimaryButton type="button" onClick={saveEditMemo}>저장</UIPrimaryButton>
+                            <ModalBtn type="button" onClick={cancelEditMemo}>
+                              취소
+                            </ModalBtn>
+                            <UIPrimaryButton
+                              type="button"
+                              onClick={saveEditMemo}
+                            >
+                              저장
+                            </UIPrimaryButton>
                           </>
                         ) : (
                           <>
-                            <ModalBtn type="button" onClick={() => beginEditMemo(m.id)}>편집</ModalBtn>
-                            <ModalBtn type="button" data-variant="danger" onClick={() => void requestDeleteMemo(m.id)}>삭제</ModalBtn>
+                            <ModalBtn
+                              type="button"
+                              onClick={() => beginEditMemo(m.id)}
+                            >
+                              편집
+                            </ModalBtn>
+                            <ModalBtn
+                              type="button"
+                              data-variant="danger"
+                              onClick={() => void requestDeleteMemo(m.id)}
+                            >
+                              삭제
+                            </ModalBtn>
                           </>
                         )}
                       </MemoActions>
                     </MemoHeader>
                     {editingMemoId === m.id ? (
-                      <MemoTextarea rows={4} value={editingMemoText} onChange={(e)=>setEditingMemoText(e.target.value)} />
+                      <MemoTextarea
+                        rows={4}
+                        value={editingMemoText}
+                        onChange={(e) => setEditingMemoText(e.target.value)}
+                      />
                     ) : (
                       <MemoText>{m.text}</MemoText>
                     )}
@@ -1239,13 +962,33 @@ export default function StudentDetail() {
             <Card>
               <MiniHead>
                 <Tabs>
-                  <TabButton data-active={activeTab === "courses"} onClick={() => navigate(`/students/${numericId}/courses`)}>
+                  <TabButton
+                    data-active={activeTab === "courses"}
+                    onClick={() => navigate(`/students/${numericId}/courses`)}
+                  >
                     수강수업 <Badge>{student?.courses?.length ?? 0}</Badge>
                   </TabButton>
-                  <TabButton data-active={activeTab === "attendance"} onClick={() => navigate(`/students/${numericId}/attendance`)}>출석현황</TabButton>
+                  <TabButton
+                    data-active={activeTab === "attendance"}
+                    onClick={() =>
+                      navigate(`/students/${numericId}/attendance`)
+                    }
+                  >
+                    출석현황
+                  </TabButton>
                   {/* 결제 탭 제거 (MVP) */}
-                  <TabButton data-active={activeTab === "grades"} onClick={() => navigate(`/students/${numericId}/grades`)}>성적</TabButton>
-                  <TabButton data-active={activeTab === "counsels"} onClick={() => navigate(`/students/${numericId}/counsels`)}>상담기록</TabButton>
+                  <TabButton
+                    data-active={activeTab === "grades"}
+                    onClick={() => navigate(`/students/${numericId}/grades`)}
+                  >
+                    성적
+                  </TabButton>
+                  <TabButton
+                    data-active={activeTab === "counsels"}
+                    onClick={() => navigate(`/students/${numericId}/counsels`)}
+                  >
+                    상담기록
+                  </TabButton>
                 </Tabs>
               </MiniHead>
 
@@ -1259,11 +1002,18 @@ export default function StudentDetail() {
                         <CourseItem key={c.id}>
                           <CourseHeader>
                             <CourseTitle>{c.title}</CourseTitle>
-                            <ModalBtn type="button" onClick={() => navigate(`/classes/${c.id}`)}>상세</ModalBtn>
+                            <ModalBtn
+                              type="button"
+                              onClick={() => navigate(`/classes/${c.id}`)}
+                            >
+                              상세
+                            </ModalBtn>
                           </CourseHeader>
                           <CourseMeta>
                             <code>{c.code}</code>
-                            <CourseStatus data-type={c.status}>{courseStatusLabel(c.status)}</CourseStatus>
+                            <CourseStatus data-type={c.status}>
+                              {courseStatusLabel(c.status)}
+                            </CourseStatus>
                           </CourseMeta>
                         </CourseItem>
                       ))}
@@ -1302,14 +1052,18 @@ export default function StudentDetail() {
                       </thead>
                       <tbody>
                         {attRows.length === 0 ? (
-                          <tr><td colSpan={4}><Muted>출석 기록이 없습니다.</Muted></td></tr>
+                          <tr>
+                            <td colSpan={4}>
+                              <Muted>출석 기록이 없습니다.</Muted>
+                            </td>
+                          </tr>
                         ) : (
                           attRows.map((r, i) => (
                             <tr key={i}>
                               <td>{r.date}</td>
                               <td>{r.courseTitle}</td>
-                              <td>{r.present ? '출석' : '결석'}</td>
-                              <td>{r.reason || '-'}</td>
+                              <td>{r.present ? "출석" : "결석"}</td>
+                              <td>{r.reason || "-"}</td>
                             </tr>
                           ))
                         )}
@@ -1321,82 +1075,18 @@ export default function StudentDetail() {
 
               {activeTab === "grades" && (
                 <SectionBody>
-                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom: 8 }}>
-                    <SmallTitle style={{ margin:0 }}>시험/성적</SmallTitle>
-                    {!gradeOpen ? (
-                      <UIPrimaryButtonSm type="button" onClick={() => setGradeOpen(true)}>추가</UIPrimaryButtonSm>
-                    ) : (
-                      <UISmallBtn type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>닫기</UISmallBtn>
-                    )}
-                  </div>
-                  {gradeOpen && (
-                    <div style={{ marginBottom: 10 }}>
-                      {gErr && <Error>{gErr}</Error>}
-                      <EditGrid>
-                        <div>
-                          <Label>일자</Label>
-                          <Input type="date" value={gDate} onChange={(e)=>setGDate(e.currentTarget.value)} />
-                        </div>
-                        <div>
-                          <Label>수업</Label>
-                          <SelectBox
-                            value={String(gCourseId || '')}
-                            onChange={(v)=> setGCourseId(v ? Number(v) : '')}
-                            options={(student?.courses || []).map(c => ({ value: String(c.id), label: c.title }))}
-                            placeholder="수업 선택"
-                          />
-                        </div>
-                        <div>
-                          <Label>시험 제목</Label>
-                          <Input placeholder="예: 중간고사 수학" value={gTitle} onChange={(e)=>setGTitle(e.currentTarget.value)} />
-                        </div>
-                        <div style={{ gridColumn: '1 / -1' }}>
-                          <Label>입력 방식</Label>
-                          <div style={{ display:'inline-flex', gap:8, marginLeft:8 }}>
-                            {EXAM_MODE_OPTIONS.map((op) => (
-                              <label key={op.value} style={{ display:'inline-flex', alignItems:'center', gap:6, cursor:'pointer' }}>
-                                <input type="radio" name="gMode" checked={gMode === op.value} onChange={() => setGMode(op.value)} />
-                                <span>{op.label}</span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                        {gMode === 'percent' ? (
-                          <>
-                            <div>
-                              <Label>점수</Label>
-                              <Input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="예: 87" value={gScore} onChange={(e)=>setGScore(e.currentTarget.value)} />
-                            </div>
-                            <div>
-                              <Label>만점</Label>
-                              <Input type="number" inputMode="numeric" pattern="[0-9]*" placeholder="예: 100" value={gOutOf} onChange={(e)=>setGOutOf(e.currentTarget.value)} />
-                            </div>
-                          </>
-                        ) : (
-                          <div>
-                            <Label>등급</Label>
-                            <SelectBox
-                              value={gLevel}
-                              onChange={(v)=>setGLevel(v)}
-                              options={[{value:'',label:'-'}].concat(['A','B','C','D','E','F'].map(x=>({ value:x, label:x })))}
-                            />
-                          </div>
-                        )}
-                        <div>
-                          <Label>메모</Label>
-                          <TextArea rows={3} placeholder="간단한 메모" value={gNote} onChange={(e)=>setGNote(e.currentTarget.value)} />
-                        </div>
-                      </EditGrid>
-                      <div style={{ display:'flex', gap:8 }}>
-                        <UIPrimaryButton type="button" onClick={() => void handleAddExamResult()} disabled={gradeBusy}>
-                          {gradeBusy ? '저장 중…' : '시험 결과 저장'}
-                        </UIPrimaryButton>
-                        <UIGhostButton type="button" onClick={() => { setGradeOpen(false); setGErr(null); }}>취소</UIGhostButton>
-                      </div>
-                    </div>
-                  )}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      marginBottom: 8,
+                    }}
+                  ></div>
                   {examGradesError && <Error>{examGradesError}</Error>}
-                  {examGradesLoading && <Muted>시험 성적을 불러오는 중...</Muted>}
+                  {examGradesLoading && (
+                    <Muted>시험 성적을 불러오는 중...</Muted>
+                  )}
                   {displayGrades.length === 0 ? (
                     <Empty>등록된 성적이 없습니다.</Empty>
                   ) : (
@@ -1411,14 +1101,34 @@ export default function StudentDetail() {
                       </thead>
                       <tbody>
                         {displayGrades.map((g: any) => {
-                          const courseTitle = (student?.courses || []).find(c => c.id === g.courseId)?.title || '-';
-                          const scoreText = g.level ? g.level : (g.score != null ? `${g.score}${g.outOf != null ? `/${g.outOf}` : ''}` : '-');
+                          const courseTitle =
+                            (student?.courses || []).find(
+                              (c) => c.id === g.courseId
+                            )?.title || "-";
+                          const scoreText = g.level
+                            ? g.level
+                            : g.score != null
+                            ? `${g.score}${
+                                g.outOf != null ? `/${g.outOf}` : ""
+                              }`
+                            : "-";
                           return (
                             <tr key={g.id}>
                               <td>
-                                <div style={{ display:'grid' }}>
-                                  <strong>{g.subject || '성적'}</strong>
-                                  {g.note && <SmallMuted style={{ maxWidth: 420, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{g.note}</SmallMuted>}
+                                <div style={{ display: "grid" }}>
+                                  <strong>{g.subject || "성적"}</strong>
+                                  {g.note && (
+                                    <SmallMuted
+                                      style={{
+                                        maxWidth: 420,
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                      }}
+                                    >
+                                      {g.note}
+                                    </SmallMuted>
+                                  )}
                                 </div>
                               </td>
                               <td>{courseTitle}</td>
@@ -1436,35 +1146,107 @@ export default function StudentDetail() {
 
               {activeTab === "counsels" && (
                 <SectionBody>
-                  {counselSummaryError && <Error style={{ marginBottom: 8 }}>{counselSummaryError}</Error>}
+                  {counselSummaryError && (
+                    <Error style={{ marginBottom: 8 }}>
+                      {counselSummaryError}
+                    </Error>
+                  )}
                   {!!counselSummary && (
-                    <div style={{ display:'grid', gap:8, marginBottom:12 }}>
-                      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
-                        <SmallTitle style={{ margin:0 }}>상담 AI 요약</SmallTitle>
-                      <UIGhostButton type="button" onClick={() => { try { navigator.clipboard?.writeText(counselSummary); } catch {} }}>복사</UIGhostButton>
+                    <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          flexWrap: "wrap",
+                          gap: 8,
+                        }}
+                      >
+                        <SmallTitle style={{ margin: 0 }}>
+                          상담 AI 요약
+                        </SmallTitle>
+                        <UIGhostButton
+                          type="button"
+                          onClick={() => {
+                            try {
+                              navigator.clipboard?.writeText(counselSummary);
+                            } catch {}
+                          }}
+                        >
+                          복사
+                        </UIGhostButton>
                       </div>
-                      <NotesBox as="pre" style={{ whiteSpace: 'pre-wrap' }}>{counselSummary}</NotesBox>
+                      <NotesBox as="pre" style={{ whiteSpace: "pre-wrap" }}>
+                        {counselSummary}
+                      </NotesBox>
                     </div>
                   )}
                   <CounselHeader>
                     <div>
                       <SmallTitle>상담기록</SmallTitle>
                     </div>
-                    <div style={{ display:'inline-flex', gap: 8, alignItems:'center' }}>
-                      <AiButton type="button" onClick={handleCounselSummarize} disabled={counselSummaryLoading}>
-                        {counselSummaryLoading ? 'AI 요약 중…' : 'AI 요약'}
+                    <div
+                      style={{
+                        display: "inline-flex",
+                        gap: 8,
+                        alignItems: "center",
+                      }}
+                    >
+                      <AiButton
+                        type="button"
+                        onClick={handleCounselSummarize}
+                        disabled={counselSummaryLoading}
+                      >
+                        {counselSummaryLoading ? "AI 요약 중…" : "AI 요약"}
                       </AiButton>
                       {addingCounsel ? (
                         <>
-                          <ModalBtn type="button" onClick={() => { setAddingCounsel(false); setNewContent(""); setNewHour(""); setNewMin(""); }}>취소</ModalBtn>
-                          <UIPrimaryButton type="button" onClick={onSubmitNewCounsel} disabled={newSubmitting || !newHour || !newMin}>저장</UIPrimaryButton>
+                          <ModalBtn
+                            type="button"
+                            onClick={() => {
+                              setAddingCounsel(false);
+                              setNewContent("");
+                              setNewHour("");
+                              setNewMin("");
+                            }}
+                          >
+                            취소
+                          </ModalBtn>
+                          <UIPrimaryButton
+                            type="button"
+                            onClick={onSubmitNewCounsel}
+                            disabled={newSubmitting || !newHour || !newMin}
+                          >
+                            저장
+                          </UIPrimaryButton>
                         </>
                       ) : (
                         <>
-                          <ModalBtn type="button" onClick={handleCounselExport} disabled={exportingCounsel}>
-                            {exportingCounsel ? '엑셀 준비 중...' : '엑셀 추출'}
+                          <ModalBtn
+                            type="button"
+                            onClick={handleCounselExport}
+                            disabled={exportingCounsel}
+                          >
+                            {exportingCounsel ? "엑셀 준비 중..." : "엑셀 추출"}
                           </ModalBtn>
-                          <UIPrimaryButtonSm type="button" onClick={() => { setAddingCounsel(true); /* default to today without time */ setNewDate(() => { const d=new Date(); return `${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`; }); setNewHour(""); setNewMin(""); }}>상담 추가</UIPrimaryButtonSm>
+                          <UIPrimaryButtonSm
+                            type="button"
+                            onClick={() => {
+                              setAddingCounsel(true);
+                              /* default to today without time */ setNewDate(
+                                () => {
+                                  const d = new Date();
+                                  return `${d.getFullYear()}-${two(
+                                    d.getMonth() + 1
+                                  )}-${two(d.getDate())}`;
+                                }
+                              );
+                              setNewHour("");
+                              setNewMin("");
+                            }}
+                          >
+                            상담 추가
+                          </UIPrimaryButtonSm>
                         </>
                       )}
                     </div>
@@ -1474,23 +1256,57 @@ export default function StudentDetail() {
                     <NewCounselForm>
                       <Field>
                         <Label>상담 일자</Label>
-                        <Input type="date" lang="ko-KR" value={newDate} onChange={(e) => setNewDate(e.target.value)} />
+                        <Input
+                          type="date"
+                          lang="ko-KR"
+                          value={newDate}
+                          onChange={(e) => setNewDate(e.target.value)}
+                        />
                       </Field>
                       <Field>
                         <Label>시간</Label>
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <div style={{ flex:1 }}>
-                            <SelectBox ariaLabel="시" value={newHour} onChange={setNewHour} placeholder="시" options={hours24.map(h => ({ label: h, value: h }))} />
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                          }}
+                        >
+                          <div style={{ flex: 1 }}>
+                            <SelectBox
+                              ariaLabel="시"
+                              value={newHour}
+                              onChange={setNewHour}
+                              placeholder="시"
+                              options={hours24.map((h) => ({
+                                label: h,
+                                value: h,
+                              }))}
+                            />
                           </div>
                           <span>:</span>
-                          <div style={{ flex:1 }}>
-                            <SelectBox ariaLabel="분" value={newMin} onChange={setNewMin} placeholder="분" options={mins5.map(m => ({ label: m, value: m }))} />
+                          <div style={{ flex: 1 }}>
+                            <SelectBox
+                              ariaLabel="분"
+                              value={newMin}
+                              onChange={setNewMin}
+                              placeholder="분"
+                              options={mins5.map((m) => ({
+                                label: m,
+                                value: m,
+                              }))}
+                            />
                           </div>
                         </div>
                       </Field>
                       <Field style={{ gridColumn: "1 / -1" }}>
                         <Label>내용</Label>
-                        <TextArea rows={4} value={newContent} onChange={(e) => setNewContent(e.target.value)} placeholder="상담 내용 또는 메모" />
+                        <TextArea
+                          rows={4}
+                          value={newContent}
+                          onChange={(e) => setNewContent(e.target.value)}
+                          placeholder="상담 내용 또는 메모"
+                        />
                       </Field>
                     </NewCounselForm>
                   )}
@@ -1509,39 +1325,128 @@ export default function StudentDetail() {
                                 <CounselRow>
                                   <When>{formatKDateTime(c.counselTime)}</When>
                                   <RowActions>
-                                    <ModalBtn type="button" onClick={() => { setEditingCounselId(c.id); try { const d = new Date(c.counselTime); setEditDate(`${d.getFullYear()}-${two(d.getMonth()+1)}-${two(d.getDate())}`); setEditHour(two(d.getHours())); setEditMin(two(d.getMinutes())); } catch { setEditDate(''); setEditHour(''); setEditMin(''); } setEditContent(c.content || ""); }}>편집</ModalBtn>
-                                    <ModalBtn type="button" data-variant="danger" onClick={() => setConfirmCounselId(c.id)}>삭제</ModalBtn>
+                                    <ModalBtn
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingCounselId(c.id);
+                                        try {
+                                          const d = new Date(c.counselTime);
+                                          setEditDate(
+                                            `${d.getFullYear()}-${two(
+                                              d.getMonth() + 1
+                                            )}-${two(d.getDate())}`
+                                          );
+                                          setEditHour(two(d.getHours()));
+                                          setEditMin(two(d.getMinutes()));
+                                        } catch {
+                                          setEditDate("");
+                                          setEditHour("");
+                                          setEditMin("");
+                                        }
+                                        setEditContent(c.content || "");
+                                      }}
+                                    >
+                                      편집
+                                    </ModalBtn>
+                                    <ModalBtn
+                                      type="button"
+                                      data-variant="danger"
+                                      onClick={() => setConfirmCounselId(c.id)}
+                                    >
+                                      삭제
+                                    </ModalBtn>
                                   </RowActions>
                                 </CounselRow>
-                                <CounselContent>{(c.content || '').trim() || '내용 없음'}</CounselContent>
+                                <CounselContent>
+                                  {(c.content || "").trim() || "내용 없음"}
+                                </CounselContent>
                               </>
                             ) : (
                               <>
                                 <EditGrid>
                                   <Field>
                                     <Label>상담 일자</Label>
-                                    <Input type="date" lang="ko-KR" value={editDate} onChange={(e)=>setEditDate(e.target.value)} />
+                                    <Input
+                                      type="date"
+                                      lang="ko-KR"
+                                      value={editDate}
+                                      onChange={(e) =>
+                                        setEditDate(e.target.value)
+                                      }
+                                    />
                                   </Field>
                                   <Field>
                                     <Label>시간</Label>
-                                    <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                                      <div style={{ flex:1 }}>
-                                        <SelectBox ariaLabel="시" value={editHour} onChange={setEditHour} placeholder="시" options={hours24.map(h => ({ label: h, value: h }))} />
+                                    <div
+                                      style={{
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 8,
+                                      }}
+                                    >
+                                      <div style={{ flex: 1 }}>
+                                        <SelectBox
+                                          ariaLabel="시"
+                                          value={editHour}
+                                          onChange={setEditHour}
+                                          placeholder="시"
+                                          options={hours24.map((h) => ({
+                                            label: h,
+                                            value: h,
+                                          }))}
+                                        />
                                       </div>
                                       <span>:</span>
-                                      <div style={{ flex:1 }}>
-                                        <SelectBox ariaLabel="분" value={editMin} onChange={setEditMin} placeholder="분" options={mins5.map(m => ({ label: m, value: m }))} />
+                                      <div style={{ flex: 1 }}>
+                                        <SelectBox
+                                          ariaLabel="분"
+                                          value={editMin}
+                                          onChange={setEditMin}
+                                          placeholder="분"
+                                          options={mins5.map((m) => ({
+                                            label: m,
+                                            value: m,
+                                          }))}
+                                        />
                                       </div>
                                     </div>
                                   </Field>
-                                  <Field style={{ gridColumn: '1 / -1' }}>
+                                  <Field style={{ gridColumn: "1 / -1" }}>
                                     <Label>내용</Label>
-                                    <TextArea rows={4} value={editContent} onChange={(e)=>setEditContent(e.target.value)} />
+                                    <TextArea
+                                      rows={4}
+                                      value={editContent}
+                                      onChange={(e) =>
+                                        setEditContent(e.target.value)
+                                      }
+                                    />
                                   </Field>
                                 </EditGrid>
                                 <RowActions>
-                                  <ModalBtn type="button" onClick={() => { setEditingCounselId(null); setEditDate(""); setEditHour(""); setEditMin(""); setEditContent(""); }}>취소</ModalBtn>
-                                  <UIPrimaryButton type="button" disabled={savingEdit || !editDate || !editHour || !editMin} onClick={() => onSaveEdit(c.id)}>저장</UIPrimaryButton>
+                                  <ModalBtn
+                                    type="button"
+                                    onClick={() => {
+                                      setEditingCounselId(null);
+                                      setEditDate("");
+                                      setEditHour("");
+                                      setEditMin("");
+                                      setEditContent("");
+                                    }}
+                                  >
+                                    취소
+                                  </ModalBtn>
+                                  <UIPrimaryButton
+                                    type="button"
+                                    disabled={
+                                      savingEdit ||
+                                      !editDate ||
+                                      !editHour ||
+                                      !editMin
+                                    }
+                                    onClick={() => onSaveEdit(c.id)}
+                                  >
+                                    저장
+                                  </UIPrimaryButton>
                                 </RowActions>
                               </>
                             )}
@@ -1566,7 +1471,9 @@ export default function StudentDetail() {
         cancelLabel="취소"
         tone="danger"
         busy={confirmCounselBusy}
-        onCancel={() => { if (!confirmCounselBusy) setConfirmCounselId(null); }}
+        onCancel={() => {
+          if (!confirmCounselBusy) setConfirmCounselId(null);
+        }}
         onConfirm={async () => {
           if (!numericId || confirmCounselId == null) return;
           setConfirmCounselBusy(true);
@@ -1576,183 +1483,368 @@ export default function StudentDetail() {
             setCounsels(res.content || []);
             setConfirmCounselId(null);
           } catch (e: any) {
-            showError(e?.message || '삭제에 실패했습니다.');
+            showError(e?.message || "삭제에 실패했습니다.");
           } finally {
             setConfirmCounselBusy(false);
           }
         }}
       />
-
     </Page>
   );
 }
 
 // 결제내역: 현재 API 미구현으로 더미/목업 데이터 제거, 빈 상태로 표시합니다.
 
-
 // Layout
 const Page = styled.div`
-  display: grid; gap: 14px;
+  display: grid;
+  gap: 14px;
 `;
 const TopBar = styled.div`
-  display: flex; align-items: center; gap: 10px;
-  h2 { margin: 0; font-size: 20px; color: #0f172a; }
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  h2 {
+    margin: 0;
+    font-size: 20px;
+    color: #0f172a;
+  }
 `;
 // Breadcrumb removed
 // Back button unified via shared component
 const Columns = styled.div`
-  display: grid; grid-template-columns: 360px 1fr; gap: 14px; align-items: start;
-  @media (max-width: 1200px) { grid-template-columns: 1fr; }
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 14px;
+  align-items: start;
+  @media (max-width: 1200px) {
+    grid-template-columns: 1fr;
+  }
 `;
 const Left = styled.aside`
-  display: grid; gap: 18px;
+  display: grid;
+  gap: 18px;
 `;
 const Right = styled.section``;
 
 // Cards/blocks
 const Card = styled.section`
-  background: #fff; border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; min-width: 0;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+  min-width: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 `;
 const SectionTitle = styled.h3`
-  margin: 0; font-size: 16px; color: #0f172a;
+  margin: 0;
+  font-size: 16px;
+  color: #0f172a;
 `;
 const CardHead = styled.div`
-  display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
 `;
 const CardActions = styled.div`
-  display: inline-flex; gap: 12px;
+  display: inline-flex;
+  gap: 12px;
 `;
 const Divider = styled.div`
-  height: 1px; background: #e5e7eb; margin: 6px 0 10px;
+  height: 1px;
+  background: #e5e7eb;
+  margin: 6px 0 10px;
 `;
 const InfoList = styled.div`
-  display: grid; gap: 14px;
+  display: grid;
+  gap: 14px;
 `;
 const Row = styled.div`
-  display: grid; grid-template-columns: 44px 1fr auto; gap: 12px; align-items: center; margin-bottom: 6px;
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 6px;
 `;
 const Avatar = styled.div`
-  width: 44px; height: 44px; border-radius: 12px; background: #eef2ff; color: #4f46e5; display: grid; place-items: center; font-weight: 800;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: #4f46e5;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
 `;
 const Name = styled.div`
-  font-size: 19px; font-weight: 900; color: #0f172a; letter-spacing: -0.01em;
+  font-size: 19px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.01em;
 `;
 const SmallMuted = styled.div`
-  color: #6b7280; font-size: 12px;
+  color: #6b7280;
+  font-size: 12px;
 `;
 const StatusChip = styled.span`
-  padding: 4px 10px; border-radius: 9999px; font-size: 12px; font-weight: 800;
-  &[data-type='ENROLLED'] { background:#dcfce7; color:#16a34a; }
-  &[data-type='ON_LEAVE'] { background:#fef3c7; color:#b45309; }
-  &[data-type='PENDING'] { background:#f3e8ff; color:#7c3aed; }
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  &[data-type="ENROLLED"] {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+  &[data-type="ON_LEAVE"] {
+    background: #fef3c7;
+    color: #b45309;
+  }
+  &[data-type="PENDING"] {
+    background: #f3e8ff;
+    color: #7c3aed;
+  }
 `;
 const Field = styled.div`
-  display: grid; grid-template-columns: 100px 1fr; gap: 8px;
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
 `;
 const Label = styled.div`
-  color: #6b7280; font-size: 13px; align-self: center;
+  color: #6b7280;
+  font-size: 13px;
+  align-self: center;
 `;
 const Value = styled.div`
-  color: #111827; font-size: 15px;
+  color: #111827;
+  font-size: 15px;
 `;
 const Muted = styled.div`
-  color: #6b7280; font-size: 13px;
+  color: #6b7280;
+  font-size: 13px;
 `;
 // Hint removed (unused)
 const Error = styled.div`
-  color: #b91c1c; font-size: 12px; font-weight: 700;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
 `;
 
 // Right side mini header and content
 const MiniHead = styled.div`
-  display: flex; align-items: center; justify-content: space-between;
-  position: sticky; top: 0; background: #fff; z-index: 5; padding-top: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 5;
+  padding-top: 2px;
 `;
 const Tabs = styled.div`
-  display: inline-flex; gap: 6px; flex-wrap: wrap;
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
 `;
 const TabButton = styled(UISmallBtn)`
   height: 40px;
   padding: 0 16px;
   font-size: 14px;
-  &[data-active='true'] {
-    background:#111827;
-    color:#fff;
-    border-color:#111827;
+  /* inactive: black text, white background, gray border (from UISmallBtn) */
+  &[data-active="true"] {
+    background: #f3f4f6; /* gray background */
+    color: #111827; /* black text */
+    border-color: #e5e7eb; /* gray border */
   }
 `;
 const Badge = styled.span`
-  min-width: 18px; height: 18px; padding: 0 6px; border-radius: 9999px; background:#e5e7eb; color:#374151; font-weight: 800; font-size: 11px; display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 800;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const SectionBody = styled.div`
-  display: grid; gap: 10px;
+  display: grid;
+  gap: 10px;
 `;
 const CourseList = styled.div`
-  display: grid; gap: 8px;
+  display: grid;
+  gap: 8px;
 `;
 const CourseItem = styled.div`
-  border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+  background: #fff;
 `;
 const CourseHeader = styled.div`
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 `;
 const CourseTitle = styled.div`
-  font-weight: 800; color: #0f172a; font-size: 14px;
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 14px;
 `;
 const CourseMeta = styled.div`
-  display: flex; align-items: center; gap: 10px; color: #6b7280; font-size: 12px;
-  code { background:#f3f4f6; padding: 2px 6px; border-radius: 6px; }
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6b7280;
+  font-size: 12px;
+  code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
 `;
 const CourseStatus = styled.span`
-  padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 800;
-  &[data-type='IN_PROGRESS'] { background:#dcfce7; color:#16a34a; }
-  &[data-type='PENDING'] { background:#f3e8ff; color:#7c3aed; }
-  &[data-type='STOPPED'] { background:#e5e7eb; color:#374151; }
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  &[data-type="IN_PROGRESS"] {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+  &[data-type="PENDING"] {
+    background: #f3e8ff;
+    color: #7c3aed;
+  }
+  &[data-type="STOPPED"] {
+    background: #e5e7eb;
+    color: #374151;
+  }
 `;
 
 const Subgrid = styled.div`
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
 `;
 const SmallCard = styled.div`
-  border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
 `;
 const SmallTitle = styled.div`
-  color: #6b7280; font-size: 12px;
+  color: #6b7280;
+  font-size: 12px;
 `;
 const KPI = styled.div`
-  font-size: 22px; font-weight: 900; color: #0f172a; margin-top: 4px;
+  font-size: 22px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-top: 4px;
 `;
 
 // Table from common UI
 
 const List = styled.div`
-  display: grid; gap: 8px;
+  display: grid;
+  gap: 8px;
 `;
 const ListItem = styled.div`
-  border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fff; display: grid; gap: 4px;
-  strong { color: #0f172a; }
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  display: grid;
+  gap: 4px;
+  strong {
+    color: #0f172a;
+  }
 `;
 const Empty = styled.div`
-  color: #6b7280; font-size: 13px; text-align: center; border: 1px dashed #e5e7eb; border-radius: 10px; padding: 16px; background: #fafafa;
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+  border: 1px dashed #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  background: #fafafa;
 `;
 
 // Risk styles
-const RiskRow = styled.div` display:flex; align-items:center; gap:12px; flex-wrap:wrap; `;
-const RiskPill = styled.span`
-  display:inline-flex; align-items:center; justify-content:center; gap:6px;
-  padding: 4px 10px; border-radius: 9999px; font-weight: 800; font-size: 12px;
-  color:#0f172a; background:#f3f4f6; border:1px solid #e5e7eb;
-  &[data-level='CAUTION']{ background:#fef3c7; color:#b45309; border-color:#fcd34d; }
-  &[data-level='RISK']{ background:#fee2e2; color:#b91c1c; border-color:#fecaca; }
-  &[data-level='LOW']{ background:#dcfce7; color:#15803d; border-color:#bbf7d0; }
+const RiskRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
 `;
-const RiskMetrics = styled.div` color:#475569; font-size:12px; display:inline-flex; align-items:center; gap:10px; flex-wrap:wrap; `;
-const Dot = styled.i` width:4px; height:4px; background:#cbd5e1; display:inline-block; border-radius:50%; `;
-const ReasonList = styled.ul` margin:10px 0 0; padding-left: 18px; color:#334155; font-size:13px; `;
-const RecList = styled.ul` margin:10px 0; padding-left: 18px; color:#111827; font-size:13px; `;
-const ActionRow = styled.div` display:flex; gap:8px; flex-wrap:wrap; `;
+const RiskPill = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-weight: 800;
+  font-size: 12px;
+  color: #0f172a;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  &[data-level="CAUTION"] {
+    background: #fef3c7;
+    color: #b45309;
+    border-color: #fcd34d;
+  }
+  &[data-level="RISK"] {
+    background: #fee2e2;
+    color: #b91c1c;
+    border-color: #fecaca;
+  }
+  &[data-level="LOW"] {
+    background: #dcfce7;
+    color: #15803d;
+    border-color: #bbf7d0;
+  }
+`;
+const RiskMetrics = styled.div`
+  color: #475569;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+`;
+const Dot = styled.i`
+  width: 4px;
+  height: 4px;
+  background: #cbd5e1;
+  display: inline-block;
+  border-radius: 50%;
+`;
+const ReasonList = styled.ul`
+  margin: 10px 0 0;
+  padding-left: 18px;
+  color: #334155;
+  font-size: 13px;
+`;
+const RecList = styled.ul`
+  margin: 10px 0;
+  padding-left: 18px;
+  color: #111827;
+  font-size: 13px;
+`;
+const ActionRow = styled.div`
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
 
 // Actions under basic info
 // Button from common UI
@@ -1790,7 +1882,11 @@ const AiButton = styled.button`
     content: "";
     position: absolute;
     inset: 0;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0.05) 100%);
+    background: linear-gradient(
+      135deg,
+      rgba(255, 255, 255, 0.35) 0%,
+      rgba(255, 255, 255, 0.05) 100%
+    );
     mix-blend-mode: screen;
     opacity: 0.6;
     transition: opacity 0.2s ease;
@@ -1800,7 +1896,9 @@ const AiButton = styled.button`
     transform: translateY(-2px);
     box-shadow: 0 24px 44px rgba(99, 102, 241, 0.3);
     filter: saturate(1.1);
-    &:before { opacity: 0.8; }
+    &:before {
+      opacity: 0.8;
+    }
   }
   &:active {
     transform: translateY(0);
@@ -1821,27 +1919,78 @@ const AiButton = styled.button`
 
 // Notes section styles
 const NotesBox = styled.pre`
-  margin: 0; white-space: pre-line; color: #111827; font-size: 15px; line-height: 1.7;
-  background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; text-wrap: pretty;
+  margin: 0;
+  white-space: pre-line;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.7;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-wrap: pretty;
 `;
 const NotesTextarea = styled.textarea`
-  width: 100%; border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; resize: vertical; font-size: 14px; color: #111827; min-height: 120px;
-  &:focus { outline: none; box-shadow: 0 0 0 3px rgba(79,70,229,0.15); }
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  resize: vertical;
+  font-size: 14px;
+  color: #111827;
+  min-height: 120px;
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  }
 `;
 
 // Memo list styles
-const MemoNew = styled.div` display:grid; gap:8px; `;
-const MemoList = styled.div` display:grid; gap:8px; `;
+const MemoNew = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+const MemoList = styled.div`
+  display: grid;
+  gap: 8px;
+`;
 const MemoItemBox = styled.div`
-  border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fff; display: grid; gap: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  display: grid;
+  gap: 6px;
 `;
-const MemoHeader = styled.div` display:flex; align-items:center; justify-content:space-between; gap:8px; `;
-const MemoDate = styled.div` color:#6b7280; font-size:12px; `;
-const MemoActions = styled.div` display:inline-flex; gap:6px; `;
+const MemoHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`;
+const MemoDate = styled.div`
+  color: #6b7280;
+  font-size: 12px;
+`;
+const MemoActions = styled.div`
+  display: inline-flex;
+  gap: 6px;
+`;
 const MemoTextarea = styled.textarea`
-  width: 100%; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; resize: vertical; font-size: 14px; color: #111827;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  resize: vertical;
+  font-size: 14px;
+  color: #111827;
 `;
-const MemoText = styled.pre` margin:0; white-space:pre-wrap; color:#111827; font-size:14px; `;
+const MemoText = styled.pre`
+  margin: 0;
+  white-space: pre-wrap;
+  color: #111827;
+  font-size: 14px;
+`;
 
 // Skeletons
 const shimmer = keyframes`
@@ -1862,7 +2011,11 @@ const AvatarSkeleton = styled(SkeletonBase).attrs({ w: 44, h: 44 })`
   border-radius: 12px;
 `;
 const SkeletonRow = styled.div`
-  display: grid; grid-template-columns: 44px 1fr 80px; gap: 10px; align-items: center; margin-bottom: 8px;
+  display: grid;
+  grid-template-columns: 44px 1fr 80px;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 8px;
 `;
 const SkeletonChip = styled(SkeletonBase).attrs({ w: 80, h: 24 })``;
 const SkField = styled(SkeletonBase).attrs({ h: 16, mt: 10 })``;
@@ -1871,7 +2024,7 @@ const SkField = styled(SkeletonBase).attrs({ h: 16, mt: 10 })``;
 
 function saveBlobAsFile(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
@@ -1881,12 +2034,14 @@ function saveBlobAsFile(blob: Blob, filename: string) {
 }
 
 function sanitizeFilename(raw: string) {
-  const base = raw ? raw.trim() : 'export';
-  const cleaned = base.replace(/[\\/:*?"<>|]+/g, '_');
-  return cleaned.length ? cleaned : 'export';
+  const base = raw ? raw.trim() : "export";
+  const cleaned = base.replace(/[\\/:*?"<>|]+/g, "_");
+  return cleaned.length ? cleaned : "export";
 }
 
-function two(n: number) { return String(n).padStart(2, '0'); }
+function two(n: number) {
+  return String(n).padStart(2, "0");
+}
 function formatDate(iso: string) {
   return formatKoreanDateTime(iso, { includeWeekday: true });
 }
@@ -1896,12 +2051,12 @@ function formatMonthRate(rows: StudentAttendance[]): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth() + 1;
-  const monthRows = rows.filter(r => {
-    const [yy, mm] = r.date.split('-').map(Number);
+  const monthRows = rows.filter((r) => {
+    const [yy, mm] = r.date.split("-").map(Number);
     return yy === y && mm === m;
   });
-  if (monthRows.length === 0) return '—';
-  const present = monthRows.filter(r => r.present).length;
+  if (monthRows.length === 0) return "—";
+  const present = monthRows.filter((r) => r.present).length;
   const rate = Math.round((present / monthRows.length) * 100);
   return `${rate}%`;
 }
@@ -1909,37 +2064,42 @@ function formatMonthCounts(rows: StudentAttendance[]): string {
   const now = new Date();
   const y = now.getFullYear();
   const m = now.getMonth() + 1;
-  const monthRows = rows.filter(r => {
-    const [yy, mm] = r.date.split('-').map(Number);
+  const monthRows = rows.filter((r) => {
+    const [yy, mm] = r.date.split("-").map(Number);
     return yy === y && mm === m;
   });
-  if (monthRows.length === 0) return '—';
-  const present = monthRows.filter(r => r.present).length;
+  if (monthRows.length === 0) return "—";
+  const present = monthRows.filter((r) => r.present).length;
   return `${present}/${monthRows.length}회 출석`;
 }
 function formatRecentAbsents(rows: StudentAttendance[]): string {
-  const abs = rows.filter(r => !r.present).slice(0, 2).map(r => r.date);
-  if (abs.length === 0) return '없음';
-  return abs.join(', ');
+  const abs = rows
+    .filter((r) => !r.present)
+    .slice(0, 2)
+    .map((r) => r.date);
+  if (abs.length === 0) return "없음";
+  return abs.join(", ");
 }
 
 // Counsel helpers
 function formatKDateTime(iso: string) {
   try {
     const d = new Date(iso);
-    const yoil = ['일','월','화','수','목','금','토'][d.getDay()];
+    const yoil = ["일", "월", "화", "수", "목", "금", "토"][d.getDay()];
     const y = d.getFullYear();
-    const m = d.getMonth()+1;
+    const m = d.getMonth() + 1;
     const da = d.getDate();
     const hh = two(d.getHours());
     const mi = two(d.getMinutes());
     return `${y}년 ${m}월 ${da}일 (${yoil}) ${hh}:${mi}`;
-  } catch { return iso; }
+  } catch {
+    return iso;
+  }
 }
 function nowLocalInput() {
   const d = new Date();
   const y = d.getFullYear();
-  const m = two(d.getMonth()+1);
+  const m = two(d.getMonth() + 1);
   const da = two(d.getDate());
   const hh = two(d.getHours());
   const mi = two(d.getMinutes());
@@ -1953,36 +2113,83 @@ function isoToLocalInput(iso: string) {
   try {
     const d = new Date(iso);
     const y = d.getFullYear();
-    const m = two(d.getMonth()+1);
+    const m = two(d.getMonth() + 1);
     const da = two(d.getDate());
     const hh = two(d.getHours());
     const mi = two(d.getMinutes());
     return `${y}-${m}-${da}T${hh}:${mi}`;
-  } catch { return ''; }
+  } catch {
+    return "";
+  }
 }
-
 
 // Styles for counsel section
 const CounselHeader = styled.div`
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 `;
 const NewCounselForm = styled.div`
-  display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 4px 0 8px;
-  @media (max-width: 900px) { grid-template-columns: 1fr; }
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin: 4px 0 8px;
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
 `;
 const Input = styled.input`
-  height: 36px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 10px; font-size: 14px;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 10px;
+  font-size: 14px;
 `;
 const TextArea = styled.textarea`
-  width: 100%; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px 10px; font-size: 14px; resize: vertical;
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 14px;
+  resize: vertical;
 `;
 const Select = styled.select`
-  height: 36px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 8px; font-size: 14px; background:#fff; color:#0f172a;
+  height: 36px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 0 8px;
+  font-size: 14px;
+  background: #fff;
+  color: #0f172a;
 `;
-const CounselRow = styled.div` display:flex; align-items:center; justify-content:space-between; gap:8px; `;
-const RowActions = styled.div` display:inline-flex; gap:12px; `;
-const When = styled.div` font-weight:900; color:#0f172a; `;
-const CounselContent = styled.pre` margin:4px 0 0; white-space:pre-wrap; color:#111827; font-size:14px; `;
-const EditGrid = styled.div` display:grid; grid-template-columns: 1fr 1fr; gap:10px; @media(max-width:900px){ grid-template-columns:1fr; }`;
+const CounselRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`;
+const RowActions = styled.div`
+  display: inline-flex;
+  gap: 12px;
+`;
+const When = styled.div`
+  font-weight: 900;
+  color: #0f172a;
+`;
+const CounselContent = styled.pre`
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  color: #111827;
+  font-size: 14px;
+`;
+const EditGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`;
 
 // moved onSaveEdit into component scope above

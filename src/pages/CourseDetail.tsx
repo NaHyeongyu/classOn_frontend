@@ -34,6 +34,9 @@ import {
 import { formatPhone } from "@/lib/format";
 import { useToast } from "@/components/common/Toast";
 import Modal from "@/components/common/Modal";
+import CourseExamsPanel from "@/components/courses/CourseExamsPanel";
+import CourseStudentsPanel from "@/components/courses/CourseStudentsPanel";
+import CourseRecordsPanel from "@/components/courses/CourseRecordsPanel";
 import {
   listExams,
   createExam,
@@ -764,139 +767,50 @@ export default function CourseDetail() {
                   </Field>
                 </GridTwo>
               </Section>
-              <Section>
-                <SectionHead>
-                  <div>
-                    <Title style={{ margin: 0 }}>시험 관리</Title>
-                    <Muted>수업과 연결된 시험을 확인하고 추가합니다.</Muted>
-                  </div>
-                  <UIPrimaryBtn
-                    as={"button" as any}
-                    type="button"
-                    onClick={openExamModal}
-                  >
-                    시험 생성
-                  </UIPrimaryBtn>
-                </SectionHead>
-                {examLoading && <Muted>시험을 불러오는 중...</Muted>}
-                {examError && <AlertError>{examError}</AlertError>}
-                {exams.length === 0 ? (
-                  <ExamEmpty>
-                    <p>아직 등록된 시험이 없습니다.</p>
-                  </ExamEmpty>
-                ) : (
-                  <TableScroller>
-                    <ExamTable>
-                      <thead>
-                        <tr>
-                          <th>시험명</th>
-                          <th>형태</th>
-                          <th>평균</th>
-                          <th className="manage">
-                            <div className="manage-header" aria-hidden="true">
-                              <span className="manage-label">관리</span>
-                            </div>
-                            <span className="sr-only">관리</span>
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {exams.map((exam) => (
-                          <tr key={exam.id}>
-                            <td>
-                              <ExamNameCell>
-                                <span className="name">{exam.title}</span>
-                              </ExamNameCell>
-                            </td>
-                            <td>{examModeLabel(exam.inputMode)}</td>
-                            <td>
-                              {exam.averageScore != null
-                                ? averageToLetter(exam.averageScore)
-                                : "—"}
-                            </td>
-                            <td className="manage">
-                              <div className="actions">
-                                <UIGhostButtonSmall
-                                  type="button"
-                                  data-variant="edit"
-                                  onClick={() => openEditExamModal(exam)}
-                                >
-                                  수정
-                                </UIGhostButtonSmall>
-                                <UIGhostButtonSmall
-                                  type="button"
-                                  data-variant="danger"
-                                  onClick={() => handleDeleteExam(exam)}
-                                >
-                                  삭제
-                                </UIGhostButtonSmall>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </ExamTable>
-                  </TableScroller>
-                )}
-              </Section>
+              <CourseExamsPanel
+                exams={exams}
+                loading={examLoading}
+                error={examError}
+                onCreate={openExamModal}
+                onEdit={openEditExamModal}
+                onDelete={handleDeleteExam}
+                modalOpen={examModalOpen}
+                modalMode={examModalMode}
+                examMode={examMode}
+                examFormError={examFormError}
+                examSaving={examSaving}
+                onCloseModal={closeExamModal}
+                onSubmitModal={handleSubmitExam}
+                onExamModeChange={setExamMode}
+                examTitleRef={examTitleRef}
+                onExamTitleChange={(val: string) => { examTitleValueRef.current = val; }}
+              />
               {/* 진행 현황 섹션 제거 */}
-              <Section>
-                <SectionHead>
-                  <div>
-                    <Title style={{ margin: 0 }}>수강생 목록</Title>
-                    <Muted>총 {students.length}명의 학생이 수강중입니다.</Muted>
-                  </div>
-                  <Actions>
-                    <UIPrimaryBtn
-                      to={`/classes/${numericId || ""}/edit-students`}
-                    >
-                      학생 추가
-                    </UIPrimaryBtn>
-                  </Actions>
-                </SectionHead>
-                {stuLoading && <Muted>불러오는 중...</Muted>}
-                {stuError && <AlertError>{stuError}</AlertError>}
-                <TableScroller>
-                  <TableEx>
-                    <thead>
-                      <tr>
-                        <th>학생명</th>
-                        <th>연락처</th>
-                        <th>등록일</th>
-                        <th>상태</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {students.length === 0 && !stuLoading ? (
-                        <tr>
-                          <td colSpan={4} style={{ color: "#6b7280" }}>
-                            등록된 학생이 없습니다.
-                          </td>
-                        </tr>
-                      ) : (
-                        students.map((s) => (
-                          <tr key={s.id}>
-                            <td>
-                              <strong>{s.name}</strong>
-                              <SmallMuted>{s.code}</SmallMuted>
-                            </td>
-                            <td>{formatPhone(s.phoneNumber)}</td>
-                            <td>{s.joinedDate || "-"}</td>
-                            <td>
-                              <StatusTag data-type={s.status}>
-                                {studentStatusText(s.status)}
-                              </StatusTag>
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </TableEx>
-                </TableScroller>
-              </Section>
+              <CourseStudentsPanel
+                students={students}
+                loading={stuLoading}
+                error={stuError}
+                editHref={`/classes/${numericId || ''}/edit-students`}
+              />
             </StickyLeft>
           </Left>
           <Right>
+            <CourseRecordsPanel
+              history={history}
+              filterYear={filterYear}
+              filterMonth={filterMonth}
+              onChangeYear={(y) => setFilterYear(y)}
+              onChangeMonth={(m) => setFilterMonth(m)}
+              onResetFilters={() => { const now = new Date(); setFilterYear(now.getFullYear()); setFilterMonth(0); }}
+              exporting={exportingRecords}
+              onExport={handleExportRecords}
+              collapsed={collapsedList}
+              onToggleCollapsed={() => setCollapsedList(v => !v)}
+              todayHref={`/classes/${numericId || ''}/history/date/${fmt(new Date())}`}
+              detailHrefFor={(id, date) => id ? `/classes/${numericId}/history/${id}` : `/classes/${numericId}/history/date/${fmt(date!)}`}
+              getAttendanceMap={(recordId) => (attByRec[recordId] || localAttendanceMap(recordId))}
+            />
+            {false && (
             <Section>
               <SectionHead>
                 <Title>수업 내역</Title>
@@ -923,6 +837,23 @@ export default function CourseDetail() {
                   </UIPrimaryBtn>
                 </div>
               </SectionHead>
+              <CourseRecordsPanel
+                history={history}
+                filterYear={filterYear}
+                filterMonth={filterMonth}
+                onChangeYear={(y) => setFilterYear(y)}
+                onChangeMonth={(m) => setFilterMonth(m)}
+                onResetFilters={() => { const now = new Date(); setFilterYear(now.getFullYear()); setFilterMonth(0); }}
+                exporting={exportingRecords}
+                onExport={handleExportRecords}
+                collapsed={collapsedList}
+                onToggleCollapsed={() => setCollapsedList(v => !v)}
+                todayHref={`/classes/${numericId || ''}/history/date/${fmt(new Date())}`}
+                detailHrefFor={(id, date) => id ? `/classes/${numericId}/history/${id}` : `/classes/${numericId}/history/date/${fmt(date!)}`}
+                getAttendanceMap={(recordId) => (attByRec[recordId] || localAttendanceMap(recordId))}
+              />
+              {/* legacy records block disabled */}
+              {/*
               <FilterRow>
                 <FilterItem>
                   <SmallLabel>연도</SmallLabel>
@@ -989,7 +920,7 @@ export default function CourseDetail() {
               {recError && <AlertError>{recError}</AlertError>}
               {history.length === 0 && !recLoading && (
                 <Muted>표시할 일정이 없습니다.</Muted>
-              )}
+              */}
               {history.map((h) =>
                 collapsedList ? (
                   <CollapsedRow key={h.id || h.dateLabel}>
@@ -1139,74 +1070,15 @@ export default function CourseDetail() {
                   </RecordCard>
                 )
               )}
+              
             </Section>
+            )}
           </Right>
         </Columns>
       )}
 
       {/* history block moved to right column */}
-      <Modal
-        open={examModalOpen}
-        title={examModalMode === "edit" ? "시험 수정" : "시험 추가"}
-        onClose={closeExamModal}
-        blockOutsideClose
-        initialFocusRef={examTitleRef as any}
-        footer={
-          <>
-            <UIGhostButton type="button" onClick={closeExamModal}>
-              취소
-            </UIGhostButton>
-            <UIPrimaryBtn
-              as={"button" as any}
-              type="button"
-              onClick={handleSubmitExam}
-              disabled={examSaving}
-            >
-              {examSaving
-                ? "저장 중..."
-                : examModalMode === "edit"
-                ? "수정"
-                : "생성"}
-            </UIPrimaryBtn>
-          </>
-        }
-      >
-        <ExamForm>
-          <div className="row">
-            <label htmlFor="course-exam-title">제목</label>
-            <ExamTitleInput
-              id="course-exam-title"
-              ref={examTitleRef}
-              defaultValue={examTitleValueRef.current}
-              onChange={(e) => {
-                examTitleValueRef.current = e.currentTarget.value;
-              }}
-              placeholder="예) 중간 평가"
-              autoComplete="off"
-            />
-          </div>
-          <div className="row">
-            <label>성적 방식</label>
-            <ModeGroup>
-              <ModeBtn
-                type="button"
-                data-active={examMode === "percent"}
-                onClick={() => setExamMode("percent")}
-              >
-                백분율 (0-100)
-              </ModeBtn>
-              <ModeBtn
-                type="button"
-                data-active={examMode === "letter"}
-                onClick={() => setExamMode("letter")}
-              >
-                등급 (A-F)
-              </ModeBtn>
-            </ModeGroup>
-          </div>
-          {examFormError && <FormError role="alert">{examFormError}</FormError>}
-        </ExamForm>
-      </Modal>
+      {/* Exam modal moved into CourseExamsPanel */}
     </Wrap>
   );
 }
@@ -1720,10 +1592,12 @@ const ReadOnlyBox = styled.div`
   background: #f9fafb;
   color: #111827;
   font-size: 14px;
+  line-height: 1.5;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2; /* show 2 lines */
+  -webkit-line-clamp: 3; /* show 3 lines */
   -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
 `;
 const AttachList = styled.div`
   display: grid;

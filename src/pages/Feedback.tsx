@@ -36,6 +36,12 @@ export default function Feedback() {
     }
   }
 
+  const titlePlaceholder = useMemo(() => (
+    kind === 'FEATURE'
+      ? '예: 출결 화면에 자동 저장 기능이 있으면 좋겠어요'
+      : '예: 출결 화면에서 저장이 안됩니다'
+  ), [kind]);
+
   return (
     <Page>
       <PageHeader>
@@ -79,7 +85,7 @@ export default function Feedback() {
         </Row>
 
         <Label htmlFor="fb-title">제목</Label>
-        <Input id="fb-title" placeholder="예: 출결 화면에서 저장이 안됩니다" value={title} onChange={(e) => setTitle(e.target.value)} />
+        <Input id="fb-title" placeholder={titlePlaceholder} value={title} onChange={(e) => setTitle(e.target.value)} />
 
         <Label htmlFor="fb-body">내용</Label>
         <TextArea

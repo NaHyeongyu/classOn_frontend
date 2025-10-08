@@ -303,9 +303,11 @@ const ReadOnlyBox = styled.div`
   background: ${(p) => p.theme.colors.surfaceMuted};
   color: ${(p) => p.theme.colors.text};
   font-size: 14px;
+  line-height: 1.5;
+  max-height: calc(1.5em * 3 + 20px); /* 3 lines + vertical padding */
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 2; /* show 2 lines */
+  -webkit-line-clamp: 3; /* show 3 lines */
   -webkit-box-orient: vertical;
 `;
 const CountPill = styled.span`

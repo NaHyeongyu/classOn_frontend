@@ -79,6 +79,7 @@ export default function MarketingRendering() {
               formatStyle,
               rendered: draft,
             },
+            replace: true,
           });
         }, delay);
       } catch (err) {

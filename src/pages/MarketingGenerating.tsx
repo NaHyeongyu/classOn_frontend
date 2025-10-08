@@ -21,9 +21,35 @@ export default function MarketingGenerating() {
   const startRef = useRef<number>(0);
   const timerRef = useRef<number | null>(null);
 
+  // Simple stable hash for session cache keys
+  function hashString(input: string): string {
+    let h = 0;
+    for (let i = 0; i < input.length; i++) {
+      h = (h << 5) - h + input.charCodeAt(i);
+      h |= 0;
+    }
+    return Math.abs(h).toString(36);
+  }
+  const cacheKey = useMemo(() => {
+    const s = JSON.stringify({ items, speechStyle });
+    return `firstSummary:${hashString(s)}`;
+  }, [items, speechStyle]);
+
   useEffect(() => {
     if (!items.length) return;
     let cancelled = false;
+    // 1) Try to restore from session cache first (avoid re-generation on back)
+    try {
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const summary = JSON.parse(cached);
+        navigate("/marketing/preview", {
+          state: { ...state, items, summary, tone, speechStyle, platformChoice },
+          replace: true,
+        });
+        return () => { /* no timers to clean up */ };
+      }
+    } catch { /* ignore cache parse errors */ }
     startRef.current = Date.now();
     setProgress(8);
     setError(null);
@@ -48,6 +74,9 @@ export default function MarketingGenerating() {
           rawJson: JSON.stringify(response),
         };
 
+        // Save to session cache for restoration on back navigation
+        try { sessionStorage.setItem(cacheKey, JSON.stringify(summary)); } catch { /* ignore quota */ }
+
         if (timerRef.current !== null) {
           window.clearInterval(timerRef.current);
           timerRef.current = null;
@@ -60,6 +89,7 @@ export default function MarketingGenerating() {
           setProgress(100);
           navigate("/marketing/preview", {
             state: { ...state, items, summary, tone, speechStyle, platformChoice },
+            replace: true,
           });
         }, delay);
       } catch (err) {

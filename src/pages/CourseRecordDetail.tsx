@@ -3410,10 +3410,11 @@ const TabBtn = styled(UISmallBtn)`
   height: 40px;
   padding: 0 16px;
   font-size: 14px;
+  /* inactive: black text, white background, gray border (from UISmallBtn) */
   &[data-active="true"] {
-    background: #111827;
-    color: #fff;
-    border-color: #111827;
+    background: #f3f4f6; /* gray background */
+    color: #111827; /* black text */
+    border-color: #e5e7eb; /* gray border */
   }
 `;
 const DividerLine = styled.div`

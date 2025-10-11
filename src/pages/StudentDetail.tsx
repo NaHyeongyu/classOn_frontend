@@ -134,6 +134,15 @@ export default function StudentDetail() {
   const [gLevel, setGLevel] = useState<string>("");
   const [gNote, setGNote] = useState<string>("");
   const [gSubject, setGSubject] = useState<string>("");
+  // Switching input mode: clear non-active fields to avoid stale values
+  useEffect(() => {
+    if (gMode === "percent") {
+      if (gLevel) setGLevel("");
+    } else {
+      if (gScore) setGScore("");
+      if (gOutOf) setGOutOf("");
+    }
+  }, [gMode]);
   const intlAge = useMemo(() => {
     if (!student?.birthDate) return undefined;
     const [y, m, d] = student.birthDate.split("-").map(Number);

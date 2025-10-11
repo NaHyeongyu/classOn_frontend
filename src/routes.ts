@@ -4,6 +4,7 @@ export const routes = {
   home: '/',
   login: '/login',
   register: '/register',
+  myAcademy: '/my-academy',
 
   calendar: '/calendar',
   calendarDetail: '/calendar/:ymd',

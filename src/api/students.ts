@@ -194,6 +194,17 @@ export async function importStudentsExcel(file: File): Promise<{ created: number
   return text ? JSON.parse(text) : { created:0, updated:0, skipped:0, errors:[] };
 }
 
+export async function previewImportStudentsExcel(file: File): Promise<{ created: number; updated: number; skipped: number; errors: string[]; rows: any[] }>{
+  const url = resolveStudentUrl(`/api/students/import/preview`);
+  const token = (await import("../lib/auth")).getToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(url, { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+  const text = await res.text().catch(() => '');
+  if (!res.ok) throw new Error(text || `HTTP ${res.status} ${res.statusText}`);
+  return text ? JSON.parse(text) : { created:0, updated:0, skipped:0, errors:[], rows: [] };
+}
+
 export async function bulkUpdateStudentCourses(args: {
   studentIds?: number[];
   selectAll?: boolean;

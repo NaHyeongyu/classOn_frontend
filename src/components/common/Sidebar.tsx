@@ -28,9 +28,9 @@ export default function Sidebar() {
 
   // Display only academy name in the bottom user box
   const academyName = user?.academy?.name && user.academy.name.trim() ? user.academy.name.trim() : undefined;
-  const displayName = academyName || user?.name || user?.username || "사용자";
+  const displayName = user?.name || user?.username || "사용자";
   const email = user?.email || user?.username || undefined;
-  const avatarInitial = displayName.charAt(0).toUpperCase();
+  const avatarInitial = (academyName || displayName).charAt(0).toUpperCase();
 
   return (
     <SidebarWrapper>
@@ -59,16 +59,33 @@ export default function Sidebar() {
       </Nav>
 
       <BottomInfo>
-        <UserBox>
-          <UserAvatar aria-hidden>{avatarInitial}</UserAvatar>
-          <div>
-            <UserName title={displayName}>{displayName}</UserName>
-            {email ? <UserEmail title={email}>{email}</UserEmail> : null}
+        <AcademyCard
+          type="button"
+          onClick={() => navigate(routes.myAcademy)}
+          title="내 정보"
+          aria-label={`내 정보: ${academyName || '학원 미지정'}`}
+        >
+          <LeadingIcon aria-hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M12 2v2" />
+              <path d="M12 20v2" />
+              <path d="M2 12h2" />
+              <path d="M20 12h2" />
+              <path d="M4.93 4.93l1.41 1.41" />
+              <path d="M17.66 17.66l1.41 1.41" />
+              <path d="M4.93 19.07l1.41-1.41" />
+              <path d="M17.66 6.34l1.41-1.41" />
+            </svg>
+          </LeadingIcon>
+          <div style={{flex:1, minWidth:0}}>
+            <AcademyLabel>내 정보</AcademyLabel>
+            <AcademyName title={academyName || '학원 미지정'}>
+              {academyName || '학원 미지정'}
+            </AcademyName>
           </div>
-        </UserBox>
-        <LogoutButton type="button" onClick={() => { logout(); navigate("/login", { replace: true }); }}>
-          로그아웃
-        </LogoutButton>
+          <Chevron aria-hidden viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></Chevron>
+        </AcademyCard>
         <FooterText>academy.com</FooterText>
       </BottomInfo>
     </SidebarWrapper>
@@ -407,14 +424,19 @@ const BottomInfo = styled.div`
   background: #ffffff;
 `;
 
-const UserBox = styled.div`
+const AcademyCard = styled.button`
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px;
+  width: 100%;
+  padding: 10px 12px;
   border-radius: 12px;
-  background: #ffffff;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   border: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: box-shadow .15s ease, transform .05s ease, background .15s ease;
+  &:hover { box-shadow: 0 6px 18px rgba(2,6,23,0.08); background: #ffffff; }
+  &:active { transform: translateY(1px); }
 `;
 
 const UserAvatar = styled.div`
@@ -440,24 +462,32 @@ const UserEmail = styled.div`
   color: #6b7280;
 `;
 
+const AcademyLabel = styled.div`
+  font-size: 11px;
+  color: #6b7280;
+  text-align: left;
+`;
+const AcademyName = styled.div`
+  font-size: 14px;
+  font-weight: 700;
+  color: #111827;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-align: left;
+`;
+const Chevron = styled.svg`
+  width: 18px; height: 18px; color: #9ca3af;
+`;
+
+const LeadingIcon = styled.div`
+  width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; margin-right: 6px;
+  background: linear-gradient(180deg, #eef2ff 0%, #e0e7ff 100%);
+  color: #4f46e5;
+  border: 1px solid #e5e7eb;
+`;
+
 const FooterText = styled.div`
   margin-top: 8px;
   text-align: center;
   font-size: 11px;
   color: #9ca3af;
-`;
-
-const LogoutButton = styled.button`
-  ${buttonVariants.outline};
-  width: 100%;
-  margin-top: 10px;
-  height: 40px;
-  justify-content: center;
-  font-weight: 600;
-  color: #374151;
-  background: #f1f5f9;
-  border-color: #e5e7eb;
-  &:hover {
-    background: #e5e7eb;
-  }
 `;

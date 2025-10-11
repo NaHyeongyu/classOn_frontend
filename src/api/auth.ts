@@ -137,32 +137,31 @@ export async function apiCheckBizNo(bizNo: string): Promise<{ available: boolean
 // EN: Final onboarding submission; on success, navigate to login
 // KO: 온보딩 최종 제출; 성공 시 로그인 페이지로 이동
 export async function apiOnboardComplete(payload: {
-  name: string;
-  phone: string;
-  username: string;
+  // Account
+  name?: string; // 담당자 성함(선택)
+  phone: string; // 인증된 휴대폰
+  username: string; // 아이디
   password: string;
   email?: string;
+  // Academy
   academyName: string;
-  bizNo: string;
+  bizNo?: string; // (선택)
+  // Optional extras (kept for compatibility, not used in current UI)
   address?: string;
   representativeName?: string;
   academyPhone?: string;
   billingEmail?: string;
-}): Promise<LoginResponse> {
+  // New fields
+  category1: string; // 교과목 | 예체능 | 기타
+  category2?: string; // 세부 카테고리
+  categoryEtc?: string; // 기타 텍스트
+  referral?: string; // 가입 경로
+}): Promise<{ success: boolean }> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(300);
-    const token = btoa(`${payload.username}:${Date.now()}`);
-    setToken(token);
-    const user: AuthUser = {
-      id: Date.now(),
-      name: payload.name,
-      username: payload.username,
-      email: payload.email ?? "",
-      phone: payload.phone,
-    };
-    return { token, user };
+    return { success: true };
   }
-  const res = await fetchJSON<LoginResponse>("/api/onboard/complete", {
+  const res = await fetchJSON<{ success: boolean }>("/api/onboard/complete", {
     method: "POST",
     body: JSON.stringify(payload),
   });

@@ -35,6 +35,7 @@ const MarketingSavedDetail = lazy(() => import("@/pages/MarketingSavedDetail"));
 const ReportWip = lazy(() => import("@/pages/ReportWip"));
 const Feedback = lazy(() => import("@/pages/Feedback"));
 const FeedbackChangelog = lazy(() => import("@/pages/FeedbackChangelog"));
+const MyAcademy = lazy(() => import("@/pages/MyAcademy"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminLogin = lazy(() => import("@/pages/AdminLogin"));
 const AdminLogins = lazy(() => import("@/pages/AdminLogins"));
@@ -146,6 +147,7 @@ export default function App() {
           <Route path={routes.marketingSavedDetail} element={<MarketingSavedDetail />} />
           <Route path={routes.report} element={<ReportWip />} />
           <Route path={routes.feedback} element={<Feedback />} />
+          <Route path={routes.myAcademy} element={<MyAcademy />} />
           {enableFeedback && <Route path={routes.feedbackChangelog} element={<FeedbackChangelog />} />}
           { /* Todos page removed; manage todos within Calendar Detail */ }
         </Route>

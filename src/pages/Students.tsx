@@ -7,7 +7,7 @@ import styled from "styled-components";
 import { SectionCard as Section } from "@/components/common/UI";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader, PrimaryBtn, GhostButton } from "@/components/common/UI";
-import { downloadStudentsExcel, downloadStudentsTemplate, importStudentsExcel } from "@/api/students";
+import { downloadStudentsExcel, downloadStudentsTemplate, importStudentsExcel, previewImportStudentsExcel } from "@/api/students";
 import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -27,6 +27,9 @@ export default function Students() {
   const [filters, setFilters] = useState(initial);
   const [refreshKey, setRefreshKey] = useState(0);
   const [showImportGuide, setShowImportGuide] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [preview, setPreview] = useState<{ created: number; updated: number; skipped: number; errors: string[]; rows: any[] } | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   // Sync filters -> URL
   useEffect(() => {
@@ -65,11 +68,12 @@ export default function Students() {
     const file = ev.target.files?.[0];
     if (!file) return;
     try {
-      const res = await importStudentsExcel(file);
-      show(`생성 ${res.created}, 수정 ${res.updated}, 건너뜀 ${res.skipped}`);
-      setRefreshKey((k) => k + 1);
+      const res = await previewImportStudentsExcel(file);
+      setPendingFile(file);
+      setPreview(res);
+      setPreviewOpen(true);
     } catch (e) {
-      showError(readableError(e, '엑셀 업로드에 실패했습니다.'));
+      showError(readableError(e, '미리보기 생성에 실패했습니다.'));
     } finally {
       ev.target.value = '';
     }
@@ -120,6 +124,71 @@ export default function Students() {
           setTimeout(() => fileRef.current?.click(), 0);
         }}
       />
+
+      {/* Preview modal */}
+      <ConfirmDialog
+        open={previewOpen}
+        title="업로드 미리보기"
+        message={preview ? (
+          <PreviewWrap>
+            <Summary>
+              <span>신규 {preview.created}건</span>
+              <span>수정 {preview.updated}건</span>
+              <span>건너뜀 {preview.skipped}건</span>
+            </Summary>
+            {preview.errors && preview.errors.length > 0 && (
+              <Warn>
+                <strong>유의사항</strong>
+                <ul>
+                  {preview.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
+                  {preview.errors.length > 5 && <li>외 {preview.errors.length - 5}건</li>}
+                </ul>
+              </Warn>
+            )}
+            <TableWrap>
+              <table>
+                <thead>
+                  <tr>
+                    <th>행</th><th>이름</th><th>상태</th><th>등록일</th><th>생년월일</th><th>연락처</th><th>보호자</th><th>주소</th><th>유형</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(preview.rows || []).slice(0, 20).map((r, idx) => (
+                    <tr key={idx}>
+                      <td>{r.row}</td>
+                      <td>{r.name}</td>
+                      <td>{r.status || ''}</td>
+                      <td>{r.joinedDate || ''}</td>
+                      <td>{r.birthDate || ''}</td>
+                      <td>{r.phoneNumber || ''}</td>
+                      <td>{r.guardianPhone || ''}</td>
+                      <td>{r.address || ''}</td>
+                      <td>{r.isNew ? '신규' : '수정'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </TableWrap>
+            <Hint>표시된 내용이 맞는지 확인 후 업로드를 진행하세요. 최대 20행까지만 미리보기로 표시됩니다.</Hint>
+          </PreviewWrap>
+        ) : null}
+        confirmLabel="확인 및 업로드"
+        cancelLabel="취소"
+        onCancel={() => { setPreviewOpen(false); setPreview(null); setPendingFile(null); }}
+        maxWidth={720}
+        onConfirm={async () => {
+          if (!pendingFile) return;
+          try {
+            const res = await importStudentsExcel(pendingFile);
+            show(`생성 ${res.created}, 수정 ${res.updated}, 건너뜀 ${res.skipped}`);
+            setRefreshKey((k) => k + 1);
+          } catch (e) {
+            showError(readableError(e, '엑셀 업로드에 실패했습니다.'));
+          } finally {
+            setPreviewOpen(false); setPreview(null); setPendingFile(null);
+          }
+        }}
+      />
     </Page>
   );
 }
@@ -158,6 +227,27 @@ async function saveBlobAsFile(blob: Blob, filename: string) {
   a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
   URL.revokeObjectURL(url);
 }
+
+const PreviewWrap = styled.div`
+  display: grid; gap: 10px;
+`;
+const Summary = styled.div`
+  display: flex; gap: 10px; color: #374151; font-size: 13px; font-weight: 700;
+  span { background: #f3f4f6; padding: 6px 8px; border-radius: 8px; }
+`;
+const Warn = styled.div`
+  background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; padding: 8px 10px; border-radius: 10px; font-size: 12px;
+  ul { margin: 6px 0 0 16px; }
+`;
+const TableWrap = styled.div`
+  max-height: 50vh; overflow: auto; border: 1px solid #e5e7eb; border-radius: 10px;
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 8px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; white-space: nowrap; }
+  thead th { position: sticky; top: 0; background: #f9fafb; z-index: 1; }
+`;
+const Hint = styled.div`
+  color: #6b7280; font-size: 12px;
+`;
 
 // Sticky header + stats + filters for Students page
 const StickyWrap = styled.div`

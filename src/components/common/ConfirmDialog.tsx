@@ -13,13 +13,14 @@ type Props = {
   onCancel: () => void;
   busy?: boolean;
   hideCancel?: boolean;
+  maxWidth?: number; // px, default 480
 };
 
-export default function ConfirmDialog({ open, title, message, confirmLabel = '확인', cancelLabel = '취소', tone = 'default', onConfirm, onCancel, busy = false, hideCancel = false }: Props) {
+export default function ConfirmDialog({ open, title, message, confirmLabel = '확인', cancelLabel = '취소', tone = 'default', onConfirm, onCancel, busy = false, hideCancel = false, maxWidth = 480 }: Props) {
   if (!open) return null;
   return (
     <Backdrop onClick={busy ? undefined : onCancel}>
-      <Card role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc" onClick={(e) => e.stopPropagation()}>
+      <Card role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc" onClick={(e) => e.stopPropagation()} $maxWidth={maxWidth}>
         <Content>
           <Title id="confirm-title">{title}</Title>
           {message ? <Msg id="confirm-desc">{message}</Msg> : null}
@@ -54,8 +55,8 @@ const Backdrop = styled.div`
   z-index: 1200;
 `;
 
-const Card = styled.div`
-  width: min(480px, calc(100% - 32px));
+const Card = styled.div<{ $maxWidth?: number }>`
+  width: ${({ $maxWidth }) => `min(${$maxWidth ?? 480}px, calc(100% - 32px))`};
   background: #ffffff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;

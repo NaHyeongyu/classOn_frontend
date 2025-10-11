@@ -82,7 +82,7 @@ export default function CourseExamsPanel({
                     </NameCell>
                   </td>
                   <td>{examModeLabel(exam.inputMode)}</td>
-                  <td>{exam.averageScore != null ? averageToLetter(exam.averageScore) : '—'}</td>
+                  <td>{renderAverage(exam)}</td>
                   <td className="manage">
                     <div className="actions">
                       <UIGhostButtonSmall type="button" data-variant="edit" onClick={() => onEdit(exam)}>수정</UIGhostButtonSmall>
@@ -137,6 +137,14 @@ function examModeLabel(mode?: Exam['inputMode']) {
     default:
       return '백분율';
   }
+}
+
+function renderAverage(exam: Exam): string {
+  if (exam.averageScore == null) return '—';
+  if (exam.inputMode === 'letter') return averageToLetter(exam.averageScore);
+  const rounded = Math.round(exam.averageScore * 10) / 10;
+  const formatted = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+  return `${formatted}점`;
 }
 
 function averageToLetter(n: number): string {
@@ -198,4 +206,3 @@ const Label = styled.label`
 const TitleInput = styled.input`
   height: 40px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 12px; font-size: 14px; color: #111827; width: 100%;
 `;
-

@@ -12,6 +12,7 @@ import {
 } from "@/components/common/UI";
 import BackButton from "@/components/common/BackButton";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import Modal from "@/components/common/Modal";
 import {
   listCounsels,
   createCounsel,
@@ -638,6 +639,26 @@ export default function StudentDetail() {
     []
   );
 
+  function openAddCounselModal() {
+    setAddingCounsel(true);
+    setCounselError(null);
+    setNewDate(() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`;
+    });
+    setNewHour("");
+    setNewMin("");
+    setNewContent("");
+  }
+
+  function closeAddCounselModal() {
+    setAddingCounsel(false);
+    setNewHour("");
+    setNewMin("");
+    setNewContent("");
+    setCounselError(null);
+  }
+
   async function onSubmitNewCounsel() {
     if (!numericId || !newDate || !newHour || !newMin) return;
     setNewSubmitting(true);
@@ -651,10 +672,7 @@ export default function StudentDetail() {
       });
       const res = await listCounsels({ studentId: numericId, size: 100 });
       setCounsels(res.content || []);
-      setAddingCounsel(false);
-      setNewHour("");
-      setNewMin("");
-      setNewContent("");
+      closeAddCounselModal();
     } catch (e) {
       setCounselError(readableError(e, "저장에 실패했습니다."));
     } finally {
@@ -1208,117 +1226,23 @@ export default function StudentDetail() {
                       >
                         {counselSummaryLoading ? "AI 요약 중…" : "AI 요약"}
                       </AiButton>
-                      {addingCounsel ? (
-                        <>
-                          <ModalBtn
-                            type="button"
-                            onClick={() => {
-                              setAddingCounsel(false);
-                              setNewContent("");
-                              setNewHour("");
-                              setNewMin("");
-                            }}
-                          >
-                            취소
-                          </ModalBtn>
-                          <UIPrimaryButton
-                            type="button"
-                            onClick={onSubmitNewCounsel}
-                            disabled={newSubmitting || !newHour || !newMin}
-                          >
-                            저장
-                          </UIPrimaryButton>
-                        </>
-                      ) : (
-                        <>
-                          <ModalBtn
-                            type="button"
-                            onClick={handleCounselExport}
-                            disabled={exportingCounsel}
-                          >
-                            {exportingCounsel ? "엑셀 준비 중..." : "엑셀 추출"}
-                          </ModalBtn>
-                          <UIPrimaryButtonSm
-                            type="button"
-                            onClick={() => {
-                              setAddingCounsel(true);
-                              /* default to today without time */ setNewDate(
-                                () => {
-                                  const d = new Date();
-                                  return `${d.getFullYear()}-${two(
-                                    d.getMonth() + 1
-                                  )}-${two(d.getDate())}`;
-                                }
-                              );
-                              setNewHour("");
-                              setNewMin("");
-                            }}
-                          >
-                            상담 추가
-                          </UIPrimaryButtonSm>
-                        </>
-                      )}
+                      <ModalBtn
+                        type="button"
+                        onClick={handleCounselExport}
+                        disabled={exportingCounsel}
+                      >
+                        {exportingCounsel ? "엑셀 준비 중..." : "엑셀 추출"}
+                      </ModalBtn>
+                      <UIPrimaryButtonSm
+                        type="button"
+                        onClick={openAddCounselModal}
+                        disabled={addingCounsel}
+                      >
+                        상담 추가
+                      </UIPrimaryButtonSm>
                     </div>
                   </CounselHeader>
-                  {counselError && <Error>{counselError}</Error>}
-                  {addingCounsel && (
-                    <NewCounselForm>
-                      <Field>
-                        <Label>상담 일자</Label>
-                        <Input
-                          type="date"
-                          lang="ko-KR"
-                          value={newDate}
-                          onChange={(e) => setNewDate(e.target.value)}
-                        />
-                      </Field>
-                      <Field>
-                        <Label>시간</Label>
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                          }}
-                        >
-                          <div style={{ flex: 1 }}>
-                            <SelectBox
-                              ariaLabel="시"
-                              value={newHour}
-                              onChange={setNewHour}
-                              placeholder="시"
-                              options={hours24.map((h) => ({
-                                label: h,
-                                value: h,
-                              }))}
-                            />
-                          </div>
-                          <span>:</span>
-                          <div style={{ flex: 1 }}>
-                            <SelectBox
-                              ariaLabel="분"
-                              value={newMin}
-                              onChange={setNewMin}
-                              placeholder="분"
-                              options={mins5.map((m) => ({
-                                label: m,
-                                value: m,
-                              }))}
-                            />
-                          </div>
-                        </div>
-                      </Field>
-                      <Field style={{ gridColumn: "1 / -1" }}>
-                        <Label>내용</Label>
-                        <TextArea
-                          rows={4}
-                          value={newContent}
-                          onChange={(e) => setNewContent(e.target.value)}
-                          placeholder="상담 내용 또는 메모"
-                        />
-                      </Field>
-                    </NewCounselForm>
-                  )}
+                  {counselError && !addingCounsel && <Error>{counselError}</Error>}
                   {counselLoading ? (
                     <Muted>불러오는 중...</Muted>
                   ) : counsels.length === 0 ? (
@@ -1472,6 +1396,86 @@ export default function StudentDetail() {
       )}
 
       {deleteConfirmDialog}
+      <Modal
+        open={addingCounsel}
+        title="상담 추가"
+        onClose={() => {
+          if (newSubmitting) return;
+          closeAddCounselModal();
+        }}
+        footer={
+          <>
+            <UIGhostButton
+              type="button"
+              onClick={closeAddCounselModal}
+              disabled={newSubmitting}
+            >
+              취소
+            </UIGhostButton>
+            <UIPrimaryButton
+              type="button"
+              onClick={onSubmitNewCounsel}
+              disabled={newSubmitting || !newDate || !newHour || !newMin}
+            >
+              {newSubmitting ? "저장 중..." : "저장"}
+            </UIPrimaryButton>
+          </>
+        }
+      >
+        <ModalForm>
+          <ModalField>
+            <Label style={{ alignSelf: "auto" }}>상담 일자</Label>
+            <Input
+              type="date"
+              lang="ko-KR"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+            />
+          </ModalField>
+          <ModalField>
+            <Label style={{ alignSelf: "auto" }}>시간</Label>
+            <TimeRow>
+              <div style={{ flex: 1 }}>
+                <SelectBox
+                  ariaLabel="시"
+                  value={newHour}
+                  onChange={setNewHour}
+                  placeholder="시"
+                  options={hours24.map((h) => ({
+                    label: h,
+                    value: h,
+                  }))}
+                />
+              </div>
+              <span>:</span>
+              <div style={{ flex: 1 }}>
+                <SelectBox
+                  ariaLabel="분"
+                  value={newMin}
+                  onChange={setNewMin}
+                  placeholder="분"
+                  options={mins5.map((m) => ({
+                    label: m,
+                    value: m,
+                  }))}
+                />
+              </div>
+            </TimeRow>
+          </ModalField>
+          <ModalField>
+            <Label style={{ alignSelf: "auto" }}>내용</Label>
+            <TextArea
+              rows={4}
+              value={newContent}
+              onChange={(e) => setNewContent(e.target.value)}
+              placeholder="상담 내용 또는 메모"
+            />
+          </ModalField>
+          {addingCounsel && counselError && (
+            <Error role="alert">{counselError}</Error>
+          )}
+        </ModalForm>
+      </Modal>
       <ConfirmDialog
         open={confirmCounselId != null}
         title="상담 일정 삭제"
@@ -2139,14 +2143,18 @@ const CounselHeader = styled.div`
   justify-content: space-between;
   gap: 8px;
 `;
-const NewCounselForm = styled.div`
+const ModalForm = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin: 4px 0 8px;
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
+  gap: 14px;
+`;
+const ModalField = styled.div`
+  display: grid;
+  gap: 6px;
+`;
+const TimeRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
 const Input = styled.input`
   height: 36px;
@@ -2162,15 +2170,6 @@ const TextArea = styled.textarea`
   padding: 8px 10px;
   font-size: 14px;
   resize: vertical;
-`;
-const Select = styled.select`
-  height: 36px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 8px;
-  font-size: 14px;
-  background: #fff;
-  color: #0f172a;
 `;
 const CounselRow = styled.div`
   display: flex;

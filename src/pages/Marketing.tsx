@@ -257,6 +257,9 @@ async function fetchCoursePage(courseId: number, nextPage: number) {
             <UIGhostBtnSmall to="/classes">수업 관리</UIGhostBtnSmall>
           </HeaderActions>
         </PageHeader>
+        <BetaNotice role="status">
+          마케팅 기능은 아직 테스트 중입니다. 사소한 문제점이 있을 수 있으며 빠른 시일 내 개선하겠습니다.
+        </BetaNotice>
         {/* Guide banner removed */}
       </HeaderWrap>
 
@@ -568,6 +571,16 @@ const HeaderWrap = styled.div`
   padding: 0 ${(p) => p.theme.spacing.xs};
   display: grid;
   gap: ${(p) => p.theme.spacing.sm};
+`;
+
+const BetaNotice = styled.div`
+  padding: 10px ${(p) => p.theme.spacing.sm};
+  border-radius: ${(p) => p.theme.radii.md};
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  color: #312e81;
+  font-size: ${(p) => p.theme.font.size.sm};
+  line-height: 1.5;
 `;
 
 const HeaderActions = styled.div`

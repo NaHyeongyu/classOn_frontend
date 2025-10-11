@@ -94,12 +94,6 @@ export default function Register() {
     if (phone.trim() && !normalizedPhone) nextErr.phone = "010-1234-5678 형식으로 입력해 주세요.";
     setStep1Err(nextErr);
     if (Object.keys(nextErr).length > 0) return;
-    // Dev: skip SMS verification entirely
-    if (import.meta.env.DEV) {
-      setPhone(normalizedPhone!);
-      setStep(3);
-      return;
-    }
     try {
       setPhone(normalizedPhone!);
       const res = await apiRequestPhoneCode(normalizedPhone);

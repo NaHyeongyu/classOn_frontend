@@ -122,49 +122,9 @@ export default function CalendarDetail() {
     return () => { cancelled = true; };
   }, [ymdSafe, classesDerived]);
 
-  // Lightweight auto-refresh to catch mobile/other updates
-  useEffect(() => {
-    let cancelled = false;
-    const t = setInterval(async () => {
-      try {
-        const list = await getClassesOn(ymdSafe);
-        if (cancelled) return;
-        setClasses(mapRows(list));
-      } catch { /* noop */ }
-    }, 15000);
-    return () => { cancelled = true; clearInterval(t); };
-  }, [ymdSafe]);
-
   // Keep local counselItems in sync with hook
   useEffect(() => { setCounselItems(counsels); }, [counsels]);
 
-  // Refresh immediately when the tab becomes visible (e.g., after editing attendance)
-  useEffect(() => {
-    function onVis() {
-      if (document.visibilityState === 'visible') {
-        getClassesOn(ymdSafe).then((list) => setClasses(mapRows(list))).catch(() => { /* noop */ });
-      }
-    }
-    document.addEventListener('visibilitychange', onVis);
-    return () => document.removeEventListener('visibilitychange', onVis);
-  }, [ymdSafe]);
-
-  // Respond to calendar refresh events (e.g., after attendance changes)
-  useEffect(() => {
-    function onRefresh(event: Event) {
-      const detail = (event as CustomEvent<{ ymd?: string }>).detail;
-      const target = detail?.ymd;
-      if (!target || target === ymdSafe) {
-        getClassesOn(ymdSafe)
-          .then((list) => setClasses(mapRows(list)))
-          .catch(() => { /* noop */ });
-      }
-    }
-    window.addEventListener('calendar:classes-refresh', onRefresh as EventListener);
-    return () => {
-      window.removeEventListener('calendar:classes-refresh', onRefresh as EventListener);
-    };
-  }, [ymdSafe]);
 
   const { data, error, refresh } = useTodosByDate(ymdSafe);
   const [mutationError, setMutationError] = useState<string | null>(null);

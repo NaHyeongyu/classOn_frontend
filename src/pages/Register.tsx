@@ -244,7 +244,7 @@ export default function Register() {
               </SmallButton>
             </Row>
             {step2Err.code && <Hint danger>{step2Err.code}</Hint>}
-            {devCodeHint && <Hint>개발용 인증코드: {devCodeHint}</Hint>}
+            {devCodeHint && <Hint>인증코드 힌트: {devCodeHint}</Hint>}
             <Help>스팸함을 확인하고, 발신 도메인을 화이트리스트에 추가해 주세요.</Help>
             {error && <ErrorText>{error}</ErrorText>}
             <UIPrimaryBtn as={"button" as any} type="submit">다음</UIPrimaryBtn>

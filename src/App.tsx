@@ -160,7 +160,7 @@ export default function App() {
           <Route path={routes.admin + '/api-logs'} element={<AdminApiLogs />} />
           <Route path={routes.admin + '/openai-logs'} element={<AdminOpenAiLogs />} />
           <Route path={routes.admin + '/payments'} element={<AdminPayments />} />
-          {enableFeedback && <Route path={routes.admin + '/feedbacks'} element={<AdminFeedbacks />} />}
+          <Route path={routes.admin + '/feedbacks'} element={<AdminFeedbacks />} />
           <Route path={routes.adminStats} element={<AdminStats />} />
           <Route path={routes.admin + '/academies/:id'} element={<AdminAcademyDetail />} />
         </Route>

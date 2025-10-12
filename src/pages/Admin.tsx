@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom";
 import { routes } from "@/routes";
 import { getAdminOverview, getLoginLogs, getPayments, listLoginLogsPaged, type AdminOverview } from "@/api/admin";
 import { listAdminAcademies, type AdminAcademyRow } from "@/api/adminAcademies";
+import { listFeedbacksPaged, type AdminFeedbackRow } from "@/api/adminFeedback";
 import { useToast } from "@/components/common/Toast";
 import { LoadingSpinner } from "@/components/common/Loading";
 import { formatKoreanDate, formatKoreanDateTime } from "@/lib/format";
@@ -27,6 +28,10 @@ export default function AdminPage() {
   const [from, setFrom] = useState<string>(() => { const d = new Date(); d.setDate(d.getDate() - 30); return d.toISOString().slice(0,10); });
   const [to, setTo] = useState<string>(() => new Date().toISOString().slice(0,10));
   const [loginsInRange, setLoginsInRange] = useState<number | null>(null);
+  const [feedbackRows, setFeedbackRows] = useState<AdminFeedbackRow[]>([]);
+  const [feedbackTotal, setFeedbackTotal] = useState<number | null>(null);
+  const [feedbackNewCount, setFeedbackNewCount] = useState<number | null>(null);
+  const [feedbackError, setFeedbackError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   useEffect(() => () => { mountedRef.current = false; }, []);
@@ -36,6 +41,7 @@ export default function AdminPage() {
     setLoading(true);
     setLoadError(null);
     try {
+      setFeedbackError(null);
       const [o, ls, ps] = await Promise.all([getAdminOverview(), getLoginLogs(), getPayments()]);
       let withAcademies = o;
       if (!o || o.academies == null) {
@@ -51,6 +57,27 @@ export default function AdminPage() {
       setLogs(ls);
       setPays(ps);
       setLastUpdatedAt(new Date());
+      try {
+        const fb = await listFeedbacksPaged({ page: 0, size: 5 });
+        if (mountedRef.current) {
+          setFeedbackRows((fb?.content || []).slice(0, 5));
+          setFeedbackTotal(typeof fb?.totalElements === 'number' ? fb.totalElements : null);
+        }
+      } catch (err) {
+        if (mountedRef.current) {
+          setFeedbackRows([]);
+          setFeedbackTotal(null);
+          setFeedbackError(err instanceof Error ? err.message : '문의 목록을 불러오지 못했습니다.');
+        }
+      }
+      try {
+        const fbNew = await listFeedbacksPaged({ status: 'NEW', page: 0, size: 1 });
+        if (mountedRef.current) {
+          setFeedbackNewCount(typeof fbNew?.totalElements === 'number' ? fbNew.totalElements : null);
+        }
+      } catch {
+        if (mountedRef.current) setFeedbackNewCount(null);
+      }
       if (!opts?.silent) showSuccess('대시보드 데이터를 새로고침했습니다.');
       return true;
     } catch (err: unknown) {
@@ -58,6 +85,10 @@ export default function AdminPage() {
       const message = err instanceof Error ? err.message : '대시보드 데이터를 불러오지 못했습니다.';
       setLoadError(message);
       showError(message);
+      setFeedbackRows([]);
+      setFeedbackTotal(null);
+      setFeedbackNewCount(null);
+      setFeedbackError('문의 데이터를 불러오지 못했습니다.');
       return false;
     } finally {
       if (mountedRef.current) setLoading(false);
@@ -88,7 +119,8 @@ export default function AdminPage() {
     { label: "최근 30일 결제합계(원)", value: ov?.paymentsAmount30d != null ? Math.round((ov.paymentsAmount30d||0)/100).toLocaleString('ko-KR') : '—' },
     { label: "오늘 API 호출", value: ov?.apiCallsToday ?? '—' },
     { label: "오늘 OpenAI 호출", value: ov?.openaiCallsToday ?? '—' },
-  ]), [ov]);
+    { label: "미처리 문의", value: feedbackNewCount != null ? feedbackNewCount : '—' },
+  ]), [ov, feedbackNewCount]);
 
   const lastUpdatedLabel = useMemo(() => {
     if (!lastUpdatedAt) return null;
@@ -221,12 +253,68 @@ export default function AdminPage() {
             <li>
               <MonoGhost as="a" href={routes.admin + '/payments'}>결제 기록 보기</MonoGhost>
             </li>
-            {import.meta.env.VITE_ENABLE_FEEDBACK === 'true' && (
-              <li>
-                <MonoGhost as="a" href={routes.admin + '/feedbacks'}>피드백 보기</MonoGhost>
-              </li>
-            )}
+            <li>
+              <MonoGhost as="a" href={routes.admin + '/feedbacks'}>문의/피드백 전체 보기</MonoGhost>
+            </li>
           </QuickList>
+        </Section>
+
+        <Section>
+          <Title>문의/피드백</Title>
+          <FeedbackMeta>
+            <span>총 {feedbackTotal != null ? feedbackTotal.toLocaleString("ko-KR") : "—"}건</span>
+            <span>신규 {feedbackNewCount != null ? feedbackNewCount.toLocaleString("ko-KR") : "—"}건</span>
+            <MonoGhost as="a" href={routes.admin + "/feedbacks"}>전체 목록 이동</MonoGhost>
+          </FeedbackMeta>
+          {feedbackError ? (
+            <InlineMiniError role="status">⚠️ {feedbackError}</InlineMiniError>
+          ) : null}
+          <TableWrap>
+            <Table>
+              <thead>
+                <tr>
+                  <th style={{ minWidth: 160 }}>시간</th>
+                  <th>제목 · 내용</th>
+                  <th style={{ width: 90 }}>유형</th>
+                  <th style={{ width: 90 }}>상태</th>
+                  <th style={{ width: 160 }}>연락처</th>
+                </tr>
+              </thead>
+              <tbody>
+                {feedbackRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={5}>
+                      <TableStatus>표시할 문의가 없습니다.</TableStatus>
+                    </td>
+                  </tr>
+                ) : (
+                  feedbackRows.map((row) => (
+                    <tr key={row.id}>
+                      <td>{formatKoreanDateTime(row.createdAt)}</td>
+                      <td>
+                        <FeedbackCell>
+                          <span className="subject">{row.title}</span>
+                          {row.body ? (
+                            <span className="excerpt">{row.body.length > 120 ? `${row.body.slice(0, 120)}…` : row.body}</span>
+                          ) : null}
+                          {row.pageUrl ? (
+                            <span className="meta">페이지: {row.pageUrl}</span>
+                          ) : null}
+                        </FeedbackCell>
+                      </td>
+                      <td>{row.type === "FEATURE" ? "기능" : "오류"}</td>
+                      <td>
+                        <FeedbackStatus data-status={row.status}>
+                          {row.status === "NEW" ? "신규" : row.status === "ACK" ? "확인" : "종료"}
+                        </FeedbackStatus>
+                      </td>
+                      <td>{row.contact || "—"}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </TableWrap>
         </Section>
 
         <Section>
@@ -357,6 +445,49 @@ const SkeletonLine = styled.span<{ $size?: 'lg' }>`
 const QuickList = styled.ul`
   list-style:none; padding:0; margin:0; display:grid; gap:8px;
   li { display:flex; }
+`;
+const FeedbackMeta = styled.div`
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-bottom:10px;
+  font-size:12px;
+  color:#475569;
+  span { font-weight:700; }
+  a { margin-left:auto; }
+`;
+const InlineMiniError = styled.div`
+  margin-bottom:8px;
+  padding:10px 12px;
+  border-radius:10px;
+  border:1px solid #fecaca;
+  background:#fef2f2;
+  color:#b91c1c;
+  font-size:12px;
+  font-weight:600;
+`;
+const FeedbackCell = styled.div`
+  display:grid;
+  gap:4px;
+  .subject { font-weight:700; color:#111827; }
+  .excerpt { color:#475569; font-size:12px; line-height:1.5; white-space:pre-line; }
+  .meta { color:#94a3b8; font-size:11px; }
+`;
+const FeedbackStatus = styled.span`
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  min-width:52px;
+  padding:4px 10px;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+  background:#e2e8f0;
+  color:#0f172a;
+  &[data-status='NEW'] { background:#fef3c7; color:#b45309; }
+  &[data-status='ACK'] { background:#e0e7ff; color:#4338ca; }
+  &[data-status='CLOSED'] { background:#dcfce7; color:#15803d; }
 `;
 const Muted = styled.div` color:#6b7280; font-size:12px; `;
 

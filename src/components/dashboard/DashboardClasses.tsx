@@ -76,6 +76,7 @@ export default function DashboardClasses() {
           onAdd={() => navigate(`/calendar/${formatYMD(new Date())}`)}
           titleMode="subject"
           showNotes={true}
+          embedded
         />
         {error && <Err>{error}</Err>}
       </Scrollable>

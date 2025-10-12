@@ -11,6 +11,7 @@ type Props = {
   actionLabel?: string; // default: + 수업 추가
   titleMode?: "subject" | "date"; // default: subject for dashboard/day
   showNotes?: boolean; // default: false (hide in dashboard/day)
+  embedded?: boolean;
 };
 
 export default function ClassList({
@@ -19,13 +20,14 @@ export default function ClassList({
   actionLabel = "+ 수업 추가",
   titleMode = "subject",
   showNotes = true,
+  embedded = false,
 }: Props) {
   const navigate = useNavigate();
   const records = Array.isArray(items) ? items : [];
   const canAdd = typeof onAdd === "function";
   return (
-    <Section>
-      <SectionHeader>
+    <Section $embedded={embedded}>
+      <SectionHeader data-embedded={embedded || undefined}>
         <HeaderLeft>
           <SectionIcon aria-hidden>{bookIcon}</SectionIcon>
           <h4>수업 내역</h4>
@@ -38,7 +40,7 @@ export default function ClassList({
           </Actions>
         )}
       </SectionHeader>
-      <Grid>
+      <Grid $embedded={embedded}>
         {records.length === 0 ? (
           <EmptyPlaceholder
             title="등록된 수업 내역이 없습니다."
@@ -178,11 +180,14 @@ function statusIcon(tone: StatusVariant) {
   }
 }
 
-const Section = styled.section`
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.lg};
-  padding: 12px;
-  background: ${(p) => p.theme.colors.surface};
+const Section = styled.section<{ $embedded?: boolean }>`
+  border: ${({ $embedded, theme }) =>
+    $embedded ? "none" : `1px solid ${theme.colors.border}`};
+  border-radius: ${({ $embedded, theme }) =>
+    $embedded ? "0" : theme.radii.lg};
+  padding: ${({ $embedded }) => ($embedded ? "0" : "12px")};
+  background: ${({ $embedded, theme }) =>
+    $embedded ? "transparent" : theme.colors.surface};
   display: flex;
   flex-direction: column;
   height: 100%; /* fill half container */
@@ -197,6 +202,9 @@ const SectionHeader = styled.div`
     margin: 0;
     font-size: 15px;
     color: ${(p) => p.theme.colors.text};
+  }
+  &[data-embedded] {
+    margin-bottom: 12px;
   }
 `;
 const HeaderLeft = styled.div`
@@ -214,12 +222,14 @@ const SectionIcon = styled.span`
   color: ${(p) => p.theme.colors.primary};
 `;
 const Actions = styled.div``;
-const AddBtn = styled(PrimaryButtonSm)``;
-const Grid = styled.div`
+const AddBtn = styled(PrimaryButtonSm)`
+  white-space: nowrap;
+`;
+const Grid = styled.div<{ $embedded?: boolean }>`
   display: grid;
   grid-template-columns: 1fr;
   gap: 10px;
-  padding: 4px 2px;
+  padding: ${({ $embedded }) => ($embedded ? "0" : "4px 2px")};
   overflow: auto; /* scroll within fixed half */
   flex: 1 1 auto;
   min-height: 0;

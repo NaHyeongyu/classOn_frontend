@@ -67,6 +67,7 @@ export async function getCounsel(id: number): Promise<Counsel> {
 
 export async function deleteCounsel(id: number): Promise<void> {
   await fetchJSON<void>(`/api/counsels/${id}`, { method: 'DELETE' });
+  invalidateCacheByPrefix('/api/counsels');
 }
 
 // Excel export helper

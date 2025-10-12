@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import SelectBox from "@/components/common/SelectBox";
 import { useNavigate, useParams } from "react-router-dom";
 import styled, { keyframes } from "styled-components";
@@ -37,7 +37,6 @@ import {
 // formatMoney 사용 제거됨 (MVP)
 import { formatPhone, formatKoreanDateTime } from "@/lib/format";
 // import { calcRisk, recommendActions, type RiskResult } from "@/features/risk/riskUtils"; // RISK FEATURE DISABLED
-import { summarizeRecords, type SummarizeItem } from "@/api/summarize";
 import {
   getStudentGrades,
   addStudentGrade,
@@ -93,6 +92,7 @@ export default function StudentDetail() {
   const [newMin, setNewMin] = useState<string>("");
   const [newContent, setNewContent] = useState<string>("");
   const [newSubmitting, setNewSubmitting] = useState(false);
+  const newCounselContentRef = useRef<HTMLTextAreaElement | null>(null);
   // Edit existing counsel
   const [editingCounselId, setEditingCounselId] = useState<number | null>(null);
   const [confirmCounselId, setConfirmCounselId] = useState<number | null>(null);
@@ -112,12 +112,6 @@ export default function StudentDetail() {
     });
   // Predictive risk (disabled) – placeholders to avoid runtime refs
   // Predictive risk feature disabled
-  // Counsel AI summary
-  const [counselSummary, setCounselSummary] = useState<string>("");
-  const [counselSummaryLoading, setCounselSummaryLoading] = useState(false);
-  const [counselSummaryError, setCounselSummaryError] = useState<string | null>(
-    null
-  );
   // Grades (display and quick add)
   const [grades, setGrades] = useState<GradeEntry[]>([]);
   const [examGrades, setExamGrades] = useState<GradeEntry[]>([]);
@@ -446,28 +440,6 @@ export default function StudentDetail() {
     }
   }
 
-  async function handleCounselSummarize() {
-    if (!numericId) return;
-    try {
-      setCounselSummaryLoading(true);
-      setCounselSummaryError(null);
-      const items: SummarizeItem[] = (counsels || []).slice(0, 50).map((c) => ({
-        date: (c.counselTime || "").slice(0, 10),
-        content: (c.content || "").replace(/\s+/g, " ").slice(0, 500),
-      }));
-      if (!items.length) {
-        setCounselSummaryError("요약할 상담 기록이 없습니다.");
-        return;
-      }
-      const resp = await summarizeRecords(items, { language: "ko" });
-      setCounselSummary(resp.summary || "요약이 비어 있습니다.");
-    } catch (e) {
-      setCounselSummaryError(readableError(e, "요약 생성에 실패했습니다."));
-    } finally {
-      setCounselSummaryLoading(false);
-    }
-  }
-
   // Load saved notes from localStorage (temporary persistence until API exists)
   useEffect(() => {
     if (!numericId) return;
@@ -489,6 +461,23 @@ export default function StudentDetail() {
       setMemos([]);
     }
   }, [numericId]);
+
+  useEffect(() => {
+    if (!addingCounsel) return;
+    const handle = requestAnimationFrame(() => {
+      const el = newCounselContentRef.current;
+      if (el) {
+        el.focus();
+        const len = el.value.length;
+        try {
+          el.setSelectionRange(len, len);
+        } catch {
+          /* ignore unsupported browsers */
+        }
+      }
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [addingCounsel]);
 
   // Load attendance when tab is active
   useEffect(() => {
@@ -1173,41 +1162,6 @@ export default function StudentDetail() {
 
               {activeTab === "counsels" && (
                 <SectionBody>
-                  {counselSummaryError && (
-                    <Error style={{ marginBottom: 8 }}>
-                      {counselSummaryError}
-                    </Error>
-                  )}
-                  {!!counselSummary && (
-                    <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          flexWrap: "wrap",
-                          gap: 8,
-                        }}
-                      >
-                        <SmallTitle style={{ margin: 0 }}>
-                          상담 AI 요약
-                        </SmallTitle>
-                        <UIGhostButton
-                          type="button"
-                          onClick={() => {
-                            try {
-                              navigator.clipboard?.writeText(counselSummary);
-                            } catch {}
-                          }}
-                        >
-                          복사
-                        </UIGhostButton>
-                      </div>
-                      <NotesBox as="pre" style={{ whiteSpace: "pre-wrap" }}>
-                        {counselSummary}
-                      </NotesBox>
-                    </div>
-                  )}
                   <CounselHeader>
                     <div>
                       <SmallTitle>상담기록</SmallTitle>
@@ -1219,13 +1173,6 @@ export default function StudentDetail() {
                         alignItems: "center",
                       }}
                     >
-                      <AiButton
-                        type="button"
-                        onClick={handleCounselSummarize}
-                        disabled={counselSummaryLoading}
-                      >
-                        {counselSummaryLoading ? "AI 요약 중…" : "AI 요약"}
-                      </AiButton>
                       <ModalBtn
                         type="button"
                         onClick={handleCounselExport}
@@ -1403,6 +1350,7 @@ export default function StudentDetail() {
           if (newSubmitting) return;
           closeAddCounselModal();
         }}
+        initialFocusRef={newCounselContentRef}
         footer={
           <>
             <UIGhostButton
@@ -1434,41 +1382,43 @@ export default function StudentDetail() {
           </ModalField>
           <ModalField>
             <Label style={{ alignSelf: "auto" }}>시간</Label>
-            <TimeRow>
-              <div style={{ flex: 1 }}>
-                <SelectBox
-                  ariaLabel="시"
-                  value={newHour}
-                  onChange={setNewHour}
-                  placeholder="시"
-                  options={hours24.map((h) => ({
-                    label: h,
-                    value: h,
-                  }))}
-                />
-              </div>
-              <span>:</span>
-              <div style={{ flex: 1 }}>
-                <SelectBox
-                  ariaLabel="분"
-                  value={newMin}
-                  onChange={setNewMin}
-                  placeholder="분"
-                  options={mins5.map((m) => ({
-                    label: m,
-                    value: m,
-                  }))}
-                />
-              </div>
-            </TimeRow>
+          <TimeRow>
+            <TimeSelect>
+              <SelectBox
+                ariaLabel="시"
+                value={newHour}
+                onChange={setNewHour}
+                placeholder="시"
+                options={hours24.map((h) => ({
+                  label: h,
+                  value: h,
+                }))}
+              />
+            </TimeSelect>
+            <span>:</span>
+            <TimeSelect>
+              <SelectBox
+                ariaLabel="분"
+                value={newMin}
+                onChange={setNewMin}
+                placeholder="분"
+                options={mins5.map((m) => ({
+                  label: m,
+                  value: m,
+                }))}
+              />
+            </TimeSelect>
+          </TimeRow>
           </ModalField>
           <ModalField>
             <Label style={{ alignSelf: "auto" }}>내용</Label>
             <TextArea
+              ref={newCounselContentRef}
               rows={4}
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="상담 내용 또는 메모"
+              autoFocus
             />
           </ModalField>
           {addingCounsel && counselError && (
@@ -1867,67 +1817,6 @@ const ModalBtn = styled(UISmallBtn)`
   padding: 0 16px;
   font-size: 14px;
 `;
-
-const AiButton = styled.button`
-  appearance: none;
-  height: 40px;
-  padding: 0 22px;
-  border-radius: 999px;
-  border: none;
-  background: linear-gradient(135deg, #4f46e5 0%, #ec4899 100%);
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-  position: relative;
-  overflow: hidden;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.2s ease;
-  box-shadow: 0 18px 36px rgba(99, 102, 241, 0.25);
-  & > * {
-    position: relative;
-    z-index: 1;
-  }
-  &:before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.35) 0%,
-      rgba(255, 255, 255, 0.05) 100%
-    );
-    mix-blend-mode: screen;
-    opacity: 0.6;
-    transition: opacity 0.2s ease;
-    pointer-events: none;
-  }
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 24px 44px rgba(99, 102, 241, 0.3);
-    filter: saturate(1.1);
-    &:before {
-      opacity: 0.8;
-    }
-  }
-  &:active {
-    transform: translateY(0);
-    box-shadow: 0 12px 26px rgba(79, 70, 229, 0.25);
-  }
-  &:focus-visible {
-    outline: 2px solid rgba(129, 140, 248, 0.7);
-    outline-offset: 3px;
-  }
-  &:disabled {
-    opacity: 0.55;
-    cursor: progress;
-    transform: none;
-    box-shadow: 0 10px 24px rgba(99, 102, 241, 0.16);
-  }
-`;
 // Button from common UI
 
 // Notes section styles
@@ -2155,6 +2044,10 @@ const TimeRow = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+`;
+const TimeSelect = styled.div`
+  flex: 1;
+  min-width: 0;
 `;
 const Input = styled.input`
   height: 36px;

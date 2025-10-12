@@ -475,21 +475,45 @@ export default function CalendarDetail() {
                 </CourseList>
                 <Label style={{ marginTop: 10 }}>시간</Label>
                 <Row>
-                  <Select aria-label="시" value={startHour} onChange={(e) => { const v=e.target.value; setStartHour(v); }}>
-                    {hours24.map(h => (<option key={h} value={h}>{h}</option>))}
-                  </Select>
+                  <TimeSelect>
+                    <SelectBox
+                      ariaLabel="시"
+                      value={startHour}
+                      onChange={setStartHour}
+                      placeholder="시"
+                      options={hours24.map((h) => ({ label: h, value: h }))}
+                    />
+                  </TimeSelect>
                   <span>:</span>
-                  <Select aria-label="분" value={startMin} onChange={(e) => { const v=e.target.value; setStartMin(v); }}>
-                    {mins5.map(m => (<option key={m} value={m}>{m}</option>))}
-                  </Select>
+                  <TimeSelect>
+                    <SelectBox
+                      ariaLabel="분"
+                      value={startMin}
+                      onChange={setStartMin}
+                      placeholder="분"
+                      options={mins5.map((m) => ({ label: m, value: m }))}
+                    />
+                  </TimeSelect>
                   <span>~</span>
-                  <Select aria-label="시" value={endHour} onChange={(e) => { const v=e.target.value; setEndHour(v); }}>
-                    {hours24.map(h => (<option key={h} value={h}>{h}</option>))}
-                  </Select>
+                  <TimeSelect>
+                    <SelectBox
+                      ariaLabel="시"
+                      value={endHour}
+                      onChange={setEndHour}
+                      placeholder="시"
+                      options={hours24.map((h) => ({ label: h, value: h }))}
+                    />
+                  </TimeSelect>
                   <span>:</span>
-                  <Select aria-label="분" value={endMin} onChange={(e) => { const v=e.target.value; setEndMin(v); }}>
-                    {mins5.map(m => (<option key={m} value={m}>{m}</option>))}
-                  </Select>
+                  <TimeSelect>
+                    <SelectBox
+                      ariaLabel="분"
+                      value={endMin}
+                      onChange={setEndMin}
+                      placeholder="분"
+                      options={mins5.map((m) => ({ label: m, value: m }))}
+                    />
+                  </TimeSelect>
                 </Row>
                 {addErr && <Err>{addErr}</Err>}
                 <BtnRow>
@@ -533,7 +557,15 @@ const ModalCard = styled.div`
   font-weight: 700;
   color: #111827;
 `;
-const Row = styled.div` display:flex; align-items:center; gap:12px; `;
+const Row = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+`;
+const TimeSelect = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
 const CourseList = styled.div` max-height: 220px; overflow: auto; border: 1px solid #f1f5f9; border-radius: 10px; margin-top: 6px; background: #fff; `;
 const CourseRow = styled.div`
   padding: 8px 10px; display:flex; align-items:center; justify-content:space-between; cursor:pointer;

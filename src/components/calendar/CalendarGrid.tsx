@@ -144,22 +144,6 @@ const Events = styled.div`
   gap: 4px;
   flex: 1 1 auto;
   min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding-right: 2px;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(148, 163, 184, 0.6) transparent;
-
-  &::-webkit-scrollbar {
-    width: 6px;
-  }
-  &::-webkit-scrollbar-thumb {
-    background-color: rgba(148, 163, 184, 0.6);
-    border-radius: 999px;
-  }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
 `;
 const CountGrid = styled.div`
   display: grid;

@@ -78,7 +78,6 @@ const Grid = styled.div`
   grid-template-columns: 1fr;
   gap: 10px;
   padding: 4px 2px;
-  overflow: auto; /* scroll within fixed half */
   flex: 1 1 auto;
   min-height: 0;
   align-content: start; /* avoid vertical stretching when few items */

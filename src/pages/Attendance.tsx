@@ -355,9 +355,9 @@ const TabButton = styled.button`
   padding: 0 18px;
   font-size: 13px;
   &[data-active] {
-    background: #f3f4f6; /* gray background */
-    color: #111827; /* black text */
-    border-color: #e5e7eb; /* gray border */
+    background: #111827;
+    color: #ffffff;
+    border-color: #111827;
   }
 `;
 

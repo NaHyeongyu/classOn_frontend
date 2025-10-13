@@ -230,7 +230,6 @@ const Grid = styled.div<{ $embedded?: boolean }>`
   grid-template-columns: 1fr;
   gap: 10px;
   padding: ${({ $embedded }) => ($embedded ? "0" : "4px 2px")};
-  overflow: auto; /* scroll within fixed half */
   flex: 1 1 auto;
   min-height: 0;
   align-content: start; /* prevent single card from stretching to fill */

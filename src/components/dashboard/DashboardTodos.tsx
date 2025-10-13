@@ -66,8 +66,20 @@ const Count = styled.span`
   background: #e5e7eb; color: #374151; height: 20px; min-width: 22px; padding: 0 6px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px;
 `;
 const More = styled.button`
-  height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700; font-size: 14px; cursor: pointer;
-  &:hover { background: ${({ theme }) => theme.colors.surfaceMuted}; }
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid ${(p) => p.theme.colors.primary};
+  background: ${(p) => p.theme.colors.primary};
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s ease, border 0.15s ease;
+  &:hover {
+    border-color: ${(p) => p.theme.colors.primaryHover ?? "#4338ca"};
+    background: ${(p) => p.theme.colors.primaryHover ?? "#4338ca"};
+  }
 `;
 const List = styled.div`
   margin-top: 10px;

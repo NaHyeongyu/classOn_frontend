@@ -16,6 +16,7 @@ const NO_CACHE_PREFIXES = [
   "/api/dashboard/attendance-today",
   "/api/calendar/classes",           // calendar daily view should refresh immediately
   "/api/calendar/classes-range",     // calendar monthly range should refresh immediately
+  "/api/admin/feedbacks",            // admin 문의/피드백은 항상 최신 목록 필요
   "/api/records/render",
   "/api/attendance/daily",
 ];

@@ -64,6 +64,16 @@ export default function Feedback() {
         </div>
       </PageHeader>
 
+      <HighlightCard role="note" aria-label="서비스 안내">
+        <HighlightTitle>Classon은 아직 성장하고 있습니다.</HighlightTitle>
+        <HighlightBody>
+          <p>선생님들의 목소리에 귀 기울이며,</p>
+          <p>현장에서 정말 필요한 기능을 하나씩 만들어가고 있습니다.</p>
+          <p>부족한 부분이 있을 수 있습니다.</p>
+          <p>하지만 여러분과 함께 더 나은 서비스로 발전해 나가겠습니다.</p>
+        </HighlightBody>
+      </HighlightCard>
+
       <SectionCard as="form" onSubmit={onSubmit} aria-labelledby="fb-title">
         <Row>
           <Col>
@@ -160,4 +170,30 @@ const BtnRow = styled.div`
   justify-content: flex-end;
   gap: 8px;
   margin-top: 14px;
+`;
+
+const HighlightCard = styled(SectionCard)`
+  border-left: 4px solid #4f46e5;
+  background: linear-gradient(135deg, rgba(79, 70, 229, 0.08), rgba(59, 130, 246, 0.05));
+  padding: 24px 28px;
+  display: grid;
+  gap: 12px;
+`;
+
+const HighlightTitle = styled.h3`
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  color: #1f2937;
+`;
+
+const HighlightBody = styled.div`
+  display: grid;
+  gap: 6px;
+  p {
+    margin: 0;
+    font-size: 15px;
+    color: #374151;
+    line-height: 1.6;
+  }
 `;

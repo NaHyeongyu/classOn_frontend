@@ -47,7 +47,8 @@ export async function listFeedbacksPaged(params?: {
   if (params?.to) sp.set('to', params.to);
   if (typeof params?.page === 'number') sp.set('page', String(params.page));
   if (typeof params?.size === 'number') sp.set('size', String(params.size));
-  const q = sp.toString() ? `?${sp.toString()}` : '';
+  sp.set('_', Date.now().toString());
+  const q = `?${sp.toString()}`;
   return await fetchJSON<AdminPage<AdminFeedbackRow>>(`/api/admin/feedbacks/page${q}`, { headers: authHeaders() });
 }
 
@@ -58,4 +59,3 @@ export async function updateFeedbackStatus(id: number, status: "NEW" | "ACK" | "
     headers: authHeaders(),
   });
 }
-

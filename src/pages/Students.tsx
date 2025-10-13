@@ -87,13 +87,15 @@ export default function Students() {
               <h2>원생 관리</h2>
               <p>등록된 원생들을 한눈에 확인해보세요!</p>
             </div>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 12 }}>
+            <ActionsRow>
               <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
-              <GhostButton as="button" onClick={handleTemplate}>템플릿 다운</GhostButton>
-              <GhostButton as="button" onClick={handleExport}>추출</GhostButton>
-              <GhostButton as="button" onClick={() => setShowImportGuide(true)}>엑셀 업로드</GhostButton>
+              <ExcelActions>
+                <GhostButton as="button" onClick={handleTemplate}>템플릿 다운</GhostButton>
+                <GhostButton as="button" onClick={handleExport}>추출</GhostButton>
+                <GhostButton as="button" onClick={() => setShowImportGuide(true)}>엑셀 업로드</GhostButton>
+              </ExcelActions>
               <input ref={fileRef} type="file" accept=".xlsx,.xls" style={{ display:'none' }} onChange={handleImport} />
-            </div>
+            </ActionsRow>
           </StickyHeader>
           <StudentsStats />
           <FiltersCard>
@@ -247,6 +249,22 @@ const TableWrap = styled.div`
 `;
 const Hint = styled.div`
   color: #6b7280; font-size: 12px;
+`;
+
+const ActionsRow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+`;
+
+const ExcelActions = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  @media (max-width: 768px) {
+    display: none;
+  }
 `;
 
 // Sticky header + stats + filters for Students page

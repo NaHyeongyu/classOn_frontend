@@ -39,7 +39,9 @@ export default function DashboardAttendance() {
 
   useEffect(() => {
     void load();
-    const refresh = () => void load();
+    const refresh: () => void = () => {
+      void load();
+    };
     const timer = setInterval(refresh, 60_000);
     window.addEventListener("calendar:classes-refresh", refresh);
     window.addEventListener("dashboard:attendance-refresh", refresh);

@@ -1269,12 +1269,27 @@ export default function CourseRecordDetail() {
       const f = send[index];
       const qid = newItems[index].id;
       // 1) presign
-      const pres = await presignRecordAttachment(
-        courseId!,
-        record!.id,
-        f.name,
-        f.type || "application/octet-stream"
-      );
+      let pres: Awaited<ReturnType<typeof presignRecordAttachment>>;
+      try {
+        pres = await presignRecordAttachment(
+          courseId!,
+          record!.id,
+          f.name,
+          f.type || "application/octet-stream"
+        );
+      } catch (error) {
+        const message = readableError(
+          error,
+          "첨부 파일 업로드를 사용할 수 없습니다."
+        );
+        setFilesError(message);
+        setUploadQueue((q) =>
+          q.map((it) =>
+            it.id === qid ? { ...it, status: "error", error: message } : it
+          )
+        );
+        throw error;
+      }
       // 2) PUT with progress via XHR
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();

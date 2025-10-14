@@ -12,6 +12,59 @@ import { useToast } from "@/components/common/Toast";
 import { LoadingSpinner } from "@/components/common/Loading";
 import { formatKoreanDate, formatKoreanDateTime } from "@/lib/format";
 
+const IconBuilding = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M3 21h18" />
+    <path d="M4 21V9l8-6 8 6v12" />
+    <path d="M9 21V12h6v9" />
+  </svg>
+);
+const IconActivity = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+  </svg>
+);
+const IconWallet = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="2" y="5" width="20" height="14" rx="3" />
+    <path d="M16 12h4" />
+    <path d="M16 9h4" />
+  </svg>
+);
+const IconCpu = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    <rect x="9" y="9" width="6" height="6" rx="1" />
+    <path d="M9 2v2 M15 2v2 M9 20v2 M15 20v2 M2 9h2 M2 15h2 M20 9h2 M20 15h2" />
+  </svg>
+);
+const IconSpark = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="m12 2 1.7 5.2L19 9l-4 3 1.5 5L12 14l-4.5 3 1.5-5-4-3 5.3-1.8L12 2z" />
+  </svg>
+);
+const IconInbox = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M4 4h16l2 8-2 8H4l-2-8z" />
+    <path d="M4 12h5l2 3h2l2-3h5" />
+  </svg>
+);
+const IconRefresh = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="23 4 23 10 17 10" />
+    <polyline points="1 20 1 14 7 14" />
+    <path d="M3.51 9a9 9 0 0 1 14.63-3.36L23 10" />
+    <path d="M20.49 15a9 9 0 0 1-14.63 3.36L1 14" />
+  </svg>
+);
+const IconTerminal = (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="14" rx="2" />
+    <path d="m7 8 3 3-3 3" />
+    <path d="M11 16h6" />
+  </svg>
+);
+
 type AdminLoginLog = Awaited<ReturnType<typeof getLoginLogs>> extends Array<infer T> ? T : never;
 type AdminPaymentRow = Awaited<ReturnType<typeof getPayments>> extends Array<infer T> ? T : never;
 
@@ -114,12 +167,12 @@ export default function AdminPage() {
   }, [from, to]);
 
   const items = useMemo(() => ([
-    { label: "전체 학원 수", value: ov?.academies ?? '—' },
-    { label: "최근 30일 로그인", value: ov?.logins30d ?? '—' },
-    { label: "최근 30일 결제합계(원)", value: ov?.paymentsAmount30d != null ? Math.round((ov.paymentsAmount30d||0)/100).toLocaleString('ko-KR') : '—' },
-    { label: "오늘 API 호출", value: ov?.apiCallsToday ?? '—' },
-    { label: "오늘 OpenAI 호출", value: ov?.openaiCallsToday ?? '—' },
-    { label: "미처리 문의", value: feedbackNewCount != null ? feedbackNewCount : '—' },
+    { label: "전체 학원 수", value: ov?.academies ?? '—', icon: IconBuilding },
+    { label: "최근 30일 로그인", value: ov?.logins30d ?? '—', icon: IconActivity },
+    { label: "최근 30일 결제합계(원)", value: ov?.paymentsAmount30d != null ? Math.round((ov.paymentsAmount30d || 0) / 100).toLocaleString('ko-KR') : '—', icon: IconWallet },
+    { label: "오늘 API 호출", value: ov?.apiCallsToday ?? '—', icon: IconCpu },
+    { label: "오늘 OpenAI 호출", value: ov?.openaiCallsToday ?? '—', icon: IconSpark },
+    { label: "미처리 문의", value: feedbackNewCount != null ? feedbackNewCount : '—', icon: IconInbox },
   ]), [ov, feedbackNewCount]);
 
   const lastUpdatedLabel = useMemo(() => {
@@ -163,10 +216,63 @@ export default function AdminPage() {
     void loadAll();
   }, [loadAll]);
 
+  const quickActions = useMemo(() => ([
+    {
+      title: "데이터 새로고침",
+      description: "대시보드 요약과 로그 데이터를 즉시 갱신합니다.",
+      icon: IconSpark,
+      onClick: handleRefreshData,
+    },
+    {
+      title: "캘린더 강제 새로고침",
+      description: "클라이언트 캘린더 캐시를 초기화하고 새로고침 이벤트를 발송합니다.",
+      icon: IconRefresh,
+      onClick: triggerCalendarRefresh,
+    },
+    {
+      title: "API 캐시 초기화",
+      description: "학생·수업·캘린더 관련 캐시를 비워 데이터 오류를 예방합니다.",
+      icon: IconCpu,
+      onClick: handleClearCaches,
+    },
+    {
+      title: "로그인 기록",
+      description: "최근 관리자 로그인 이벤트를 확인합니다.",
+      icon: IconActivity,
+      href: routes.admin + "/logins",
+    },
+    {
+      title: "API 로그",
+      description: "서비스 API 호출 이력을 실시간으로 살펴봅니다.",
+      icon: IconTerminal,
+      href: routes.admin + "/api-logs",
+    },
+    {
+      title: "결제 기록",
+      description: "결제 발생 내역과 상태를 점검합니다.",
+      icon: IconWallet,
+      href: routes.admin + "/payments",
+    },
+    {
+      title: "문의/피드백",
+      description: "사용자 문의를 처리하고 상태를 업데이트합니다.",
+      icon: IconInbox,
+      href: routes.admin + "/feedbacks",
+    },
+  ]), [handleRefreshData, triggerCalendarRefresh, handleClearCaches]);
+
   return (
     <Page>
       <Hero>
-        <div className="info">
+        <HeroContent>
+          <HeroBadges>
+            <span className="badge accent">ADMIN PANEL</span>
+            {admin ? (
+              <span className="badge muted">로그인: {admin.username}{admin.role ? ` · ${admin.role}` : ''}</span>
+            ) : (
+              <span className="badge warn">관리자 로그인 필요</span>
+            )}
+          </HeroBadges>
           <h1>관리자 대시보드</h1>
           <p>운영 현황을 빠르게 확인하고 도구를 실행하세요.</p>
           <HeroMeta>
@@ -176,18 +282,18 @@ export default function AdminPage() {
             </span>
             {isRefreshing && <SpinnerInline aria-hidden />}
           </HeroMeta>
-        </div>
-        <div className="actions">
-          {!admin ? (
-            <MonoGhost as="button" onClick={()=>nav(routes.admin + '/login')}>관리자 로그인</MonoGhost>
-          ) : (
-            <MonoGhost as="button" onClick={()=>logout()}>로그아웃</MonoGhost>
-          )}
+        </HeroContent>
+        <HeroActions>
           <MonoPrimary type="button" onClick={handleClearCaches}>캐시 초기화</MonoPrimary>
-          <MonoGhost as="button" onClick={handleRefreshData} disabled={isRefreshing}>
+          <MonoGhost as="button" type="button" onClick={handleRefreshData} disabled={isRefreshing}>
             {isRefreshing ? (<><SpinnerInline aria-hidden /><span>갱신 중…</span></>) : '데이터 새로고침'}
           </MonoGhost>
-        </div>
+          {!admin ? (
+            <MonoGhost as="button" type="button" onClick={() => nav(routes.admin + '/login')}>관리자 로그인</MonoGhost>
+          ) : (
+            <MonoGhost as="button" type="button" onClick={() => logout()}>로그아웃</MonoGhost>
+          )}
+        </HeroActions>
       </Hero>
 
       {admin ? (
@@ -215,18 +321,23 @@ export default function AdminPage() {
           <Title>요약</Title>
           <Kpis>
             {items.map((it, i) => (
-              <Kpi key={i} data-variant={(i % 3) + 1} data-loading={isInitialLoading || undefined}>
-                {isInitialLoading ? (
-                  <>
-                    <SkeletonLine />
-                    <SkeletonLine $size="lg" />
-                  </>
-                ) : (
-                  <>
-                    <span className="label">{it.label}</span>
-                    <span className="value">{it.value}</span>
-                  </>
-                )}
+              <Kpi key={i} data-variant={(i % 3) + 1} data-loading={isInitialLoading ? true : undefined}>
+                <div className="icon" aria-hidden>
+                  {it.icon}
+                </div>
+                <div className="content">
+                  {isInitialLoading ? (
+                    <>
+                      <SkeletonLine />
+                      <SkeletonLine $size="lg" />
+                    </>
+                  ) : (
+                    <>
+                      <span className="label">{it.label}</span>
+                      <span className="value">{it.value}</span>
+                    </>
+                  )}
+                </div>
               </Kpi>
             ))}
           </Kpis>
@@ -234,29 +345,23 @@ export default function AdminPage() {
 
         <Section>
           <Title>빠른 작업</Title>
-          <QuickList>
-            <li>
-              <MonoGhost type="button" onClick={triggerCalendarRefresh}>캘린더 강제 새로고침</MonoGhost>
-            </li>
-            <li>
-              <MonoGhost type="button" onClick={handleClearCaches}>API 캐시 전체 무효화</MonoGhost>
-            </li>
-            <li>
-              <MonoGhost as="a" href={routes.admin + '/logins'}>로그인 기록 보기</MonoGhost>
-            </li>
-            <li>
-              <MonoGhost as="a" href={routes.admin + '/api-logs'}>API 로그 보기</MonoGhost>
-            </li>
-            <li>
-              <MonoGhost as="a" href={routes.admin + '/openai-logs'}>OpenAI 로그 보기</MonoGhost>
-            </li>
-            <li>
-              <MonoGhost as="a" href={routes.admin + '/payments'}>결제 기록 보기</MonoGhost>
-            </li>
-            <li>
-              <MonoGhost as="a" href={routes.admin + '/feedbacks'}>문의/피드백 전체 보기</MonoGhost>
-            </li>
-          </QuickList>
+          <QuickGrid>
+            {quickActions.map((action) => {
+              const isLink = Boolean(action.href);
+              const cardProps = isLink
+                ? { as: 'a' as const, href: action.href }
+                : { as: 'button' as const, type: 'button', onClick: action.onClick };
+              return (
+                <QuickCard key={action.title} {...cardProps}>
+                  <div className="iconWrap" aria-hidden>{action.icon}</div>
+                  <div className="body">
+                    <span className="title">{action.title}</span>
+                    <span className="desc">{action.description}</span>
+                  </div>
+                </QuickCard>
+              );
+            })}
+          </QuickGrid>
         </Section>
 
         <Section>
@@ -382,16 +487,109 @@ export default function AdminPage() {
 
 const Page = styled.div` display:grid; gap:14px; `;
 const Hero = styled.header`
-  display:flex; align-items:center; justify-content:space-between; padding:16px; border:1px solid #e5e7eb; border-radius:14px; background: linear-gradient(180deg, #f9fafb 0%, #ffffff 80%);
-  .info { display:grid; gap:4px; }
-  .info h1 { margin:0; font-size:20px; color:#0f172a; }
-  .info p { margin:0; color:#6b7280; }
-  .actions { display:inline-flex; gap:8px; }
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 28px 32px;
+  border-radius: 20px;
+  border: 1px solid rgba(99, 102, 241, 0.16);
+  background: radial-gradient(140% 100% at 0% 0%, rgba(79, 70, 229, 0.14) 0%, rgba(59, 130, 246, 0.1) 40%, #ffffff 75%);
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
+  overflow: hidden;
+  isolation: isolate;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -55% 35% auto -10%;
+    height: 220px;
+    border-radius: 50%;
+    background: rgba(79, 70, 229, 0.18);
+    filter: blur(90px);
+    z-index: 0;
+  }
+  @media (max-width: 640px) {
+    padding: 24px 20px;
+  }
+`;
+const HeroContent = styled.div`
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 12px;
+  max-width: min(560px, 100%);
+  h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: #0f172a;
+  }
+  p {
+    margin: 0;
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+`;
+const HeroBadges = styled.div`
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: rgba(148, 163, 184, 0.18);
+    color: #1f2937;
+  }
+  .badge.accent {
+    background: rgba(79, 70, 229, 0.2);
+    color: #312e81;
+  }
+  .badge.muted {
+    background: rgba(148, 163, 184, 0.16);
+  }
+  .badge.warn {
+    background: rgba(248, 113, 113, 0.22);
+    color: #b91c1c;
+  }
+`;
+const HeroActions = styled.div`
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-left: auto;
 `;
 const HeroMeta = styled.div`
-  display:inline-flex; align-items:center; gap:8px; margin-top:4px; font-size:12px; color:#64748b;
-  .chip { background:#e0f2fe; color:#0369a1; border-radius:999px; padding:2px 8px; font-weight:700; letter-spacing:.02em; }
-  .value { font-weight:700; color:#0f172a; }
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: #475569;
+  .chip {
+    background: rgba(59, 130, 246, 0.18);
+    color: #1d4ed8;
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+  }
+  .value {
+    font-weight: 700;
+    color: #0f172a;
+  }
 `;
 const SpinnerInline = styled(LoadingSpinner)`
   width:16px;
@@ -399,10 +597,33 @@ const SpinnerInline = styled(LoadingSpinner)`
   flex-shrink:0;
 `;
 const StatusBar = styled.div`
-  display:flex; gap:10px; align-items:center; color:#475569; font-size:12px;
-  .pill { background:#111827; color:#fff; border-radius:999px; padding:4px 8px; font-weight:800; letter-spacing:.02em; }
-  .pill.warn { background:#b91c1c; }
-  .who { color:#334155; }
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 16px;
+  border-radius:14px;
+  border:1px dashed rgba(148, 163, 184, 0.6);
+  background: rgba(241, 245, 249, 0.8);
+  font-size:12px;
+  color:#475569;
+  .pill {
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    border-radius:999px;
+    padding:4px 10px;
+    background:#111827;
+    color:#fff;
+    font-weight:800;
+    letter-spacing:0.03em;
+  }
+  .pill.warn {
+    background:#dc2626;
+  }
+  .who {
+    color:#1f2937;
+    font-weight:700;
+  }
 `;
 const InlineAlert = styled.div`
   display:flex; gap:12px; align-items:center; border:1px solid #fecaca; background:#fee2e2; color:#b91c1c; padding:12px 16px; border-radius:12px; font-size:13px; font-weight:600;
@@ -417,17 +638,66 @@ const TwoCol = styled.div`
   display:grid; gap:16px;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
 `;
-const Kpis = styled.div` display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); `;
+const Kpis = styled.div` display:grid; gap:12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); `;
 const Kpi = styled.div`
-  position:relative; border:1px solid #e5e7eb; border-radius:12px; padding:14px; display:grid; gap:6px; background:#fff; overflow:hidden;
-  &:before{ content:''; position:absolute; inset:auto -20% 0 -20%; height:40%; background:var(--kpi-bg,#eef2ff); filter:blur(20px); }
-  &[data-variant='1']{ --kpi-bg:#e0e7ff; }
-  &[data-variant='2']{ --kpi-bg:#dcfce7; }
-  &[data-variant='3']{ --kpi-bg:#fee2e2; }
-  &[data-loading]{ background:#f8fafc; }
-  &[data-loading]:before{ opacity:0; }
-  .label { color:#6b7280; font-size:12px; font-weight:700; }
-  .value { color:#0f172a; font-size:18px; font-weight:800; }
+  position: relative;
+  border: 1px solid rgba(226, 232, 240, 1);
+  border-radius: 16px;
+  padding: 18px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  align-items: center;
+  background: #ffffff;
+  overflow: hidden;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  &:hover {
+    transform: translateY(-2px);
+    border-color: rgba(148, 163, 184, 0.4);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+  }
+  &:before {
+    content: '';
+    position: absolute;
+    inset: auto -25% -35% -25%;
+    height: 60%;
+    background: var(--kpi-bg, #eef2ff);
+    filter: blur(28px);
+    z-index: 0;
+  }
+  &[data-variant='1'] { --kpi-bg:#e0e7ff; --kpi-icon-bg:rgba(224,231,255,0.7); --kpi-icon-color:#4338ca; }
+  &[data-variant='2'] { --kpi-bg:#dcfce7; --kpi-icon-bg:rgba(187,247,208,0.7); --kpi-icon-color:#15803d; }
+  &[data-variant='3'] { --kpi-bg:#fee2e2; --kpi-icon-bg:rgba(254,215,215,0.7); --kpi-icon-color:#b91c1c; }
+  &[data-loading] {
+    background: #f8fafc;
+  }
+  &[data-loading]:before {
+    opacity: 0;
+  }
+  &[data-loading] .icon {
+    background: rgba(226, 232, 240, 0.8);
+    color: #94a3b8;
+  }
+  .icon {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background: var(--kpi-icon-bg, rgba(224, 231, 255, 0.7));
+    color: var(--kpi-icon-color, #4338ca);
+    flex-shrink: 0;
+  }
+  .content {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    gap: 6px;
+  }
+  .label { color:#6b7280; font-size:12px; font-weight:700; letter-spacing:0.01em; }
+  .value { color:#0f172a; font-size:20px; font-weight:800; letter-spacing:-0.01em; }
 `;
 const skeletonShimmer = keyframes`
   0% { background-position: 100% 0; }
@@ -442,9 +712,67 @@ const SkeletonLine = styled.span<{ $size?: 'lg' }>`
   background-size:200% 100%;
   animation:${skeletonShimmer} 1.2s ease-in-out infinite;
 `;
-const QuickList = styled.ul`
-  list-style:none; padding:0; margin:0; display:grid; gap:8px;
-  li { display:flex; }
+const QuickGrid = styled.div`
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+`;
+const QuickCard = styled.button`
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+  text-decoration: none;
+  position: relative;
+  z-index: 0;
+  .iconWrap {
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(224, 231, 255, 0.6);
+    color: #4338ca;
+    flex-shrink: 0;
+  }
+  .body {
+    display: grid;
+    gap: 6px;
+  }
+  .title {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+  }
+  .desc {
+    font-size: 12px;
+    color: #475569;
+    line-height: 1.5;
+  }
+  &:hover {
+    transform: translateY(-2px);
+    border-color: rgba(99, 102, 241, 0.35);
+    box-shadow: 0 16px 32px rgba(15, 23, 42, 0.12);
+  }
+  &:focus-visible {
+    outline: 2px solid rgba(79, 70, 229, 0.55);
+    outline-offset: 2px;
+  }
+  &:active {
+    transform: translateY(0);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+  }
+  &[href] {
+    cursor: pointer;
+  }
 `;
 const FeedbackMeta = styled.div`
   display:flex;
@@ -566,10 +894,17 @@ const InsightHint = styled.span`
   font-size:12px; color:#94a3b8;
 `;
 const TableStatus = styled.div<{ $variant?: 'error' }>`
-  display:flex; align-items:center; justify-content:center; gap:8px;
-  padding:16px;
-  font-size:13px; font-weight:600;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  padding:18px;
+  font-size:13px;
+  font-weight:600;
   color:${({ $variant }) => $variant === 'error' ? '#b91c1c' : '#475569'};
+  background:${({ $variant }) => $variant === 'error' ? 'rgba(254, 242, 242, 0.9)' : 'rgba(241, 245, 249, 0.9)'};
+  border:1px dashed ${({ $variant }) => $variant === 'error' ? 'rgba(248, 113, 113, 0.6)' : 'rgba(148, 163, 184, 0.5)'};
+  border-radius:12px;
 `;
 
 function AcademiesTable({ from, to }: { from: string; to: string }) {

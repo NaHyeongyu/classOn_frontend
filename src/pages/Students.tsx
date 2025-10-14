@@ -78,6 +78,18 @@ export default function Students() {
       ev.target.value = '';
     }
   }
+
+  useEffect(() => {
+    const refresh = () => setRefreshKey((k) => k + 1);
+    window.addEventListener('student:created', refresh);
+    window.addEventListener('student:updated', refresh);
+    window.addEventListener('student:deleted', refresh);
+    return () => {
+      window.removeEventListener('student:created', refresh);
+      window.removeEventListener('student:updated', refresh);
+      window.removeEventListener('student:deleted', refresh);
+    };
+  }, []);
   return (
     <Page>
       <StickyWrap>

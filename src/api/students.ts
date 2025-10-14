@@ -108,6 +108,11 @@ export async function createStudent(payload: StudentPayload): Promise<Student> {
   } catch {
     /* ignore cross-context dispatch errors */
   }
+  try {
+    window.dispatchEvent(new CustomEvent('student:created', { detail: { student: res } }));
+  } catch {
+    /* ignore dispatch errors */
+  }
   return res;
 }
 
@@ -128,6 +133,11 @@ export async function updateStudent(id: number, payload: Partial<StudentPayload>
   } catch {
     /* ignore cross-context dispatch errors */
   }
+  try {
+    window.dispatchEvent(new CustomEvent('student:updated', { detail: { student: res } }));
+  } catch {
+    /* ignore dispatch errors */
+  }
   return res;
 }
 
@@ -145,6 +155,11 @@ export async function deleteStudent(id: number): Promise<void> {
     window.dispatchEvent(new CustomEvent('calendar:classes-refresh', { detail: {} }));
   } catch {
     /* ignore cross-context dispatch errors */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('student:deleted', { detail: { studentId: id } }));
+  } catch {
+    /* ignore dispatch errors */
   }
 }
 

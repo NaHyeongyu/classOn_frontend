@@ -3,7 +3,7 @@ import CalendarDetailHeader from "@/components/calendar/detail/CalendarDetailHea
 import ClassList from "@/components/calendar/detail/ClassList";
 import CounselList from "@/components/calendar/detail/CounselList";
 import TodoList from "@/components/calendar/detail/TodoList";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import SelectBox from "@/components/common/SelectBox";
 import type { FormEvent } from "react";
 import styled from "styled-components";
@@ -301,15 +301,7 @@ export default function CalendarDetail() {
     setCounselHour("");
     setCounselMin("");
     setCounselTime("");
-    if (students.length === 0) {
-      setStudBusy(true); setStudErr(null);
-      try {
-        const res = await listStudents({ status: 'ENROLLED', size: 200 });
-        setStudents(res.content);
-      } catch (e) {
-        setStudErr(readableError(e, '학생 목록을 불러오지 못했습니다.'));
-      } finally { setStudBusy(false); }
-    }
+    void loadStudents();
   }
   function onPickStudent(s: Student) { setSelStudent(s); setCounselErr(null); }
   function isoFromYmdHm(ymd: string, hm: string) {
@@ -644,3 +636,27 @@ const SelectedBox = styled.div`
   .label { color:#4f46e5; font-weight: 800; }
   .name { font-weight: 800; }
 `;
+  const loadStudents = useCallback(async () => {
+    setStudBusy(true);
+    setStudErr(null);
+    try {
+      const res = await listStudents({ status: 'ENROLLED', size: 200 });
+      setStudents(res.content);
+    } catch (error) {
+      setStudErr(readableError(error, '학생 목록을 불러오지 못했습니다.'));
+    } finally {
+      setStudBusy(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const reload = () => { void loadStudents(); };
+    window.addEventListener('student:created', reload);
+    window.addEventListener('student:updated', reload);
+    window.addEventListener('student:deleted', reload);
+    return () => {
+      window.removeEventListener('student:created', reload);
+      window.removeEventListener('student:updated', reload);
+      window.removeEventListener('student:deleted', reload);
+    };
+  }, [loadStudents]);

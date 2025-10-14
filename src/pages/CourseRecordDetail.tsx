@@ -1642,7 +1642,12 @@ export default function CourseRecordDetail() {
           setConfirmBusy(true);
           try {
             await deleteCourseRecord(courseId, record.id);
-            invalidateCacheByPrefix("/api/calendar/classes");
+            invalidateCacheByPrefix([
+              "/api/calendar/classes",
+              "/api/calendar/classes-range",
+              `/api/courses/${courseId}`,
+              `/api/courses/${courseId}/records`,
+            ]);
             setConfirmDeleteOpen(false);
             navigate(`/classes/${courseId}/history`);
           } catch (error) {

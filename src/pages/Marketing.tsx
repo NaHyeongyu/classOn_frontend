@@ -258,7 +258,10 @@ async function fetchCoursePage(courseId: number, nextPage: number) {
           </HeaderActions>
         </PageHeader>
         <BetaNotice role="status">
-          마케팅 기능은 아직 테스트 중입니다. 사소한 문제점이 있을 수 있으며 빠른 시일 내 개선하겠습니다.
+          <strong>ClassOn은 성장중입니다.</strong>
+          <p>유저들의 목소리에 귀를 기울이고 적극적으로 소통하며</p>
+          <p>현장에서 정말 필요한 기능들을 하나씩 만들어가고 있습니다.</p>
+          <p>아직은 부족한 부분이 있을 수 있지만 피드백을 통해 더 나은 서비스를 제공하겠습니다!</p>
         </BetaNotice>
         {/* Guide banner removed */}
       </HeaderWrap>
@@ -581,6 +584,10 @@ const BetaNotice = styled.div`
   color: #312e81;
   font-size: ${(p) => p.theme.font.size.sm};
   line-height: 1.5;
+  display: grid;
+  gap: 4px;
+  strong { font-weight: 700; }
+  p { margin: 0; }
 `;
 
 const HeaderActions = styled.div`

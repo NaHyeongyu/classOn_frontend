@@ -274,7 +274,7 @@ export default function Register() {
             <Divider />
             <SectionTitle>학원 정보</SectionTitle>
             <Label>학원명<span>*</span></Label>
-            <Input value={academyName} onChange={(e) => setAcademyName(e.target.value)} placeholder="예: 오픈AI어학원" aria-invalid={academyName !== '' && !academyName} required />
+            <Input value={academyName} onChange={(e) => setAcademyName(e.target.value)} aria-invalid={academyName !== '' && !academyName} required />
 
             <Label>카테고리<span>*</span></Label>
             <Pills>

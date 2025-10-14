@@ -96,6 +96,73 @@ export default function CourseDetail() {
   const [attByRec, setAttByRec] = useState<
     Record<number, Record<number, boolean>>
   >({});
+  useEffect(() => {
+    if (!numericId) return;
+    const matchesFilter = (recordDate: string) => {
+      if (filterYear == null) return true;
+      const year = Number(recordDate.slice(0, 4));
+      if (!Number.isFinite(year) || year !== filterYear) return false;
+      if (filterMonth && filterMonth >= 1) {
+        const month = Number(recordDate.slice(5, 7));
+        return Number.isFinite(month) && month === filterMonth;
+      }
+      return true;
+    };
+    const sortRecords = (items: CourseRecord[]) =>
+      items.slice().sort((a, b) => {
+        const byDate = a.recordDate.localeCompare(b.recordDate);
+        if (byDate !== 0) return byDate;
+        const startA = a.startTime ?? "";
+        const startB = b.startTime ?? "";
+        return startA.localeCompare(startB);
+      });
+
+    function onCreated(event: CustomEvent<{ courseId: number; record: CourseRecord }>) {
+      const detail = event.detail;
+      if (!detail || detail.courseId !== numericId) return;
+      const { record } = detail;
+      if (!record || !matchesFilter(record.recordDate)) return;
+      setRecords((prev) => sortRecords([...prev.filter((r) => r.id !== record.id), record]));
+    }
+
+    function onUpdated(event: CustomEvent<{ courseId: number; record: CourseRecord }>) {
+      const detail = event.detail;
+      if (!detail || detail.courseId !== numericId) return;
+      const { record } = detail;
+      if (!record) return;
+      setRecords((prev) => {
+        const exists = prev.some((r) => r.id === record.id);
+        if (!matchesFilter(record.recordDate)) {
+          return exists ? prev.filter((r) => r.id !== record.id) : prev;
+        }
+        const next = exists
+          ? prev.map((r) => (r.id === record.id ? record : r))
+          : [...prev, record];
+        return sortRecords(next);
+      });
+    }
+
+    function onDeleted(event: CustomEvent<{ courseId: number; recordId: number }>) {
+      const detail = event.detail;
+      if (!detail || detail.courseId !== numericId) return;
+      setRecords((prev) => prev.filter((r) => r.id !== detail.recordId));
+      setAttByRec((prev) => {
+        if (prev == null || !(detail.recordId in prev)) return prev;
+        const next = { ...prev };
+        delete next[detail.recordId];
+        return next;
+      });
+    }
+
+    window.addEventListener("course-record:created", onCreated as EventListener);
+    window.addEventListener("course-record:updated", onUpdated as EventListener);
+    window.addEventListener("course-record:deleted", onDeleted as EventListener);
+    return () => {
+      window.removeEventListener("course-record:created", onCreated as EventListener);
+      window.removeEventListener("course-record:updated", onUpdated as EventListener);
+      window.removeEventListener("course-record:deleted", onDeleted as EventListener);
+    };
+  }, [numericId, filterYear, filterMonth]);
   function readableError(e: unknown, fallback: string) {
     if (typeof e === "string") return e;
     if (

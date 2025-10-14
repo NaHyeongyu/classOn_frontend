@@ -174,11 +174,42 @@ export async function updateCourseRecord(
   payload: Partial<Pick<CourseRecord, 'recordDate'|'startTime'|'endTime'|'topic'|'notes'|'content'|'performanceScore'|'performanceNote'>>
 ): Promise<CourseRecord> {
   const body = JSON.stringify(payload);
-  return await fetchJSON<CourseRecord>(`/api/courses/${courseId}/records/${recordId}`, { method: 'PUT', body });
+  const res = await fetchJSON<CourseRecord>(`/api/courses/${courseId}/records/${recordId}`, { method: 'PUT', body });
+  try {
+    invalidateCacheByPrefix([
+      `/api/courses/${courseId}/records`,
+      `/api/courses/${courseId}`,
+      '/api/calendar/classes',
+      '/api/calendar/classes-range',
+    ]);
+  } catch {
+    /* ignore cache invalidation failures */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('course-record:updated', { detail: { courseId, record: res } }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
+  return res;
 }
 
 export async function deleteCourseRecord(courseId: number, recordId: number): Promise<void> {
   await fetchJSON<void>(`/api/courses/${courseId}/records/${recordId}`, { method: 'DELETE' });
+  try {
+    invalidateCacheByPrefix([
+      `/api/courses/${courseId}/records`,
+      `/api/courses/${courseId}`,
+      '/api/calendar/classes',
+      '/api/calendar/classes-range',
+    ]);
+  } catch {
+    /* ignore cache invalidation failures */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('course-record:deleted', { detail: { courseId, recordId } }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
 }
 
 export async function createCourseRecord(
@@ -186,7 +217,23 @@ export async function createCourseRecord(
   payload: { recordDate: string; startTime?: string; endTime?: string; topic?: string; notes?: string; content?: string; performanceScore?: number | null; performanceNote?: string | null; }
 ): Promise<CourseRecord> {
   const body = JSON.stringify(payload);
-  return await fetchJSON<CourseRecord>(`/api/courses/${courseId}/records`, { method: 'POST', body });
+  const res = await fetchJSON<CourseRecord>(`/api/courses/${courseId}/records`, { method: 'POST', body });
+  try {
+    invalidateCacheByPrefix([
+      `/api/courses/${courseId}/records`,
+      `/api/courses/${courseId}`,
+      '/api/calendar/classes',
+      '/api/calendar/classes-range',
+    ]);
+  } catch {
+    /* ignore cache invalidation failures */
+  }
+  try {
+    window.dispatchEvent(new CustomEvent('course-record:created', { detail: { courseId, record: res } }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
+  return res;
 }
 
 export async function listRecordAttendance(courseId: number, recordId: number): Promise<Attendance[]> {

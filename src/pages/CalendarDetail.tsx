@@ -292,7 +292,20 @@ export default function CalendarDetail() {
   const [startHour, setStartHour] = useState<string>("");
   const [startMin, setStartMin] = useState<string>("");
   const [endHour, setEndHour] = useState<string>("");
-  const [endMin, setEndMin] = useState<string>(""); 
+  const [endMin, setEndMin] = useState<string>("");
+
+  const fetchStudentsList = async () => {
+    setStudBusy(true);
+    setStudErr(null);
+    try {
+      const res = await listStudents({ status: "ENROLLED", size: 200 });
+      setStudents(res.content);
+    } catch (error) {
+      setStudErr(readableError(error, "학생 목록을 불러오지 못했습니다."));
+    } finally {
+      setStudBusy(false);
+    }
+  };
 
   async function onAddCounsel() {
     setCounselOpen(true);

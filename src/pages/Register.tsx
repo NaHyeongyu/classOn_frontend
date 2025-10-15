@@ -47,6 +47,10 @@ export default function Register() {
 
   // 학원 정보 / Academy info
   const [academyName, setAcademyName] = useState("");
+  const [academyAddress, setAcademyAddress] = useState("");
+  const [representative, setRepresentative] = useState("");
+  const [academyPhone, setAcademyPhone] = useState("");
+  const [billingEmail, setBillingEmail] = useState("");
   const [bizNo, setBizNo] = useState("");
   const [bizNoAvailable, setBizNoAvailable] = useState<boolean | null>(null);
   // 카테고리
@@ -190,6 +194,10 @@ export default function Register() {
         category2: category1 !== "기타" ? (category2 || undefined) : undefined,
         categoryEtc: category1 === "기타" ? (categoryEtc || undefined) : undefined,
         referral: referral || undefined,
+        address: academyAddress || undefined,
+        representativeName: representative || undefined,
+        academyPhone: academyPhone || undefined,
+        billingEmail: billingEmail || undefined,
       });
       navigate("/login", { replace: true });
     } catch (err: any) {
@@ -330,6 +338,18 @@ export default function Register() {
             <Label>사업자번호 (선택)</Label>
             <Input value={maskBizNo(bizNo).masked} onChange={(e) => void onBizNoChange(e.target.value)} placeholder="###-##-#####" aria-invalid={maskBizNo(bizNo).raw.length > 0 && (maskBizNo(bizNo).raw.length !== 10 || bizNoAvailable === false)} />
             {bizNoAvailable === false && <Hint danger>이미 가입된 사업자번호입니다. 연결/문의를 진행해 주세요.</Hint>}
+
+            <Label>학원 주소 (선택)</Label>
+            <Input value={academyAddress} onChange={(e) => setAcademyAddress(e.target.value)} placeholder="도로명 주소" />
+
+            <Label>대표자명 (선택)</Label>
+            <Input value={representative} onChange={(e) => setRepresentative(e.target.value)} placeholder="대표자 성함" />
+
+            <Label>학원 대표번호 (선택)</Label>
+            <Input value={academyPhone} onChange={(e) => setAcademyPhone(e.target.value)} placeholder="02-1234-5678" />
+
+            <Label>청구용 이메일 (선택)</Label>
+            <Input value={billingEmail} onChange={(e) => setBillingEmail(e.target.value)} placeholder="billing@example.com" />
 
             <Label>가입 경로 (선택)</Label>
             <Input value={referral} onChange={(e) => setReferral(e.target.value)} placeholder="예: 친구 추천, 광고, 검색 등" />

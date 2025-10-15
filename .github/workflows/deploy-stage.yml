@@ -14,17 +14,14 @@ jobs:
       cancel-in-progress: true
 
     steps:
-      # 1️⃣ 코드 체크아웃
       - uses: actions/checkout@v4
 
-      # 2️⃣ Node.js 설정
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: package-lock.json
 
-      # 3️⃣ 스테이징 환경 변수 주입 (.env.stage)
       - name: Write .env.stage
         run: |
           cat > .env.stage << 'EOF'
@@ -34,11 +31,9 @@ jobs:
           echo "✅ .env.stage created:"
           cat .env.stage
 
-      # 4️⃣ 의존성 설치 및 빌드
       - run: npm ci
       - run: npm run build -- --mode stage
 
-      # 5️⃣ AWS 인증 설정
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -46,7 +41,6 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region:            ${{ secrets.AWS_REGION }}
 
-      # 6️⃣ S3에 업로드 (정적 파일 캐싱, index.html만 no-cache)
       - name: Upload to S3
         run: |
           aws s3 sync dist/ s3://${{ secrets.S3_BUCKET }} \
@@ -57,7 +51,6 @@ jobs:
           aws s3 cp dist/index.html s3://${{ secrets.S3_BUCKET }}/index.html \
             --cache-control "no-cache"
 
-      # 7️⃣ CloudFront 캐시 무효화
       - name: Invalidate CloudFront
         run: |
           aws cloudfront create-invalidation \

@@ -11,6 +11,7 @@ export type AcademyDetail = {
   category1: string;
   category2?: string;
   categoryEtc?: string;
+  stage?: "DEVELOPMENT" | "TEST" | "PRODUCTION";
 };
 
 export async function apiGetMyAcademy(): Promise<AcademyDetail> {
@@ -30,4 +31,3 @@ export async function apiUpdateMyProfile(payload: { name?: string; phone?: strin
     body: JSON.stringify(payload),
   });
 }
-

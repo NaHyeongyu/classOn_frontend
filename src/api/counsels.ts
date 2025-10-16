@@ -1,4 +1,4 @@
-import { fetchJSON, invalidateCacheByPrefix } from "../lib/fetcher";
+import { fetchJSON, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
 import type { PageResult } from "../types/paging";
 
 export type Counsel = {
@@ -71,13 +71,8 @@ export async function deleteCounsel(id: number): Promise<void> {
 }
 
 // Excel export helper
-const COUNSEL_API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : "https://api.myclasson.com/api");
-
-function resolveCounselUrl(path: string): string {
-  return COUNSEL_API_BASE ? new URL(path, COUNSEL_API_BASE).toString() : path;
-}
 async function fetchCounselBlob(path: string): Promise<Blob> {
-  const url = resolveCounselUrl(path);
+  const url = resolveApiUrl(path);
   const token = (await import("../lib/auth")).getToken();
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);

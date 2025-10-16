@@ -1,4 +1,4 @@
-import { fetchJSON, invalidateCacheByPrefix } from "../lib/fetcher";
+import { fetchJSON, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
 import type { Student } from "./students";
 import type { PageResult } from "../types/paging";
 
@@ -56,13 +56,6 @@ export type Attachment = {
 
 // Re-export for existing imports from this module
 export type { PageResult } from "../types/paging";
-
-const DEFAULT_API_BASE = "https://api.myclasson.com/api";
-const API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : DEFAULT_API_BASE);
-
-function resolveApiUrl(path: string): string {
-  return API_BASE ? new URL(path, API_BASE).toString() : path;
-}
 
 export async function listCourses(params?: { status?: Course["status"] | ""; q?: string; page?: number; size?: number; onYmd?: string; s?: 'title'|'status'|'capacity'|'fee'|'startTime'|'endTime'|'createdAt'; dir?: 'ASC'|'DESC' }): Promise<PageResult<Course>> {
   const sp = new URLSearchParams();

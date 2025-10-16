@@ -4,8 +4,11 @@ import { getToken } from "./auth";
 
 // Support both VITE_API_BASE (new) and VITE_API_BASE_URL (legacy).
 // In development: default to "" to use Vite dev proxy (no CORS, points to localhost:8080).
-// In production: default to the production API domain.
-const API_BASE = (import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL) ?? (import.meta.env.DEV ? "" : "https://api.myclasson.com/api");
+// Outside development: default to the production API domain.
+const DEFAULT_API_BASE = import.meta.env.DEV ? "" : "https://api.myclasson.com/api";
+
+export const API_BASE =
+  (import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL) ?? DEFAULT_API_BASE;
 const CACHE_TTL_MS = Number(import.meta.env.VITE_FETCH_TTL_MS ?? 30000);
 const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_FETCH_TIMEOUT_MS ?? 10000);
 // Certain highly-dynamic endpoints should bypass client TTL/ETag to reflect
@@ -20,7 +23,7 @@ const NO_CACHE_PREFIXES = [
   "/api/attendance/daily",
 ];
 
-function resolveURL(path: string) {
+export function resolveApiUrl(path: string) {
   return API_BASE ? new URL(path, API_BASE).toString() : path;
 }
 
@@ -49,7 +52,7 @@ function setCache(url: string, etag: string | null, body: string) {
 export function invalidateCache(paths: string | string[]) {
   const list = Array.isArray(paths) ? paths : [paths];
   for (const p of list) {
-    const url = resolveURL(p);
+    const url = resolveApiUrl(p);
     try {
       localStorage.removeItem(`etag:${url}`);
       localStorage.removeItem(`cache:${url}`);
@@ -63,7 +66,7 @@ export function invalidateCache(paths: string | string[]) {
 // Invalidate all cached entries whose URL starts with the given prefix(es).
 // Useful when lists use varied querystrings and ETag/TTL may otherwise keep stale views.
 export function invalidateCacheByPrefix(prefixes: string | string[]) {
-  const list = (Array.isArray(prefixes) ? prefixes : [prefixes]).map(resolveURL);
+  const list = (Array.isArray(prefixes) ? prefixes : [prefixes]).map(resolveApiUrl);
   try {
     const keys: string[] = [];
     for (let i = 0; i < localStorage.length; i++) {
@@ -85,7 +88,7 @@ export function invalidateCacheByPrefix(prefixes: string | string[]) {
 // EN: Read cached JSON for a given path without triggering a network request
 // KO: 네트워크 요청 없이 주어진 경로의 캐시된 JSON을 조회
 export function peekCache<T>(path: string): { data: T | null; ts: number } {
-  const url = resolveURL(path);
+  const url = resolveApiUrl(path);
   const { body, ts } = getCache(url);
   if (!body) return { data: null, ts: 0 };
   try {
@@ -98,9 +101,9 @@ export function peekCache<T>(path: string): { data: T | null; ts: number } {
 type FetchInit = RequestInit & { timeoutMs?: number };
 
 export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
-  const url = resolveURL(path);
+  const url = resolveApiUrl(path);
   const token = getToken();
-  const noCache = NO_CACHE_PREFIXES.some((p) => url.startsWith(resolveURL(p)));
+  const noCache = NO_CACHE_PREFIXES.some((p) => url.startsWith(resolveApiUrl(p)));
   // Use credentials only for same-origin requests; omit for cross-origin to avoid CORS credential requirements
   const target = new URL(url, window.location.href);
   const sameOrigin = target.origin === window.location.origin;

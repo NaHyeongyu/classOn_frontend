@@ -1,7 +1,7 @@
 // EN: Students API client
 // KO: 원생 API 클라이언트
 
-import { fetchJSON, invalidateCacheByPrefix } from "../lib/fetcher";
+import { fetchJSON, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
 import type { PageResult } from "../types/paging";
 
 export type Student = {
@@ -149,13 +149,8 @@ export async function deleteStudent(id: number): Promise<void> {
 }
 
 // Excel helpers (download/upload)
-const STUDENT_API_BASE = import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? "" : "https://api.myclasson.com/api");
-
-function resolveStudentUrl(path: string): string {
-  return STUDENT_API_BASE ? new URL(path, STUDENT_API_BASE).toString() : path;
-}
 async function fetchBlob(path: string): Promise<Blob> {
-  const url = resolveStudentUrl(path);
+  const url = resolveApiUrl(path);
   const token = (await import("../lib/auth")).getToken();
   const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
@@ -184,7 +179,7 @@ export async function downloadStudentsTemplate(): Promise<Blob> {
 }
 
 export async function importStudentsExcel(file: File): Promise<{ created: number; updated: number; skipped: number; errors: string[] }>{
-  const url = resolveStudentUrl(`/api/students/import`);
+  const url = resolveApiUrl(`/api/students/import`);
   const token = (await import("../lib/auth")).getToken();
   const form = new FormData();
   form.append('file', file);
@@ -195,7 +190,7 @@ export async function importStudentsExcel(file: File): Promise<{ created: number
 }
 
 export async function previewImportStudentsExcel(file: File): Promise<{ created: number; updated: number; skipped: number; errors: string[]; rows: any[] }>{
-  const url = resolveStudentUrl(`/api/students/import/preview`);
+  const url = resolveApiUrl(`/api/students/import/preview`);
   const token = (await import("../lib/auth")).getToken();
   const form = new FormData();
   form.append('file', file);

@@ -94,7 +94,7 @@ function UnprocessedList() {
   useEffect(() => {
     void load();
     const t = setInterval(load, 60_000);
-    const onRefresh: () => void = () => { void load(); };
+    const onRefresh = (): void => { void load(); };
     const onVis = () => { if (document.visibilityState === 'visible') void load(); };
     window.addEventListener('calendar:classes-refresh', onRefresh as EventListener);
     window.addEventListener('dashboard:attendance-refresh', onRefresh as EventListener);

@@ -34,6 +34,8 @@ export type AttendanceDailyStudent = {
   reason: string | null;
   source: "MOBILE" | "MANUAL" | null;
   createdAt: string | null;
+  startTime?: string | null;
+  endTime?: string | null;
 };
 
 export type AttendanceUnprocessedStudent = {

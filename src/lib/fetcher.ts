@@ -8,9 +8,73 @@ import { getToken } from "./auth";
 const DEFAULT_API_BASE = import.meta.env.DEV ? "" : "https://api.myclasson.com/api";
 const CANARY_HEADER_NAME = "X-Canary";
 const CANARY_HEADER_VALUE = import.meta.env.VITE_USE_CANARY === "1" ? "1" : null;
+declare global {
+  interface Window {
+    __CANARY_HEADER_ACTIVE__?: boolean;
+    __CANARY_FETCH_PATCHED__?: boolean;
+  }
+}
 
 export const API_BASE =
   (import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL) ?? DEFAULT_API_BASE;
+
+const API_ORIGIN = (() => {
+  try {
+    return API_BASE ? new URL(API_BASE).origin : null;
+  } catch {
+    return null;
+  }
+})();
+
+if (CANARY_HEADER_VALUE && typeof window !== "undefined") {
+  window.__CANARY_HEADER_ACTIVE__ = true;
+  if (!window.__CANARY_FETCH_PATCHED__) {
+    const originalFetch = window.fetch.bind(window);
+    window.fetch = async (input: URL | RequestInfo, init?: RequestInit) => {
+      const shouldApply = (() => {
+        if (!API_ORIGIN) return false;
+        try {
+          if (typeof input === "string") {
+            const target = new URL(input, API_BASE ?? window.location.origin);
+            return target.origin === API_ORIGIN;
+          }
+          if (input instanceof URL) {
+            return input.origin === API_ORIGIN;
+          }
+          if (input instanceof Request) {
+            return new URL(input.url).origin === API_ORIGIN;
+          }
+        } catch {
+          return false;
+        }
+        return false;
+      })();
+      if (!shouldApply) {
+        const requestInfo = input instanceof URL ? input.toString() : (input as RequestInfo);
+        return originalFetch(requestInfo, init);
+      }
+
+      const nextInit: RequestInit = { ...init };
+      const headers = new Headers(init?.headers ?? {});
+      if (!headers.has(CANARY_HEADER_NAME) && CANARY_HEADER_VALUE) {
+        headers.set(CANARY_HEADER_NAME, CANARY_HEADER_VALUE);
+      }
+      nextInit.headers = headers;
+
+      if (input instanceof Request) {
+        const reqHeaders = new Headers(input.headers);
+        if (!reqHeaders.has(CANARY_HEADER_NAME) && CANARY_HEADER_VALUE) {
+          reqHeaders.set(CANARY_HEADER_NAME, CANARY_HEADER_VALUE);
+          input = new Request(input, { headers: reqHeaders });
+        }
+      }
+      const requestInfo = input instanceof URL ? input.toString() : (input as RequestInfo);
+      return originalFetch(requestInfo, nextInit);
+    };
+    window.__CANARY_FETCH_PATCHED__ = true;
+  }
+}
+
 const CACHE_TTL_MS = Number(import.meta.env.VITE_FETCH_TTL_MS ?? 30000);
 const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_FETCH_TIMEOUT_MS ?? 10000);
 // Certain highly-dynamic endpoints should bypass client TTL/ETag to reflect

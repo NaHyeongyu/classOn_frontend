@@ -1,7 +1,7 @@
 // EN: Students API client
 // KO: 원생 API 클라이언트
 
-import { fetchJSON, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
+import { fetchJSON, getCanaryHeaders, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
 import type { PageResult } from "../types/paging";
 
 export type Student = {
@@ -152,7 +152,14 @@ export async function deleteStudent(id: number): Promise<void> {
 async function fetchBlob(path: string): Promise<Blob> {
   const url = resolveApiUrl(path);
   const token = (await import("../lib/auth")).getToken();
-  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...getCanaryHeaders(),
+  };
+  const res = await fetch(url, {
+    headers: Object.keys(headers).length ? headers : undefined,
+    credentials: 'omit',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
   return await res.blob();
 }
@@ -183,7 +190,15 @@ export async function importStudentsExcel(file: File): Promise<{ created: number
   const token = (await import("../lib/auth")).getToken();
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(url, { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...getCanaryHeaders(),
+  };
+  const res = await fetch(url, {
+    method: 'POST',
+    body: form,
+    headers: Object.keys(headers).length ? headers : undefined,
+  });
   const text = await res.text().catch(() => '');
   if (!res.ok) throw new Error(text || `HTTP ${res.status} ${res.statusText}`);
   return text ? JSON.parse(text) : { created:0, updated:0, skipped:0, errors:[] };
@@ -194,7 +209,15 @@ export async function previewImportStudentsExcel(file: File): Promise<{ created:
   const token = (await import("../lib/auth")).getToken();
   const form = new FormData();
   form.append('file', file);
-  const res = await fetch(url, { method: 'POST', body: form, headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...getCanaryHeaders(),
+  };
+  const res = await fetch(url, {
+    method: 'POST',
+    body: form,
+    headers: Object.keys(headers).length ? headers : undefined,
+  });
   const text = await res.text().catch(() => '');
   if (!res.ok) throw new Error(text || `HTTP ${res.status} ${res.statusText}`);
   return text ? JSON.parse(text) : { created:0, updated:0, skipped:0, errors:[], rows: [] };

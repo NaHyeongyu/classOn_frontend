@@ -1,4 +1,4 @@
-import { fetchJSON, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
+import { fetchJSON, getCanaryHeaders, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
 import type { Student } from "./students";
 import type { PageResult } from "../types/paging";
 
@@ -281,7 +281,14 @@ export async function downloadRecordAttachmentBlob(courseId: number, recordId: n
   // Reuse blob fetch helper used by Excel utilities to include Authorization header
   const url = resolveApiUrl(`/api/courses/${courseId}/records/${recordId}/attachments/${fileId}`);
   const token = (await import("../lib/auth")).getToken();
-  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...getCanaryHeaders(),
+  };
+  const res = await fetch(url, {
+    headers: Object.keys(headers).length ? headers : undefined,
+    credentials: 'omit',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
   return await res.blob();
 }
@@ -311,7 +318,14 @@ export async function deleteCourse(id: number): Promise<void> {
 async function fetchBlob(path: string): Promise<Blob> {
   const url = resolveApiUrl(path);
   const token = (await import("../lib/auth")).getToken();
-  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : undefined, credentials: 'omit' });
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...getCanaryHeaders(),
+  };
+  const res = await fetch(url, {
+    headers: Object.keys(headers).length ? headers : undefined,
+    credentials: 'omit',
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
   return await res.blob();
 }

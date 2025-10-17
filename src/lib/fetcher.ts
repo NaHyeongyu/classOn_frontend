@@ -6,6 +6,8 @@ import { getToken } from "./auth";
 // In development: default to "" to use Vite dev proxy (no CORS, points to localhost:8080).
 // Outside development: default to the production API domain.
 const DEFAULT_API_BASE = import.meta.env.DEV ? "" : "https://api.myclasson.com/api";
+const CANARY_HEADER_NAME = "X-Canary";
+const CANARY_HEADER_VALUE = import.meta.env.VITE_USE_CANARY === "1" ? "1" : null;
 
 export const API_BASE =
   (import.meta.env.VITE_API_BASE ?? import.meta.env.VITE_API_BASE_URL) ?? DEFAULT_API_BASE;
@@ -25,6 +27,10 @@ const NO_CACHE_PREFIXES = [
 
 export function resolveApiUrl(path: string) {
   return API_BASE ? new URL(path, API_BASE).toString() : path;
+}
+
+export function getCanaryHeaders() {
+  return CANARY_HEADER_VALUE ? { [CANARY_HEADER_NAME]: CANARY_HEADER_VALUE } : {};
 }
 
 function getCache(url: string) {
@@ -129,6 +135,7 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
     ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...normalizeHeaders(init?.headers),
+    ...getCanaryHeaders(),
   };
   // For real-time endpoints, always fetch a fresh payload (avoid 304 with stale cache)
   if (isGet && cachedEtag && !noCache) headers["If-None-Match"] = cachedEtag;

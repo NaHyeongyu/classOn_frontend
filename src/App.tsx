@@ -32,7 +32,13 @@ const MarketingGenerating = lazy(() => import("@/pages/MarketingGenerating"));
 const MarketingRendering = lazy(() => import("@/pages/MarketingRendering"));
 const MarketingSavedList = lazy(() => import("@/pages/MarketingSavedList"));
 const MarketingSavedDetail = lazy(() => import("@/pages/MarketingSavedDetail"));
-const ReportWip = lazy(() => import("@/pages/ReportWip"));
+const Report = lazy(() => import("@/pages/Report"));
+const ReportCourseList = lazy(() => import("@/pages/ReportCourseList"));
+const ReportCourseDetail = lazy(() => import("@/pages/ReportCourseDetail"));
+const ReportStudentList = lazy(() => import("@/pages/ReportStudentList"));
+const ReportStudentDetail = lazy(() => import("@/pages/ReportStudentDetail"));
+const ReportCourseReview = lazy(() => import("@/pages/ReportCourseReview"));
+const ReportStudentReview = lazy(() => import("@/pages/ReportStudentReview"));
 const Feedback = lazy(() => import("@/pages/Feedback"));
 const FeedbackChangelog = lazy(() => import("@/pages/FeedbackChangelog"));
 const MyAcademy = lazy(() => import("@/pages/MyAcademy"));
@@ -145,7 +151,13 @@ export default function App() {
           <Route path={routes.marketingSummary} element={<MarketingSummary />} />
           <Route path={routes.marketingSaved} element={<MarketingSavedList />} />
           <Route path={routes.marketingSavedDetail} element={<MarketingSavedDetail />} />
-          <Route path={routes.report} element={<ReportWip />} />
+          <Route path={routes.report} element={<Report />} />
+          <Route path={routes.reportCourse} element={<ReportCourseList />} />
+          <Route path={routes.reportCourseDetail} element={<ReportCourseDetail />} />
+          <Route path={routes.reportCourseReview} element={<ReportCourseReview />} />
+          <Route path={routes.reportStudent} element={<ReportStudentList />} />
+          <Route path={routes.reportStudentDetail} element={<ReportStudentDetail />} />
+          <Route path={routes.reportStudentReview} element={<ReportStudentReview />} />
           <Route path={routes.feedback} element={<Feedback />} />
           <Route path={routes.myAcademy} element={<MyAcademy />} />
           {enableFeedback && <Route path={routes.feedbackChangelog} element={<FeedbackChangelog />} />}

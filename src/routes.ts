@@ -39,6 +39,12 @@ export const routes = {
   marketingSaved: '/marketing/saved',
   marketingSavedDetail: '/marketing/saved/:id',
   report: '/report',
+  reportCourse: '/report/course',
+  reportCourseDetail: '/report/course/:courseId',
+  reportCourseReview: '/report/course/:courseId/review',
+  reportStudent: '/report/student',
+  reportStudentDetail: '/report/student/:studentId',
+  reportStudentReview: '/report/student/:studentId/review',
   feedback: '/feedback',
   feedbackChangelog: '/feedback/changelog',
 } as const;
@@ -57,5 +63,13 @@ export const paths = {
     editStudents: (id: string | number) => `/classes/${id}/edit-students`,
     historyRecord: (id: string | number, recordId: string | number) => `/classes/${id}/history/${recordId}`,
     historyDate: (id: string | number, ymd: string) => `/classes/${id}/history/date/${ymd}`,
+  },
+  report: {
+    courseList: () => routes.reportCourse,
+    courseDetail: (courseId: string | number) => `/report/course/${courseId}`,
+    courseReview: (courseId: string | number) => `/report/course/${courseId}/review`,
+    studentList: () => routes.reportStudent,
+    studentDetail: (studentId: string | number) => `/report/student/${studentId}`,
+    studentReview: (studentId: string | number) => `/report/student/${studentId}/review`,
   },
 } as const;

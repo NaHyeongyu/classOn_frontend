@@ -258,10 +258,9 @@ async function fetchCoursePage(courseId: number, nextPage: number) {
           </HeaderActions>
         </PageHeader>
         <BetaNotice role="status">
-          <strong>ClassOn은 성장중입니다.</strong>
-          <p>유저들의 목소리에 귀를 기울이고 적극적으로 소통하며</p>
-          <p>현장에서 정말 필요한 기능들을 하나씩 만들어가고 있습니다.</p>
-          <p>아직은 부족한 부분이 있을 수 있지만 피드백을 통해 더 나은 서비스를 제공하겠습니다!</p>
+          <strong>안내</strong>
+          <p>마케팅 기능 출력 결과가 아직 원활하지 않을 수 있습니다.</p>
+          <p>빠른시일 내 데이터를 확인 &amp; 분석해서 개선하겠습니다.</p>
         </BetaNotice>
         {/* Guide banner removed */}
       </HeaderWrap>

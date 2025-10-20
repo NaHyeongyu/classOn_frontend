@@ -1,4 +1,5 @@
 import { getToken } from "./auth";
+import { clearAdminToken, setAdminUser } from "./adminAuth";
 // EN: JSON fetch helper that adds base URL and Authorization header
 // KO: 기본 URL 및 인증 헤더를 추가하는 JSON fetch 헬퍼
 
@@ -257,6 +258,28 @@ export async function fetchJSON<T>(path: string, init?: FetchInit): Promise<T> {
     const err = new Error(message) as Error & { status?: number; code?: string | number };
     err.status = res.status;
     if (code) err.code = code;
+
+    const isAdminRequest = (() => {
+      if (!path) return false;
+      if (path.startsWith("/api/admin")) return true;
+      if (path.startsWith("api/admin")) return true;
+      try {
+        return new URL(url).pathname.startsWith("/api/admin");
+      } catch {
+        return url.includes("/api/admin/");
+      }
+    })();
+    if ((res.status === 401 || res.status === 403) && isAdminRequest) {
+      try {
+        clearAdminToken();
+        setAdminUser(null);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("admin-auth-lost"));
+        }
+      } catch {
+        // noop
+      }
+    }
     throw err;
   }
   // Persist fresh cache for GET (store body always; ETag when available)

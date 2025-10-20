@@ -834,6 +834,12 @@ export default function CourseDetail() {
                   </Field>
                 </GridTwo>
               </Section>
+              <CourseStudentsPanel
+                students={students}
+                loading={stuLoading}
+                error={stuError}
+                editHref={`/classes/${numericId || ''}/edit-students`}
+              />
               <CourseExamsPanel
                 exams={exams}
                 loading={examLoading}
@@ -853,12 +859,6 @@ export default function CourseDetail() {
                 onExamTitleChange={(val: string) => { examTitleValueRef.current = val; }}
               />
               {/* 진행 현황 섹션 제거 */}
-              <CourseStudentsPanel
-                students={students}
-                loading={stuLoading}
-                error={stuError}
-                editHref={`/classes/${numericId || ''}/edit-students`}
-              />
             </StickyLeft>
           </Left>
           <Right>

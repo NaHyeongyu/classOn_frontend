@@ -19,7 +19,7 @@ export default function Sidebar() {
       // { key: "stats", label: "통계", sub: "Analytics", to: routes.stats },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
-      { key: "report", label: "리포트", sub: "Report", to: routes.report },
+      { key: "report", label: "수업 리포트", sub: "Class Report", to: routes.report },
       { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback },
     ] as { key: string; label: string; sub: string; to: string }[];
     if (enableFeedback) base.push({ key: "changelog", label: "업데이트 안내", sub: "Patch Notes", to: routes.feedbackChangelog });

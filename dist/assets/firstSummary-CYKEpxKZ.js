@@ -1,0 +1,1 @@
+import{f as o}from"./index-B92ulgNv.js";const e=new Map;async function y(r,i){const a={items:r,language:i?.language||"ko",speechStyle:i?.speechStyle||"SEUMNIDA"},t=JSON.stringify({p:a}),n=e.get(t);if(n)return n;const s=o("/api/ai/first-summary",{method:"POST",body:JSON.stringify(a),timeoutMs:6e4}).finally(()=>{e.delete(t)});return e.set(t,s),await s}export{y as f};

@@ -35,6 +35,18 @@ export function AdminAuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => { void validate(); }, [validate]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onAuthLost = () => {
+      setAdmin(null);
+      setLoading(false);
+    };
+    window.addEventListener('admin-auth-lost', onAuthLost);
+    return () => {
+      window.removeEventListener('admin-auth-lost', onAuthLost);
+    };
+  }, []);
+
   const login = useCallback(async (username: string, password: string) => {
     setLoading(true);
     try {

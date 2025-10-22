@@ -28,26 +28,26 @@ import {
   type Student,
   type StudentAttendance,
 } from "@/api/students";
-import {
-  listExams,
-  listExamResults,
-  createExam,
-  upsertExamResults,
-} from "@/api/exams";
+import { listExams, listExamResults } from "@/api/exams";
 // formatMoney 사용 제거됨 (MVP)
 import { formatPhone, formatKoreanDateTime } from "@/lib/format";
 // import { calcRisk, recommendActions, type RiskResult } from "@/features/risk/riskUtils"; // RISK FEATURE DISABLED
-import {
-  getStudentGrades,
-  addStudentGrade,
-  removeStudentGrade,
-  type GradeEntry,
-} from "@/features/grades/gradesStorage";
 import { useToast } from "@/components/common/Toast";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { readableError } from "@/lib/errors";
 
 type TabKey = "courses" | "attendance" | "counsels" | "grades";
+
+type GradeEntry = {
+  id: string;
+  date?: string;
+  subject?: string | null;
+  courseId?: number;
+  score?: number | null;
+  outOf?: number | null;
+  level?: string | null;
+  note?: string | null;
+};
 
 export default function StudentDetail() {
   const navigate = useNavigate();
@@ -112,32 +112,10 @@ export default function StudentDetail() {
     });
   // Predictive risk (disabled) – placeholders to avoid runtime refs
   // Predictive risk feature disabled
-  // Grades (display and quick add)
-  const [grades, setGrades] = useState<GradeEntry[]>([]);
+  // 시험 성적 목록 (API 기반)
   const [examGrades, setExamGrades] = useState<GradeEntry[]>([]);
   const [examGradesLoading, setExamGradesLoading] = useState(false);
   const [examGradesError, setExamGradesError] = useState<string | null>(null);
-  const [gradeOpen, setGradeOpen] = useState(false);
-  const [gradeBusy, setGradeBusy] = useState(false);
-  const [gErr, setGErr] = useState<string | null>(null);
-  const [gDate, setGDate] = useState<string>("");
-  const [gCourseId, setGCourseId] = useState<number | "">("");
-  const [gTitle, setGTitle] = useState<string>("");
-  const [gMode, setGMode] = useState<"percent" | "letter">("percent");
-  const [gScore, setGScore] = useState<string>("");
-  const [gOutOf, setGOutOf] = useState<string>("100");
-  const [gLevel, setGLevel] = useState<string>("");
-  const [gNote, setGNote] = useState<string>("");
-  const [gSubject, setGSubject] = useState<string>("");
-  // Switching input mode: clear non-active fields to avoid stale values
-  useEffect(() => {
-    if (gMode === "percent") {
-      if (gLevel) setGLevel("");
-    } else {
-      if (gScore) setGScore("");
-      if (gOutOf) setGOutOf("");
-    }
-  }, [gMode]);
   const intlAge = useMemo(() => {
     if (!student?.birthDate) return undefined;
     const [y, m, d] = student.birthDate.split("-").map(Number);
@@ -240,12 +218,6 @@ export default function StudentDetail() {
       cancelled = true;
     };
   }, [numericId, activeTab]);
-
-  // Load grades (display-only)
-  useEffect(() => {
-    if (!numericId || Number.isNaN(numericId)) return;
-    setGrades(getStudentGrades(numericId));
-  }, [numericId]);
 
   // helper to (re)load exam grades for current student
   async function reloadExamGrades() {

@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { SectionCard as Section, TitleH3 as Title, TableBase as UITable, GhostButton as UIGhostButton, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, buttonVariants } from '@/components/common/UI';
+import { SectionCard as Section, TitleH3 as Title, GhostButton as UIGhostButton, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, buttonVariants } from "@/components/common/UI";
 
 type HistoryItem = {
   id?: number;
@@ -179,4 +179,3 @@ const RecordBody = styled.div`
   padding:12px;
   p{ margin:0; color:#374151; font-size:14px; }
 `;
-

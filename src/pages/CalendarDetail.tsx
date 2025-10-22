@@ -1,9 +1,10 @@
+// 일정 상세 페이지: 날짜별 수업, 상담, 할 일 관리를 한 화면에서 처리합니다.
 import { useNavigate, useParams } from "react-router-dom";
 import CalendarDetailHeader from "@/components/calendar/detail/CalendarDetailHeader";
 import ClassList from "@/components/calendar/detail/ClassList";
 import CounselList from "@/components/calendar/detail/CounselList";
 import TodoList from "@/components/calendar/detail/TodoList";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import SelectBox from "@/components/common/SelectBox";
 import type { FormEvent } from "react";
 import styled from "styled-components";
@@ -76,14 +77,14 @@ export default function CalendarDetail() {
     if (t === '정기 수업' || t === '정기수업') return null;
     return t || null;
   }
-  function mapRows(list: RawRow[]): ClassItem[] {
+  const mapRows = useCallback((list: RawRow[]): ClassItem[] => {
     return list.map((r) => {
       const s = r.startTime ?? r.start_at ?? r.startAt ?? r.start ?? null;
       const e = r.endTime ?? r.end_at ?? r.endAt ?? r.end ?? null;
       const present = numOr(r.attPresent, r.presentCount, r.attendancePresent, r?.attendance?.present);
       const absent = numOr(r.attAbsent, r.absentCount, r.attendanceAbsent, r?.attendance?.absent);
       const unprocessed = numOr(r.attUnprocessed);
-      const notes = cleanNotes(r.notes || r.content || (r as any).topic || null);
+      const notes = cleanNotes(r.notes || r.content || r.topic || null);
       return {
         subject: r.courseTitle || '수업',
         time: formatRange(s, e),
@@ -100,10 +101,8 @@ export default function CalendarDetail() {
         attUnprocessed: unprocessed,
       } as ClassItem;
     });
-  }
+  }, [ymdSafe]);
 
-  // Load classes via unified API (same as dashboard)
-  useMemo(() => { void 0; }, []);
   useEffect(() => {
     let cancelled = false;
     async function load() {
@@ -120,7 +119,7 @@ export default function CalendarDetail() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [ymdSafe, classesDerived]);
+  }, [ymdSafe, classesDerived, mapRows]);
 
   // Keep local counselItems in sync with hook
   useEffect(() => { setCounselItems(counsels); }, [counsels]);
@@ -278,7 +277,6 @@ export default function CalendarDetail() {
   const [studBusy, setStudBusy] = useState(false);
   const [studErr, setStudErr] = useState<string | null>(null);
   const [selStudent, setSelStudent] = useState<Student | null>(null);
-  const [counselTime, setCounselTime] = useState(""); // HH:mm (kept for compatibility)
   const [counselNote, setCounselNote] = useState("");
   const [savingCounsel, setSavingCounsel] = useState(false);
   const [counselErr, setCounselErr] = useState<string | null>(null);
@@ -313,7 +311,6 @@ export default function CalendarDetail() {
     // Default to no time selected; user must choose hour/min explicitly
     setCounselHour("");
     setCounselMin("");
-    setCounselTime("");
     void fetchStudentsList();
   }
   function onPickStudent(s: Student) { setSelStudent(s); setCounselErr(null); }
@@ -335,7 +332,8 @@ export default function CalendarDetail() {
       const items = (res.content || []).map(c => ({ id: c.id, studentId: c.studentId, time: c.counselTime.replace('T',' ').slice(11,16), title: (c.content||'').split(/\r?\n/)[0] || '상담', with: c.studentName, owner: '-', done: c.status === 'CONVERTED' }));
       setCounselItems(items);
       setCounselOpen(false);
-      setSelStudent(null); setCounselTime(""); setCounselNote("");
+      setSelStudent(null);
+      setCounselNote("");
     } catch (e) {
       setCounselErr(readableError(e, '상담 추가에 실패했습니다.'));
     } finally { setSavingCounsel(false); }
@@ -601,7 +599,6 @@ function formatRange(start?: string | null, end?: string | null) {
 }
 function toHHMM(s?: string | null) { if (!s) return ""; try { const str = String(s); const m = str.match(/(\d{2}):(\d{2})/); return m ? `${m[1]}:${m[2]}` : ""; } catch { return ""; } }
 function toHHMMSS(s: string): string | undefined { if (!s) return undefined; const [h,m] = s.split(":"); return `${h?.padStart(2,'0')}:${m?.padStart(2,'0')}:00`; }
-function nowHHMM5() { const d=new Date(); let h=d.getHours(), m=d.getMinutes(); const r=Math.round(m/5)*5; if (r===60) { h=(h+1)%24; m=0; } else m=r; return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`; }
 const Label = styled.label`
   display: block;
   margin: 8px 0 6px;
@@ -619,14 +616,6 @@ const Input = styled.input`
     border-color: #ef4444;
     box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
   }
-`;
-const Select = styled.select`
-  width: 100%;
-  height: 40px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 8px;
-  background: #fff;
 `;
 const TextArea = styled.textarea`
   width: 100%;

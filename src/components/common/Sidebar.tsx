@@ -1,12 +1,12 @@
+// 사이드바: 주요 내비게이션과 사용자 정보 카드 UI를 담당합니다.
 import { useMemo } from "react";
 import styled from "styled-components";
 import { NavLink, useNavigate } from "react-router-dom";
-import { buttonVariants } from "@/components/common/UI";
 import { useAuth } from "@/hooks/useAuth";
 import { routes } from "@/routes";
 
 export default function Sidebar() {
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const enableFeedback = import.meta.env.VITE_ENABLE_FEEDBACK === 'true';
   const items = useMemo(() => {
@@ -28,9 +28,6 @@ export default function Sidebar() {
 
   // Display only academy name in the bottom user box
   const academyName = user?.academy?.name && user.academy.name.trim() ? user.academy.name.trim() : undefined;
-  const displayName = user?.name || user?.username || "사용자";
-  const email = user?.email || user?.username || undefined;
-  const avatarInitial = (academyName || displayName).charAt(0).toUpperCase();
 
   return (
     <SidebarWrapper>
@@ -151,24 +148,6 @@ function renderIcon(key: string) {
           <path d="M5.5 21a6.5 6.5 0 0 1 13 0" />
         </svg>
       );
-    case "teachers":
-      return (
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <rect x="3" y="4" width="18" height="16" rx="2" />
-          <path d="M7 8h10" />
-          <path d="M7 12h10" />
-          <path d="M7 16h6" />
-        </svg>
-      );
     case "payments":
       return (
         <svg
@@ -239,18 +218,6 @@ function renderIcon(key: string) {
         >
           <path d="M3 11l19-8-4 18-7-7-8-3z" />
           <path d="M14 7l-7 7" />
-        </svg>
-      );
-    case "counsels":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V5a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
-        </svg>
-      );
-    case "admin":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 2l3 7h7l-5.5 4 2 7-6.5-4.5L5.5 20l2-7L2 9h7z" />
         </svg>
       );
     case "feedback":
@@ -437,29 +404,6 @@ const AcademyCard = styled.button`
   transition: box-shadow .15s ease, transform .05s ease, background .15s ease;
   &:hover { box-shadow: 0 6px 18px rgba(2,6,23,0.08); background: #ffffff; }
   &:active { transform: translateY(1px); }
-`;
-
-const UserAvatar = styled.div`
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
-  color: #4338ca;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 700;
-`;
-
-const UserName = styled.div`
-  font-size: 13px;
-  color: #111827;
-  font-weight: 600;
-`;
-
-const UserEmail = styled.div`
-  font-size: 11px;
-  color: #6b7280;
 `;
 
 const AcademyLabel = styled.div`

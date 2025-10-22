@@ -1,3 +1,4 @@
+// 수업 기록 상세 페이지: 출결, 수업 내용, 첨부파일, 시험 성적을 한 곳에서 관리합니다.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type React from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -67,6 +68,9 @@ const EXAM_MODE_OPTIONS = [
   },
 ] as const;
 
+const CONTENT_AUTO_SAVE_DELAY = 1500;
+const GRADE_AUTO_SAVE_DELAY = 1500;
+
 export default function CourseRecordDetail() {
   const navigate = useNavigate();
   const { id, recordId, ymd } = useParams();
@@ -124,6 +128,13 @@ export default function CourseRecordDetail() {
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState<string | null>(null);
   const [contentValue, setContentValue] = useState<string>("");
+  const contentAutoSaveTimerRef = useRef<number | null>(null);
+  const lastSavedContentRef = useRef<string>("");
+  const lastContentEditAtRef = useRef<number>(0);
+  const lastContentSaveMetaRef = useRef<{
+    time: number;
+    value: string;
+  } | null>(null);
   const [fileBusy, setFileBusy] = useState<Record<number, boolean>>({});
   type UploadQueueItem = {
     id: string;
@@ -193,6 +204,8 @@ export default function CourseRecordDetail() {
   const [gradeFeedback, setGradeFeedback] = useState<
     "idle" | "success" | "error"
   >("idle");
+  const gradeAutoSaveTimerRef = useRef<number | null>(null);
+  const lastGradeEditAtRef = useRef<number>(0);
   const selectedExamIdRef = useRef("");
   useEffect(() => {
     selectedExamIdRef.current = selectedExamId;
@@ -302,8 +315,46 @@ export default function CourseRecordDetail() {
   }, [loading, ymd, record?.id]);
 
   useEffect(() => {
-    setContentValue(record?.content || "");
+    const next = record?.content || "";
+    const prevLastSaved = lastSavedContentRef.current;
+    const saveMeta = lastContentSaveMetaRef.current;
+    lastSavedContentRef.current = next;
+    let appliedFromSaveMeta = false;
+    setContentValue((prev) => {
+      if (prev === next) return prev;
+      if (
+        saveMeta &&
+        lastContentEditAtRef.current <= saveMeta.time
+      ) {
+        appliedFromSaveMeta = true;
+        return next;
+      }
+      if (prev === prevLastSaved) return next;
+      return prev;
+    });
+    if (appliedFromSaveMeta) {
+      lastContentSaveMetaRef.current = null;
+    }
   }, [record?.content]);
+
+  useEffect(() => {
+    if (!record?.id) return;
+    if (saving.content) return;
+    if (contentValue === lastSavedContentRef.current) return;
+    if (contentAutoSaveTimerRef.current) {
+      window.clearTimeout(contentAutoSaveTimerRef.current);
+    }
+    contentAutoSaveTimerRef.current = window.setTimeout(() => {
+      contentAutoSaveTimerRef.current = null;
+      void saveField({ content: contentValue }, "content");
+    }, CONTENT_AUTO_SAVE_DELAY);
+    return () => {
+      if (contentAutoSaveTimerRef.current) {
+        window.clearTimeout(contentAutoSaveTimerRef.current);
+        contentAutoSaveTimerRef.current = null;
+      }
+    };
+  }, [contentValue, record?.id, saving.content]);
 
   useEffect(() => {
     if (!record?.id) {
@@ -468,7 +519,7 @@ export default function CourseRecordDetail() {
   }, [selectedExam, scoreStudents, gradeMap, examResultsMap]);
   const avgLetter = useMemo(() => letterFromNumeric(avgNumeric), [avgNumeric]);
 
-  async function saveScoresForPresent() {
+  const saveScoresForPresent = useCallback(async () => {
     if (!courseId) return;
     if (!selectedExam) {
       alert("먼저 시험을 선택하거나 생성하세요.");
@@ -476,6 +527,7 @@ export default function CourseRecordDetail() {
     }
     const date =
       record?.recordDate || ymd || new Date().toISOString().slice(0, 10);
+    const saveRequestedAt = lastGradeEditAtRef.current;
     setGradeSaving(true);
     setGradeFeedback("idle");
     try {
@@ -538,12 +590,17 @@ export default function CourseRecordDetail() {
           };
         setExamResultsMap(nextMap);
       } catch {}
-      setGradeFeedback("success");
+      const noNewEdits = lastGradeEditAtRef.current === saveRequestedAt;
+      if (noNewEdits) {
+        setGradeFeedback("success");
+      }
       // 로컬 변경사항 초기화 (서버 값으로 표시 유지)
       window.setTimeout(() => {
-        setGradeMap({});
-        setGradeFeedback("idle");
-      }, 1500);
+        if (lastGradeEditAtRef.current === saveRequestedAt) {
+          setGradeMap({});
+          setGradeFeedback("idle");
+        }
+      }, GRADE_AUTO_SAVE_DELAY);
     } catch (e) {
       showError(
         readableError(e, "성적 저장에 실패했습니다. 다시 시도해 주세요.")
@@ -552,7 +609,41 @@ export default function CourseRecordDetail() {
     } finally {
       setGradeSaving(false);
     }
-  }
+  }, [
+    courseId,
+    gradeMap,
+    record?.recordDate,
+    selectedExam,
+    selectedExamId,
+    showError,
+    ymd,
+  ]);
+
+  useEffect(() => {
+    if (!selectedExam) return;
+    if (!hasGradeChanges) return;
+    if (gradeSaving) return;
+    if (scoreStudents.length === 0) return;
+    if (gradeAutoSaveTimerRef.current) {
+      window.clearTimeout(gradeAutoSaveTimerRef.current);
+    }
+    gradeAutoSaveTimerRef.current = window.setTimeout(() => {
+      gradeAutoSaveTimerRef.current = null;
+      void saveScoresForPresent();
+    }, GRADE_AUTO_SAVE_DELAY);
+    return () => {
+      if (gradeAutoSaveTimerRef.current) {
+        window.clearTimeout(gradeAutoSaveTimerRef.current);
+        gradeAutoSaveTimerRef.current = null;
+      }
+    };
+  }, [
+    gradeSaving,
+    hasGradeChanges,
+    saveScoresForPresent,
+    scoreStudents.length,
+    selectedExam,
+  ]);
   function setAttendance(studentId: number, present: boolean) {
     if (!courseId) return;
     const key = getLocalAttendanceKey();
@@ -1497,6 +1588,15 @@ export default function CourseRecordDetail() {
     key: keyof typeof saving
   ) {
     if (!courseId || !record?.id) return;
+    if (
+      key === "content" &&
+      Object.prototype.hasOwnProperty.call(patch, "content")
+    ) {
+      lastContentSaveMetaRef.current = {
+        time: Date.now(),
+        value: patch.content ?? "",
+      };
+    }
     if (key === "content") setContentFeedback("idle");
     setSaving((s) => ({ ...s, [key]: true }));
     try {
@@ -1961,18 +2061,11 @@ export default function CourseRecordDetail() {
               <Title>수업 내용</Title>
               {record?.id ? (
                 <ContentActions>
-                  {contentFeedback === "success" && !saving.content && (
+                  {saving.content ? (
+                    <SmallMuted>저장 중...</SmallMuted>
+                  ) : contentFeedback === "success" ? (
                     <SuccessBadge role="status">저장 완료!</SuccessBadge>
-                  )}
-                  <SmallBtn
-                    onClick={() => {
-                      void saveField({ content: contentValue }, "content");
-                    }}
-                    disabled={!!saving.content}
-                  >
-                    저장
-                  </SmallBtn>
-                  {saving.content && <SmallMuted>저장 중...</SmallMuted>}
+                  ) : null}
                 </ContentActions>
               ) : null}
             </SectionHeader>
@@ -1983,6 +2076,7 @@ export default function CourseRecordDetail() {
                 onChange={(e) => {
                   setContentValue(e.currentTarget.value);
                   setContentFeedback("idle");
+                  lastContentEditAtRef.current = Date.now();
                 }}
                 placeholder="수업 내용을 입력하세요"
                 id="contentArea"
@@ -2436,22 +2530,17 @@ export default function CourseRecordDetail() {
                               저장 완료!
                             </SuccessBadge>
                           )}
-                          <UIPrimaryButton
-                            type="button"
-                            onClick={() => {
-                              void saveScoresForPresent();
-                            }}
-                            disabled={
-                              gradeSaving ||
-                              scoreStudents.length === 0 ||
-                              !hasGradeChanges
-                            }
-                          >
-                            {gradeSaving ? "저장 중…" : "저장"}
-                          </UIPrimaryButton>
+                          {gradeSaving && (
+                            <SmallMuted style={{ marginLeft: 8 }}>
+                              저장 중...
+                            </SmallMuted>
+                          )}
                           <UISmallBtn
                             type="button"
-                            onClick={() => setGradeMap({})}
+                            onClick={() => {
+                              setGradeMap({});
+                              setGradeFeedback("idle");
+                            }}
                             disabled={
                               gradeSaving || Object.keys(gradeMap).length === 0
                             }
@@ -2503,6 +2592,9 @@ export default function CourseRecordDetail() {
                                       onChange={(e) => {
                                         const raw = e.currentTarget.value;
                                         if (raw === "") {
+                                          lastGradeEditAtRef.current =
+                                            Date.now();
+                                          setGradeFeedback("idle");
                                           setGradeMap((m) => ({
                                             ...m,
                                             [s.id]: { percent: "" },
@@ -2515,6 +2607,9 @@ export default function CourseRecordDetail() {
                                           0,
                                           Math.min(100, Math.round(n))
                                         );
+                                        lastGradeEditAtRef.current =
+                                          Date.now();
+                                        setGradeFeedback("idle");
                                         setGradeMap((m) => ({
                                           ...m,
                                           [s.id]: { percent: String(clamped) },
@@ -2554,6 +2649,8 @@ export default function CourseRecordDetail() {
                                                 | "D"
                                                 | "E"
                                                 | "F");
+                                        lastGradeEditAtRef.current = Date.now();
+                                        setGradeFeedback("idle");
                                         setGradeMap((m) => ({
                                           ...m,
                                           [s.id]: { letter: val },

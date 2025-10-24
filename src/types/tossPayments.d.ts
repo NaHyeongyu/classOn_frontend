@@ -1,7 +1,6 @@
 declare global {
   interface Window {
-    PaymentWidget?: any;
+    PaymentWidget?: unknown;
   }
 }
 export {};
-

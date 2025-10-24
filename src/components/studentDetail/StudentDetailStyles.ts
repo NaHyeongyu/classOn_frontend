@@ -1,0 +1,384 @@
+import styled from "styled-components";
+import { SmallBtn as UISmallBtn } from "@/components/common/UI";
+
+export const Card = styled.section`
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 16px;
+  min-width: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+`;
+
+export const SectionTitle = styled.h3`
+  margin: 0;
+  font-size: 16px;
+  color: #0f172a;
+`;
+
+export const CardHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+`;
+
+export const CardActions = styled.div`
+  display: inline-flex;
+  gap: 12px;
+`;
+
+export const Divider = styled.div`
+  height: 1px;
+  background: #e5e7eb;
+  margin: 6px 0 10px;
+`;
+
+export const InfoList = styled.div`
+  display: grid;
+  gap: 14px;
+`;
+
+export const Row = styled.div`
+  display: grid;
+  grid-template-columns: 44px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 6px;
+`;
+
+export const Avatar = styled.div`
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #eef2ff;
+  color: #4f46e5;
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+`;
+
+export const Name = styled.div`
+  font-size: 19px;
+  font-weight: 900;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+`;
+
+export const SmallMuted = styled.div`
+  color: #6b7280;
+  font-size: 12px;
+`;
+
+export const StatusChip = styled.span`
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  &[data-type="ENROLLED"] {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+  &[data-type="ON_LEAVE"] {
+    background: #fef3c7;
+    color: #b45309;
+  }
+  &[data-type="PENDING"] {
+    background: #f3e8ff;
+    color: #7c3aed;
+  }
+`;
+
+export const Field = styled.div`
+  display: grid;
+  grid-template-columns: 100px 1fr;
+  gap: 8px;
+`;
+
+export const Label = styled.div`
+  color: #6b7280;
+  font-size: 13px;
+  align-self: center;
+`;
+
+export const Value = styled.div`
+  color: #111827;
+  font-size: 15px;
+`;
+
+export const Muted = styled.div`
+  color: #6b7280;
+  font-size: 13px;
+`;
+
+export const Tabs = styled.div`
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+`;
+
+export const TabButton = styled(UISmallBtn)`
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+  &[data-active="true"] {
+    background: #f3f4f6;
+    color: #111827;
+    border-color: #e5e7eb;
+  }
+`;
+
+export const Badge = styled.span`
+  min-width: 18px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9999px;
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 800;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+`;
+
+export const Empty = styled.div`
+  color: #6b7280;
+  font-size: 13px;
+  text-align: center;
+  border: 1px dashed #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  background: #fafafa;
+`;
+
+export const ModalBtn = styled(UISmallBtn)`
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
+`;
+
+export const NotesBox = styled.pre`
+  margin: 0;
+  white-space: pre-line;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.7;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-wrap: pretty;
+`;
+
+export const NotesTextarea = styled.textarea`
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  resize: vertical;
+  font-size: 14px;
+  color: #111827;
+  min-height: 120px;
+  &:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+  }
+`;
+
+export const MemoNew = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+
+export const MemoList = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+
+export const MemoItemBox = styled.div`
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  display: grid;
+  gap: 6px;
+`;
+
+export const MemoHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`;
+
+export const MemoDate = styled.div`
+  color: #6b7280;
+  font-size: 12px;
+`;
+
+export const MemoActions = styled.div`
+  display: inline-flex;
+  gap: 6px;
+`;
+
+export const MemoTextarea = styled.textarea`
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  resize: vertical;
+  font-size: 14px;
+  color: #111827;
+`;
+
+export const MemoText = styled.pre`
+  margin: 0;
+  white-space: pre-wrap;
+  color: #111827;
+  font-size: 14px;
+`;
+
+export const CourseList = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+
+export const CourseItem = styled.div`
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 6px;
+  background: #fff;
+`;
+
+export const CourseHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`;
+
+export const CourseTitle = styled.div`
+  font-weight: 800;
+  color: #0f172a;
+  font-size: 14px;
+`;
+
+export const CourseMeta = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6b7280;
+  font-size: 12px;
+  code {
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+`;
+
+export const CourseStatus = styled.span`
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 800;
+  &[data-type="IN_PROGRESS"] {
+    background: #dcfce7;
+    color: #16a34a;
+  }
+  &[data-type="PENDING"] {
+    background: #f3e8ff;
+    color: #7c3aed;
+  }
+  &[data-type="STOPPED"] {
+    background: #e5e7eb;
+    color: #374151;
+  }
+`;
+
+export const Input = styled.input`
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+`;
+
+export const TextArea = styled.textarea`
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 10px;
+  resize: vertical;
+  font-size: 14px;
+  color: #111827;
+`;
+
+export const List = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+
+export const ListItem = styled.div`
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  display: grid;
+  gap: 10px;
+`;
+
+export const CounselHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+`;
+
+export const CounselRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+`;
+
+export const RowActions = styled.div`
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+`;
+
+export const When = styled.span`
+  font-size: 13px;
+  font-weight: 700;
+  color: #1f2937;
+`;
+
+export const CounselContent = styled.pre`
+  margin: 0;
+  white-space: pre-wrap;
+  color: #111827;
+  font-size: 14px;
+  background: #f9fafb;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+`;
+
+export const EditGrid = styled.div`
+  display: grid;
+  gap: 10px;
+`;
+
+export const TimeRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
+export const TimeSelect = styled.div`
+  flex: 1;
+`;

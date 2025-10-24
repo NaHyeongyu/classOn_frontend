@@ -8,6 +8,100 @@ import { visiblePages } from "../../lib/pagination";
 
 type Filters = { status?: "" | "IN_PROGRESS" | "STOPPED" | "PENDING"; q?: string };
 
+const dayOrder: Record<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN", number> = {
+  MON: 0,
+  TUE: 1,
+  WED: 2,
+  THU: 3,
+  FRI: 4,
+  SAT: 5,
+  SUN: 6,
+};
+
+function hhmm(t?: string) {
+  if (!t) return "";
+  const [h, m] = t.split(":");
+  return `${h}:${m}`;
+}
+
+function dayLabel(code: string) {
+  const map: Record<string, string> = {
+    MON: "월",
+    TUE: "화",
+    WED: "수",
+    THU: "목",
+    FRI: "금",
+    SAT: "토",
+    SUN: "일",
+  };
+  return map[code.toUpperCase()] || code;
+}
+
+function buildDays(r: Course) {
+  if (Array.isArray(r.recurrenceDays)) {
+    return r.recurrenceDays
+      .slice()
+      .sort(
+        (a, b) =>
+          (dayOrder[a as keyof typeof dayOrder] ?? 0) -
+          (dayOrder[b as keyof typeof dayOrder] ?? 0)
+      )
+      .map((code) => dayLabel(code))
+      .join("/");
+  }
+  if (typeof r.recurrenceDays === "string" && r.recurrenceDays.trim()) {
+    const codes = r.recurrenceDays
+      .split(",")
+      .map((value) => value.trim().toUpperCase())
+      .filter(Boolean) as (keyof typeof dayOrder)[];
+    codes.sort((a, b) => dayOrder[a] - dayOrder[b]);
+    return codes.map((code) => dayLabel(code)).join("/");
+  }
+  if (r.schedule && r.schedule.length > 0) {
+    return r.schedule
+      .map((s) => s.dayOfWeek)
+      .filter(Boolean)
+      .map((code) => dayLabel(code!))
+      .join(", ");
+  }
+  return "-";
+}
+
+function buildTimeRange(r: Course) {
+  if (r.startTime && r.endTime) {
+    return `${hhmm(r.startTime)} ~ ${hhmm(r.endTime)}`;
+  }
+  if (r.schedule && r.schedule.length > 0) {
+    const first = r.schedule[0];
+    return `${hhmm(first.startTime)} ~ ${hhmm(first.endTime)}`;
+  }
+  return r.courseTime || "-";
+}
+
+function statusLabel(s?: Course["status"]) {
+  switch (s) {
+    case "IN_PROGRESS":
+      return "진행중";
+    case "PENDING":
+      return "대기";
+    case "STOPPED":
+      return "중단";
+    default:
+      return s;
+  }
+}
+
+function courseTypeLabel(type?: Course["courseType"]) {
+  switch (type) {
+    case "INDIVIDUAL":
+      return "개인";
+    case "GROUP":
+      return "단체";
+    default:
+      return "단체";
+  }
+}
+
 export default function ClassesTable({ filters, refreshKey }: { filters: Filters; refreshKey?: number }) {
   const navigate = useNavigate();
   const [rows, setRows] = useState<Course[]>([]);
@@ -46,52 +140,6 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
     return () => { cancelled = true; };
   }, [page, size, filters.status, filters.q, refreshKey]);
 
-  function hhmm(t?: string) {
-    if (!t) return "";
-    const [h,m] = t.split(":");
-    return `${h}:${m}`;
-  }
-  function dayLabel(code: string) {
-    const map: Record<string,string> = { MON:"월", TUE:"화", WED:"수", THU:"목", FRI:"금", SAT:"토", SUN:"일" };
-    return map[code.toUpperCase()] || code;
-  }
-  const dayOrder: Record<'MON'|'TUE'|'WED'|'THU'|'FRI'|'SAT'|'SUN', number> = { MON:0, TUE:1, WED:2, THU:3, FRI:4, SAT:5, SUN:6 };
-  function buildDays(r: Course) {
-    if (r.recurrenceDays) {
-      const codes = r.recurrenceDays
-        .split(',')
-        .map((s) => s.trim().toUpperCase())
-        .filter(Boolean) as (keyof typeof dayOrder)[];
-      codes.sort((a,b) => dayOrder[a] - dayOrder[b]);
-      return codes.map((c) => dayLabel(c)).join('/');
-    }
-    return '-';
-  }
-  function buildTimeRange(r: Course) {
-    if (r.startTime && r.endTime) {
-      return `${hhmm(r.startTime)} ~ ${hhmm(r.endTime)}`;
-    }
-    // fallback for legacy free-text courseTime
-    return r.courseTime || '-';
-  }
-  function statusLabel(s: Course["status"]) {
-    switch (s) {
-      case "IN_PROGRESS": return "진행중";
-      case "PENDING": return "대기";
-      case "STOPPED": return "중단";
-      default: return s;
-    }
-  }
-  function courseTypeLabel(type?: Course['courseType']) {
-    switch (type) {
-      case 'INDIVIDUAL':
-        return '개인';
-      case 'GROUP':
-        return '단체';
-      default:
-        return '단체';
-    }
-  }
   const view = useMemo(() => rows.map((r, idx) => {
     const seqDesc = Math.max(0, totalElements - (page * size) - idx);
     return ({

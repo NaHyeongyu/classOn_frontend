@@ -31,3 +31,10 @@ export async function apiUpdateMyProfile(payload: { name?: string; phone?: strin
     body: JSON.stringify(payload),
   });
 }
+
+export async function apiChangePassword(currentPassword: string, newPassword: string): Promise<void> {
+  await fetchJSON("/api/account/password", {
+    method: "PUT",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}

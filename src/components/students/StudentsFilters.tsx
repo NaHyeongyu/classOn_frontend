@@ -1,24 +1,16 @@
 import styled from "styled-components";
 import SelectBox from "@/components/common/SelectBox";
 import { useEffect, useRef, useState } from "react";
+import type { StudentsFiltersState } from "@/features/students/types";
 
-type Filters = {
-  status: "" | "ENROLLED" | "ON_LEAVE" | "PENDING";
-  from: string;
-  to: string;
-  ageMin: string;
-  ageMax: string;
-  q: string;
-};
-
-export default function StudentsFilters({ value, onChange, onApply }: { value: Filters; onChange: (f: Filters) => void; onApply?: () => void }) {
+export default function StudentsFilters({ value, onChange, onApply }: { value: StudentsFiltersState; onChange: (f: StudentsFiltersState) => void; onApply?: () => void }) {
   const v = value;
   const [composing, setComposing] = useState(false);
   const [qDraft, setQDraft] = useState(v.q);
   const inputRef = useRef<HTMLInputElement>(null);
   const [pendingEnter, setPendingEnter] = useState(false);
   useEffect(() => { setQDraft(v.q); }, [v.q]);
-  function set<K extends keyof Filters>(k: K, val: Filters[K]) { onChange({ ...v, [k]: val }); }
+  function set<K extends keyof StudentsFiltersState>(k: K, val: StudentsFiltersState[K]) { onChange({ ...v, [k]: val }); }
   function reset() { onChange({ status: "", from: "", to: "", ageMin: "", ageMax: "", q: "" }); }
 
   function applySearch() {
@@ -31,7 +23,7 @@ export default function StudentsFilters({ value, onChange, onApply }: { value: F
     <Bar>
       <Group>
         <Label>상태</Label>
-        <SelectBox ariaLabel="상태" value={v.status || ''} onChange={(val)=> set("status", val as Filters['status'])} placeholder="전체"
+        <SelectBox ariaLabel="상태" value={v.status || ''} onChange={(val)=> set("status", val as StudentsFiltersState['status'])} placeholder="전체"
           options={[
             { label: '수강중', value: 'ENROLLED' },
             { label: '휴학', value: 'ON_LEAVE' },

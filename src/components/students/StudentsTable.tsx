@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { SectionCard as TableCard, Scroller, TableBase as Table, EmptyState, Skeleton } from "../common/UI";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { listStudents, type Student, type PageResult } from "../../api/students";
 import { readableError } from "@/lib/errors";
 import { formatPhone } from "../../lib/format";
@@ -13,6 +14,8 @@ type ChipType = "수강중" | "휴학" | "대기중";
 function statusKr(s: Student["status"]): ChipType {
   return s === "ENROLLED" ? "수강중" : s === "ON_LEAVE" ? "휴학" : "대기중";
 }
+
+const EMPTY_ROWS: Student[] = [];
 
 type Filters = {
   status?: "" | "ENROLLED" | "ON_LEAVE" | "PENDING";
@@ -26,8 +29,6 @@ type Filters = {
 export default function StudentsTable({ filters, refreshKey }: { filters: Filters; refreshKey?: number }) {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [rows, setRows] = useState<Student[]>([]);
-  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(() => {
     const p = Number(searchParams.get('page'));
     return Number.isFinite(p) && p >= 0 ? p : 0;
@@ -36,41 +37,47 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
     const s = Number(searchParams.get('size'));
     return (s === 10 || s === 20 || s === 50) ? s : 10;
   });
-  const [totalPages, setTotalPages] = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
-  const [loading, setLoading] = useState(false);
   // Deletion controls removed from list view
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setError(null);
-      setLoading(true);
-      try {
-        const res: PageResult<Student> = await listStudents({
-          page,
-          size,
-          status: filters.status || undefined,
-          q: filters.q || undefined,
-          from: filters.from || undefined,
-          to: filters.to || undefined,
-          ageMin: filters.ageMin ? Number(filters.ageMin) : undefined,
-          ageMax: filters.ageMax ? Number(filters.ageMax) : undefined,
-        });
-        if (!cancelled) {
-          setRows(res.content);
-          setTotalPages(res.totalPages);
-          setTotalElements(res.totalElements);
-        }
-      } catch (e) {
-        if (!cancelled) setError(readableError(e, "원생 불러오기에 실패했습니다."));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-    return () => { cancelled = true; };
-  }, [page, size, filters.status, filters.q, filters.from, filters.to, filters.ageMin, filters.ageMax, refreshKey]);
+  const trimmedQuery = (filters.q ?? "").trim();
+  const refreshToken = refreshKey ?? 0;
+
+  const query = useQuery<PageResult<Student>, unknown>({
+    queryKey: [
+      "students",
+      page,
+      size,
+      filters.status ?? "",
+      trimmedQuery,
+      filters.from ?? "",
+      filters.to ?? "",
+      filters.ageMin ?? "",
+      filters.ageMax ?? "",
+      refreshToken,
+    ],
+    queryFn: () =>
+      listStudents({
+        page,
+        size,
+        status: filters.status || undefined,
+        q: trimmedQuery || undefined,
+        from: filters.from || undefined,
+        to: filters.to || undefined,
+        ageMin: filters.ageMin ? Number(filters.ageMin) : undefined,
+        ageMax: filters.ageMax ? Number(filters.ageMax) : undefined,
+      }),
+    placeholderData: (previousData) => previousData,
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const rows = query.data?.content ?? EMPTY_ROWS;
+  const totalPages = query.data?.totalPages ?? 0;
+  const totalElements = query.data?.totalElements ?? 0;
+  const loading = query.isPending && rows.length === 0;
+  const fetching = query.isFetching;
+  const error = query.error ? readableError(query.error, "원생 불러오기에 실패했습니다.") : null;
 
   // Reset to first page when filters change
   useEffect(() => { setPage(0); }, [filters.status, filters.q, filters.from, filters.to, filters.ageMin, filters.ageMax]);
@@ -115,7 +122,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
         <div>
           <strong>원생 목록</strong>
           <Muted>
-            {loading ? "불러오는 중..." : `총 ${totalElements}명의 원생이 조회되었습니다.`}
+            {loading || fetching ? "불러오는 중..." : `총 ${totalElements}명의 원생이 조회되었습니다.`}
           </Muted>
           {error && <ErrText>{error}</ErrText>}
         </div>

@@ -1,5 +1,5 @@
 import type { Course, CourseRecord } from "@/api/courses";
-import type { RangeSummary } from "./types";
+import type { MarketingDirection, RangeSummary } from "./types";
 
 export function toErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
@@ -93,4 +93,67 @@ export function recordPreview(record: CourseRecord): string {
     record.topic?.trim() ||
     "(기록된 내용이 없습니다)"
   );
+}
+
+export function normalizeMarketingDirection(
+  input?: MarketingDirection | null
+): MarketingDirection | null {
+  if (!input) return null;
+  const title = input.title?.trim() || undefined;
+  const because = input.because?.trim() || undefined;
+  const hook = input.hook?.trim() || undefined;
+  const asset = input.asset?.trim() || undefined;
+  const platform = input.platform?.trim() || undefined;
+  if (!title && !because && !hook && !asset && !platform) return null;
+  return { title, because, hook, asset, platform };
+}
+
+export function normalizeMarketingDirections(
+  list?: MarketingDirection[] | null
+): MarketingDirection[] {
+  if (!list) return [];
+  return list
+    .map((direction) => normalizeMarketingDirection(direction))
+    .filter((direction): direction is MarketingDirection => Boolean(direction));
+}
+
+export function composeDirectionSummary(direction: MarketingDirection): string {
+  const parts: string[] = [];
+  if (direction.title) parts.push(direction.title);
+  if (direction.because) parts.push(`근거: ${direction.because}`);
+  if (direction.hook) parts.push(`훅: ${direction.hook}`);
+  if (direction.asset) parts.push(`추천 자산: ${marketingDirectionAssetLabel(direction.asset)}`);
+  if (direction.platform) parts.push(`권장 채널: ${marketingDirectionPlatformLabel(direction.platform)}`);
+  return parts.join("\n");
+}
+
+export function marketingDirectionAssetLabel(asset?: string | null): string {
+  const normalized = (asset ?? "").toLowerCase();
+  switch (normalized) {
+    case "diagram":
+      return "자료/도표";
+    case "photo":
+      return "사진";
+    case "short_video":
+      return "숏폼 영상";
+    case "testimonial":
+      return "후기/인터뷰";
+    default:
+      return asset ?? "콘텐츠";
+  }
+}
+
+export function marketingDirectionPlatformLabel(platform?: string | null): string {
+  switch (platform) {
+    case "INSTAGRAM":
+      return "인스타그램";
+    case "NAVER_BLOG":
+      return "네이버 블로그";
+    case "KAKAO_CHANNEL":
+      return "카카오 채널";
+    case "GENERIC":
+      return "공통";
+    default:
+      return platform ?? "플랫폼 공통";
+  }
 }

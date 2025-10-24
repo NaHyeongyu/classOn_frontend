@@ -5,7 +5,11 @@ import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { routes } from "@/routes";
 
-export default function Sidebar() {
+type SidebarProps = {
+  onNavigate?: () => void;
+};
+
+export default function Sidebar({ onNavigate }: SidebarProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const enableFeedback = import.meta.env.VITE_ENABLE_FEEDBACK === 'true';
@@ -19,7 +23,6 @@ export default function Sidebar() {
       // { key: "stats", label: "통계", sub: "Analytics", to: routes.stats },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
-      { key: "report", label: "수업 리포트", sub: "Class Report", to: routes.report },
       { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback },
     ] as { key: string; label: string; sub: string; to: string }[];
     if (enableFeedback) base.push({ key: "changelog", label: "업데이트 안내", sub: "Patch Notes", to: routes.feedbackChangelog });
@@ -31,7 +34,14 @@ export default function Sidebar() {
 
   return (
     <SidebarWrapper>
-      <LogoRow role="banner" onClick={() => navigate('/') } title="홈으로">
+      <LogoRow
+        role="banner"
+        onClick={() => {
+          navigate('/');
+          onNavigate?.();
+        }}
+        title="홈으로"
+      >
         <LogoImage src={getLogoSrc()} alt="Academy Manager 로고" />
         <LogoText>
           <strong>ClassOn</strong>
@@ -43,7 +53,11 @@ export default function Sidebar() {
         <ul>
           {items.map((item) => (
             <li key={item.key}>
-              <NavLinkStyled to={item.to} end={item.to === "/"}>
+              <NavLinkStyled
+                to={item.to}
+                end={item.to === "/"}
+                onClick={() => onNavigate?.()}
+              >
                 <Icon aria-hidden>{renderIcon(item.key)}</Icon>
                 <Labels>
                   <span>{item.label}</span>
@@ -58,7 +72,10 @@ export default function Sidebar() {
       <BottomInfo>
         <AcademyCard
           type="button"
-          onClick={() => navigate(routes.myAcademy)}
+          onClick={() => {
+            navigate(routes.myAcademy);
+            onNavigate?.();
+          }}
           title="내 정보"
           aria-label={`내 정보: ${academyName || '학원 미지정'}`}
         >
@@ -226,15 +243,6 @@ function renderIcon(key: string) {
           <path d="M21 15a4 4 0 0 1-4 4H7l-4 4V5a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z" />
           <path d="M8 9h8" />
           <path d="M8 13h5" />
-        </svg>
-      );
-    case "report":
-      return (
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="3" y="3" width="18" height="18" rx="2" />
-          <path d="M8 7h8" />
-          <path d="M8 11h8" />
-          <path d="M8 15h5" />
         </svg>
       );
     case "changelog":

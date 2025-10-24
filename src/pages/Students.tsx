@@ -2,7 +2,7 @@ import { Page } from "@/components/students/StudentsLayout";
 import StudentsStats from "@/components/students/StudentsStats";
 import StudentsFilters from "@/components/students/StudentsFilters";
 import StudentsTable from "@/components/students/StudentsTable";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import styled from "styled-components";
 import { SectionCard as Section } from "@/components/common/UI";
 import { useSearchParams } from "react-router-dom";
@@ -12,10 +12,66 @@ import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 
+type ImportPreviewRow = {
+  row?: number;
+  name?: string;
+  status?: string;
+  joinedDate?: string;
+  birthDate?: string;
+  phoneNumber?: string;
+  guardianPhone?: string;
+  address?: string;
+  isNew?: boolean;
+};
+
+type ImportPreview = {
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+  rows: ImportPreviewRow[];
+};
+
+type PreviewApiResponse = Awaited<ReturnType<typeof previewImportStudentsExcel>>;
+
+function normalizeImportPreviewRow(value: unknown): ImportPreviewRow {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+  const row = value as Record<string, unknown>;
+  return {
+    row: typeof row.row === "number" ? row.row : undefined,
+    name: typeof row.name === "string" ? row.name : undefined,
+    status: typeof row.status === "string" ? row.status : undefined,
+    joinedDate: typeof row.joinedDate === "string" ? row.joinedDate : undefined,
+    birthDate: typeof row.birthDate === "string" ? row.birthDate : undefined,
+    phoneNumber: typeof row.phoneNumber === "string" ? row.phoneNumber : undefined,
+    guardianPhone: typeof row.guardianPhone === "string" ? row.guardianPhone : undefined,
+    address: typeof row.address === "string" ? row.address : undefined,
+    isNew: typeof row.isNew === "boolean" ? row.isNew : undefined,
+  };
+}
+
+function toImportPreview(source: PreviewApiResponse): ImportPreview {
+  const rows = Array.isArray(source.rows)
+    ? source.rows.map((item) => normalizeImportPreviewRow(item))
+    : [];
+  const errors = Array.isArray(source.errors)
+    ? source.errors.map((item) => String(item))
+    : [];
+  return {
+    created: typeof source.created === "number" ? source.created : Number(source.created) || 0,
+    updated: typeof source.updated === "number" ? source.updated : Number(source.updated) || 0,
+    skipped: typeof source.skipped === "number" ? source.skipped : Number(source.skipped) || 0,
+    errors,
+    rows,
+  };
+}
+
 export default function Students() {
   const { show, success, error: showError } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const initial = useMemo(() => ({
+  const [filters, setFilters] = useState(() => ({
     status: "" as "" | "ENROLLED" | "ON_LEAVE" | "PENDING",
     from: "",
     to: "",
@@ -23,12 +79,11 @@ export default function Students() {
     ageMax: "",
     q: "",
     ...paramToFilters(searchParams),
-  }), []);
-  const [filters, setFilters] = useState(initial);
+  }));
   const [refreshKey, setRefreshKey] = useState(0);
   const [showImportGuide, setShowImportGuide] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [preview, setPreview] = useState<{ created: number; updated: number; skipped: number; errors: string[]; rows: any[] } | null>(null);
+  const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
   // Sync filters -> URL
@@ -70,7 +125,7 @@ export default function Students() {
     try {
       const res = await previewImportStudentsExcel(file);
       setPendingFile(file);
-      setPreview(res);
+      setPreview(toImportPreview(res));
       setPreviewOpen(true);
     } catch (e) {
       showError(readableError(e, '미리보기 생성에 실패했습니다.'));

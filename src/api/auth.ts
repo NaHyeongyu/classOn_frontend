@@ -10,6 +10,8 @@ type MeResponse = AuthUser;
 type CheckUsernameResponse = { available: boolean };
 type RequestPhoneCodeResponse = { success: boolean; code?: string };
 type VerifyPhoneCodeResponse = { success: boolean };
+type FindUsernameResponse = { accounts: Array<{ username: string; name: string }> };
+type ResetPasswordResponse = { username: string; temporaryPassword: string };
 //
 
 // EN: Local mock user when VITE_USE_MOCK=1
@@ -25,7 +27,10 @@ const MOCK_USER: AuthUser = {
 
 // EN: Username login -> { token, user }
 // KO: 아이디 로그인 -> { token, user }
-export async function apiLogin(username: string, password: string): Promise<LoginResponse> {
+export async function apiLogin(
+  username: string,
+  password: string
+): Promise<LoginResponse> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     // simple credentials check for demo
     await delay(300);
@@ -43,7 +48,12 @@ export async function apiLogin(username: string, password: string): Promise<Logi
 
 // EN: Simple register used in quick flow (not the onboarding wizard)
 // KO: 빠른 플로우에서 사용하는 간단 회원가입(온보딩 위저드와 별개)
-export async function apiRegister(name: string, email: string, phone: string, password: string): Promise<RegisterResponse> {
+export async function apiRegister(
+  name: string,
+  email: string,
+  phone: string,
+  password: string
+): Promise<RegisterResponse> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(300);
     const token = btoa(`${email}:${Date.now()}`);
@@ -77,18 +87,26 @@ export function apiLogout() {
 
 // EN: Username availability check
 // KO: 아이디 중복 확인
-export async function apiCheckUsername(username: string): Promise<CheckUsernameResponse> {
+export async function apiCheckUsername(
+  username: string
+): Promise<CheckUsernameResponse> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(250);
     return { available: username.toLowerCase() !== "taken" };
   }
-  const res = await fetchJSON<{ success: boolean; code?: string; message?: string }>(`/api/auth/check-username?username=${encodeURIComponent(username)}`);
+  const res = await fetchJSON<{
+    success: boolean;
+    code?: string;
+    message?: string;
+  }>(`/api/auth/check-username?username=${encodeURIComponent(username)}`);
   return { available: res.success };
 }
 
 // EN: Request phone verification code
 // KO: 휴대폰 인증코드 요청
-export async function apiRequestPhoneCode(phone: string): Promise<RequestPhoneCodeResponse> {
+export async function apiRequestPhoneCode(
+  phone: string
+): Promise<RequestPhoneCodeResponse> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(300);
     return { success: true, code: "123456" };
@@ -101,7 +119,10 @@ export async function apiRequestPhoneCode(phone: string): Promise<RequestPhoneCo
 
 // EN: Verify phone code
 // KO: 휴대폰 인증코드 검증
-export async function apiVerifyPhoneCode(phone: string, code: string): Promise<VerifyPhoneCodeResponse> {
+export async function apiVerifyPhoneCode(
+  phone: string,
+  code: string
+): Promise<VerifyPhoneCodeResponse> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(250);
     return { success: code === "123456" };
@@ -114,23 +135,31 @@ export async function apiVerifyPhoneCode(phone: string, code: string): Promise<V
 
 // EN: Email availability check
 // KO: 이메일 중복 확인
-export async function apiCheckEmail(email: string): Promise<{ available: boolean }> {
+export async function apiCheckEmail(
+  email: string
+): Promise<{ available: boolean }> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(150);
     return { available: !email.toLowerCase().startsWith("admin") };
   }
-  const res = await fetchJSON<{ success: boolean }>(`/api/auth/check-email?email=${encodeURIComponent(email)}`);
+  const res = await fetchJSON<{ success: boolean }>(
+    `/api/auth/check-email?email=${encodeURIComponent(email)}`
+  );
   return { available: res.success };
 }
 
 // EN: BizNo availability check
 // KO: 사업자번호 중복 확인
-export async function apiCheckBizNo(bizNo: string): Promise<{ available: boolean }> {
+export async function apiCheckBizNo(
+  bizNo: string
+): Promise<{ available: boolean }> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(150);
     return { available: bizNo !== "0000000000" };
   }
-  const res = await fetchJSON<{ success: boolean }>(`/api/onboard/check-bizno?bizNo=${encodeURIComponent(bizNo)}`);
+  const res = await fetchJSON<{ success: boolean }>(
+    `/api/onboard/check-bizno?bizNo=${encodeURIComponent(bizNo)}`
+  );
   return { available: res.success };
 }
 
@@ -166,6 +195,42 @@ export async function apiOnboardComplete(payload: {
     body: JSON.stringify(payload),
   });
   return res;
+}
+
+export async function apiFindUsernames(phone: string, code: string): Promise<FindUsernameResponse> {
+  if (import.meta.env.VITE_USE_MOCK === "1") {
+    await delay(200);
+    if (phone.replace(/\D/g, "") === "0000000000") {
+      return { accounts: [] };
+    }
+    return {
+      accounts: [
+        { username: "owner@classon.com", name: "담당자" },
+      ],
+    };
+  }
+  return await fetchJSON<FindUsernameResponse>("/api/auth/find-username", {
+    method: "POST",
+    body: JSON.stringify({ phone, code }),
+  });
+}
+
+export async function apiResetPassword(
+  username: string,
+  phone: string,
+  code: string
+): Promise<ResetPasswordResponse> {
+  if (import.meta.env.VITE_USE_MOCK === "1") {
+    await delay(200);
+    if (code !== "123456") {
+      throw new Error("인증번호가 올바르지 않습니다.");
+    }
+    return { username, temporaryPassword: "TempPass1!" };
+  }
+  return await fetchJSON<ResetPasswordResponse>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ username, phone, code }),
+  });
 }
 
 //

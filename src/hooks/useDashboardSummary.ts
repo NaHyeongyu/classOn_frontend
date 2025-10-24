@@ -1,37 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { fetchDashboardSummary } from "../api/dashboard";
 import type { DashboardSummary } from "../types/dashboard";
 
 type Status = "idle" | "loading" | "success" | "error";
 
 export function useDashboardSummary() {
-  const [status, setStatus] = useState<Status>("idle");
-  const [data, setData] = useState<DashboardSummary | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const query = useQuery<DashboardSummary>({
+    queryKey: ["dashboard", "summary"],
+    queryFn: fetchDashboardSummary,
+    staleTime: 30_000,
+    gcTime: 5 * 60 * 1000,
+    retry: 1,
+  });
 
-  const load = useCallback(async () => {
-    setStatus("loading");
-    setError(null);
-    try {
-      const d = await fetchDashboardSummary();
-      setData(d);
-      setStatus("success");
-    } catch (e) {
-      setError(e);
-      setStatus("error");
-    }
-  }, []);
+  const status: Status =
+    query.status === "pending"
+      ? "loading"
+      : query.status === "error"
+        ? "error"
+        : query.status === "success"
+          ? "success"
+          : "idle";
 
-  useEffect(() => {
-    if (status === "idle") {
-      void load();
-    }
-  }, [status, load]);
-
-  const value = useMemo(
-    () => ({ status, data, error, refresh: load }),
-    [status, data, error, load]
-  );
-
-  return value;
+  return {
+    status,
+    data: query.data ?? null,
+    error: query.error,
+    refresh: query.refetch,
+  };
 }

@@ -1,5 +1,5 @@
-import type { SummarizeItem } from "@/api/summarize";
 import type { SavedPost } from "@/api/marketingSaved";
+import type { SummarizeItem } from "@/api/summarize";
 
 export type MarketingTone = "WARM_VIVID" | "CONCISE_NEUTRAL" | "TRUST_CALM" | "UPBEAT_POSITIVE";
 export type MarketingSpeechStyle = "SEUMNIDA" | "YO";
@@ -8,11 +8,20 @@ export type MarketingFormatStyle = "STORY" | "LIST" | "PERFORMANCE";
 
 export type MarketingPresetKey = "7d" | "30d" | "thisMonth" | "lastMonth";
 
+export type MarketingDirection = {
+  title?: string | null;
+  because?: string | null;
+  hook?: string | null;
+  asset?: string | null;
+  platform?: string | null;
+};
+
 export interface MarketingSummaryPayload {
   from: string;
   to: string;
   summary: string;
   bullets: string[];
+  directions?: MarketingDirection[];
   tokensUsed?: number;
   rawJson?: string;
 }
@@ -33,6 +42,7 @@ export interface MarketingSessionPayload {
   formatStyle?: MarketingFormatStyle;
   direction?: string;
   bullets?: string[];
+  selectedDirectionIndex?: number | null;
   summary?: MarketingSummaryPayload;
   rendered?: MarketingRenderedDraft;
   from?: string;

@@ -1,49 +1,8 @@
 import { fetchJSON, getCanaryHeaders, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
 import type { Student } from "./students";
 import type { PageResult } from "../types/paging";
-
-export type Course = {
-  id: number;
-  code: string;
-  title: string;
-  description?: string;
-  status: "IN_PROGRESS" | "STOPPED" | "PENDING";
-  capacity?: number;
-  fee?: number;
-  courseType?: 'INDIVIDUAL' | 'GROUP';
-  createdAt: string;
-  courseTime?: string;
-  enrolledCount?: number;
-  nextClassDate?: string;
-  recurrenceDays?: string; // e.g., MON,WED
-  startTime?: string; // HH:mm:ss
-  endTime?: string;   // HH:mm:ss
-  recurring?: boolean;
-  primaryStudentId?: number | null;
-  primaryStudentName?: string | null;
-};
-
-export type CourseRecord = {
-  id: number;
-  courseId: number;
-  recordDate: string; // YYYY-MM-DD
-  startTime?: string; // HH:mm:ss
-  endTime?: string;   // HH:mm:ss
-  topic?: string;
-  notes?: string;
-  content?: string;
-  createdAt: string;
-  performanceScore?: number | null;
-  performanceNote?: string | null;
-};
-
-export type Attendance = {
-  id: number;
-  studentId: number;
-  studentName: string;
-  present: boolean;
-  reason?: string;
-};
+import type { Attendance, Course, CourseRecord } from "@classon/shared-types";
+export type { Course, CourseRecord, Attendance } from "@classon/shared-types";
 
 export type Attachment = {
   id: number;

@@ -3,40 +3,16 @@
 
 import { fetchJSON, getCanaryHeaders, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
 import type { PageResult } from "../types/paging";
+import type { Student, StudentAttendance, StudentStatus } from "@classon/shared-types";
 
-export type Student = {
-  id: number;
-  code: string;
-  name: string;
-  age?: number;
-  phoneNumber?: string;
-  guardianPhone?: string;
-  status: "ENROLLED" | "ON_LEAVE" | "PENDING";
-  joinedDate?: string; // YYYY-MM-DD
-  birthDate?: string; // YYYY-MM-DD
-  address?: string;
-  parentName?: string;
-  createdAt: string;
-  courses: { id: number; code: string; title: string; status: string; fee?: number | null }[];
-};
-
-export type StudentAttendance = {
-  date: string; // YYYY-MM-DD
-  courseId: number;
-  courseTitle: string;
-  present: boolean;
-  reason?: string;
-  recordId: number;
-  startTime?: string | null; // HH:mm:ss
-  endTime?: string | null;   // HH:mm:ss
-};
+export type { Student, StudentAttendance } from "@classon/shared-types";
 
 export type StudentPayload = {
   name: string;
   age?: number;
   phoneNumber?: string;
   guardianPhone?: string;
-  status?: "ENROLLED" | "ON_LEAVE" | "PENDING";
+  status?: StudentStatus;
   joinedDate?: string; // YYYY-MM-DD
   birthDate?: string; // YYYY-MM-DD
   address?: string;
@@ -48,7 +24,7 @@ export type StudentPayload = {
 export type { PageResult } from "../types/paging";
 
 export async function listStudents(params?: {
-  status?: "ENROLLED" | "ON_LEAVE" | "PENDING";
+  status?: StudentStatus;
   page?: number;
   size?: number;
   q?: string;
@@ -204,7 +180,13 @@ export async function importStudentsExcel(file: File): Promise<{ created: number
   return text ? JSON.parse(text) : { created:0, updated:0, skipped:0, errors:[] };
 }
 
-export async function previewImportStudentsExcel(file: File): Promise<{ created: number; updated: number; skipped: number; errors: string[]; rows: any[] }>{
+export async function previewImportStudentsExcel(file: File): Promise<{
+  created: number;
+  updated: number;
+  skipped: number;
+  errors: string[];
+  rows: unknown[];
+}> {
   const url = resolveApiUrl(`/api/students/import/preview`);
   const token = (await import("../lib/auth")).getToken();
   const form = new FormData();

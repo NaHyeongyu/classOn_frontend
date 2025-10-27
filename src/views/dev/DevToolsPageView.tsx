@@ -1,8 +1,5 @@
 import styled from "styled-components";
-import {
-  GhostBtn as UIGhostBtn,
-  PrimaryBtn as UIPrimaryBtn,
-} from "@/components/common/UI";
+import { GhostButton as UIGhostBtn, PrimaryButton as UIPrimaryBtn } from "@/components/common/UI";
 import type { useDevToolsPage } from "@/features/dev/useDevToolsPage";
 
 type DevToolsPageViewProps = ReturnType<typeof useDevToolsPage>;
@@ -76,7 +73,6 @@ export function DevToolsPageView({
             </div>
             <div style={{ gridColumn: "1 / -1", textAlign: "right" }}>
               <UIPrimaryBtn
-                as={"button" as const}
                 disabled={busySeed}
                 onClick={() => {
                   void onSeed();
@@ -102,7 +98,6 @@ export function DevToolsPageView({
           </div>
           <div>
             <UIPrimaryBtn
-              as={"button" as const}
               disabled={busy}
               onClick={() => {
                 void onReset();
@@ -127,7 +122,6 @@ export function DevToolsPageView({
           </div>
           <div>
             <UIPrimaryBtn
-              as={"button" as const}
               disabled={busyCourses}
               onClick={() => {
                 void onResetCourses();
@@ -162,7 +156,6 @@ export function DevToolsPageView({
           </Grid>
         )}
         <UIGhostBtn
-          as={"button" as const}
           onClick={() => {
             void loadStats();
           }}

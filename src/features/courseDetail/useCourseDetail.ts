@@ -131,7 +131,7 @@ export function useCourseDetail({
               page += 1;
             }
             const filtered = all.filter((student) =>
-              (student.courses || []).some((c) => c.id === courseId)
+              (student.courses || []).some((c: any) => c.id === courseId)
             );
             if (!cancelled) setStudents(filtered);
           } catch (nested) {

@@ -25,7 +25,8 @@
     /* 경로 alias (원하면 사용) */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@classon/shared-types": ["src/shared-types"]
     }
   },
   "include": ["src"],

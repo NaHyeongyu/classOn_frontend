@@ -49,7 +49,7 @@ export default function CourseRecordDetail() {
     <CourseRecordDetailPageView
       header={{
         courseId,
-        courseTitle: detail.course?.title ?? detail.course?.name ?? null,
+        courseTitle: (detail.course?.title ?? (detail.course as any)?.name ?? null) as string | null,
         headLoading: detail.headLoading,
         whenInfo: detail.editor.meta.whenInfo,
         canDelete: recordExists,

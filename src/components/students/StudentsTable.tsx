@@ -101,7 +101,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
       name: r.name,
       age: ageText,
       phone: formatPhone(r.phoneNumber),
-      course: r.courses?.map(c => c.title).join(", ") || "-",
+      course: r.courses?.map((c: any) => c.title).join(", ") || "-",
       guardian: formatPhone(r.guardianPhone),
       status: statusKr(r.status),
       joinedAt: r.joinedDate || (r.createdAt?.slice(0,10)) || "-",

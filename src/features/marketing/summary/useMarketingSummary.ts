@@ -62,8 +62,8 @@ export function useMarketingSummary(): UseMarketingSummaryResult {
   }, [igImgIdx, draft.images.length]);
 
   const tagsList = useMemo(() => tagInput.split(/\s+/).filter(Boolean), [tagInput]);
-  const toneLabel = MARKETING_TONE_LABELS[tone] ?? tone;
-  const speechLabel = MARKETING_SPEECH_STYLE_LABELS[speechStyle] ?? speechStyle;
+  const toneLabel = (MARKETING_TONE_LABELS as Record<string, string>)[tone] ?? tone;
+  const speechLabel = (MARKETING_SPEECH_STYLE_LABELS as Record<string, string>)[speechStyle] ?? speechStyle;
   const blogTitle = platformChoice === "NAVER_BLOG" ? draft.title ?? "" : "";
 
   const copyText = useCallback(

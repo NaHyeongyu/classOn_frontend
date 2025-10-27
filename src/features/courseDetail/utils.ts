@@ -28,12 +28,15 @@ export function buildCourseInfo(course: Course) {
     "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN",
     number
   > = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4, SAT: 5, SUN: 6 };
-  const days = (course.recurrenceDays || "")
-    .split(",")
-    .map((raw) => raw.trim().toUpperCase())
+  const daysSrc = Array.isArray(course.recurrenceDays)
+    ? course.recurrenceDays
+    : String(course.recurrenceDays || "").split(",");
+  const days = daysSrc
+    .map((raw: string) => String(raw).trim().toUpperCase())
     .filter(Boolean)
     .sort(
-      (a, b) => order[a as keyof typeof order] - order[b as keyof typeof order]
+      (a: string, b: string) =>
+        order[a as keyof typeof order] - order[b as keyof typeof order]
     )
     .map(dayLabel)
     .join("/");

@@ -28,7 +28,7 @@ type UseCourseFormPageResult = {
   isLastStep: boolean;
   form: FormState;
   setForm: (updater: (prev: FormState) => FormState) => void;
-  accordionToggle: (day: string, next: boolean) => void;
+  accordionToggle: (day: import("@/components/courseForm/courseFormHelpers").DayKey, next: boolean) => void;
   recurring: boolean;
   setRecurring: (value: boolean) => void;
   studentLoading: boolean;
@@ -195,11 +195,13 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             title: found.title,
             description: found.description,
             status: found.status,
-            courseType: found.courseType ?? "GROUP",
+            courseType: (found.courseType ?? "GROUP") as import("@/components/courseForm/courseFormTypes").CourseTypeValue,
             capacity: (found.courseType ?? "GROUP") === "INDIVIDUAL" ? 1 : found.capacity,
             fee: found.fee,
             courseTime: found.courseTime,
-            recurrenceDays: found.recurrenceDays,
+            recurrenceDays: Array.isArray(found.recurrenceDays)
+              ? found.recurrenceDays.join(",")
+              : (found.recurrenceDays ?? ""),
             startTime: found.startTime ? found.startTime.slice(0, 5) : "",
             endTime: found.endTime ? found.endTime.slice(0, 5) : "",
             primaryStudentId: found.primaryStudentId ?? null,

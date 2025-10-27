@@ -8,6 +8,7 @@ import {
   GhostButtonSmall,
 } from "@/components/common/UI";
 import type { MarketingDirection } from "@/features/marketing/types";
+import type { PlatformChoice } from "@/features/marketing/summary/types";
 import { platformLabel } from "@/features/marketing/summary/utils";
 import {
   marketingDirectionAssetLabel,
@@ -18,7 +19,7 @@ type MarketingSummaryPageViewProps = {
   itemsCount: number;
   toneLabel: string;
   speechLabel: string;
-  platformChoice: string;
+  platformChoice: PlatformChoice;
   directionText: string | null;
   body: string;
   tagInput: string;

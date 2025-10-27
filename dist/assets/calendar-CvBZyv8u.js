@@ -1,0 +1,1 @@
+import{f as n}from"./index-B0K7mn4q.js";async function c(a,s){const e=new URLSearchParams({on:a});return await n(`/api/calendar/classes?${e}`,s)}async function o(a,s,e){const r=new URLSearchParams({from:a,to:s});return await n(`/api/calendar/classes-range?${r}`,e)}export{o as a,c as g};

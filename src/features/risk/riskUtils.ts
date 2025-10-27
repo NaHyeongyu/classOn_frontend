@@ -50,13 +50,13 @@ export function calcRisk(
   let lastAbsentDays: number | null | undefined = null;
   const latestAbsent = attWin.filter(a => !a.present).sort((a,b) => (a.date < b.date ? 1 : -1))[0];
   if (latestAbsent) {
-    try { lastAbsentDays = daysBetween(now, new Date(latestAbsent.date)); } catch { lastAbsentDays = null; }
+    try { lastAbsentDays = daysBetween(now, new Date(latestAbsent.date as any)); } catch { lastAbsentDays = null; }
   }
 
   // Counsel negativity (simple keyword scan) within window
   const negativeCounselCount30 = (counsels || []).filter(c => {
     try {
-      if (new Date(c.counselTime) < since) return false;
+      if (new Date((c as any).counselTime as any) < since) return false;
       const text = (c.content || '').toLowerCase();
       return NEGATIVE_KEYWORDS.some(k => text.includes(k.toLowerCase()));
     } catch { return false; }

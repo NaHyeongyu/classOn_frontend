@@ -519,8 +519,8 @@ export default function CourseDetail() {
               if (last || content.length === 0 || page > 100) break;
               page += 1;
             }
-            const filtered = all.filter((s) =>
-              (s.courses || []).some((c) => c.id === numericId)
+            const filtered = all.filter((s: any) =>
+              (s.courses || []).some((c: any) => c.id === numericId)
             );
             if (!cancelled) setStudents(filtered);
           } catch (nestedError) {
@@ -904,12 +904,15 @@ function buildInfo(c: Course) {
     "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN",
     number
   > = { MON: 0, TUE: 1, WED: 2, THU: 3, FRI: 4, SAT: 5, SUN: 6 };
-  const days = (c.recurrenceDays || "")
-    .split(",")
-    .map((s) => s.trim().toUpperCase())
+  const daysSrc = Array.isArray(c.recurrenceDays)
+    ? c.recurrenceDays
+    : String(c.recurrenceDays || "").split(",");
+  const days = daysSrc
+    .map((s: string) => String(s).trim().toUpperCase())
     .filter(Boolean)
     .sort(
-      (a, b) => order[a as keyof typeof order] - order[b as keyof typeof order]
+      (a: string, b: string) =>
+        order[a as keyof typeof order] - order[b as keyof typeof order]
     )
     .map(dayLabel)
     .join("/");

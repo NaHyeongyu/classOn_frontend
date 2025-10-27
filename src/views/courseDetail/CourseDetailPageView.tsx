@@ -1,9 +1,9 @@
 import type { ComponentProps, ReactNode } from "react";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { Wrap, PageLocal, AlertError, Muted, Columns, Left, Right, StickyLeft } from "./CourseDetail.styles";
-import { CourseDetailHeader } from "./CourseDetailHeader";
-import { CourseDetailInfoSection } from "./CourseDetailInfoSection";
-import { CourseDetailKpis } from "./CourseDetailKpis";
+import { Wrap, PageLocal, AlertError, Muted, Columns, Left, Right, StickyLeft } from "@/components/courseDetail";
+import { CourseDetailHeader } from "@/components/courseDetail";
+import { CourseDetailInfoSection } from "@/components/courseDetail";
+import { CourseDetailKpis } from "@/components/courseDetail";
 import CourseExamsPanel from "@/components/courses/CourseExamsPanel";
 import CourseStudentsPanel from "@/components/courses/CourseStudentsPanel";
 import CourseRecordsPanel from "@/components/courses/CourseRecordsPanel";

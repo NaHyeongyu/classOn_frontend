@@ -24,9 +24,9 @@ type StepMeta = {
 
 type BasicStepProps = {
   form: FormState;
-  setForm: Dispatch<SetStateAction<FormState>>;
+  setForm: (updater: (prev: FormState) => FormState) => void;
   fieldErr: FieldErrors;
-  setFieldErr: Dispatch<SetStateAction<FieldErrors>>;
+  setFieldErr: (updater: (prev: FieldErrors) => FieldErrors) => void;
   courseTypeOptions: Array<{
     value: CourseTypeValue;
     label: string;
@@ -45,10 +45,10 @@ export function CourseFormBasicStep({
 }: BasicStepProps) {
   return (
     <StepCard>
-      <StepHeader>
+      <StepHeaderWrap>
         <StepTitle>{meta.title}</StepTitle>
         <StepLead>{meta.lead}</StepLead>
-      </StepHeader>
+      </StepHeaderWrap>
       <StepGrid>
         <Field>
           <Label>
@@ -129,22 +129,22 @@ export function CourseFormBasicStep({
 
 type ScheduleStepProps = {
   form: FormState;
-  setForm: Dispatch<SetStateAction<FormState>>;
+  setForm: (updater: (prev: FormState) => FormState) => void;
   fieldErr: FieldErrors;
-  setFieldErr: Dispatch<SetStateAction<FieldErrors>>;
+  setFieldErr: (updater: (prev: FieldErrors) => FieldErrors) => void;
   meta: StepMeta;
   isIndividual: boolean;
   studentFilter: string;
-  setStudentFilter: Dispatch<SetStateAction<string>>;
+  setStudentFilter: (value: string) => void;
   studentLoading: boolean;
   studentError: string | null;
   onSelectStudent: (student: StudentOption) => void;
   filteredStudents: StudentOption[];
   recurring: boolean;
-  setRecurring: Dispatch<SetStateAction<boolean>>;
-  dayOptions: Array<{ value: string; label: string }>;
-  hasDay: (source: string | undefined, day: string) => boolean;
-  toggleDay: (day: string, next: boolean) => void;
+  setRecurring: (value: boolean) => void;
+  dayOptions: Array<{ value: import("@/components/courseForm/courseFormHelpers").DayKey; label: string }>;
+  hasDay: (source: string | undefined, day: import("@/components/courseForm/courseFormHelpers").DayKey) => boolean;
+  toggleDay: (day: import("@/components/courseForm/courseFormHelpers").DayKey, next: boolean) => void;
   minuteOptions: string[];
   hourOptions: string[];
 };
@@ -206,10 +206,10 @@ export function CourseFormScheduleStep({
 
   return (
     <StepCard>
-      <StepHeader>
+      <StepHeaderWrap>
         <StepTitle>{meta.title}</StepTitle>
         <StepLead>{meta.lead}</StepLead>
-      </StepHeader>
+      </StepHeaderWrap>
       <StepGrid>
         {isIndividual ? (
           <Field>
@@ -357,10 +357,10 @@ export function CourseFormScheduleStep({
 
 type DetailsStepProps = {
   form: FormState;
-  setForm: Dispatch<SetStateAction<FormState>>;
+  setForm: (updater: (prev: FormState) => FormState) => void;
   meta: StepMeta;
   feeInput: string;
-  setFeeInput: Dispatch<SetStateAction<string>>;
+  setFeeInput: (value: string) => void;
   formatNumberKR: (value: string | number) => string;
   isIndividual: boolean;
   isEdit: boolean;
@@ -380,10 +380,10 @@ export function CourseFormDetailsStep({
 }: DetailsStepProps) {
   return (
     <StepCard>
-      <StepHeader>
+      <StepHeaderWrap>
         <StepTitle>{meta.title}</StepTitle>
         <StepLead>{meta.lead}</StepLead>
-      </StepHeader>
+      </StepHeaderWrap>
       <StepGrid>
         <Field>
           <Label>정원</Label>
@@ -454,7 +454,7 @@ const StepCard = styled(Section)`
   gap: ${(p) => p.theme.spacing.md};
 `;
 
-const StepHeader = styled.header>`
+const StepHeaderWrap = styled.header`
   display: grid;
   gap: ${(p) => p.theme.spacing.xs};
 `;

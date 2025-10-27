@@ -17,12 +17,14 @@ const STATUS_LABEL: Record<Student["status"], string> = {
   ENROLLED: "수강중",
   ON_LEAVE: "휴학",
   PENDING: "대기중",
+  WITHDRAWN: "퇴원",
 };
 
 const STATUS_COPY: Record<Student["status"], string> = {
   ENROLLED: "현재 수업을 듣고 있는 원생입니다.",
   ON_LEAVE: "일시 휴학 상태로 관리됩니다.",
   PENDING: "상담/등록 대기 중인 원생입니다.",
+  WITHDRAWN: "퇴원(수강 종료) 상태입니다.",
 };
 
 const STATUS_OPTIONS: Array<{
@@ -32,6 +34,7 @@ const STATUS_OPTIONS: Array<{
   { value: "ENROLLED", label: "수강중" },
   { value: "ON_LEAVE", label: "휴학" },
   { value: "PENDING", label: "대기중" },
+  { value: "WITHDRAWN", label: "퇴원" },
 ];
 
 type SubmitResult = {
@@ -94,7 +97,7 @@ export function useStudentForm({
           parentName: student.parentName,
         });
         if (student.birthDate) {
-          const [y, m, d] = student.birthDate.split("-");
+          const [y, m, d] = String(student.birthDate).split("-");
           setDobY(y || "");
           setDobM(m || "");
           setDobD(d || "");

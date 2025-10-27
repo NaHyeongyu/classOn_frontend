@@ -28,3 +28,9 @@ export const DEFAULT_FORM: FormState = {
   primaryStudentId: null,
   primaryStudentName: "",
 };
+
+export type CourseFormStepMeta = {
+  key: string;
+  title: string;
+  lead: string;
+};

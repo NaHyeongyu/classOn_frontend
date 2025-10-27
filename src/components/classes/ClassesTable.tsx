@@ -42,7 +42,7 @@ function buildDays(r: Course) {
     return r.recurrenceDays
       .slice()
       .sort(
-        (a, b) =>
+        (a: string, b: string) =>
           (dayOrder[a as keyof typeof dayOrder] ?? 0) -
           (dayOrder[b as keyof typeof dayOrder] ?? 0)
       )

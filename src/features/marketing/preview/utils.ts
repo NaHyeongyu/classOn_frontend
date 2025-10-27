@@ -39,11 +39,11 @@ export function composeDirectionText(
 }
 
 export function buildToneLabel(tone: string): string {
-  return MARKETING_TONE_LABELS[tone] ?? tone;
+  return (MARKETING_TONE_LABELS as Record<string, string>)[tone] ?? tone;
 }
 
 export function buildSpeechLabel(style: string): string {
-  return MARKETING_SPEECH_STYLE_LABELS[style] ?? style;
+  return (MARKETING_SPEECH_STYLE_LABELS as Record<string, string>)[style] ?? style;
 }
 
 export function summarizeDirection(direction: MarketingDirection) {

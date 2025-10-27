@@ -55,7 +55,7 @@ type CourseFormPageViewProps = {
   isLastStep: boolean;
   form: FormState;
   setForm: (updater: (prev: FormState) => FormState) => void;
-  toggleDay: (day: string, next: boolean) => void;
+  toggleDay: (day: import("@/components/courseForm/courseFormHelpers").DayKey, next: boolean) => void;
   recurring: boolean;
   setRecurring: (value: boolean) => void;
   studentLoading: boolean;
@@ -68,15 +68,7 @@ type CourseFormPageViewProps = {
     schedule?: string;
     student?: string;
   };
-  setFieldErrors: (updater: (prev: {
-    title?: string;
-    schedule?: string;
-    student?: string;
-  }) => {
-    title?: string;
-    schedule?: string;
-    student?: string;
-  }) => void;
+  setFieldErrors: (updater: (prev: { title?: string; schedule?: string; student?: string }) => { title?: string; schedule?: string; student?: string }) => void;
   feeInput: string;
   setFeeInput: (value: string) => void;
   loading: boolean;

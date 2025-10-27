@@ -153,7 +153,6 @@ export function useMarketingGeneratingPage(): UseMarketingGeneratingPageReturn {
     platformChoice,
     progress,
     error,
-    helperText,
     retry: () => setRetryKey((key) => key + 1),
     goHome: () => navigate("/marketing"),
   };

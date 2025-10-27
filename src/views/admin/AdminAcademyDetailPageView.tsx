@@ -148,7 +148,7 @@ export function AdminAcademyDetailPageView({
 
 type PaymentsCardProps = {
   payments: AdminAcademyDetailPageViewModel["payments"];
-  formatDateTime: (value: string | number | Date) => string;
+  formatDateTime: (value: string) => string;
 };
 
 function PaymentsCard({ payments, formatDateTime }: PaymentsCardProps) {
@@ -243,7 +243,7 @@ function PaymentsCard({ payments, formatDateTime }: PaymentsCardProps) {
 
 type LoginsCardProps = {
   logins: AdminAcademyDetailPageViewModel["logins"];
-  formatDateTime: (value: string | number | Date) => string;
+  formatDateTime: (value: string) => string;
   onInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
 };
 
@@ -353,7 +353,7 @@ function LoginsCard({
 
 type ApiLogsCardProps = {
   apiLogs: AdminAcademyDetailPageViewModel["apiLogs"];
-  formatDateTime: (value: string | number | Date) => string;
+  formatDateTime: (value: string) => string;
   onInputKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
 };
 

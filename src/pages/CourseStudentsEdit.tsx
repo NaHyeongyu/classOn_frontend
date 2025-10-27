@@ -31,7 +31,6 @@ export default function CourseStudentsEdit() {
     onEnroll,
     onUnenroll,
     confirmUnenrollDialog,
-    atCapacity,
   } = useCourseStudents(courseId);
 
   const atCapacity = capacity != null && enrolledStudents.length >= capacity;

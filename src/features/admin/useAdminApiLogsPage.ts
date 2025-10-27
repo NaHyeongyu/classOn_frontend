@@ -3,13 +3,16 @@ import { getApiLogsPaged } from "@/api/admin";
 
 export type ErrorFilter = "all" | "errors";
 
-export type AdminApiLogRow = Awaited<
-  ReturnType<typeof getApiLogsPaged>
-> extends { content: infer C }
-  ? C extends Array<infer R>
-    ? R
-    : never
-  : never;
+export type AdminApiLogRow = {
+  id?: number | string | null;
+  createdAt: string;
+  method?: string | null;
+  path?: string | null;
+  status?: number | null;
+  ip?: string | null;
+  userId?: string | number | null;
+  [key: string]: unknown;
+};
 
 type ToastErrorFn = (message: string) => void;
 

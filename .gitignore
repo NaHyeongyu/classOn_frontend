@@ -1,0 +1,3 @@
+# JetBrains IDE 설정 무시
+.idea/
+*.iml

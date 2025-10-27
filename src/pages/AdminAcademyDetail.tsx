@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
-import { AdminAcademyDetailPageView } from "@/components/admin/AdminAcademyDetailPageView";
+import { AdminAcademyDetailPageView } from "@/views/admin/AdminAcademyDetailPageView";
 import { useAdminAcademyDetailPage } from "@/features/admin/hooks/useAdminAcademyDetailPage";
 
 export default function AdminAcademyDetail() {

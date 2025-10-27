@@ -1,4 +1,4 @@
-import { FeedbackPageView } from "@/components/feedback/FeedbackPageView";
+import { FeedbackPageView } from "@/views/feedback/FeedbackPageView";
 import { useFeedbackPage } from "@/features/feedback/useFeedbackPage";
 
 export default function Feedback() {

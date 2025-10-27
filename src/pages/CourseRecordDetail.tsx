@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { CourseRecordDetailPageView } from "@/components/courseRecord/CourseRecordDetailPageView";
+import { CourseRecordDetailPageView } from "@/views/courseRecord/CourseRecordDetailPageView";
 import { useCourseRecordDetailPage } from "@/features/courseRecord/useCourseRecordDetailPage";
 
 export default function CourseRecordDetail() {

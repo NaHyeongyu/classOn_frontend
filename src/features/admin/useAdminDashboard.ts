@@ -1,11 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   getAdminOverview,
   getLoginLogs,
@@ -32,12 +25,6 @@ export type AdminPaymentRow = Awaited<ReturnType<typeof getPayments>> extends Ar
 >
   ? T
   : never;
-
-export type AdminSummaryItem = {
-  label: string;
-  value: string | number;
-  icon: ReactNode;
-};
 
 export function useAdminDashboard({ showSuccess, showError }: ToastFns) {
   const [overview, setOverview] = useState<AdminOverview | null>(null);

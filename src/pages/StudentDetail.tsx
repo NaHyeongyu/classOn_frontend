@@ -1,4 +1,4 @@
-import { StudentDetailPageView } from "@/components/studentDetail/StudentDetailPageView";
+import { StudentDetailPageView } from "@/views/studentDetail/StudentDetailPageView";
 import { useStudentDetailPage } from "@/features/studentDetail/hooks/useStudentDetailPage";
 
 export default function StudentDetail() {

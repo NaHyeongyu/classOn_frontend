@@ -31,7 +31,7 @@ export type CourseRecordAttendanceProps = React.ComponentProps<typeof CourseReco
 export type CourseRecordGradesPanelProps = {
   gradeView: "intro" | "list" | "scores";
   setGradeView: Dispatch<SetStateAction<"intro" | "list" | "scores">>;
-  avgLetter: string | null;
+  avgSummary: string | null;
   scoreStudents: { id: number; name: string }[];
   grades: UseCourseRecordGradesReturn;
   openExamModal: (view: "list" | "create") => void;
@@ -51,11 +51,8 @@ type Props = {
   gradesMeta: {
     examCreateOk: boolean;
     selectedExamId: number | null;
-    examsCount: number;
     examLoading: boolean;
-    examFormSaving: boolean;
-    onQuickCreateExam: () => Promise<void> | void;
-    onOpenExamSelect: () => void;
+    onOpenExamModal: () => void;
     onDeleteExam: () => Promise<void> | void;
   };
 };
@@ -76,11 +73,8 @@ export function CourseRecordRightPanel({
   const {
     examCreateOk,
     selectedExamId,
-    examsCount,
     examLoading,
-    examFormSaving,
-    onQuickCreateExam,
-    onOpenExamSelect,
+    onOpenExamModal,
     onDeleteExam,
   } = gradesMeta;
 
@@ -110,7 +104,7 @@ export function CourseRecordRightPanel({
               {tab === "attendance" ? (
                 <Muted>학생별 출석 상태를 수동으로 처리하세요. 변경 시 확인 창이 표시됩니다.</Muted>
               ) : (
-                <Muted>&nbsp;</Muted>
+                <Muted>시험 추가 버튼을 눌러 시험을 선택하거나 생성하세요.</Muted>
               )}
             </HeaderText>
             {tab === "attendance" ? (
@@ -144,26 +138,13 @@ export function CourseRecordRightPanel({
             ) : (
               <BulkActions>
                 {examCreateOk ? <SuccessBadge role="status">시험 생성됨</SuccessBadge> : null}
-                {!selectedExamId && examsCount === 0 ? (
-                  <UIPrimaryButtonSm
-                    type="button"
-                    onClick={() => {
-                      void onQuickCreateExam();
-                    }}
-                    disabled={examLoading || examFormSaving}
-                  >
-                    시험 생성
-                  </UIPrimaryButtonSm>
-                ) : null}
-                {!selectedExamId && examsCount > 0 ? (
-                  <UIPrimaryButtonSm
-                    type="button"
-                    onClick={onOpenExamSelect}
-                    disabled={examLoading}
-                  >
-                    시험 선택
-                  </UIPrimaryButtonSm>
-                ) : null}
+                <UIPrimaryButtonSm
+                  type="button"
+                  onClick={onOpenExamModal}
+                  disabled={examLoading}
+                >
+                  시험 추가
+                </UIPrimaryButtonSm>
                 {selectedExamId ? (
                   <UIGhostButton
                     type="button"

@@ -38,7 +38,9 @@ export default function StudentForm() {
     const result = await flow.handleSubmit(event);
     if (!result) return;
     setSuccess(
-      result.mode === "create" ? "원생이 추가되었습니다." : "수정이 완료되었습니다."
+      result.mode === "create"
+        ? "원생이 추가되었습니다."
+        : "수정이 완료되었습니다."
     );
     navigate(`/students/${result.student.id}`, { replace: true });
   }
@@ -49,7 +51,9 @@ export default function StudentForm() {
         isEdit={flow.isEdit}
         saving={flow.saving}
         onSaveClick={() => {
-          const formEl = document.getElementById("student-form") as HTMLFormElement | null;
+          const formEl = document.getElementById(
+            "student-form"
+          ) as HTMLFormElement | null;
           if (!formEl) {
             void submit();
             return;

@@ -2,6 +2,7 @@ import styled from "styled-components";
 import {
   SectionCard as Section,
   TitleH3 as Title,
+  PrimaryButtonSm as UIPrimaryButtonSm,
 } from "@/components/common/UI";
 import {
   CourseRecordAttachmentsPanel,
@@ -15,6 +16,19 @@ export function CourseRecordAttachmentsSection(props: Props) {
     <Section>
       <SectionHeader>
         <Title>수업 파일</Title>
+        <label>
+          <UIPrimaryButtonSm as="span">파일 추가</UIPrimaryButtonSm>
+          <input
+            type="file"
+            accept="image/*,application/pdf"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => {
+              void props.onUpload(e.currentTarget.files);
+              e.currentTarget.value = "";
+            }}
+          />
+        </label>
       </SectionHeader>
       <CourseRecordAttachmentsPanel {...props} />
     </Section>

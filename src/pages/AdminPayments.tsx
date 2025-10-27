@@ -1,5 +1,5 @@
 import { useToast } from "@/components/common/Toast";
-import { AdminPaymentsPageView } from "@/components/admin/AdminPaymentsPageView";
+import { AdminPaymentsPageView } from "@/views/admin/AdminPaymentsPageView";
 import { useAdminPaymentsPage } from "@/features/admin/useAdminPaymentsPage";
 
 export default function AdminPayments() {

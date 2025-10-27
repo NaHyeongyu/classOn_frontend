@@ -70,6 +70,13 @@ export const SmallMuted = styled.div`
   font-size: 12px;
 `;
 
+export const KPI = styled.div`
+  font-size: 28px;
+  font-weight: 900;
+  color: #111827;
+  line-height: 1.2;
+`;
+
 export const StatusChip = styled.span`
   padding: 4px 10px;
   border-radius: 9999px;
@@ -381,4 +388,28 @@ export const TimeRow = styled.div`
 
 export const TimeSelect = styled.div`
   flex: 1;
+`;
+
+export const Subgrid = styled.div`
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin-bottom: 16px;
+`;
+
+export const SmallCard = styled.div`
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 14px 16px;
+  background: #ffffff;
+  display: grid;
+  gap: 6px;
+`;
+
+export const SmallTitle = styled.span`
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
 `;

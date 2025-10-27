@@ -6,21 +6,11 @@ import KpiAttendance from "@/components/dashboard/KpiAttendance";
 import KpiClasses from "@/components/dashboard/KpiClasses";
 import DashboardAttendance from "@/components/dashboard/DashboardAttendance";
 import DashboardClasses from "@/components/dashboard/DashboardClasses";
-import type { UseDashboardPageReturn } from "@/features/dashboard/useDashboardPage";
+import type { DashboardPageData } from "@/features/dashboard/useDashboardPage";
 
 const DEFAULT_TITLE = "대시보드";
 
-export type DashboardPageViewProps = {
-  title?: string;
-  createStudentHref: string;
-  createCourseHref: string;
-  kpiProps: {
-    data: UseDashboardPageReturn["data"];
-    loading: boolean;
-    error: boolean;
-    onRetry: () => void;
-  };
-};
+export type DashboardPageViewProps = DashboardPageData;
 
 export function DashboardPageView({
   title = DEFAULT_TITLE,

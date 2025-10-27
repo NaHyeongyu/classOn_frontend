@@ -1,4 +1,4 @@
-import { FeedbackChangelogPageView } from "@/components/feedback/FeedbackChangelogPageView";
+import { FeedbackChangelogPageView } from "@/views/feedback/FeedbackChangelogPageView";
 import { useFeedbackChangelogPage } from "@/features/feedback/hooks/useFeedbackChangelogPage";
 
 export default function FeedbackChangelogPage() {

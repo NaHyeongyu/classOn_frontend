@@ -1,4 +1,4 @@
-import { MarketingPageView } from "@/components/marketing/MarketingPageView";
+import { MarketingPageView } from "@/views/marketing/MarketingPageView";
 import { useMarketingPage } from "@/features/marketing/hooks/useMarketingPage";
 
 export default function MarketingPage() {

@@ -1,4 +1,4 @@
-import { MarketingSummaryPageView } from "@/components/marketing/MarketingSummaryPageView";
+import { MarketingSummaryPageView } from "@/views/marketing/MarketingSummaryPageView";
 import { useMarketingSummary } from "@/features/marketing/summary/useMarketingSummary";
 
 export default function MarketingSummaryPage() {

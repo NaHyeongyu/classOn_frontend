@@ -1,6 +1,6 @@
 // 일정 상세 페이지: 날짜별 수업, 상담, 할 일 관리를 한 화면에서 처리합니다.
 import { useNavigate, useParams } from "react-router-dom";
-import CalendarDetailPageView from "@/components/calendar/detail/CalendarDetailPageView";
+import CalendarDetailPageView from "@/views/calendar/detail/CalendarDetailPageView";
 import { useCalendarDetailPage } from "@/features/calendar/useCalendarDetailPage";
 
 export default function CalendarDetail() {

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { FeedbackChangelogEntry } from "@/components/feedback/FeedbackChangelogPageView";
+import type { FeedbackChangelogEntry } from "@/views/feedback/FeedbackChangelogPageView";
 
 export function useFeedbackChangelogPage() {
   const entries = useMemo<FeedbackChangelogEntry[]>(

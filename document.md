@@ -87,7 +87,8 @@
 | `src/lib/`        | 인증 토큰(`auth.ts`), 관리자 인증(`adminAuth.ts`), fetch 헬퍼(`fetcher.ts`), 날짜/포맷 유틸.                                               |
 | `src/hooks/`      | `useAuth`, `useAdminAuth`, `useMonthCalendar` 등 컨텍스트/도메인 훅.                                                                       |
 | `src/components/` | UI 구성 요소. `common/`(버튼·모달·토스트·레이아웃), `calendar/`, `dashboard/`, `courses/`, `classes/`, `students/`, `admin/` 등으로 세분.  |
-| `src/pages/`      | 라우트별 컨테이너. `CourseRecordDetail`, `StudentDetail`, `Report*`, `Marketing*`, `Admin*`, `DevTools` 등 풍부한 화면이 존재.             |
+| `src/views/`      | 페이지별 UI 조합(프레젠테이션 레이어). `components`의 파츠를 배치하는 곳이며, 상태·네비게이션 로직은 포함하지 않음.                        |
+| `src/pages/`      | 라우트별 컨테이너. `features` 훅으로 데이터를 준비하고 `views`를 호출해 화면을 그립니다.                                                 |
 | `src/features/`   | 비즈니스 로직 모듈. `calendar`, `attendance`, `counsels`, `exams`, `todos`, `marketing`, `risk` 등.                                        |
 | `src/styles/`     | 테마(`theme.ts`), 전역 초기화(`reset.css`, `index.css`), styled-components 타입 선언.                                                      |
 | `src/types/`      | API 응답 및 공통 타입 선언.                                                                                                                |
@@ -100,7 +101,8 @@
   - 페이지 컴포넌트는 `src/pages/FooBar.tsx`, 하위 UI는 `src/components/<domain>/FooBar.tsx`.
   - 비즈니스 로직/훅은 `src/features/<domain>/<name>.ts` 혹은 `src/hooks/useFoo.ts`.
 - **폴더 배치**
-  - 도메인별로 `components/<domain>`, `features/<domain>`, `api/<domain>.ts`를 맞추어 관리합니다.
+  - 페이지 레이어는 `src/pages`(데이터 연결), `src/views`(UI 조합), `src/components/<domain>`(단위 UI)로 역할을 나눕니다.
+  - 도메인별로 `features/<domain>`, `components/<domain>`, `views/<domain>`를 대응시키고, API 래퍼는 `api/<domain>.ts`에 둡니다.
   - 공용 유틸은 `lib/`, 타입은 `types/`, 스타일 상수는 `styles/`에 위치시킵니다.
 - **스타일 정의**
   - styled-components는 컴포넌트 파일 하단에 배치하고, 테마 토큰(`theme.colors`, `theme.spacing`)을 사용합니다.
@@ -176,7 +178,8 @@
   - 수정 이후 관련 리스트 캐시 무효화 (`invalidateCache*`).
   - 자동 저장 기능이 있는 화면에서는 추가 수동 저장 버튼을 만들지 말고 기존 타이머/상태를 존중.
 - **파일 구조**
-  - 도메인별 폴더(`features/`, `components/<domain>`, `pages`)에 맞춰 배치.
+  - 도메인별 폴더(`features/<domain>`, `components/<domain>`, `views/<domain>`, `pages`)에 맞춰 배치.
+  - 페이지 파일은 데이터 로딩/라우팅만 담당하고, 화면 조합은 `views`에서 관리합니다.
   - 공통 유틸은 `lib/` 또는 `features/공통`.
 
 ## 디자인 토큰 요약

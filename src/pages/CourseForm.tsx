@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { CourseFormPageView } from "@/components/courseForm/CourseFormPageView";
+import { CourseFormPageView } from "@/views/courseForm/CourseFormPageView";
 import { useCourseFormPage } from "@/features/courseForm/useCourseFormPage";
 import { routes } from "@/routes";
 

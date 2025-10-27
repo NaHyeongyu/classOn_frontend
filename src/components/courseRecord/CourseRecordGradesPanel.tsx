@@ -15,26 +15,14 @@ import {
 } from "@/components/common/UI";
 import type { UseCourseRecordGradesReturn } from "@/features/courseRecord/useCourseRecordGrades";
 import styled from "styled-components";
+import type { Exam } from "@/api/exams";
 
 type GradeView = "intro" | "list" | "scores";
-
-const EXAM_MODE_OPTIONS = [
-  {
-    value: "percent" as const,
-    label: "백분율 입력",
-    description: "0~100점 점수로 기록합니다.",
-  },
-  {
-    value: "letter" as const,
-    label: "등급 입력",
-    description: "A~F 등급으로 기록합니다.",
-  },
-] as const;
 
 type Props = {
   gradeView: GradeView;
   setGradeView: Dispatch<SetStateAction<GradeView>>;
-  avgLetter: string | null;
+  avgSummary: string | null;
   scoreStudents: { id: number; name: string }[];
   grades: UseCourseRecordGradesReturn;
   openExamModal: (view: "list" | "create") => void;
@@ -44,7 +32,7 @@ type Props = {
 export function CourseRecordGradesPanel({
   gradeView,
   setGradeView,
-  avgLetter,
+  avgSummary,
   scoreStudents,
   grades,
   openExamModal,
@@ -56,6 +44,8 @@ export function CourseRecordGradesPanel({
     examError,
     selectedExamId,
     setSelectedExamId,
+    examFormTitle,
+    setExamFormTitle,
     examFormMode,
     setExamFormMode,
     examFormSaving,
@@ -68,6 +58,10 @@ export function CourseRecordGradesPanel({
     setExamQuery,
     selectedExam,
     filteredExams,
+    examTemplates,
+    examFormTemplateId,
+    setExamFormTemplateId,
+    selectedExamTemplate,
     examResultsMap,
     gradeMap,
     setGradeMap,
@@ -78,6 +72,8 @@ export function CourseRecordGradesPanel({
     handleConfirmExamSelection,
     handleCreateExamInline,
   } = grades;
+
+  const hasExistingExams = exams.length > 0;
 
   return (
     <Fragment>
@@ -105,7 +101,9 @@ export function CourseRecordGradesPanel({
               <div className="actions">
                 <UIPrimaryButtonSm
                   type="button"
-                  onClick={() => openExamModal("create")}
+                  onClick={() =>
+                    openExamModal(hasExistingExams ? "list" : "create")
+                  }
                   disabled={examLoading}
                 >
                   시험 추가
@@ -117,7 +115,7 @@ export function CourseRecordGradesPanel({
             ) : examError ? (
               <AlertError>{examError}</AlertError>
             ) : (
-              <EmptyHint>우측 상단의 ‘시험 선택’에서 시험을 선택하세요.</EmptyHint>
+              <EmptyHint>시험을 추가하거나 선택해 점수를 입력하세요.</EmptyHint>
             )}
           </GradesList>
         )}
@@ -135,9 +133,9 @@ export function CourseRecordGradesPanel({
                   >
                     {selectedExam.inputMode === "percent" ? "백분율" : "등급"}
                   </ModeBadge>
-                  {avgLetter && (
+                  {avgSummary && (
                     <SmallMuted style={{ marginLeft: 8 }}>
-                      평균 {avgLetter}
+                      평균 {avgSummary}
                     </SmallMuted>
                   )}
                   {gradeFeedback === "success" && (
@@ -306,6 +304,7 @@ export function CourseRecordGradesPanel({
                     const createdId = await handleCreateExamInline();
                     if (createdId != null) {
                       setGradeView("scores");
+                      closeExamModal();
                     }
                   })();
                 }}
@@ -336,28 +335,66 @@ export function CourseRecordGradesPanel({
       >
         {examModalView === "create" ? (
           <CreateForm>
-            <label>입력 방식</label>
-            <ModeList>
-              {EXAM_MODE_OPTIONS.map((option) => {
-                const active = examFormMode === option.value;
-                return (
-                  <ModeOption
-                    key={option.value}
-                    type="button"
-                    data-active={String(active)}
-                    onClick={() => setExamFormMode(option.value)}
+            {hasExistingExams ? (
+              <>
+                <label htmlFor="exam-template">시험 템플릿</label>
+                {examTemplates.length > 0 ? (
+                  <TemplateSelect
+                    id="exam-template"
+                    value={examFormTemplateId}
+                    onChange={(e) => setExamFormTemplateId(e.currentTarget.value)}
                     disabled={examFormSaving}
                   >
-                    <div className="texts">
-                      <strong>{option.label}</strong>
-                      <span>{option.description}</span>
-                    </div>
-                    {active && <span className="indicator">선택됨</span>}
-                  </ModeOption>
-                );
-              })}
-            </ModeList>
-            <SmallMuted>제목은 일자 기반으로 자동 지정됩니다.</SmallMuted>
+                    {examTemplates.map((tpl) => (
+                      <option key={tpl.id} value={tpl.id}>
+                        {tpl.name}
+                      </option>
+                    ))}
+                  </TemplateSelect>
+                ) : (
+                  <SmallMuted>사용 가능한 템플릿이 없습니다.</SmallMuted>
+                )}
+                {selectedExamTemplate?.defaultNote && (
+                  <TemplateHint>{selectedExamTemplate.defaultNote}</TemplateHint>
+                )}
+                <SmallMuted>
+                  템플릿을 선택하고 생성하면 학생별 점수 입력 화면으로 이동합니다.
+                </SmallMuted>
+              </>
+            ) : (
+              <>
+                <label htmlFor="exam-title">시험 제목</label>
+                <TitleInput
+                  id="exam-title"
+                  value={examFormTitle}
+                  onChange={(e) => setExamFormTitle(e.currentTarget.value)}
+                  placeholder="예: 중간고사 수학"
+                  disabled={examFormSaving}
+                />
+                <label>입력 방식</label>
+                <RadioRow>
+                  <RadioLabel>
+                    <input
+                      type="radio"
+                      checked={examFormMode === "percent"}
+                      onChange={() => setExamFormMode("percent")}
+                      disabled={examFormSaving}
+                    />
+                    <span>백분율</span>
+                  </RadioLabel>
+                  <RadioLabel>
+                    <input
+                      type="radio"
+                      checked={examFormMode === "letter"}
+                      onChange={() => setExamFormMode("letter")}
+                      disabled={examFormSaving}
+                    />
+                    <span>등급</span>
+                  </RadioLabel>
+                </RadioRow>
+                <SmallMuted>시험 제목과 입력 방식은 이후에도 수정할 수 있습니다.</SmallMuted>
+              </>
+            )}
             {examFormError && <AlertError>{examFormError}</AlertError>}
           </CreateForm>
         ) : (
@@ -367,22 +404,33 @@ export function CourseRecordGradesPanel({
             ) : examError ? (
               <AlertError>{examError}</AlertError>
             ) : exams.length === 0 ? (
-              <EmptyHint>등록된 시험이 없습니다.</EmptyHint>
+              <div style={{ display: "grid", gap: 12 }}>
+                <EmptyHint>등록된 시험이 없습니다.</EmptyHint>
+                <UIPrimaryButtonSm
+                  type="button"
+                  onClick={() => setExamModalView("create")}
+                  disabled={examLoading}
+                  style={{ justifySelf: "flex-end" }}
+                >
+                  새 시험 생성
+                </UIPrimaryButtonSm>
+              </div>
             ) : (
               <ModalListScroller>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "flex-end",
-                    marginBottom: 8,
-                  }}
-                >
+                <ModalToolbar>
                   <SearchInput
                     placeholder="시험 검색"
                     value={examQuery}
                     onChange={(e) => setExamQuery(e.currentTarget.value)}
                   />
-                </div>
+                  <UIPrimaryButtonSm
+                    type="button"
+                    onClick={() => setExamModalView("create")}
+                    disabled={examLoading}
+                  >
+                    새 시험 생성
+                  </UIPrimaryButtonSm>
+                </ModalToolbar>
                 <ExamList>
                   {filteredExams.map((exam) => {
                     const examIdStr = String(exam.id);
@@ -402,12 +450,8 @@ export function CourseRecordGradesPanel({
                         disabled={examLoading}
                       >
                         <div className="meta">
-                          <strong>{exam.title}</strong>
-                          <span>
-                            {exam.inputMode === "percent"
-                              ? "백분율 입력"
-                              : "등급 입력"}
-                          </span>
+                          <strong>{exam.title || "시험"}</strong>
+                          <span>{formatExamMeta(exam)}</span>
                         </div>
                         {selected && <span className="indicator">선택됨</span>}
                       </ExamListItem>
@@ -424,6 +468,17 @@ export function CourseRecordGradesPanel({
       </Modal>
     </Fragment>
   );
+}
+
+function formatExamMeta(exam: Exam): string {
+  const parts: string[] = [];
+  if (exam.examDate) parts.push(exam.examDate);
+  if (exam.inputMode === "percent") parts.push("백분율 입력");
+  else if (exam.inputMode === "letter") parts.push("등급 입력");
+  if (typeof exam.averageScore === "number") {
+    parts.push(`평균 ${exam.averageScore.toFixed(1)}`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : "등록된 정보 없음";
 }
 
 const Title = styled.h3`
@@ -604,50 +659,59 @@ const CreateForm = styled.div`
   }
 `;
 
-const ModeList = styled.div`
-  display: grid;
-  gap: 8px;
-`;
-
-const ModeOption = styled.button`
+const TitleInput = styled.input`
   width: 100%;
-  text-align: left;
-  padding: 12px 14px;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  padding: 10px 12px;
+  font-size: 14px;
+`;
+
+const RadioRow = styled.div`
+  display: inline-flex;
   gap: 16px;
+  align-items: center;
+`;
+
+const RadioLabel = styled.label`
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  color: #374151;
   cursor: pointer;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease,
-    background-color 0.18s ease;
-  .texts {
-    display: grid;
-    gap: 4px;
+  input {
+    width: 16px;
+    height: 16px;
   }
-  .texts strong {
-    font-size: 14px;
-    color: #111827;
-  }
-  .texts span {
-    font-size: 12px;
-    color: #64748b;
-  }
-  .indicator {
-    font-size: 12px;
-    color: #4f46e5;
-    font-weight: 700;
-  }
-  &[data-active="true"] {
-    border-color: #4f46e5;
-    background: #eef2ff;
-    box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
-  }
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+`;
+
+const TemplateSelect = styled.select`
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #fff;
+`;
+
+const TemplateHint = styled.div`
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: -6px;
+`;
+
+const ModalToolbar = styled.div`
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  input {
+    flex: 1;
+    min-width: 160px;
   }
 `;
 

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import type { FormEvent } from "react";
-import { RegisterPageView } from "@/components/register/RegisterPageView";
+import { RegisterPageView } from "@/views/register/RegisterPageView";
 import { useRegisterFlow } from "@/features/register/useRegisterFlow";
 
 export default function Register() {

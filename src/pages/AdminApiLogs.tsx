@@ -1,5 +1,5 @@
 import { useToast } from "@/components/common/Toast";
-import { AdminApiLogsPageView } from "@/components/admin/AdminApiLogsPageView";
+import { AdminApiLogsPageView } from "@/views/admin/AdminApiLogsPageView";
 import { useAdminApiLogsPage } from "@/features/admin/useAdminApiLogsPage";
 
 export default function AdminApiLogs() {

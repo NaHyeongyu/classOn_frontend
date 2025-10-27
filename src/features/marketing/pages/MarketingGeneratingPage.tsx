@@ -1,7 +1,7 @@
 import {
   MarketingGeneratingEmptyState,
   MarketingGeneratingPageView,
-} from "@/components/marketing/MarketingGeneratingPageView";
+} from "@/views/marketing/MarketingGeneratingPageView";
 import { useMarketingGeneratingPage } from "@/features/marketing/hooks/useMarketingGeneratingPage";
 
 export default function MarketingGeneratingPage() {

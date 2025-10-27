@@ -1,7 +1,7 @@
 import {
   MarketingRenderingEmptyState,
   MarketingRenderingPageView,
-} from "@/components/marketing/MarketingRenderingPageView";
+} from "@/views/marketing/MarketingRenderingPageView";
 import { useMarketingRenderingPage } from "@/features/marketing/hooks/useMarketingRenderingPage";
 
 export default function MarketingRenderingPage() {

@@ -1,4 +1,4 @@
-import { MarketingGuidePageView } from "@/components/marketing/MarketingGuidePageView";
+import { MarketingGuidePageView } from "@/views/marketing/MarketingGuidePageView";
 import { useMarketingGuidePage } from "@/features/marketing/hooks/useMarketingGuidePage";
 
 export default function MarketingGuidePage() {

@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { CourseStudentsEditPageView } from "@/components/courseStudents/CourseStudentsEditPageView";
+import { CourseStudentsEditPageView } from "@/views/courseStudents/CourseStudentsEditPageView";
 import { useCourseStudents } from "@/features/courseStudents/useCourseStudents";
 import { routes } from "@/routes";
 

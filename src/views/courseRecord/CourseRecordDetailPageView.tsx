@@ -52,11 +52,8 @@ export type CourseRecordDetailPageViewProps = {
   gradesMeta: {
     examCreateOk: boolean;
     selectedExamId: number | null;
-    examsCount: number;
     examLoading: boolean;
-    examFormSaving: boolean;
-    onQuickCreateExam: () => Promise<void> | void;
-    onOpenExamSelect: () => void;
+    onOpenExamModal: () => void;
     onDeleteExam: () => Promise<void> | void;
   };
   rightTab: CourseRecordRightTab;

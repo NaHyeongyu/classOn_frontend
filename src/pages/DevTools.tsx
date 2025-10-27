@@ -1,4 +1,4 @@
-import { DevToolsPageView } from "@/components/dev/DevToolsPageView";
+import { DevToolsPageView } from "@/views/dev/DevToolsPageView";
 import { useDevToolsPage } from "@/features/dev/useDevToolsPage";
 
 export default function DevTools() {

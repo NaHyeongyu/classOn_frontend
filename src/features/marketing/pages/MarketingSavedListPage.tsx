@@ -1,4 +1,4 @@
-import { MarketingSavedListPageView } from "@/components/marketing/MarketingSavedListPageView";
+import { MarketingSavedListPageView } from "@/views/marketing/MarketingSavedListPageView";
 import { useMarketingSavedListPage } from "@/features/marketing/hooks/useMarketingSavedListPage";
 
 export default function MarketingSavedListPage() {

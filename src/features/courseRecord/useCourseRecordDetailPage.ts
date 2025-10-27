@@ -76,7 +76,6 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
     setExamModalView,
     setExamModalOpen,
     setExamFormError,
-    quickCreateExamPercent,
     handleDeleteSelectedExam,
     selectedExam,
     gradeMap,
@@ -87,13 +86,28 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
     saveScoresForPresent,
     examCreateOk,
     examLoading,
-    examFormSaving,
     selectedExamId,
     exams,
+    setExamFormTitle,
+    setExamFormMode,
+    setExamFormTemplateId,
+    examTemplates,
   } = grades;
 
   const [rightTab, setRightTab] = useState<"attendance" | "grades">("attendance");
   const [gradeView, setGradeView] = useState<"intro" | "list" | "scores">("intro");
+
+  useEffect(() => {
+    if (exams.length === 0) {
+      if (gradeView !== "intro") setGradeView("intro");
+      return;
+    }
+    if (selectedExam) {
+      if (gradeView !== "scores") setGradeView("scores");
+    } else if (gradeView === "intro") {
+      setGradeView("list");
+    }
+  }, [exams, selectedExam, gradeView]);
 
   const scoreStudents = useMemo(
     () =>
@@ -155,7 +169,13 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
     };
   }, [gradeAutoSaveTimerRef, gradeSaving, hasGradeChanges, saveScoresForPresent, scoreStudents.length, selectedExam]);
 
-  const avgLetter = useMemo(() => letterFromNumeric(avgNumeric), [avgNumeric]);
+  const avgSummary = useMemo(() => {
+    if (avgNumeric == null) return null;
+    if (selectedExam?.inputMode === "letter") {
+      return letterFromNumeric(avgNumeric);
+    }
+    return avgNumeric.toFixed(1);
+  }, [avgNumeric, selectedExam]);
 
   const actionableCount = attendance.actionableRows.filter((row) => row.status !== "present").length;
   const filteredAttendanceRows = attendance.attendanceRows;
@@ -171,13 +191,6 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
       attendance.openBulkSelect();
     }
   }, [attendance, actionableCount]);
-
-  const handleQuickCreateExam = useCallback(async () => {
-    const createdId = await quickCreateExamPercent();
-    if (createdId != null) {
-      setGradeView("scores");
-    }
-  }, [quickCreateExamPercent]);
 
   const handleOpenExamSelect = useCallback(() => {
     setExamModalView("list");
@@ -220,12 +233,17 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
   const gradesPanelProps: CourseRecordGradesPanelProps = {
     gradeView,
     setGradeView,
-    avgLetter,
+    avgSummary,
     scoreStudents,
     grades,
     openExamModal: (view: "list" | "create") => {
       setExamModalView(view);
       setExamFormError(null);
+      setExamFormTitle("");
+      setExamFormMode("percent");
+      if (view === "create") {
+        setExamFormTemplateId(examTemplates[0]?.id ?? "");
+      }
       setExamModalOpen(true);
     },
     closeExamModal: () => setExamModalOpen(false),
@@ -280,14 +298,11 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
     gradesMeta: {
       examCreateOk,
       selectedExamId: selectedExamId ? Number(selectedExamId) : null,
-      examsCount: exams.length,
       examLoading,
-      examFormSaving,
-      onQuickCreateExam: handleQuickCreateExam,
-      onOpenExamSelect: handleOpenExamSelect,
+      onOpenExamModal: handleOpenExamSelect,
       onDeleteExam: handleDeleteExam,
     },
-    avgLetter,
+    avgSummary,
     stats: {
       loading: statsLoading,
       summaryRate,

@@ -1,5 +1,5 @@
 import { useToast } from "@/components/common/Toast";
-import { AdminLoginsPageView } from "@/components/admin/AdminLoginsPageView";
+import { AdminLoginsPageView } from "@/views/admin/AdminLoginsPageView";
 import { useAdminLoginsPage } from "@/features/admin/useAdminLoginsPage";
 
 export default function AdminLogins() {

@@ -1,8 +1,11 @@
 import styled, { keyframes } from "styled-components";
-import type { AdminSummaryItem } from "@/features/admin/useAdminDashboard";
+import type {
+  AdminDashboardSummaryMetric,
+  AdminSummaryMetricId,
+} from "@/features/admin/useAdminDashboardPage";
 
 type Props = {
-  items: AdminSummaryItem[];
+  items: AdminDashboardSummaryMetric[];
   loading?: boolean;
 };
 
@@ -11,12 +14,12 @@ export function AdminSummaryCards({ items, loading }: Props) {
     <Kpis>
       {items.map((item, index) => (
         <Kpi
-          key={item.label}
+          key={item.id}
           data-variant={(index % 3) + 1}
           data-loading={loading ? true : undefined}
         >
           <div className="icon" aria-hidden>
-            {item.icon}
+            {renderIcon(item.id)}
           </div>
           <div className="content">
             {loading ? (
@@ -143,3 +146,107 @@ const SkeletonLine = styled.span<{ $size?: "lg" }>`
   background-size: 200% 100%;
   animation: ${shimmer} 1.2s ease-in-out infinite;
 `;
+
+function renderIcon(id: AdminSummaryMetricId) {
+  switch (id) {
+    case "academies":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 21h18" />
+          <path d="M4 21V9l8-6 8 6v12" />
+          <path d="M9 21V12h6v9" />
+        </svg>
+      );
+    case "logins30d":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+      );
+    case "paymentsAmount30d":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="2" y="5" width="20" height="14" rx="3" />
+          <path d="M16 12h4" />
+          <path d="M16 9h4" />
+        </svg>
+      );
+    case "apiCallsToday":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <rect x="9" y="9" width="6" height="6" rx="1" />
+          <path d="M9 2v2 M15 2v2 M9 20v2 M15 20v2 M2 9h2 M2 15h2 M20 9h2 M20 15h2" />
+        </svg>
+      );
+    case "openaiCallsToday":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m12 2 1.7 5.2L19 9l-4 3 1.5 5L12 14l-4.5 3 1.5-5-4-3 5.3-1.8L12 2z" />
+        </svg>
+      );
+    case "feedbackNew":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 4h16l2 8-2 8H4l-2-8z" />
+          <path d="M4 12h5l2 3h2l2-3h5" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}

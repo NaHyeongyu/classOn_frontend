@@ -1,4 +1,4 @@
-import { LoginPageView } from "@/components/auth/LoginPageView";
+import { LoginPageView } from "@/views/auth/LoginPageView";
 import { useLoginPage } from "@/features/auth/hooks/useLoginPage";
 
 export default function Login() {

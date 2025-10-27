@@ -1,4 +1,4 @@
-import { MarketingSavedDetailPageView } from "@/components/marketing/MarketingSavedDetailPageView";
+import { MarketingSavedDetailPageView } from "@/views/marketing/MarketingSavedDetailPageView";
 import { useMarketingSavedDetailPage } from "@/features/marketing/hooks/useMarketingSavedDetailPage";
 
 export default function MarketingSavedDetailPage() {

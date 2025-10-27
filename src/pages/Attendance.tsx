@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import type { AttendanceClassSummary } from "@/api/attendance";
-import { AttendancePageView } from "@/components/attendance/AttendancePageView";
+import { AttendancePageView } from "@/views/attendance/AttendancePageView";
 import { useAttendancePage } from "@/features/attendance/useAttendancePage";
 
 export default function Attendance() {

@@ -1,10 +1,7 @@
 import styled from "styled-components";
 import { AdminHero } from "@/components/admin/AdminHero";
 import { AdminStatusBar } from "@/components/admin/AdminStatusBar";
-import {
-  AdminQuickActions,
-  type AdminQuickAction,
-} from "@/components/admin/AdminQuickActions";
+import { AdminQuickActions } from "@/components/admin/AdminQuickActions";
 import { AdminSummaryCards } from "@/components/admin/AdminSummaryCards";
 import { AdminLoginTable } from "@/components/admin/AdminLoginTable";
 import { AdminPaymentsPanel } from "@/components/admin/AdminPaymentsPanel";
@@ -20,62 +17,9 @@ import {
   ToolbarGroup,
   ToolbarInfo,
 } from "@/components/admin/AdminStyles";
-import type {
-  AdminLoginLog,
-  AdminPaymentRow,
-  AdminSummaryItem,
-} from "@/features/admin/useAdminDashboard";
-import type { AdminFeedbackRow } from "@/api/adminFeedback";
+import type { AdminDashboardPageData } from "@/features/admin/useAdminDashboardPage";
 
-type HeroProps = {
-  adminName?: string;
-  adminRole?: string | null;
-  isLoggedIn: boolean;
-  lastUpdatedLabel: string | null;
-  isRefreshing: boolean;
-  onRefresh: () => void;
-  onClearCaches: () => void;
-  onLogout: () => void;
-  onLogin: () => void;
-};
-
-type StatusBarProps = {
-  isLoggedIn: boolean;
-  username?: string;
-  role?: string | null;
-};
-
-type RangeProps = {
-  from: string;
-  to: string;
-  onChangeFrom: (value: string) => void;
-  onChangeTo: (value: string) => void;
-  loginsInRange: number | null;
-};
-
-type FeedbackProps = {
-  rows: AdminFeedbackRow[];
-  total: number | null;
-  newCount: number | null;
-  error: string | null;
-};
-
-type AdminDashboardPageViewProps = {
-  hero: HeroProps;
-  statusBar: StatusBarProps;
-  summary: {
-    items: AdminSummaryItem[];
-    loading: boolean;
-  };
-  quickActions: AdminQuickAction[];
-  feedback: FeedbackProps;
-  payments: AdminPaymentRow[];
-  loginLogs: AdminLoginLog[];
-  range: RangeProps;
-  loadError: string | null;
-  onRetry: () => void;
-  isRefreshing: boolean;
-};
+type AdminDashboardPageViewProps = AdminDashboardPageData;
 
 export function AdminDashboardPageView({
   hero,

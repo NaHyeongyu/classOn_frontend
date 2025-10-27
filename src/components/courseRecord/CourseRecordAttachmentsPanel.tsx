@@ -1,5 +1,4 @@
 import styled from "styled-components";
-import { PrimaryButtonSm as UIPrimaryButtonSm } from "@/components/common/UI";
 import type { Attachment } from "@/api/courses";
 import {
   AlertError,
@@ -34,44 +33,23 @@ export type CourseRecordAttachmentsPanelProps = {
   maxFileSizeMb: number;
 };
 
-const ACCEPT = "image/*,application/pdf";
-
-export function CourseRecordAttachmentsPanel({
-  files,
-  filesLoading,
-  filesError,
-  uploadQueue,
-  previewBusy,
-  fileBusy,
-  thumbUrl,
-  onUpload,
-  onDropFiles,
-  openAttachment,
-  onDeleteFile,
-  recordExists,
-  maxFileSizeMb,
-}: CourseRecordAttachmentsPanelProps) {
+export function CourseRecordAttachmentsPanel(props: CourseRecordAttachmentsPanelProps) {
+  const {
+    files,
+    filesLoading,
+    filesError,
+    uploadQueue,
+    previewBusy,
+    fileBusy,
+    thumbUrl,
+    onDropFiles,
+    openAttachment,
+    onDeleteFile,
+    recordExists,
+    maxFileSizeMb,
+  } = props;
   return (
     <>
-      <label
-        style={{
-          display: "inline-flex",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        <UIPrimaryButtonSm as="span">파일 추가</UIPrimaryButtonSm>
-        <input
-          type="file"
-          accept={ACCEPT}
-          multiple
-          style={{ display: "none" }}
-          onChange={(e) => {
-            void onUpload(e.currentTarget.files);
-            e.currentTarget.value = "";
-          }}
-        />
-      </label>
       <DropArea
         onDragOver={(e) => {
           e.preventDefault();
@@ -183,10 +161,10 @@ const DropArea = styled.div`
   border: 1px dashed #d1d5db;
   border-radius: 10px;
   padding: 10px;
-  text-align: center;
   background: #f9fafb;
   color: #6b7280;
   font-size: 12px;
+  text-align: center;
   .hint {
     pointer-events: none;
   }

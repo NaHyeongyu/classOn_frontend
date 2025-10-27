@@ -14,6 +14,7 @@ import {
   upsertExamResults,
   type Exam,
 } from "@/api/exams";
+import { listExamTemplates, type ExamTemplate } from "@/features/exams/templates";
 import { invalidateCacheByPrefix } from "@/lib/fetcher";
 import { readableError } from "@/lib/errors";
 import type { CourseRecord } from "@/api/courses";
@@ -72,6 +73,25 @@ export function useCourseRecordGrades({
   );
   const gradeAutoSaveTimerRef = useRef<number | null>(null);
   const lastGradeEditAtRef = useRef<number>(0);
+
+  const examTemplates = useMemo(() => listExamTemplates(), []);
+  const [examFormTemplateId, setExamFormTemplateId] = useState<string>(
+    () => examTemplates[0]?.id ?? ""
+  );
+  const selectedExamTemplate = useMemo<ExamTemplate | null>(
+    () => examTemplates.find((tpl) => tpl.id === examFormTemplateId) ?? null,
+    [examTemplates, examFormTemplateId],
+  );
+
+  useEffect(() => {
+    if (!examTemplates.length) {
+      if (examFormTemplateId !== "") setExamFormTemplateId("");
+      return;
+    }
+    if (!examTemplates.some((tpl) => tpl.id === examFormTemplateId)) {
+      setExamFormTemplateId(examTemplates[0]?.id ?? "");
+    }
+  }, [examTemplates, examFormTemplateId]);
 
   useEffect(() => {
     selectedExamIdRef.current = selectedExamId;
@@ -197,32 +217,6 @@ export function useCourseRecordGrades({
     return true;
   }, [selectedExamId]);
 
-  const quickCreateExamPercent = useCallback(async () => {
-    if (!courseId || examFormSaving) return null;
-    const date =
-      record?.recordDate || ymd || new Date().toISOString().slice(0, 10);
-    setExamFormSaving(true);
-    try {
-      const payload = {
-        title: "시험",
-        inputMode: "percent" as const,
-        kind: "TEST" as const,
-        examDate: date,
-      };
-      const created = await createExam(courseId, payload);
-      await refreshExams({ selectId: created.id });
-      setSelectedExamId(String(created.id));
-      setExamCreateOk(true);
-      window.setTimeout(() => setExamCreateOk(false), 1500);
-      return created.id;
-    } catch (error) {
-      setExamFormError(readableError(error, "시험 생성에 실패했습니다."));
-      return null;
-    } finally {
-      setExamFormSaving(false);
-    }
-  }, [courseId, examFormSaving, record?.recordDate, ymd, refreshExams]);
-
   const handleDeleteSelectedExam = useCallback(async () => {
     if (!courseId || !selectedExamId) return false;
     try {
@@ -238,21 +232,39 @@ export function useCourseRecordGrades({
 
   const handleCreateExamInline = useCallback(async () => {
     if (!courseId || examFormSaving) return false;
-    const title = (examFormTitle || "").trim() || "시험";
+    const template =
+      examTemplates.find((tpl) => tpl.id === examFormTemplateId) ?? null;
+    const baseDate = record?.recordDate || ymd || "";
+    const trimmedTitle = examFormTitle.trim();
+    const hasExisting = exams.length > 0;
+    if (!hasExisting && !trimmedTitle) {
+      setExamFormError("시험 제목을 입력해 주세요.");
+      return false;
+    }
+    const title = (() => {
+      if (!hasExisting && trimmedTitle) return trimmedTitle;
+      if (template && baseDate) return `${template.name} (${baseDate})`;
+      if (template) return template.name;
+      if (trimmedTitle) return trimmedTitle;
+      if (baseDate) return `${baseDate} 시험`;
+      return "시험";
+    })();
     setExamFormError(null);
     setExamFormSaving(true);
     try {
       const payload = {
         title,
-        inputMode: examFormMode,
+        inputMode: template?.inputMode ?? examFormMode,
         kind: "TEST" as const,
         examDate: record?.recordDate || ymd || undefined,
+        templateId: template?.id,
       };
       const created = await createExam(courseId, payload);
       await refreshExams({ selectId: created.id });
       setSelectedExamId(String(created.id));
       setExamFormTitle("");
       setExamFormMode("percent");
+      setExamFormTemplateId(examTemplates[0]?.id ?? "");
       setExamFormError(null);
       setExamModalView("list");
       setExamCreateOk(true);
@@ -264,7 +276,18 @@ export function useCourseRecordGrades({
     } finally {
       setExamFormSaving(false);
     }
-  }, [courseId, examFormMode, examFormSaving, examFormTitle, record?.recordDate, ymd, refreshExams]);
+  }, [
+    courseId,
+    exams.length,
+    examFormSaving,
+    record?.recordDate,
+    ymd,
+    refreshExams,
+    examFormTemplateId,
+    examTemplates,
+    examFormTitle,
+    examFormMode,
+  ]);
 
   const saveScoresForPresent = useCallback(async () => {
     if (!courseId) return;
@@ -295,11 +318,22 @@ export function useCourseRecordGrades({
         } else {
           level = input?.letter;
         }
-        return {
+        const payload: {
+          studentId: number;
+          score?: number;
+          level?: string;
+          outOf?: number;
+        } = {
           studentId: sid,
-          score,
-          level,
         };
+        if (score !== undefined) {
+          payload.score = score;
+          payload.outOf = 100;
+        }
+        if (level !== undefined) {
+          payload.level = level;
+        }
+        return payload;
       });
       if (items.length === 0) {
         setGradeSaving(false);
@@ -387,6 +421,10 @@ export function useCourseRecordGrades({
     setExamCreateOk,
     selectedExam,
     filteredExams,
+    examTemplates,
+    examFormTemplateId,
+    setExamFormTemplateId,
+    selectedExamTemplate,
     examResultsMap,
     setExamResultsMap,
     gradeMap,
@@ -401,7 +439,6 @@ export function useCourseRecordGrades({
     hasGradeChanges,
     refreshExams,
     handleConfirmExamSelection,
-    quickCreateExamPercent,
     handleDeleteSelectedExam,
     handleCreateExamInline,
     saveScoresForPresent,

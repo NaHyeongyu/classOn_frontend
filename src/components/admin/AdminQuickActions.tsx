@@ -1,16 +1,11 @@
 import styled from "styled-components";
-import type { ReactNode } from "react";
-
-export type AdminQuickAction = {
-  title: string;
-  description: string;
-  icon: ReactNode;
-  href?: string;
-  onClick?: () => void;
-};
+import type {
+  AdminDashboardQuickAction,
+  AdminQuickActionIcon,
+} from "@/features/admin/useAdminDashboardPage";
 
 type Props = {
-  actions: AdminQuickAction[];
+  actions: AdminDashboardQuickAction[];
 };
 
 export function AdminQuickActions({ actions }: Props) {
@@ -28,7 +23,7 @@ export function AdminQuickActions({ actions }: Props) {
         return (
           <QuickCard key={action.title} {...cardProps}>
             <div className="iconWrap" aria-hidden>
-              {action.icon}
+              {renderIcon(action.icon)}
             </div>
             <div className="body">
               <span className="title">{action.title}</span>
@@ -108,3 +103,125 @@ const QuickCard = styled.button`
     cursor: pointer;
   }
 `;
+
+function renderIcon(icon: AdminQuickActionIcon) {
+  switch (icon) {
+    case "spark":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="m12 2 1.7 5.2L19 9l-4 3 1.5 5L12 14l-4.5 3 1.5-5-4-3 5.3-1.8L12 2z" />
+        </svg>
+      );
+    case "refresh":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="23 4 23 10 17 10" />
+          <polyline points="1 20 1 14 7 14" />
+          <path d="M3.51 9a9 9 0 0 1 14.63-3.36L23 10" />
+          <path d="M20.49 15a9 9 0 0 1-14.63 3.36L1 14" />
+        </svg>
+      );
+    case "cpu":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="4" y="4" width="16" height="16" rx="2" />
+          <rect x="9" y="9" width="6" height="6" rx="1" />
+          <path d="M9 2v2 M15 2v2 M9 20v2 M15 20v2 M2 9h2 M2 15h2 M20 9h2 M20 15h2" />
+        </svg>
+      );
+    case "activity":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+      );
+    case "terminal":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="4" width="18" height="14" rx="2" />
+          <path d="m7 8 3 3-3 3" />
+          <path d="M11 16h6" />
+        </svg>
+      );
+    case "wallet":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="2" y="5" width="20" height="14" rx="3" />
+          <path d="M16 12h4" />
+          <path d="M16 9h4" />
+        </svg>
+      );
+    case "inbox":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 4h16l2 8-2 8H4l-2-8z" />
+          <path d="M4 12h5l2 3h2l2-3h5" />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}

@@ -1,4 +1,4 @@
-import { MyAcademyPageView } from "@/components/myAcademy/MyAcademyPageView";
+import { MyAcademyPageView } from "@/views/myAcademy/MyAcademyPageView";
 import { MyAcademyProfileModal } from "@/components/myAcademy/MyAcademyProfileModal";
 import { MyAcademyPhoneModal } from "@/components/myAcademy/MyAcademyPhoneModal";
 import { MyAcademyPasswordModal } from "@/components/myAcademy/MyAcademyPasswordModal";

@@ -1,6 +1,6 @@
 import { routes } from "@/routes";
 import { useToast } from "@/components/common/Toast";
-import { AdminStatsPageView } from "@/components/admin/AdminStatsPageView";
+import { AdminStatsPageView } from "@/views/admin/AdminStatsPageView";
 import {
   RANGE_OPTIONS,
   useAdminStatsPage,

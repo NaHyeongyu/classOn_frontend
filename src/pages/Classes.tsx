@@ -1,4 +1,4 @@
-import { ClassesPageView } from "@/components/classes/ClassesPageView";
+import { ClassesPageView } from "@/views/classes/ClassesPageView";
 import { useClassesPage } from "@/features/classes/useClassesPage";
 
 export default function Classes() {

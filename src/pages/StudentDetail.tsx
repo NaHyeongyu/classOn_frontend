@@ -13,7 +13,6 @@ export default function StudentDetail() {
       deleting={state.deleting}
       editHref={state.editHref}
       onDeleteStudent={() => void state.onDeleteStudent()}
-      notes={state.notes}
       memos={state.memos}
       activeTab={state.activeTab}
       onSelectTab={state.onSelectTab}

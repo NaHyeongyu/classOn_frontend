@@ -474,7 +474,7 @@ const StepLead = styled.p`
 const StepGrid = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.md};
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: 1fr; /* 세로 배치 고정 */
 `;
 
 const Field = styled.div`
@@ -523,7 +523,7 @@ const FieldErr = styled.span`
 const TypeToggleGroup = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.sm};
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr; /* 옵션 버튼도 세로 배치 */
 `;
 
 const TypeToggleButton = styled.button`

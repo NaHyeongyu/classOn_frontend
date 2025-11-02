@@ -220,15 +220,27 @@ export function CourseFormPageView({
             ) : (
               <span />
             )}
-            {!isLastStep ? (
-              <PrimaryAction type="button" onClick={goNext}>
-                다음 단계
-              </PrimaryAction>
-            ) : (
-              <PrimaryAction type="submit" disabled={saving}>
-                {saving ? "저장 중..." : isEdit ? "수업 수정 완료" : "수업 저장"}
-              </PrimaryAction>
-            )}
+            <PrimaryAction
+              type="button"
+              disabled={isLastStep && saving}
+              onClick={() => {
+                if (!isLastStep) {
+                  goNext();
+                  return;
+                }
+                const formEl = document.getElementById("course-form") as HTMLFormElement | null;
+                if (formEl) {
+                  try {
+                    if (typeof formEl.requestSubmit === "function") formEl.requestSubmit();
+                    else formEl.submit();
+                  } catch {
+                    formEl.submit();
+                  }
+                }
+              }}
+            >
+              {isLastStep ? (saving ? "저장 중..." : isEdit ? "수업 수정 완료" : "수업 저장") : "다음 단계"}
+            </PrimaryAction>
           </StepFooter>
         </FormRoot>
       )}

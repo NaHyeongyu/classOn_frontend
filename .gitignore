@@ -1,3 +1,22 @@
 # JetBrains IDE 설정 무시
 .idea/
+.vscode/
 *.iml
+
+# Node / build artifacts
+node_modules/
+dist/
+build/
+*.log
+
+# Docker / env artifacts
+.env
+.env.*
+docker-compose.*.override.yml
+docker-data/
+mysql-data/
+logs/
+tmp/
+
+# system
+.DS_Store

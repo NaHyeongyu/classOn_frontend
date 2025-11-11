@@ -6,15 +6,19 @@ type Filters = {
   q: string;
 };
 
+type ClassesFiltersProps = {
+  value: Filters;
+  onChange: (f: Filters) => void;
+  onApply?: () => void;
+  hideStatusFilter?: boolean;
+};
+
 export default function ClassesFilters({
   value,
   onChange,
   onApply,
-}: {
-  value: Filters;
-  onChange: (f: Filters) => void;
-  onApply?: () => void;
-}) {
+  hideStatusFilter = false,
+}: ClassesFiltersProps) {
   const v = value;
   const [qDraft, setQDraft] = useState(v.q);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -31,20 +35,23 @@ export default function ClassesFilters({
     onChange({ ...v, q: current });
     onApply?.();
   }
+  const showStatus = !hideStatusFilter;
   return (
-    <Bar>
-      <Group>
-        <Label>상태</Label>
-        <Select
-          value={v.status}
-          onChange={(e) => set("status", e.target.value as Filters["status"])}
-        >
-          <option value="">전체</option>
-          <option value="IN_PROGRESS">진행중</option>
-          <option value="STOPPED">중단</option>
-          <option value="PENDING">대기</option>
-        </Select>
-      </Group>
+    <Bar $single={hideStatusFilter}>
+      {showStatus && (
+        <Group>
+          <Label>상태</Label>
+          <Select
+            value={v.status}
+            onChange={(e) => set("status", e.target.value as Filters["status"])}
+          >
+            <option value="">전체</option>
+            <option value="IN_PROGRESS">진행중</option>
+            <option value="STOPPED">중단</option>
+            <option value="PENDING">대기</option>
+          </Select>
+        </Group>
+      )}
       <Group>
         <Label>검색</Label>
         <SearchBox>
@@ -78,9 +85,9 @@ export default function ClassesFilters({
   );
 }
 
-const Bar = styled.div`
+const Bar = styled.div<{ $single: boolean }>`
   display: grid;
-  grid-template-columns: 0.7fr 2.3fr;
+  grid-template-columns: ${({ $single }) => ($single ? "1fr" : "0.7fr 2.3fr")};
   gap: 12px;
   align-items: end;
   @media (max-width: 720px) {

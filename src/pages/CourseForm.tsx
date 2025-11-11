@@ -11,6 +11,7 @@ export default function CourseForm() {
     <CourseFormPageView
       isEdit={state.isEdit}
       onBack={() => navigate(routes.classes)}
+      isTeacher={state.isTeacher}
       steps={state.steps}
       step={state.step}
       setStep={state.setStep}
@@ -25,6 +26,9 @@ export default function CourseForm() {
       studentFilter={state.studentFilter}
       setStudentFilter={state.setStudentFilter}
       filteredStudents={state.filteredStudents}
+      teacherOptions={state.teacherOptions}
+      teacherLoading={state.teacherLoading}
+      teacherError={state.teacherError}
       fieldErrors={state.fieldErrors}
       setFieldErrors={state.setFieldErrors}
       feeInput={state.feeInput}

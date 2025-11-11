@@ -9,6 +9,8 @@ import {
 } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
+import { routes } from "@/routes";
+import type { AuthUser } from "@/lib/auth";
 import {
   apiFindUsernames,
   apiRequestPhoneCode,
@@ -94,12 +96,36 @@ export type UseLoginPageResult = {
   resetModal: LoginResetModalState;
 };
 
+function resolveRedirectPath(user: AuthUser, fallback: string): string {
+  const role = (user.role ?? "").toString().toUpperCase();
+  const isTeacher = role.includes("TEACHER");
+  const isAdmin = role.includes("ADMIN");
+  const isOwner = role.includes("OWNER");
+  const defaultDestination = isAdmin || isOwner ? routes.myAcademy : routes.home;
+
+  if (isTeacher) {
+    return routes.teacherHome;
+  }
+
+  let next = fallback && fallback !== routes.login ? fallback : defaultDestination;
+
+  if (next.startsWith("/teacher")) {
+    next = isTeacher ? next : defaultDestination;
+  }
+
+  if (next.startsWith("/admin") && !(isAdmin || isOwner)) {
+    next = defaultDestination;
+  }
+
+  return next || defaultDestination;
+}
+
 export function useLoginPage(): UseLoginPageResult {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = location.state as LocationState;
-  const redirectTo = locationState?.from || "/";
+  const redirectTo = typeof locationState?.from === "string" && locationState.from.length > 0 ? locationState.from : "/";
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -168,8 +194,9 @@ export function useLoginPage(): UseLoginPageResult {
       }
       setLoading(true);
       try {
-        await login(username.trim(), password);
-        navigate(redirectTo, { replace: true });
+        const authUser = await login(username.trim(), password);
+        const nextPath = resolveRedirectPath(authUser, redirectTo);
+        navigate(nextPath, { replace: true });
       } catch (error) {
         setDialogMessage(readableLoginError(error));
         setDialogOpen(true);

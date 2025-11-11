@@ -44,6 +44,8 @@ export default function CourseRecordDetail() {
   };
 
   const recordExists = Boolean(detail.record?.id);
+  const instructorName =
+    (detail.course?.instructorName ?? detail.record?.instructorName ?? null) as string | null;
 
   return (
     <CourseRecordDetailPageView
@@ -54,6 +56,7 @@ export default function CourseRecordDetail() {
         whenInfo: detail.editor.meta.whenInfo,
         canDelete: recordExists,
       }}
+      instructorName={instructorName}
       onBack={handleBack}
       onDeleteRecord={handleDelete}
       error={detail.error}

@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import styled, { keyframes } from 'styled-components';
-import { buttonVariants } from './UI';
+import React, { useEffect, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
+import styled, { keyframes } from "styled-components";
+import { buttonVariants } from "./UI";
 
 type ModalProps = {
   open: boolean;
@@ -14,8 +15,22 @@ type ModalProps = {
   initialFocusRef?: React.RefObject<HTMLElement>;
 };
 
-export default function Modal({ open, title, description, onClose, children, footer, maxWidth = 560, blockOutsideClose = false, initialFocusRef }: ModalProps) {
+export default function Modal({
+  open,
+  title,
+  description,
+  onClose,
+  children,
+  footer,
+  maxWidth = 560,
+  blockOutsideClose = false,
+  initialFocusRef,
+}: ModalProps) {
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const latestOnClose = useRef(onClose);
+  useEffect(() => {
+    latestOnClose.current = onClose;
+  }, [onClose]);
   const labelledBy = useMemo(() => (title ? `modal-title-${Math.random().toString(36).slice(2,8)}` : undefined), [title]);
   const describedBy = useMemo(() => (description ? `modal-desc-${Math.random().toString(36).slice(2,8)}` : undefined), [description]);
 
@@ -28,9 +43,10 @@ export default function Modal({ open, title, description, onClose, children, foo
       // Ignore key handling during IME composition to prevent Korean text issues
       // Some browsers set keyCode 229 during composition
       if (e.isComposing || e.keyCode === 229) return;
-      if (e.key === 'Escape' && onClose) {
+      const close = latestOnClose.current;
+      if (e.key === 'Escape' && close) {
         e.stopPropagation();
-        onClose();
+        close();
       } else if (e.key === 'Tab' && cardRef.current) {
         // simple focus trap
         const focusables = Array.from(cardRef.current.querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')).filter(el => !el.hasAttribute('disabled'));
@@ -49,11 +65,14 @@ export default function Modal({ open, title, description, onClose, children, foo
       document.removeEventListener('keydown', onKey, true);
       prevActive?.focus?.();
     };
-  }, [open, onClose, initialFocusRef]);
+  }, [open, initialFocusRef]);
 
   if (!open) return null;
-  const widthStyle = { width: 'min(100% - 32px, ' + (typeof maxWidth === 'number' ? `${maxWidth}px` : maxWidth) + ')' } as React.CSSProperties;
-  return (
+  const widthStyle = {
+    width: `min(100% - 32px, ${typeof maxWidth === "number" ? `${maxWidth}px` : maxWidth})`,
+  } as React.CSSProperties;
+
+  const modalContent = (
     <Backdrop onClick={blockOutsideClose ? undefined : onClose}>
       <Card
         ref={cardRef}
@@ -67,7 +86,11 @@ export default function Modal({ open, title, description, onClose, children, foo
         {(title || onClose) && (
           <Header>
             {title ? <h3 id={labelledBy}>{title}</h3> : <span />}
-            {onClose && <CloseBtn type="button" onClick={onClose} aria-label="닫기">×</CloseBtn>}
+            {onClose ? (
+              <CloseBtn type="button" onClick={onClose} aria-label="닫기">
+                ×
+              </CloseBtn>
+            ) : null}
           </Header>
         )}
         {description ? <Desc id={describedBy}>{description}</Desc> : null}
@@ -76,6 +99,11 @@ export default function Modal({ open, title, description, onClose, children, foo
       </Card>
     </Backdrop>
   );
+
+  if (typeof document === "undefined") {
+    return modalContent;
+  }
+  return createPortal(modalContent, document.body);
 }
 
 const fadeIn = keyframes`

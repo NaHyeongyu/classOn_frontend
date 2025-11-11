@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getDailyAttendance, type AttendanceDailySummary } from "@/api/attendance";
+import { useAuth } from "@/hooks/useAuth";
 
 type UseDailyAttendanceResult = {
   formDate: string;
@@ -26,6 +27,7 @@ function addDays(base: Date, offset: number): Date {
 
 export function useDailyAttendance(): UseDailyAttendanceResult {
   const initialDate = useMemo(() => formatDateInput(new Date()), []);
+  const { authGeneration } = useAuth();
   const [formDate, setFormDate] = useState(initialDate);
   const [appliedDate, setAppliedDate] = useState(initialDate);
   const [rows, setRows] = useState<AttendanceDailySummary[]>([]);
@@ -57,7 +59,15 @@ export function useDailyAttendance(): UseDailyAttendanceResult {
     return () => {
       cancelled = true;
     };
-  }, [appliedDate]);
+  }, [appliedDate, authGeneration]);
+
+  useEffect(() => {
+    const today = formatDateInput(new Date());
+    setFormDate(today);
+    setAppliedDate(today);
+    setRows([]);
+    setError(null);
+  }, [authGeneration]);
 
   const setDate = useCallback((value: string) => {
     setFormDate(value);

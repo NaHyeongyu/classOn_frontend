@@ -595,6 +595,10 @@ export default function CourseDetail() {
     return students.length;
   }, [course, students.length]);
   const capacity = course?.capacity;
+  const instructorName =
+    course?.instructorName && String(course.instructorName).trim().length > 0
+      ? String(course.instructorName).trim()
+      : "-";
   const completedCount = useMemo(
     () => history.filter((h) => h.type === "지난 수업").length,
     [history]
@@ -774,6 +778,10 @@ export default function CourseDetail() {
                   <Field>
                     <Label>시간</Label>
                     <div>{info.time || "-"}</div>
+                  </Field>
+                  <Field>
+                    <Label>담당 강사</Label>
+                    <div>{instructorName}</div>
                   </Field>
                   <Field>
                     <Label>정원</Label>

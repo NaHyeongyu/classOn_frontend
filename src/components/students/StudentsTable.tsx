@@ -113,6 +113,20 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
     setPage(p);
   }
 
+  const STUDENT_TABLE_COLS = useMemo(
+    () => [
+      { key: "seq", width: "7%" }, // 번호
+      { key: "name", width: "16%" }, // 이름
+      { key: "phone", width: "12%" }, // 연락처
+      { key: "age", width: "7%" }, // 나이
+      { key: "courses", width: "27%" }, // 수강수업
+      { key: "guardian", width: "10%" }, // 보호자 연락처
+      { key: "status", width: "7%" }, // 상태
+      { key: "joined", width: "14%" }, // 등록일
+    ],
+    [],
+  );
+
   // no bulk/Excel features
 
   return (
@@ -130,14 +144,9 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
       <Scroller>
         <StyledTable>
           <colgroup>
-            <col style={{ width: '7%' }} />       {/* 번호 */}
-            <col style={{ width: '16%' }} />      {/* 이름 */}
-            <col style={{ width: '12%' }} />      {/* 연락처 */}
-            <col style={{ width: '7%' }} />       {/* 나이 */}
-            <col style={{ width: '27%' }} />      {/* 수강수업 */}
-            <col style={{ width: '10%' }} />      {/* 보호자 연락처 */}
-            <col style={{ width: '7%' }} />       {/* 상태 */}
-            <col style={{ width: '14%' }} />      {/* 등록일 */}
+            {STUDENT_TABLE_COLS.map((col) => (
+              <col key={col.key} style={{ width: col.width }} />
+            ))}
           </colgroup>
           <thead>
             <tr>

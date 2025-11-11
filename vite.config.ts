@@ -26,6 +26,10 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+        watch: { // Vite가 주기적으로 디렉토리를 직접 스캔해서 변경 감지
+            usePolling: true,
+            interval: 300, // 0.3초마다 변경 감지
+        },
       proxy: {
         // Proxy API during dev to avoid CORS issues
         '/api': {

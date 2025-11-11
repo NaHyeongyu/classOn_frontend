@@ -23,6 +23,8 @@ const MOCK_USER: AuthUser = {
   email: "admin@academy.com",
   phone: "01012345678",
   academy: { id: 1, name: "모의 학원" },
+  role: "ADMIN",
+  menus: ["DASHBOARD", "COURSES", "STUDENTS", "ATTENDANCE", "PAYMENTS", "MARKETING"],
 };
 
 // EN: Username login -> { token, user }
@@ -58,7 +60,18 @@ export async function apiRegister(
     await delay(300);
     const token = btoa(`${email}:${Date.now()}`);
     setToken(token);
-    return { token, user: { id: 2, name, username: email, email, phone } };
+    return {
+      token,
+      user: {
+        id: 2,
+        name,
+        username: email,
+        email,
+        phone,
+        role: "OWNER",
+        menus: [],
+      },
+    };
   }
   const res = await fetchJSON<RegisterResponse>("/api/auth/register", {
     method: "POST",

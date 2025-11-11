@@ -37,20 +37,19 @@ function dayLabel(code: string) {
 function buildDays(course: TeacherCourseBrief) {
   const raw = course.recurrenceDays;
   if (Array.isArray(raw)) {
-    return raw
-      .slice()
-      .map((item) => String(item).trim().toUpperCase())
+    return [...raw]
+      .map((item: string | number | boolean) => String(item).trim().toUpperCase())
       .filter(Boolean)
-      .sort((a, b) => (dayOrder[a] ?? 0) - (dayOrder[b] ?? 0))
+      .sort((a: string, b: string) => (dayOrder[a] ?? 0) - (dayOrder[b] ?? 0))
       .map(dayLabel)
       .join("/");
   }
   if (typeof raw === "string" && raw.trim()) {
     return raw
       .split(",")
-      .map((value) => value.trim().toUpperCase())
+      .map((value: string) => value.trim().toUpperCase())
       .filter(Boolean)
-      .sort((a, b) => (dayOrder[a] ?? 0) - (dayOrder[b] ?? 0))
+      .sort((a: string, b: string) => (dayOrder[a] ?? 0) - (dayOrder[b] ?? 0))
       .map(dayLabel)
       .join("/");
   }

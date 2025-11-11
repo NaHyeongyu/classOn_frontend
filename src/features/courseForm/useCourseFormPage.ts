@@ -297,6 +297,10 @@ export function useCourseFormPage(): UseCourseFormPageResult {
       try {
         const found = await getCourse(courseId);
         if (!cancelled && found) {
+          const resolvedInstructorId =
+            typeof found.instructorId === "number" ? found.instructorId : null;
+          const resolvedInstructorName =
+            typeof found.instructorName === "string" ? found.instructorName : "";
           setForm(() => ({
             title: found.title,
             description: found.description,
@@ -312,11 +316,11 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             endTime: found.endTime ? found.endTime.slice(0, 5) : "",
             primaryStudentId: found.primaryStudentId ?? null,
             primaryStudentName: found.primaryStudentName ?? "",
-            instructorId: found.instructorId ?? null,
-            instructorName: found.instructorName ?? "",
+            instructorId: resolvedInstructorId,
+            instructorName: resolvedInstructorName,
           }));
           setFeeInput(found.fee != null ? String(found.fee) : "");
-          ensureInstructorOption(found.instructorId, found.instructorName);
+          ensureInstructorOption(resolvedInstructorId, resolvedInstructorName);
         }
       } catch (err) {
         if (!cancelled) {

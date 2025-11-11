@@ -18,7 +18,7 @@ type NavItem = {
 };
 
 export default function Sidebar({ onNavigate }: SidebarProps) {
-  const { user, logout, authGeneration } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const enableFeedback = import.meta.env.VITE_ENABLE_FEEDBACK === 'true';
   const roleValue = (user?.role ?? "").toString().toUpperCase();
@@ -75,7 +75,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       if (!allowedMenus || !item.menuKey) return true;
       return allowedMenus.has(item.menuKey);
     });
-  }, [enableFeedback, isTeacher, user?.menus, roleValue, authGeneration]);
+  }, [enableFeedback, isTeacher, user?.menus]);
 
   // Display only academy name in the bottom user box
   const academyName = user?.academy?.name && user.academy.name.trim() ? user.academy.name.trim() : undefined;

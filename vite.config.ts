@@ -40,5 +40,11 @@ export default defineConfig(({ mode }) => {
         // Proxy output/static served by Spring if needed
       },
     },
+      test: {
+          globals: true,
+          environment: 'jsdom',
+          setupFiles: './src/setupTests.ts',
+          include: ['src/**/*.spec.{ts,tsx}'],
+      },
   }
 })

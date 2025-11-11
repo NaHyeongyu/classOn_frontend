@@ -154,8 +154,17 @@ function formatTimeRange(course: TeacherProfile["courses"][number]): string {
 
 function formatRecurrence(course: TeacherProfile["courses"][number]): string {
   if (!course.recurring) return "단회성";
-  if (course.recurrenceDays && course.recurrenceDays.trim().length > 0) {
-    return course.recurrenceDays.replace(/,/g, ", ");
+  if (Array.isArray(course.recurrenceDays) && course.recurrenceDays.length > 0) {
+    return course.recurrenceDays
+      .map((day) => String(day).trim())
+      .filter(Boolean)
+      .join(", ");
+  }
+  if (typeof course.recurrenceDays === "string") {
+    const normalized = course.recurrenceDays.trim();
+    if (normalized.length > 0) {
+      return normalized.replace(/,/g, ", ");
+    }
   }
   return "반복 요일 미지정";
 }

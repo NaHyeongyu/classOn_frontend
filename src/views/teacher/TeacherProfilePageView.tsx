@@ -67,15 +67,6 @@ export function TeacherProfilePageView({
   onRetry,
   onNavigateHome,
 }: TeacherProfilePageViewProps) {
-  if (loading && !profile) {
-    return (
-      <Centered>
-        <LoadingSpinner />
-        <p>내 정보를 불러오는 중입니다…</p>
-      </Centered>
-    );
-  }
-
   const passwordCurrentRef = useRef<HTMLInputElement>(null);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -86,6 +77,15 @@ export function TeacherProfilePageView({
     !passwordModal.form.currentPassword.trim() ||
     !passwordModal.form.newPassword.trim() ||
     !passwordModal.form.confirmPassword.trim();
+
+  if (loading && !profile) {
+    return (
+      <Centered>
+        <LoadingSpinner />
+        <p>내 정보를 불러오는 중입니다…</p>
+      </Centered>
+    );
+  }
 
   return (
     <Page>

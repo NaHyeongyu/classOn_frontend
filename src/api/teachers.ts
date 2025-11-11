@@ -42,7 +42,7 @@ export type TeacherCourseBrief = {
   status?: string | null;
   courseType?: string | null;
   courseTime?: string | null;
-  recurrenceDays?: string | null;
+  recurrenceDays?: string | readonly string[] | null;
   recurring?: boolean | null;
   startTime?: string | null;
   endTime?: string | null;

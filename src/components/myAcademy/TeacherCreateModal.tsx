@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import Modal from "@/components/common/Modal";
 import {
   ModalActions,
@@ -19,6 +19,8 @@ import styled from "styled-components";
 type TeacherCreateModalProps = {
   modal: TeacherCreateModalState;
 };
+
+type FocusFieldKey = NonNullable<TeacherCreateModalState["focusField"]>;
 
 export function TeacherCreateModal({ modal }: TeacherCreateModalProps) {
   const menuOptions = TEACHER_MENU_OPTIONS;
@@ -41,9 +43,12 @@ export function TeacherCreateModal({ modal }: TeacherCreateModalProps) {
     setPasswordConfirmCapsLock(event.getModifierState?.("CapsLock") ?? false);
   };
 
+  const { focusField, clearFocusField } = modal;
+
   useEffect(() => {
-    if (!modal.focusField) return;
-    const refMap = {
+    const focusKey = focusField;
+    if (!focusKey) return;
+    const refMap: Record<FocusFieldKey, RefObject<HTMLElement> | null> = {
       username: usernameRef,
       name: nameRef,
       email: null,
@@ -51,8 +56,8 @@ export function TeacherCreateModal({ modal }: TeacherCreateModalProps) {
       password: passwordRef,
       passwordConfirm: passwordConfirmRef,
       menus: menusRef,
-    } as const;
-    const targetRef = refMap[modal.focusField];
+    };
+    const targetRef = refMap[focusKey];
     const targetEl = targetRef?.current ?? null;
     if (targetEl) {
       targetEl.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -60,8 +65,8 @@ export function TeacherCreateModal({ modal }: TeacherCreateModalProps) {
         targetEl.focus();
       }
     }
-    modal.clearFocusField();
-  }, [modal.focusField, modal.clearFocusField]);
+    clearFocusField();
+  }, [focusField, clearFocusField]);
 
   return (
     <Modal

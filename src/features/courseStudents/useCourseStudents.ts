@@ -104,7 +104,7 @@ export function useCourseStudents(courseId: number | null) {
               page += 1;
             }
             const filtered = all.filter((student) =>
-              (student.courses || []).some((course: any) => course.id === courseId)
+              (student.courses ?? []).some((course) => course.id === courseId)
             );
             if (!cancelled) setEnrolledStudents(filtered);
           } catch (nested) {
@@ -237,7 +237,7 @@ export function useCourseStudents(courseId: number | null) {
                   fee: null,
                 };
             const alreadyHas = option.courses.some(
-              (course: any) => course.id === courseId
+              (course) => course.id === courseId
             );
             return {
               ...option,
@@ -272,9 +272,9 @@ export function useCourseStudents(courseId: number | null) {
       try {
         setRemovingId(student.id);
         const existing = Array.isArray(student.courses)
-          ? student.courses.map((c: any) => c.id)
+          ? student.courses.map((course) => course.id)
           : [];
-        const nextCourseIds = existing.filter((id: any) => id !== courseId);
+        const nextCourseIds = existing.filter((id) => id !== courseId);
         await updateStudent(student.id, {
           courseIds: nextCourseIds,
         } as Partial<StudentPayload>);
@@ -307,7 +307,7 @@ export function useCourseStudents(courseId: number | null) {
               ? {
                   ...option,
                   courses: option.courses.filter(
-                    (course: any) => course.id !== courseId
+                    (course) => course.id !== courseId
                   ),
                 }
               : option

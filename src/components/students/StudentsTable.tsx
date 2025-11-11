@@ -94,6 +94,11 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
       ageText = r.age != null ? String(r.age) : '-';
     }
     const seqDesc = Math.max(0, totalElements - (page * size) - idx);
+    const courseTitles = Array.isArray(r.courses)
+      ? r.courses
+          .map((course) => course.title)
+          .filter((title): title is string => Boolean(title && title.trim()))
+      : [];
     return ({
       seq: seqDesc,
       code: r.code,
@@ -101,7 +106,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
       name: r.name,
       age: ageText,
       phone: formatPhone(r.phoneNumber),
-      course: r.courses?.map((c: any) => c.title).join(", ") || "-",
+      course: courseTitles.length ? courseTitles.join(", ") : "-",
       guardian: formatPhone(r.guardianPhone),
       status: statusKr(r.status),
       joinedAt: r.joinedDate || (r.createdAt?.slice(0,10)) || "-",

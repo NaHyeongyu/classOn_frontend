@@ -519,8 +519,8 @@ export default function CourseDetail() {
               if (last || content.length === 0 || page > 100) break;
               page += 1;
             }
-            const filtered = all.filter((s: any) =>
-              (s.courses || []).some((c: any) => c.id === numericId)
+            const filtered = all.filter((student) =>
+              (student.courses ?? []).some((course) => course.id === numericId)
             );
             if (!cancelled) setStudents(filtered);
           } catch (nestedError) {

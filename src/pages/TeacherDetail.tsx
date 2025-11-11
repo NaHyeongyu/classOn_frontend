@@ -18,6 +18,8 @@ import Modal from "@/components/common/Modal";
 import styled from "styled-components";
 import { TEACHER_MENU_OPTIONS } from "@/constants/teacherMenus";
 
+type TeacherMenuKey = (typeof TEACHER_MENU_OPTIONS)[number]["key"];
+
 export default function TeacherDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -31,7 +33,7 @@ export default function TeacherDetail() {
   const { success: showSuccess } = useToast();
   const [savingMenus, setSavingMenus] = useState(false);
   const [menuModalOpen, setMenuModalOpen] = useState(false);
-  const [menuDraft, setMenuDraft] = useState<string[]>([]);
+  const [menuDraft, setMenuDraft] = useState<TeacherMenuKey[]>([]);
   const [menuModalError, setMenuModalError] = useState<string | null>(null);
   const coursesSectionRef = useRef<HTMLDivElement | null>(null);
   const [deleteGuardOpen, setDeleteGuardOpen] = useState(false);
@@ -52,8 +54,16 @@ export default function TeacherDetail() {
   const canEditMenus = !!detail && (userRole.includes("ADMIN") || userRole.includes("OWNER"));
 
   const normalizedOptions = useMemo(
-    () => new Set(TEACHER_MENU_OPTIONS.map((option) => option.key)),
+    () => new Set<TeacherMenuKey>(TEACHER_MENU_OPTIONS.map((option) => option.key)),
     [],
+  );
+
+  const filterValidMenus = useCallback(
+    (menus: readonly string[]) =>
+      menus.filter((key): key is TeacherMenuKey =>
+        normalizedOptions.has(key as TeacherMenuKey),
+      ),
+    [normalizedOptions],
   );
 
   const availableTeachers = useMemo(() => {
@@ -90,10 +100,10 @@ export default function TeacherDetail() {
 
   const openMenuModal = useCallback(() => {
     if (!detail || !canEditMenus) return;
-    setMenuDraft(detail.menus.filter((key) => normalizedOptions.has(key)));
+    setMenuDraft(filterValidMenus(detail.menus));
     setMenuModalError(null);
     setMenuModalOpen(true);
-  }, [detail, canEditMenus, normalizedOptions]);
+  }, [detail, canEditMenus, filterValidMenus]);
 
   const closeMenuModal = useCallback(() => {
     if (savingMenus) return;
@@ -101,7 +111,7 @@ export default function TeacherDetail() {
     setMenuModalError(null);
   }, [savingMenus]);
 
-  const handleSaveMenus = async (menus: string[]) => {
+  const handleSaveMenus = async (menus: TeacherMenuKey[]) => {
     if (!teacherId || !canEditMenus) return false;
     setSavingMenus(true);
     setMenuModalError(null);
@@ -119,7 +129,7 @@ export default function TeacherDetail() {
     return ok;
   };
 
-  const toggleMenuDraft = (key: string) => {
+  const toggleMenuDraft = (key: TeacherMenuKey) => {
     setMenuDraft((prev) => {
       const exists = prev.includes(key);
       if (exists) return prev.filter((menu) => menu !== key);
@@ -129,8 +139,8 @@ export default function TeacherDetail() {
 
   const filteredCurrentMenus = useMemo(() => {
     if (!detail) return [];
-    return detail.menus.filter((key) => normalizedOptions.has(key));
-  }, [detail, normalizedOptions]);
+    return filterValidMenus(detail.menus);
+  }, [detail, filterValidMenus]);
 
   const menuDirty = useMemo(() => {
     if (!detail) return false;

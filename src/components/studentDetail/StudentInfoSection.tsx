@@ -105,7 +105,7 @@ export function StudentInfoSection({
         </CardHead>
         {student ? (
           <InfoList>
-            <DetailField label="보호자 이름" value={student.parentName || "-"} />
+            <DetailField label="보호자 이름" value={student.guardianName || "-"} />
             <DetailField
               label="보호자 연락처"
               value={formatPhone(student.guardianPhone)}

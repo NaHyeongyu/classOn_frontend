@@ -9,6 +9,8 @@ export type AuthUser = {
   email?: string;
   phone?: string;
   academy?: { id: number; name: string };
+  role?: "ADMIN" | "OWNER" | "USER" | "TEACHER" | (string & {});
+  menus?: string[];
 };
 
 export function getToken(): string | null {

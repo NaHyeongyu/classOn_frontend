@@ -22,6 +22,10 @@ import {
   toErrorMessage,
   unmaskBiz,
 } from "@/features/myAcademy/utils";
+import { createTeacher, listTeachers, type TeacherListItem } from "@/api/teachers";
+import { paths } from "@/routes";
+
+const DEFAULT_TEACHER_MENUS = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "PAYMENTS"] as const;
 
 type AccountViewState = {
   name: string;
@@ -110,15 +114,56 @@ export type AcademyModalState = {
   submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };
 
+type TeacherCreateFormState = {
+  username: string;
+  name: string;
+  email: string;
+  phone: string;
+  password: string;
+  passwordConfirm: string;
+  menus: string[];
+};
+
+type TeacherCreateField = keyof TeacherCreateFormState | "menus";
+
+type TeacherCreateFormErrors = Partial<Record<TeacherCreateField, string>>;
+
+export type TeacherCreateModalState = {
+  open: boolean;
+  form: TeacherCreateFormState;
+  submitting: boolean;
+  error: string | null;
+  fieldErrors: TeacherCreateFormErrors;
+  focusField: TeacherCreateField | null;
+  openModal: () => void;
+  closeModal: () => void;
+  updateField: <K extends keyof TeacherCreateFormState>(
+    field: K,
+    value: TeacherCreateFormState[K],
+  ) => void;
+  toggleMenu: (key: string) => void;
+  submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  clearFocusField: () => void;
+};
+
 export type UseMyAcademyPageResult = {
   loading: boolean;
   error: string | null;
   account: AccountViewState;
   academy: AcademyViewState;
+  teachers: {
+    loading: boolean;
+    error: string | null;
+    teachers: TeacherListItem[];
+    onRefresh: () => Promise<void>;
+    onOpenCreate: () => void;
+    onSelect: (id: number) => void;
+  };
   profileModal: ProfileModalState;
   phoneModal: PhoneModalState;
   passwordModal: PasswordModalState;
   academyModal: AcademyModalState;
+  teacherCreateModal: TeacherCreateModalState;
   handleLogout: () => void;
   clearError: () => void;
 };
@@ -176,6 +221,23 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   );
   const [academyModalError, setAcademyModalError] = useState<string | null>(null);
   const [academyModalSubmitting, setAcademyModalSubmitting] = useState(false);
+  const [teacherList, setTeacherList] = useState<TeacherListItem[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(true);
+  const [teachersError, setTeachersError] = useState<string | null>(null);
+  const [teacherModalOpen, setTeacherModalOpen] = useState(false);
+  const [teacherModalForm, setTeacherModalForm] = useState<TeacherCreateFormState>(() => ({
+    username: "",
+    name: "",
+    email: "",
+    phone: "",
+    password: "",
+    passwordConfirm: "",
+    menus: Array.from(DEFAULT_TEACHER_MENUS),
+  }));
+  const [teacherModalError, setTeacherModalError] = useState<string | null>(null);
+  const [teacherModalSubmitting, setTeacherModalSubmitting] = useState(false);
+  const [teacherModalFieldErrors, setTeacherModalFieldErrors] = useState<TeacherCreateFormErrors>({});
+  const [teacherModalFocusField, setTeacherModalFocusField] = useState<TeacherCreateField | null>(null);
 
   const passwordTooShort =
     passwordModalNew.length > 0 && passwordModalNew.length < 8;
@@ -193,6 +255,161 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     setName(user?.name ?? "");
     setPhone(user?.phone ?? "");
   }, [user?.name, user?.phone]);
+
+  const loadTeachers = useCallback(async () => {
+    setTeachersLoading(true);
+    setTeachersError(null);
+    try {
+      const rows = await listTeachers();
+      setTeacherList(rows);
+    } catch (err) {
+      setTeachersError(
+        toErrorMessage(err, "강사 목록을 불러오지 못했습니다. 다시 시도해 주세요."),
+      );
+    } finally {
+      setTeachersLoading(false);
+    }
+  }, []);
+
+  const resetTeacherForm = useCallback(() => {
+    setTeacherModalForm({
+      username: "",
+      name: "",
+      email: "",
+      phone: "",
+      password: "",
+      passwordConfirm: "",
+      menus: Array.from(DEFAULT_TEACHER_MENUS),
+    });
+    setTeacherModalError(null);
+    setTeacherModalSubmitting(false);
+    setTeacherModalFieldErrors({});
+    setTeacherModalFocusField(null);
+  }, []);
+
+  const openTeacherModal = useCallback(() => {
+    resetTeacherForm();
+    setTeacherModalOpen(true);
+  }, [resetTeacherForm]);
+
+  const closeTeacherModal = useCallback(() => {
+    setTeacherModalOpen(false);
+    resetTeacherForm();
+  }, [resetTeacherForm]);
+
+  const updateTeacherField = useCallback(
+    <K extends keyof TeacherCreateFormState>(field: K, value: TeacherCreateFormState[K]) => {
+      setTeacherModalForm((prev) => ({ ...prev, [field]: value }));
+      setTeacherModalError(null);
+      setTeacherModalFieldErrors((prev) => {
+        if (!prev[field]) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    },
+  []);
+
+  const toggleTeacherMenu = useCallback((key: string) => {
+    setTeacherModalForm((prev) => {
+      const exists = prev.menus.includes(key);
+      let nextMenus = exists
+        ? prev.menus.filter((menu) => menu !== key)
+        : [...prev.menus, key];
+      nextMenus = Array.from(DEFAULT_TEACHER_MENUS).filter((menu) => nextMenus.includes(menu));
+      return { ...prev, menus: nextMenus };
+    });
+    setTeacherModalError(null);
+    setTeacherModalFieldErrors((prev) => {
+      if (!prev.menus) return prev;
+      const next = { ...prev };
+      delete next.menus;
+      return next;
+    });
+  }, []);
+
+  const clearTeacherFocusField = useCallback(() => {
+    setTeacherModalFocusField(null);
+  }, []);
+
+  const openTeacherDetail = useCallback(
+    (id: number) => {
+      navigate(paths.teachers.detail(id));
+    },
+    [navigate],
+  );
+
+  const submitTeacherModal = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const username = teacherModalForm.username.trim();
+      const nameValue = teacherModalForm.name.trim();
+      const emailValue = teacherModalForm.email.trim();
+      const normalizedPhone = normalizeMobile(teacherModalForm.phone);
+      const passwordValue = teacherModalForm.password.trim();
+      const passwordConfirmValue = teacherModalForm.passwordConfirm.trim();
+      const menus = teacherModalForm.menus;
+
+      const raiseFieldError = (field: TeacherCreateField, message: string) => {
+        setTeacherModalFieldErrors({ [field]: message });
+        setTeacherModalFocusField(field);
+      };
+
+      setTeacherModalError(null);
+      setTeacherModalFieldErrors({});
+      setTeacherModalFocusField(null);
+      if (!username) {
+        raiseFieldError("username", "아이디를 입력해주세요.");
+        return;
+      }
+      if (!nameValue) {
+        raiseFieldError("name", "이름을 입력해 주세요.");
+        return;
+      }
+      if (!normalizedPhone) {
+        raiseFieldError("phone", "휴대폰 번호 형식을 확인해 주세요.");
+        return;
+      }
+      if (passwordValue.length < 5) {
+        raiseFieldError("password", "비밀번호는 5자 이상 입력해 주세요.");
+        return;
+      }
+      if (!/[^\w\s]/.test(passwordValue)) {
+        raiseFieldError("password", "비밀번호에 특수문자를 포함해 주세요.");
+        return;
+      }
+      if (passwordValue !== passwordConfirmValue) {
+        raiseFieldError("passwordConfirm", "비밀번호가 일치하지 않습니다.");
+        return;
+      }
+      if (!menus.length) {
+        raiseFieldError("menus", "최소 한 개 이상의 메뉴 권한을 선택해 주세요.");
+        return;
+      }
+
+      setTeacherModalSubmitting(true);
+      try {
+        await createTeacher({
+          username,
+          name: nameValue,
+          email: emailValue || undefined,
+          phone: normalizedPhone,
+          password: passwordValue,
+          menus,
+        });
+        await loadTeachers();
+        toast.success("강사가 등록되었습니다.");
+        closeTeacherModal();
+      } catch (err) {
+        setTeacherModalError(
+          toErrorMessage(err, "강사 등록에 실패했습니다."),
+        );
+      } finally {
+        setTeacherModalSubmitting(false);
+      }
+    },
+    [closeTeacherModal, loadTeachers, teacherModalForm, toast],
+  );
 
   useEffect(() => {
     if (!phoneModalOpen || phoneModalCooldown <= 0) return;
@@ -237,6 +454,21 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    void loadTeachers();
+  }, [loadTeachers]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleRefresh = () => {
+      void loadTeachers();
+    };
+    window.addEventListener("teachers:refresh", handleRefresh);
+    return () => {
+      window.removeEventListener("teachers:refresh", handleRefresh);
+    };
+  }, [loadTeachers]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -631,15 +863,39 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     submit: submitAcademyModal,
   };
 
+  const teachersView = {
+    loading: teachersLoading,
+    error: teachersError,
+    teachers: teacherList,
+    onRefresh: loadTeachers,
+    onOpenCreate: openTeacherModal,
+    onSelect: openTeacherDetail,
+  };
+
   return {
     loading,
     error,
     account,
     academy: academyView,
+    teachers: teachersView,
     profileModal,
     phoneModal,
     passwordModal,
     academyModal,
+      teacherCreateModal: {
+        open: teacherModalOpen,
+        form: teacherModalForm,
+        submitting: teacherModalSubmitting,
+        error: teacherModalError,
+        fieldErrors: teacherModalFieldErrors,
+        focusField: teacherModalFocusField,
+        openModal: openTeacherModal,
+        closeModal: closeTeacherModal,
+        updateField: updateTeacherField,
+        toggleMenu: toggleTeacherMenu,
+        submit: submitTeacherModal,
+        clearFocusField: clearTeacherFocusField,
+      },
     handleLogout,
     clearError,
   };

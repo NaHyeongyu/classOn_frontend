@@ -44,16 +44,38 @@ export default function CourseRecordDetail() {
   };
 
   const recordExists = Boolean(detail.record?.id);
+  const instructorName =
+    typeof detail.course?.instructorName === "string"
+      ? detail.course.instructorName
+      : typeof detail.record?.instructorName === "string"
+        ? detail.record.instructorName
+        : null;
+
+  const courseTitle: string | null = useMemo(() => {
+    if (detail.course?.title) return detail.course.title;
+    if (
+      detail.course &&
+      typeof detail.course === "object" &&
+      "name" in detail.course
+    ) {
+      const maybeName = (detail.course as { name?: unknown }).name;
+      if (typeof maybeName === "string" && maybeName.trim()) {
+        return maybeName;
+      }
+    }
+    return null;
+  }, [detail.course]);
 
   return (
     <CourseRecordDetailPageView
       header={{
         courseId,
-        courseTitle: (detail.course?.title ?? (detail.course as any)?.name ?? null) as string | null,
+        courseTitle,
         headLoading: detail.headLoading,
         whenInfo: detail.editor.meta.whenInfo,
         canDelete: recordExists,
       }}
+      instructorName={instructorName}
       onBack={handleBack}
       onDeleteRecord={handleDelete}
       error={detail.error}

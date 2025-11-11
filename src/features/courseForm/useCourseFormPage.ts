@@ -3,12 +3,15 @@ import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { createCourse, getCourse, updateCourse } from "@/api/courses";
 import { listStudents } from "@/api/students";
+import { listTeachers } from "@/api/teachers";
 import { getErrorMessage } from "@/lib/errors";
+import { useAuth } from "@/hooks/useAuth";
 import {
   DEFAULT_FORM,
   type FormState,
   type StudentOption,
   type CourseFormStepMeta,
+  type TeacherOption,
 } from "@/components/courseForm/courseFormTypes";
 import { useToggleDay } from "@/components/courseForm/courseFormHelpers";
 import { routes, paths } from "@/routes";
@@ -17,11 +20,13 @@ type FieldErrors = {
   title?: string;
   schedule?: string;
   student?: string;
+  instructor?: string;
 };
 
 type UseCourseFormPageResult = {
   isEdit: boolean;
   courseId: number | null;
+  isTeacher: boolean;
   steps: ReadonlyArray<CourseFormStepMeta>;
   step: number;
   setStep: (index: number) => void;
@@ -36,6 +41,9 @@ type UseCourseFormPageResult = {
   studentFilter: string;
   setStudentFilter: (value: string) => void;
   filteredStudents: StudentOption[];
+  teacherOptions: TeacherOption[];
+  teacherLoading: boolean;
+  teacherError: string | null;
   fieldErrors: FieldErrors;
   setFieldErrors: (updater: (prev: FieldErrors) => FieldErrors) => void;
   feeInput: string;
@@ -53,6 +61,29 @@ type UseCourseFormPageResult = {
 
 export function useCourseFormPage(): UseCourseFormPageResult {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const roleValue = (user?.role ?? "").toString().toUpperCase();
+  const isTeacher = roleValue === "TEACHER";
+  const authId = user?.id;
+  const teacherId = useMemo<number | null>(() => {
+    if (!isTeacher) return null;
+    if (typeof authId === "number") return authId;
+    if (typeof authId === "string") {
+      const parsed = Number(authId);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  }, [authId, isTeacher]);
+  const teacherDisplayName = useMemo(() => {
+    const base = (user?.name ?? "").trim();
+    if (base.length > 0) return base;
+    const fallback = (user?.username ?? "").trim();
+    if (fallback.length > 0) return fallback;
+    if (teacherId != null) return `강사 #${teacherId}`;
+    return "";
+  }, [teacherId, user?.name, user?.username]);
+  const teacherUsername = user?.username ?? undefined;
+
   const { id } = useParams();
   const isEdit = useMemo(() => Boolean(id), [id]);
   const courseId = useMemo(() => {
@@ -72,6 +103,18 @@ export function useCourseFormPage(): UseCourseFormPageResult {
   const [studentError, setStudentError] = useState<string | null>(null);
   const [studentsLoaded, setStudentsLoaded] = useState(false);
   const [studentFilter, setStudentFilter] = useState("");
+  const [teacherOptions, setTeacherOptions] = useState<TeacherOption[]>([]);
+  const [teacherLoading, setTeacherLoading] = useState(false);
+  const [teacherError, setTeacherError] = useState<string | null>(null);
+  const [teachersLoaded, setTeachersLoaded] = useState(false);
+  const ensureInstructorOption = useCallback((id: number | null | undefined, name?: string | null) => {
+    if (!id) return;
+    setTeacherOptions((prev) => {
+      if (prev.some((teacher) => teacher.id === id)) return prev;
+      const next = prev.concat({ id, name, username: undefined });
+      return next.sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko-KR"));
+    });
+  }, []);
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -126,6 +169,69 @@ export function useCourseFormPage(): UseCourseFormPageResult {
       return name.includes(keyword) || code.includes(keyword);
     });
   }, [studentOptions, studentFilter]);
+
+  useEffect(() => {
+    if (teachersLoaded || isTeacher) return;
+    let cancelled = false;
+    async function loadTeachers() {
+      setTeacherLoading(true);
+      setTeacherError(null);
+      try {
+        const rows = await listTeachers();
+        if (!cancelled) {
+          const mapped = rows
+            .map((teacher) => ({
+              id: teacher.id,
+              name: teacher.name,
+              username: teacher.username,
+              phone: teacher.phone,
+              courseCount: teacher.courseCount,
+            }))
+            .sort((a, b) =>
+              (a.name || a.username || "").localeCompare(b.name || b.username || "", "ko-KR"),
+            );
+          setTeacherOptions(mapped);
+          setTeachersLoaded(true);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setTeacherError(getErrorMessage(err, "강사 목록을 불러오지 못했습니다."));
+          setTeachersLoaded(true);
+        }
+      } finally {
+        if (!cancelled) setTeacherLoading(false);
+      }
+    }
+    void loadTeachers();
+    return () => {
+      cancelled = true;
+    };
+  }, [teachersLoaded, isTeacher]);
+
+  useEffect(() => {
+    if (!isTeacher || !teacherId) return;
+    const displayName = teacherDisplayName;
+    setTeacherOptions([
+      {
+        id: teacherId,
+        name: displayName,
+        username: teacherUsername,
+        courseCount: undefined,
+        phone: undefined,
+      },
+    ]);
+    setTeachersLoaded(true);
+    internalSetForm((prev) => {
+      if (prev.instructorId === teacherId && prev.instructorName) {
+        return prev;
+      }
+      return {
+        ...prev,
+        instructorId: teacherId,
+        instructorName: displayName,
+      };
+    });
+  }, [isTeacher, teacherId, teacherDisplayName, teacherUsername]);
 
   useEffect(() => {
     if (!isIndividual || studentsLoaded) return;
@@ -191,6 +297,10 @@ export function useCourseFormPage(): UseCourseFormPageResult {
       try {
         const found = await getCourse(courseId);
         if (!cancelled && found) {
+          const resolvedInstructorId =
+            typeof found.instructorId === "number" ? found.instructorId : null;
+          const resolvedInstructorName =
+            typeof found.instructorName === "string" ? found.instructorName : "";
           setForm(() => ({
             title: found.title,
             description: found.description,
@@ -206,8 +316,11 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             endTime: found.endTime ? found.endTime.slice(0, 5) : "",
             primaryStudentId: found.primaryStudentId ?? null,
             primaryStudentName: found.primaryStudentName ?? "",
+            instructorId: resolvedInstructorId,
+            instructorName: resolvedInstructorName,
           }));
           setFeeInput(found.fee != null ? String(found.fee) : "");
+          ensureInstructorOption(resolvedInstructorId, resolvedInstructorName);
         }
       } catch (err) {
         if (!cancelled) {
@@ -221,16 +334,21 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     return () => {
       cancelled = true;
     };
-  }, [courseId, isEdit, setForm]);
+  }, [courseId, ensureInstructorOption, isEdit, setForm]);
 
   const validateStep = useCallback(
     (current: number) => {
       if (current === 0) {
         if (!form.title || !form.title.trim()) {
-    setFieldErrors((prev) => ({ ...prev, title: "수업명을 입력해 주세요." }));
+          setFieldErrors((prev) => ({ ...prev, title: "수업명을 입력해 주세요." }));
           return false;
         }
         setFieldErrors((prev) => ({ ...prev, title: undefined }));
+        if (!form.instructorId) {
+          setFieldErrors((prev) => ({ ...prev, instructor: "담당 강사를 선택해 주세요." }));
+          return false;
+        }
+        setFieldErrors((prev) => ({ ...prev, instructor: undefined }));
       }
       if (current === 1) {
         if (form.courseType === "INDIVIDUAL" && !form.primaryStudentId) {
@@ -272,11 +390,19 @@ export function useCourseFormPage(): UseCourseFormPageResult {
   const submit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (!isLastStep) {
+        goNext();
+        return;
+      }
       setError(null);
       setSuccess(null);
       setFieldErrors({});
       if (!form.title || !form.title.trim()) {
         setFieldErrors((prev) => ({ ...prev, title: "수업명을 입력해 주세요." }));
+        return;
+      }
+      if (!form.instructorId) {
+        setFieldErrors((prev) => ({ ...prev, instructor: "담당 강사를 선택해 주세요." }));
         return;
       }
       if (isIndividual && !form.primaryStudentId) {
@@ -318,7 +444,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         setSaving(false);
       }
     },
-    [courseId, form, isEdit, isIndividual, navigate, recurring],
+    [courseId, form, goNext, isEdit, isIndividual, isLastStep, navigate, recurring],
   );
 
   const onSelectStudent = useCallback((student: StudentOption) => {
@@ -337,6 +463,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
   return {
     isEdit,
     courseId,
+    isTeacher,
     steps,
     step,
     setStep,
@@ -351,6 +478,9 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     studentFilter,
     setStudentFilter,
     filteredStudents,
+    teacherOptions,
+    teacherLoading,
+    teacherError,
     fieldErrors,
     setFieldErrors: setFieldErrorsSafe,
     feeInput,

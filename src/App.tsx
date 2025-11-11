@@ -20,6 +20,9 @@ const Attendance = lazy(() => import("@/pages/Attendance"));
 // Payments/Banking routes removed for MVP
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
+const TeacherHome = lazy(() => import("@/pages/TeacherHome"));
+const TeacherProfile = lazy(() => import("@/pages/TeacherProfile"));
+const TeacherDetail = lazy(() => import("@/pages/TeacherDetail"));
 import { useAuth } from "@/hooks/useAuth";
 const StudentDetail = lazy(() => import("@/pages/StudentDetail"));
 const StudentForm = lazy(() => import("@/pages/StudentForm"));
@@ -116,7 +119,10 @@ export default function App() {
 
       <Route element={<ProtectedLayout />}>
         <Route element={<MainLayout />}>
-          <Route path={routes.home} element={<Dashboard />} />
+          <Route path={routes.home} element={<HomeLanding />} />
+          <Route path={routes.teacherHome} element={<TeacherHome />} />
+          <Route path={routes.teacherProfile} element={<TeacherProfile />} />
+          <Route path={routes.teacherDetail} element={<TeacherDetail />} />
           <Route path={routes.calendar} element={<Calendar />} />
           <Route path={routes.calendarDetail} element={<CalendarDetail />} />
           <Route path={routes.students} element={<Students />} />
@@ -220,6 +226,18 @@ function MainLayout() {
       </ContentContainer>
     </AppContainer>
   );
+}
+
+function HomeLanding() {
+  const { user } = useAuth();
+  const menus = Array.isArray(user?.menus)
+    ? user?.menus.map((key) => (typeof key === "string" ? key.trim().toUpperCase() : String(key))).filter(Boolean)
+    : [];
+  const hasTeacherDashboard = menus.includes("DASHBOARD");
+  if (user?.role === "TEACHER" && !hasTeacherDashboard) {
+    return <Navigate to={routes.teacherHome} replace />;
+  }
+  return <Dashboard />;
 }
 
 function PublicLayout() {

@@ -52,10 +52,10 @@ export function useCourseRecordData({
         ]);
         if (cancelled) return;
         setCourse(courseData);
-        const foundById = recordsData.find((item: any) => item.id === recId) || null;
+        const foundById = recordsData.find((item) => item.id === recId) || null;
         const foundByDate =
           ymd && !foundById
-            ? recordsData.find((item: any) => item.recordDate === ymd) || null
+            ? recordsData.find((item) => item.recordDate === ymd) || null
             : null;
         setRecord(foundById ?? foundByDate ?? null);
         setStudents(studentsData);

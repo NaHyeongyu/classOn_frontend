@@ -17,12 +17,15 @@ export type Course = {
   title: string;
   code?: string | null;
   description?: string | null;
+  instructorId?: number | null;
+  instructorName?: string | null;
   status?: CourseStatus;
   courseType?: CourseType;
   capacity?: number | null;
   fee?: number | null;
   courseTime?: string | null;
   recurrenceDays?: string | DayCode[] | null;
+  recurring?: boolean | null;
   startTime?: string | null;
   endTime?: string | null;
   schedule?: CourseScheduleItem[];

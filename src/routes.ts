@@ -40,6 +40,11 @@ export const routes = {
   marketingSavedDetail: '/marketing/saved/:id',
   feedback: '/feedback',
   feedbackChangelog: '/feedback/changelog',
+
+  teacherHome: '/teacher',
+  teacherClasses: '/teacher/classes',
+  teacherProfile: '/teacher/profile',
+  teacherDetail: '/my-academy/teachers/:id',
 } as const;
 
 export const paths = {
@@ -56,5 +61,8 @@ export const paths = {
     editStudents: (id: string | number) => `/classes/${id}/edit-students`,
     historyRecord: (id: string | number, recordId: string | number) => `/classes/${id}/history/${recordId}`,
     historyDate: (id: string | number, ymd: string) => `/classes/${id}/history/date/${ymd}`,
+  },
+  teachers: {
+    detail: (id: string | number) => `/my-academy/teachers/${id}`,
   },
 } as const;

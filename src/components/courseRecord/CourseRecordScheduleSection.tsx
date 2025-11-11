@@ -19,6 +19,7 @@ type Props = {
   displayDateValue: string;
   displayTimeValue: string;
   durationLabel: string;
+  instructorName?: string | null;
   onStartEdit: () => void;
   onSave: () => void;
   onCancel: () => void;
@@ -43,6 +44,7 @@ export function CourseRecordScheduleSection({
   displayDateValue,
   displayTimeValue,
   durationLabel,
+  instructorName,
   onStartEdit,
   onSave,
   onCancel,
@@ -100,6 +102,16 @@ export function CourseRecordScheduleSection({
               </Value>
             ) : (
               <StrongValue>{displayTimeValue}</StrongValue>
+            )}
+          </li>
+          <li>
+            <Label>담당 강사</Label>
+            {headLoading ? (
+              <Value>
+                <UISkeleton w={120} h={14} />
+              </Value>
+            ) : (
+              <StrongValue>{instructorName?.trim().length ? instructorName : "-"}</StrongValue>
             )}
           </li>
           <li>

@@ -82,7 +82,7 @@ export default function PaymentRequest() {
           window.location.href = new URL(res.url, window.location.href).toString();
           return;
         }
-      } catch (e) {
+      } catch {
         // ignore and show fallback error
       }
     }
@@ -191,9 +191,7 @@ const StudentRow = styled.div`
 const SmallLabel = styled.div`
   color: #64748b; font-size: 12px; font-weight: 700;
 `;
-const SmallValue = styled.div`
-  color: #0f172a; font-size: 13px; font-weight: 700;
-`;
+/* removed unused SmallValue */
 const StudentChip = styled.span`
   display: inline-flex; align-items: center; height: 26px; padding: 0 10px;
   border-radius: 999px; background: #eef2ff; color: #3730a3; font-size: 12px; font-weight: 800;
@@ -209,9 +207,7 @@ const AmountValue = styled.div`
   color: #0f172a; font-size: 28px; font-weight: 900; letter-spacing: -.2px;
 `;
 
-const Divider = styled.hr`
-  border: none; border-top: 1px solid #f1f5f9; margin: 14px 0;
-`;
+/* removed unused Divider */
 
 const SectionTitle = styled.h2`
   margin: 16px 0 10px; font-size: 13px; color: #6b7280; font-weight: 800;

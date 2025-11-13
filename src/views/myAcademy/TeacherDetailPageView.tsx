@@ -25,12 +25,10 @@ export function TeacherDetailPageView({
   error,
   detail,
   onBack,
-  onRetry,
   canEditMenus,
   onOpenPasswordModal,
   canDeleteTeacher = false,
   onRequestDelete,
-  onChangeInstructor,
   coursesRef,
 }: TeacherDetailPageViewProps) {
   if (loading) {
@@ -136,11 +134,7 @@ const HeaderRow = styled.div`
   gap: 12px;
 `;
 
-const SectionTitle = styled.h2`
-  margin: 0;
-  color: #1f2937;
-  font-size: 16px;
-`;
+/* removed unused SectionTitle */
 
 const InfoRow = styled.div`
   display: grid;

@@ -1,6 +1,5 @@
 import styled from "styled-components";
 import { useAuth } from "@/hooks/useAuth";
-import { useMemo } from "react";
 import { useRepresentativeName } from "@/hooks/useRepresentativeName";
 import { isMainAccountForTeacher } from "@/lib/users";
 import {

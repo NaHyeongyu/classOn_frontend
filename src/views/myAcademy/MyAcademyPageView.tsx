@@ -293,32 +293,7 @@ const Hint = styled.p`
   color: #6b7280;
 `;
 
-const TeacherActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-`;
-
-const PrimaryButton = styled.button`
-  border: none;
-  background: #4f46e5;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 10px;
-  padding: 8px 16px;
-  cursor: pointer;
-  box-shadow: 0 8px 16px rgba(79, 70, 229, 0.25);
-  &:hover:not(:disabled) {
-    background: #4338ca;
-  }
-  &:disabled {
-    opacity: 0.65;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-`;
+/* removed unused TeacherActions/PrimaryButton */
 
 const ErrorBanner = styled.div`
   border-radius: 12px;
@@ -359,69 +334,4 @@ const SkeletonCard = styled.div`
   }
 `;
 
-const TeacherPlaceholder = styled.div`
-  border: 1px dashed #d1d5db;
-  border-radius: 12px;
-  padding: 20px;
-  text-align: center;
-  color: #6b7280;
-  font-size: 14px;
-  background: #f9fafb;
-`;
-
-const TeacherError = styled.div`
-  border-radius: 12px;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  padding: 14px 18px;
-  color: #b91c1c;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-`;
-
-const TeacherTable = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: inset 0 0 0 1px #e5e7eb;
-  thead th {
-    text-align: center;
-    background: #f3f4f6;
-    color: #374151;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 12px 16px;
-  }
-  thead th.email,
-  tbody td.email {
-    word-break: break-all;
-  }
-  tbody td {
-    font-size: 14px;
-    color: #1f2937;
-    padding: 12px 16px;
-    border-top: 1px solid #e5e7eb;
-    text-align: center;
-  }
-  tbody tr:nth-child(even) td {
-    background: #f9fafb;
-  }
-  tbody tr:hover td {
-    background: #eef2ff;
-  }
-  tbody tr {
-    cursor: pointer;
-    outline: none;
-  }
-  tbody tr:focus-visible td {
-    box-shadow: inset 0 0 0 2px #4f46e5;
-  }
-  td.num {
-    font-variant-numeric: tabular-nums;
-  }
-`;
+/* removed unused TeacherPlaceholder/TeacherError/TeacherTable */

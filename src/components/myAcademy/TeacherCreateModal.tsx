@@ -377,16 +377,7 @@ const PasswordToggle = styled.button`
   }
 `;
 
-const MenuRow = styled.div`
-  display: grid;
-  gap: 6px;
-`;
-
-const MenuHint = styled.span`
-  font-size: 12px;
-  color: #94a3b8;
-  padding-left: 26px;
-`;
+/* removed unused MenuRow/MenuHint */
 
 const Section = styled.div`
   display: grid;

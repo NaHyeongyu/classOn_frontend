@@ -462,7 +462,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         setSaving(false);
       }
     },
-    [courseId, form, goNext, isEdit, isIndividual, isLastStep, navigate, recurring],
+    [courseId, form, goNext, isEdit, isIndividual, isLastStep, navigate, recurring, isOwnerOrAdmin, user?.id],
   );
 
   const onSelectStudent = useCallback((student: StudentOption) => {

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { FormEvent, KeyboardEvent, MouseEvent } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import {
   AlertError,
   AlertOk,
@@ -140,13 +140,6 @@ export function CourseFormPageView({
   navigateEditStudents,
 }: CourseFormPageViewProps) {
   const isIndividual = form.courseType === "INDIVIDUAL";
-  const handleNextClick = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      goNext();
-    },
-    [goNext]
-  );
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLFormElement>) => {
       if (event.key !== "Enter") return;

@@ -83,8 +83,6 @@ export function TeacherHomePageView({
               <dd>{profile.name || "미입력"}</dd>
               <dt>아이디</dt>
               <dd>{profile.username}</dd>
-              <dt>이메일</dt>
-              <dd>{profile.email || "미입력"}</dd>
               <dt>전화번호</dt>
               <dd>{profile.phone || "미입력"}</dd>
               <dt>담당 수업</dt>

@@ -25,10 +25,11 @@ import {
 import { createTeacher, listTeachers, type TeacherListItem } from "@/api/teachers";
 import { paths } from "@/routes";
 
-const DEFAULT_TEACHER_MENUS = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "PAYMENTS"] as const;
+// Teacher menus are fixed on the backend; no per-user selection needed.
 
 type AccountViewState = {
   name: string;
+  username: string;
   phone: string;
   onOpenProfileModal: () => void;
   onOpenPhoneModal: () => void;
@@ -117,14 +118,12 @@ export type AcademyModalState = {
 type TeacherCreateFormState = {
   username: string;
   name: string;
-  email: string;
   phone: string;
   password: string;
   passwordConfirm: string;
-  menus: string[];
 };
 
-type TeacherCreateField = keyof TeacherCreateFormState | "menus";
+type TeacherCreateField = keyof TeacherCreateFormState;
 
 type TeacherCreateFormErrors = Partial<Record<TeacherCreateField, string>>;
 
@@ -141,7 +140,6 @@ export type TeacherCreateModalState = {
     field: K,
     value: TeacherCreateFormState[K],
   ) => void;
-  toggleMenu: (key: string) => void;
   submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   clearFocusField: () => void;
 };
@@ -193,6 +191,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
 
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const username = (user?.username ?? "").toString();
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileModalName, setProfileModalName] = useState("");
@@ -228,11 +227,9 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const [teacherModalForm, setTeacherModalForm] = useState<TeacherCreateFormState>(() => ({
     username: "",
     name: "",
-    email: "",
     phone: "",
     password: "",
     passwordConfirm: "",
-    menus: Array.from(DEFAULT_TEACHER_MENUS),
   }));
   const [teacherModalError, setTeacherModalError] = useState<string | null>(null);
   const [teacherModalSubmitting, setTeacherModalSubmitting] = useState(false);
@@ -275,11 +272,9 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     setTeacherModalForm({
       username: "",
       name: "",
-      email: "",
       phone: "",
       password: "",
       passwordConfirm: "",
-      menus: Array.from(DEFAULT_TEACHER_MENUS),
     });
     setTeacherModalError(null);
     setTeacherModalSubmitting(false);
@@ -310,23 +305,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     },
   []);
 
-  const toggleTeacherMenu = useCallback((key: string) => {
-    setTeacherModalForm((prev) => {
-      const exists = prev.menus.includes(key);
-      let nextMenus = exists
-        ? prev.menus.filter((menu) => menu !== key)
-        : [...prev.menus, key];
-      nextMenus = Array.from(DEFAULT_TEACHER_MENUS).filter((menu) => nextMenus.includes(menu));
-      return { ...prev, menus: nextMenus };
-    });
-    setTeacherModalError(null);
-    setTeacherModalFieldErrors((prev) => {
-      if (!prev.menus) return prev;
-      const next = { ...prev };
-      delete next.menus;
-      return next;
-    });
-  }, []);
+  // toggleTeacherMenu removed
 
   const clearTeacherFocusField = useCallback(() => {
     setTeacherModalFocusField(null);
@@ -344,11 +323,10 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
       event.preventDefault();
       const username = teacherModalForm.username.trim();
       const nameValue = teacherModalForm.name.trim();
-      const emailValue = teacherModalForm.email.trim();
       const normalizedPhone = normalizeMobile(teacherModalForm.phone);
       const passwordValue = teacherModalForm.password.trim();
       const passwordConfirmValue = teacherModalForm.passwordConfirm.trim();
-      const menus = teacherModalForm.menus;
+      // menus removed (backend auto-assigns default)
 
       const raiseFieldError = (field: TeacherCreateField, message: string) => {
         setTeacherModalFieldErrors({ [field]: message });
@@ -382,20 +360,15 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         raiseFieldError("passwordConfirm", "비밀번호가 일치하지 않습니다.");
         return;
       }
-      if (!menus.length) {
-        raiseFieldError("menus", "최소 한 개 이상의 메뉴 권한을 선택해 주세요.");
-        return;
-      }
+      // 메뉴 선택은 제거됨: 서버가 기본 메뉴 세트를 자동 부여합니다.
 
       setTeacherModalSubmitting(true);
       try {
         await createTeacher({
           username,
           name: nameValue,
-          email: emailValue || undefined,
           phone: normalizedPhone,
           password: passwordValue,
-          menus,
         });
         await loadTeachers();
         toast.success("강사가 등록되었습니다.");
@@ -793,6 +766,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
 
   const account: AccountViewState = {
     name,
+    username,
     phone,
     onOpenProfileModal: openProfileModal,
     onOpenPhoneModal: openPhoneModal,
@@ -892,7 +866,6 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         openModal: openTeacherModal,
         closeModal: closeTeacherModal,
         updateField: updateTeacherField,
-        toggleMenu: toggleTeacherMenu,
         submit: submitTeacherModal,
         clearFocusField: clearTeacherFocusField,
       },

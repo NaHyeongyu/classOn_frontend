@@ -47,8 +47,8 @@ export function CourseDetailHeader({
       </BackButton>
       <h2>{title || "수업 상세"}</h2>
       <Actions>
-        <UIGhostBtn to={editStudentsHref} title="수강생 수정" data-variant="edit">
-          수강생 수정
+        <UIGhostBtn to={editStudentsHref} title="수강생 관리" data-variant="edit">
+          수강생 관리
         </UIGhostBtn>
         <UIGhostBtn to={editHref} title="기본 정보 수정" data-variant="edit">
           기본정보 수정

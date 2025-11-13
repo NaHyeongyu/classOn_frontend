@@ -9,9 +9,10 @@ type Props = {
   loading: boolean;
   error: string | null;
   editHref: string;
+  showAddButton?: boolean; // default true; hide in teacher view
 };
 
-export default function CourseStudentsPanel({ students, loading, error, editHref }: Props) {
+export default function CourseStudentsPanel({ students, loading, error, editHref, showAddButton = true }: Props) {
   return (
     <Section>
       <Head>
@@ -19,7 +20,7 @@ export default function CourseStudentsPanel({ students, loading, error, editHref
           <Title style={{ margin: 0 }}>수강생 목록</Title>
           <Muted>총 {students.length}명의 학생이 수강중입니다.</Muted>
         </div>
-        <UIPrimaryBtn to={editHref}>학생 추가</UIPrimaryBtn>
+        {showAddButton && <UIPrimaryBtn to={editHref}>수강생 관리</UIPrimaryBtn>}
       </Head>
       {loading && <Muted>불러오는 중...</Muted>}
       {error && <AlertError>{error}</AlertError>}
@@ -93,4 +94,3 @@ const StatusTag = styled.span`
   &[data-type='ON_LEAVE'] { background:#fef3c7; color:#b45309; }
   &[data-type='PENDING'] { background:#f3e8ff; color:#7c3aed; }
 `;
-

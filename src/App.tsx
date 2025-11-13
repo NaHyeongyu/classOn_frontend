@@ -38,6 +38,7 @@ const MarketingSavedDetail = lazy(() => import("@/pages/MarketingSavedDetail"));
 const Feedback = lazy(() => import("@/pages/Feedback"));
 const FeedbackChangelog = lazy(() => import("@/pages/FeedbackChangelog"));
 const MyAcademy = lazy(() => import("@/pages/MyAcademy"));
+const TeachersManage = lazy(() => import("@/pages/Teachers"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminLogin = lazy(() => import("@/pages/AdminLogin"));
 const AdminLogins = lazy(() => import("@/pages/AdminLogins"));
@@ -47,6 +48,7 @@ const AdminPayments = lazy(() => import("@/pages/AdminPayments"));
 const AdminStats = lazy(() => import("@/pages/AdminStats"));
 const AdminAcademyDetail = lazy(() => import("@/pages/AdminAcademyDetail"));
 const AdminFeedbacks = lazy(() => import("@/pages/AdminFeedbacks"));
+const PaymentRequest = lazy(() => import("@/pages/PaymentRequest"));
 import { PageLoading, LoadingSpinner } from "@/components/common/Loading";
 import { RouteTransition, TopProgressBar } from "@/components/common/RouteTransition";
 import { routes } from "@/routes";
@@ -152,11 +154,18 @@ export default function App() {
           <Route path={routes.marketingSavedDetail} element={<MarketingSavedDetail />} />
           <Route path={routes.feedback} element={<Feedback />} />
           <Route path={routes.myAcademy} element={<MyAcademy />} />
+          <Route path={routes.teachersManage} element={<TeachersManage />} />
           {enableFeedback && <Route path={routes.feedbackChangelog} element={<FeedbackChangelog />} />}
           { /* Todos page removed; manage todos within Calendar Detail */ }
         </Route>
       </Route>
       {/* Public (no auth) routes */}
+      {/* Bare layout for standalone public pages (no inner containers) */}
+      <Route element={<BareLayout />}>
+        <Route path={routes.payRequestBlank} element={<PaymentRequest />} />
+        <Route path={routes.payRequest} element={<PaymentRequest />} />
+      </Route>
+
       <Route element={<PublicLayout />}>
         <Route element={<AdminProtectedLayout />}>
           <Route path={routes.admin} element={<Admin />} />
@@ -252,6 +261,11 @@ function PublicLayout() {
       </ContentInner>
     </ContentContainer>
   );
+}
+
+function BareLayout() {
+  // No wrappers, full-bleed content (used by public pay page)
+  return <Outlet />;
 }
 
 function AdminProtectedLayout() {

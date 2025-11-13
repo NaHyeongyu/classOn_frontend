@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createCourse, getCourse, updateCourse } from "@/api/courses";
+import { createCourse, getCourse, updateCourse, updateCourseInstructor } from "@/api/courses";
 import { listStudents } from "@/api/students";
 import { listTeachers } from "@/api/teachers";
 import { getErrorMessage } from "@/lib/errors";
@@ -64,6 +64,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
   const { user } = useAuth();
   const roleValue = (user?.role ?? "").toString().toUpperCase();
   const isTeacher = roleValue === "TEACHER";
+  const isOwnerOrAdmin = roleValue === "OWNER" || roleValue === "ADMIN";
   const authId = user?.id;
   const teacherId = useMemo<number | null>(() => {
     if (!isTeacher) return null;
@@ -179,7 +180,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
       try {
         const rows = await listTeachers();
         if (!cancelled) {
-          const mapped = rows
+          let mapped = rows
             .map((teacher) => ({
               id: teacher.id,
               name: teacher.name,
@@ -190,6 +191,16 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             .sort((a, b) =>
               (a.name || a.username || "").localeCompare(b.name || b.username || "", "ko-KR"),
             );
+          // Ensure current login account appears as selectable option when owner/admin
+          if (isOwnerOrAdmin && user) {
+            const selfId = typeof user.id === 'number' ? user.id : Number(user.id);
+            const exists = mapped.some(t => t.id === selfId);
+            if (!Number.isNaN(selfId) && !exists) {
+              const display = (user.name?.trim() || user.username || `사용자 #${selfId}`);
+              mapped = mapped.concat({ id: selfId, name: display, username: user.username, phone: undefined, courseCount: 0 })
+                .sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ko-KR'));
+            }
+          }
           setTeacherOptions(mapped);
           setTeachersLoaded(true);
         }
@@ -206,7 +217,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     return () => {
       cancelled = true;
     };
-  }, [teachersLoaded, isTeacher]);
+  }, [teachersLoaded, isTeacher, isOwnerOrAdmin, user]);
 
   useEffect(() => {
     if (!isTeacher || !teacherId) return;
@@ -344,11 +355,6 @@ export function useCourseFormPage(): UseCourseFormPageResult {
           return false;
         }
         setFieldErrors((prev) => ({ ...prev, title: undefined }));
-        if (!form.instructorId) {
-          setFieldErrors((prev) => ({ ...prev, instructor: "담당 강사를 선택해 주세요." }));
-          return false;
-        }
-        setFieldErrors((prev) => ({ ...prev, instructor: undefined }));
       }
       if (current === 1) {
         if (form.courseType === "INDIVIDUAL" && !form.primaryStudentId) {
@@ -401,10 +407,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         setFieldErrors((prev) => ({ ...prev, title: "수업명을 입력해 주세요." }));
         return;
       }
-      if (!form.instructorId) {
-        setFieldErrors((prev) => ({ ...prev, instructor: "담당 강사를 선택해 주세요." }));
-        return;
-      }
+      // 담당 강사는 선택 사항입니다.
       if (isIndividual && !form.primaryStudentId) {
         setFieldErrors((prev) => ({ ...prev, student: "학생을 선택해 주세요." }));
         return;
@@ -431,10 +434,25 @@ export function useCourseFormPage(): UseCourseFormPageResult {
           recurring,
         };
         if (isEdit && courseId) {
-          await updateCourse(courseId, payload);
+          const desiredInstructorId = payload.instructorId ?? null;
+          const selfId = typeof user?.id === 'number' ? user?.id : Number(user?.id);
+          const isSelfOwnerAdmin = isOwnerOrAdmin && desiredInstructorId != null && !Number.isNaN(selfId) && desiredInstructorId === selfId;
+          const payloadForUpdate = isSelfOwnerAdmin ? { ...payload, instructorId: undefined as unknown as number } : payload;
+          await updateCourse(courseId, payloadForUpdate);
+          // Ensure instructor can be cleared/changed, and handle OWNER/ADMIN via follow-up call
+          await updateCourseInstructor(courseId, desiredInstructorId);
           setSuccess("수정이 완료되었습니다.");
         } else {
-          await createCourse(payload);
+          // For create: backend only accepts TEACHER at create-time. If owner/admin selected self, set after creation.
+          const requestedInstructorId = payload.instructorId ?? null;
+          const shouldAssignAfter = !!requestedInstructorId && isOwnerOrAdmin && (
+            (typeof user?.id === 'number' && requestedInstructorId === user?.id) ||
+            (typeof user?.id === 'string' && requestedInstructorId === Number(user?.id))
+          );
+          const created = await createCourse(shouldAssignAfter ? { ...payload, instructorId: undefined as unknown as number } : payload);
+          if (shouldAssignAfter && created?.id) {
+            try { await updateCourseInstructor(created.id, requestedInstructorId); } catch { /* ignore */ }
+          }
           setSuccess("수업이 추가되었습니다.");
         }
         navigate(routes.classes, { replace: true });
@@ -444,7 +462,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         setSaving(false);
       }
     },
-    [courseId, form, goNext, isEdit, isIndividual, isLastStep, navigate, recurring],
+    [courseId, form, goNext, isEdit, isIndividual, isLastStep, navigate, recurring, isOwnerOrAdmin, user?.id],
   );
 
   const onSelectStudent = useCallback((student: StudentOption) => {

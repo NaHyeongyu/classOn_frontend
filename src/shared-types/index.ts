@@ -86,7 +86,7 @@ export type Student = {
   joinedDate?: string | null; // YYYY-MM-DD
   createdAt?: string | null;
   address?: string | null;
-  parentName?: string | null;
+  guardianName?: string | null;
   courses: StudentCourseBrief[];
   [key: string]: unknown;
 };

@@ -6,21 +6,17 @@ import { routes } from "@/routes";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/common/Toast";
 import { getErrorMessage } from "@/lib/errors";
-import {
-  updateTeacherMenus,
-  listTeachers,
-  deleteTeacher,
-  type TeacherCourseBrief,
-  type TeacherListItem,
-} from "@/api/teachers";
+import { listTeachers, deleteTeacher, type TeacherCourseBrief, type TeacherListItem, resetTeacherPassword, checkPasswordStrength } from "@/api/teachers";
 import { updateCourseInstructor } from "@/api/courses";
 import Modal from "@/components/common/Modal";
 import styled from "styled-components";
-import { TEACHER_MENU_OPTIONS } from "@/constants/teacherMenus";
-
-type TeacherMenuKey = (typeof TEACHER_MENU_OPTIONS)[number]["key"];
+import { Input as RegInput } from "@/components/register/RegisterForm.styles";
+import { useRepresentativeName } from "@/hooks/useRepresentativeName";
+import { isMainAccountForTeacher } from "@/lib/users";
 
 export default function TeacherDetail() {
+  const { user } = useAuth();
+  const repName = useRepresentativeName();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const teacherId = useMemo(() => {
@@ -29,12 +25,8 @@ export default function TeacherDetail() {
     return Number.isFinite(parsed) ? parsed : null;
   }, [id]);
   const { detail, loading, error, refresh } = useTeacherDetailPage(teacherId);
-  const { user } = useAuth();
   const { success: showSuccess } = useToast();
-  const [savingMenus, setSavingMenus] = useState(false);
-  const [menuModalOpen, setMenuModalOpen] = useState(false);
-  const [menuDraft, setMenuDraft] = useState<TeacherMenuKey[]>([]);
-  const [menuModalError, setMenuModalError] = useState<string | null>(null);
+  // menu edit removed
   const coursesSectionRef = useRef<HTMLDivElement | null>(null);
   const [deleteGuardOpen, setDeleteGuardOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -49,22 +41,19 @@ export default function TeacherDetail() {
   const [teacherOptionsLoading, setTeacherOptionsLoading] = useState(false);
   const [teacherOptionsError, setTeacherOptionsError] = useState<string | null>(null);
   const [selectedInstructorId, setSelectedInstructorId] = useState<number | null>(null);
+  const [pwModalOpen, setPwModalOpen] = useState(false);
+  const [pwNew, setPwNew] = useState("");
+  const [pwConfirm, setPwConfirm] = useState("");
+  const [pwChecking, setPwChecking] = useState(false);
+  const [pwValid, setPwValid] = useState<boolean | null>(null);
+  const [pwMsg, setPwMsg] = useState<string>("");
+  const [pwSaving, setPwSaving] = useState(false);
+  const [pwError, setPwError] = useState<string | null>(null);
 
   const userRole = (user?.role ?? "").toString().toUpperCase();
-  const canEditMenus = !!detail && (userRole.includes("ADMIN") || userRole.includes("OWNER"));
+  const canEditMenus = !!detail && (userRole === "ADMIN" || userRole === "OWNER");
 
-  const normalizedOptions = useMemo(
-    () => new Set<TeacherMenuKey>(TEACHER_MENU_OPTIONS.map((option) => option.key)),
-    [],
-  );
-
-  const filterValidMenus = useCallback(
-    (menus: readonly string[]) =>
-      menus.filter((key): key is TeacherMenuKey =>
-        normalizedOptions.has(key as TeacherMenuKey),
-      ),
-    [normalizedOptions],
-  );
+  // menu edit removed
 
   const availableTeachers = useMemo(() => {
     if (!detail) return [];
@@ -75,14 +64,23 @@ export default function TeacherDetail() {
     setTeacherOptionsLoading(true);
     setTeacherOptionsError(null);
     try {
-      const list = await listTeachers();
+      let list = await listTeachers();
+      // Ensure current login appears as selectable when owner/admin
+      const roleValue = (user?.role ?? "").toString().toUpperCase();
+      const isOwnerOrAdmin = roleValue === 'OWNER' || roleValue === 'ADMIN';
+      if (isOwnerOrAdmin && user) {
+        const selfId = typeof user.id === 'number' ? user.id : Number(user.id);
+        if (!Number.isNaN(selfId) && !list.some(t => t.id === selfId)) {
+          list = list.concat({ id: selfId, name: user.name || user.username, username: user.username, phone: undefined, phoneVerified: false, courseCount: 0 });
+        }
+      }
       setTeacherOptions(list);
     } catch (err) {
       setTeacherOptionsError(getErrorMessage(err, "강사 목록을 불러오지 못했습니다."));
     } finally {
       setTeacherOptionsLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     if (!courseModalOpen || !detail) return;
@@ -98,66 +96,25 @@ export default function TeacherDetail() {
     }
   }, [availableTeachers, courseModalOpen, detail, selectedInstructorId]);
 
-  const openMenuModal = useCallback(() => {
+  // menu modal removed
+
+  const openPwModal = useCallback(() => {
     if (!detail || !canEditMenus) return;
-    setMenuDraft(filterValidMenus(detail.menus));
-    setMenuModalError(null);
-    setMenuModalOpen(true);
-  }, [detail, canEditMenus, filterValidMenus]);
+    setPwModalOpen(true);
+    setPwNew("");
+    setPwConfirm("");
+    setPwError(null);
+    setPwValid(null);
+    setPwMsg("");
+  }, [detail, canEditMenus]);
 
-  const closeMenuModal = useCallback(() => {
-    if (savingMenus) return;
-    setMenuModalOpen(false);
-    setMenuModalError(null);
-  }, [savingMenus]);
+  const closePwModal = useCallback(() => {
+    if (pwSaving) return;
+    setPwModalOpen(false);
+    setPwError(null);
+  }, [pwSaving]);
 
-  const handleSaveMenus = async (menus: TeacherMenuKey[]) => {
-    if (!teacherId || !canEditMenus) return false;
-    setSavingMenus(true);
-    setMenuModalError(null);
-    let ok = false;
-    try {
-      await updateTeacherMenus(teacherId, { menus });
-      showSuccess("강사 메뉴 권한이 저장되었습니다.");
-      await refresh();
-      ok = true;
-    } catch (err) {
-      setMenuModalError(getErrorMessage(err, "메뉴 권한 저장에 실패했습니다."));
-    } finally {
-      setSavingMenus(false);
-    }
-    return ok;
-  };
-
-  const toggleMenuDraft = (key: TeacherMenuKey) => {
-    setMenuDraft((prev) => {
-      const exists = prev.includes(key);
-      if (exists) return prev.filter((menu) => menu !== key);
-      return Array.from(new Set([...prev, key]));
-    });
-  };
-
-  const filteredCurrentMenus = useMemo(() => {
-    if (!detail) return [];
-    return filterValidMenus(detail.menus);
-  }, [detail, filterValidMenus]);
-
-  const menuDirty = useMemo(() => {
-    if (!detail) return false;
-    if (filteredCurrentMenus.length !== menuDraft.length) return true;
-    const current = new Set(filteredCurrentMenus);
-    return menuDraft.some((menu) => !current.has(menu));
-  }, [filteredCurrentMenus, menuDraft, detail]);
-
-  const saveDisabled = !detail || savingMenus || menuDraft.length === 0 || !menuDirty;
-
-  const handleSubmitMenus = async () => {
-    if (saveDisabled) return;
-    const ok = await handleSaveMenus(menuDraft);
-    if (ok) {
-      setMenuModalOpen(false);
-    }
-  };
+  // menu editing removed
 
   const handleOpenCourseModal = useCallback(
     (course: TeacherCourseBrief) => {
@@ -179,18 +136,64 @@ export default function TeacherDetail() {
   };
 
   const handleSubmitInstructorChange = async () => {
-    if (!teacherId || !courseModalTarget || !selectedInstructorId) return;
+    if (!teacherId || !courseModalTarget) return;
     setCourseModalSaving(true);
     setCourseModalError(null);
     try {
-      await updateCourseInstructor(courseModalTarget.id, selectedInstructorId);
-      showSuccess("담당 강사가 변경되었습니다.");
+      await updateCourseInstructor(courseModalTarget.id, selectedInstructorId ?? null);
+      showSuccess(selectedInstructorId == null ? "담당 강사가 해제되었습니다." : "담당 강사가 변경되었습니다.");
       await refresh();
       closeCourseModal();
     } catch (err) {
       setCourseModalError(getErrorMessage(err, "담당 강사 변경에 실패했습니다."));
     } finally {
       setCourseModalSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    let t: number | undefined;
+    if (pwModalOpen && pwNew.trim()) {
+      setPwChecking(true);
+      setPwError(null);
+      setPwMsg("비밀번호 확인 중…");
+      t = window.setTimeout(async () => {
+        try {
+          const res = await checkPasswordStrength(pwNew.trim());
+          setPwValid(res.valid);
+          setPwMsg(res.valid ? "안전한 비밀번호입니다." : res.message || "비밀번호가 정책을 만족하지 않습니다.");
+        } catch {
+          setPwValid(null);
+          setPwMsg("비밀번호 확인에 실패했습니다.");
+        } finally {
+          setPwChecking(false);
+        }
+      }, 300);
+    } else {
+      setPwValid(null);
+      setPwMsg("");
+      setPwChecking(false);
+    }
+    return () => {
+      if (t) window.clearTimeout(t);
+    };
+  }, [pwModalOpen, pwNew]);
+
+  const handleSubmitPwReset = async () => {
+    if (!teacherId) return;
+    if (!pwNew.trim()) { setPwError("새 비밀번호를 입력해 주세요."); return; }
+    if (pwNew !== pwConfirm) { setPwError("비밀번호가 일치하지 않습니다."); return; }
+    if (pwValid === false || pwChecking) return;
+    setPwSaving(true);
+    setPwError(null);
+    try {
+      await resetTeacherPassword(teacherId, pwNew.trim());
+      showSuccess("비밀번호가 재설정되었습니다.");
+      closePwModal();
+    } catch (err) {
+      setPwError(getErrorMessage(err, "비밀번호 재설정에 실패했습니다."));
+    } finally {
+      setPwSaving(false);
     }
   };
 
@@ -247,55 +250,55 @@ export default function TeacherDetail() {
         }}
         canEditMenus={canEditMenus}
         canDeleteTeacher={canEditMenus}
-        onOpenMenuModal={openMenuModal}
+        onOpenPasswordModal={openPwModal}
         onRequestDelete={handleRequestDelete}
         onChangeInstructor={canEditMenus ? handleOpenCourseModal : undefined}
         coursesRef={coursesSectionRef}
       />
+
       <Modal
-        open={menuModalOpen}
-        onClose={closeMenuModal}
-        title="강사 메뉴 권한"
-        description="강사 사이드바에 표시할 메뉴를 선택하세요."
+        open={pwModalOpen}
+        onClose={closePwModal}
+        title="비밀번호 재설정"
+        description="새 비밀번호를 입력해 주세요."
+        maxWidth={520}
       >
         <ModalBody>
-          <MenuCheckboxGroup>
-            {TEACHER_MENU_OPTIONS.map((option) => {
-              const checked = menuDraft.includes(option.key);
-              return (
-                <MenuRow key={option.key}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleMenuDraft(option.key)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                  <MenuHint>{option.description}</MenuHint>
-                </MenuRow>
-              );
-            })}
-          </MenuCheckboxGroup>
-          {menuDraft.length === 0 ? (
-            <MenuInfo role="alert">최소 한 개 이상의 메뉴 권한을 선택해 주세요.</MenuInfo>
-          ) : (
-            <MenuInfo>선택된 메뉴만 강사 사이드바에 노출됩니다.</MenuInfo>
-          )}
-          {menuModalError ? <MenuError role="alert">{menuModalError}</MenuError> : null}
-          <MenuActions>
-            <MenuGhostButton
-              type="button"
-              onClick={() => setMenuDraft(filteredCurrentMenus)}
-              disabled={savingMenus || !menuDirty}
-            >
-              변경 취소
-            </MenuGhostButton>
-            <MenuPrimaryButton type="button" onClick={handleSubmitMenus} disabled={saveDisabled}>
-              {savingMenus ? "저장 중…" : "저장"}
-            </MenuPrimaryButton>
-          </MenuActions>
+          <div>
+            <ModalLabel htmlFor="teacher-reset-password">새 비밀번호</ModalLabel>
+            <PasswordInput
+              id="teacher-reset-password"
+              type="password"
+              value={pwNew}
+              onChange={(e) => setPwNew(e.target.value)}
+              placeholder="8–64자, 문자+숫자"
+            />
+            {pwMsg ? (
+              <MenuInfo role="status" style={{ color: pwValid ? '#065f46' : pwChecking ? '#6b7280' : pwValid === false ? '#b91c1c' : '#64748b' }}>
+                {pwMsg}
+              </MenuInfo>
+            ) : null}
+          </div>
+          <div>
+            <ModalLabel htmlFor="teacher-reset-password-confirm">비밀번호 확인</ModalLabel>
+            <PasswordInput
+              id="teacher-reset-password-confirm"
+              type="password"
+              value={pwConfirm}
+              onChange={(e) => setPwConfirm(e.target.value)}
+              placeholder="비밀번호 다시 입력"
+            />
+          </div>
+          {pwError ? <MenuError role="alert">{pwError}</MenuError> : null}
         </ModalBody>
+        <MenuActions>
+          <MenuGhostButton type="button" onClick={closePwModal} disabled={pwSaving}>
+            취소
+          </MenuGhostButton>
+          <MenuPrimaryButton type="button" onClick={handleSubmitPwReset} disabled={pwSaving || pwChecking || (pwValid === false) || !pwNew || !pwConfirm || pwNew !== pwConfirm}>
+            {pwSaving ? "저장 중…" : "저장"}
+          </MenuPrimaryButton>
+        </MenuActions>
       </Modal>
 
       <Modal
@@ -305,16 +308,13 @@ export default function TeacherDetail() {
         description={
           courseModalTarget ? `“${courseModalTarget.title}” 수업의 담당 강사를 선택하세요.` : undefined
         }
+        maxWidth={520}
       >
         <ModalBody>
           {teacherOptionsLoading ? (
             <ModalMessage>강사 목록을 불러오는 중입니다…</ModalMessage>
           ) : teacherOptionsError ? (
             <ModalMessage role="alert">{teacherOptionsError}</ModalMessage>
-          ) : availableTeachers.length === 0 ? (
-            <ModalMessage role="alert">
-              다른 강사가 없습니다. 새 강사를 먼저 등록해 주세요.
-            </ModalMessage>
           ) : (
             <div>
               <ModalLabel>새 담당 강사</ModalLabel>
@@ -322,12 +322,16 @@ export default function TeacherDetail() {
                 value={selectedInstructorId ?? ""}
                 onChange={(event) => {
                   const value = event.target.value;
-                  setSelectedInstructorId(value ? Number(value) : null);
+                  if (value === "__NONE__" || value === "") setSelectedInstructorId(null);
+                  else setSelectedInstructorId(Number(value));
                 }}
               >
                 <option value="">강사를 선택해 주세요</option>
+                <option value="__NONE__">담당 강사 없음</option>
                 {availableTeachers.map((teacher) => {
-                  const label = teacher.name || teacher.username || `강사 #${teacher.id}`;
+                  const labelBase = teacher.name || teacher.username || `강사 #${teacher.id}`;
+                  const isMain = isMainAccountForTeacher(user, teacher, repName);
+                  const label = isMain ? `${labelBase} [본계정]` : labelBase;
                   return (
                     <option key={teacher.id} value={teacher.id}>
                       {label}
@@ -335,6 +339,14 @@ export default function TeacherDetail() {
                   );
                 })}
               </SelectInput>
+              {user && !availableTeachers.some((t) => isMainAccountForTeacher(user, t, repName)) ? (
+                <MenuInfo style={{ marginTop: 6 }}>
+                  본계정(담당자)이 보이지 않으면 강사로 등록해 주세요.
+                </MenuInfo>
+              ) : null}
+              {availableTeachers.length === 0 ? (
+                <MenuInfo style={{ marginTop: 6 }}>다른 강사가 없습니다. ‘담당 강사 없음’을 선택해 해제할 수 있어요.</MenuInfo>
+              ) : null}
             </div>
           )}
           {courseModalError ? <MenuError role="alert">{courseModalError}</MenuError> : null}
@@ -348,8 +360,6 @@ export default function TeacherDetail() {
             onClick={handleSubmitInstructorChange}
             disabled={
               courseModalSaving ||
-              !selectedInstructorId ||
-              availableTeachers.length === 0 ||
               !!teacherOptionsError
             }
           >
@@ -362,6 +372,7 @@ export default function TeacherDetail() {
         open={deleteGuardOpen}
         onClose={() => setDeleteGuardOpen(false)}
         title="강사를 삭제할 수 없습니다."
+        maxWidth={520}
       >
         <ModalBody>
           <ModalMessage>
@@ -382,6 +393,7 @@ export default function TeacherDetail() {
         }}
         title="강사 삭제"
         description="정말 삭제하시겠습니까?"
+        maxWidth={520}
       >
         <ModalBody>
           {deleteError ? <MenuError role="alert">{deleteError}</MenuError> : null}
@@ -401,6 +413,7 @@ export default function TeacherDetail() {
         onClose={handleDeleteSuccessClose}
         title="삭제가 완료되었습니다."
         description="강사 계정이 삭제되었습니다."
+        maxWidth={520}
       >
         <MenuActions>
           <MenuPrimaryButton type="button" onClick={handleDeleteSuccessClose}>
@@ -419,33 +432,7 @@ const ModalBody = styled.div`
   max-width: 480px;
 `;
 
-const MenuCheckboxGroup = styled.div`
-  display: grid;
-  gap: 12px;
-`;
-
-const MenuRow = styled.div`
-  display: grid;
-  gap: 4px;
-  label {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    color: #1f2937;
-    input {
-      width: 16px;
-      height: 16px;
-      accent-color: #4f46e5;
-    }
-  }
-`;
-
-const MenuHint = styled.span`
-  font-size: 12px;
-  color: #64748b;
-  padding-left: 26px;
-`;
+/* removed: menu checkbox UI */
 
 const ModalMessage = styled.p`
   margin: 0;
@@ -454,12 +441,25 @@ const ModalMessage = styled.p`
   line-height: 1.5;
 `;
 
-const ModalLabel = styled.span`
+const ModalLabel = styled.label`
   display: block;
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: 600;
   color: #1f2937;
+`;
+
+const PasswordInput = styled(RegInput)`
+  width: 100%;
+  height: 44px;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 0 12px;
+  font-size: 14px;
+  &:focus {
+    background: #fff;
+  }
 `;
 
 const SelectInput = styled.select`

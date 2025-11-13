@@ -165,33 +165,7 @@ export const ModalBtn = styled(UISmallBtn)`
   font-size: 14px;
 `;
 
-export const NotesBox = styled.pre`
-  margin: 0;
-  white-space: pre-line;
-  color: #111827;
-  font-size: 15px;
-  line-height: 1.7;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 12px 14px;
-  text-wrap: pretty;
-`;
-
-export const NotesTextarea = styled.textarea`
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px 12px;
-  resize: vertical;
-  font-size: 14px;
-  color: #111827;
-  min-height: 120px;
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
-  }
-`;
+// Notes UI removed
 
 export const MemoNew = styled.div`
   display: grid;

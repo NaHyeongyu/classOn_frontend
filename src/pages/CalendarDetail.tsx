@@ -2,10 +2,13 @@
 import { useNavigate, useParams } from "react-router-dom";
 import CalendarDetailPageView from "@/views/calendar/detail/CalendarDetailPageView";
 import { useCalendarDetailPage } from "@/features/calendar/useCalendarDetailPage";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function CalendarDetail() {
   const navigate = useNavigate();
   const { ymd } = useParams();
+  const { user } = useAuth();
+  const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
   const {
     label,
     prevYMD,
@@ -49,7 +52,7 @@ export default function CalendarDetail() {
       }}
       classList={{
         items: classState.classes,
-        onAdd: classState.onAddClass,
+        onAdd: isTeacher ? undefined : classState.onAddClass,
       }}
       todoModal={{
         open: todoState.open,

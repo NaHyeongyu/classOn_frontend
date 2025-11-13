@@ -13,7 +13,6 @@ import { useToast } from "@/components/common/Toast";
 
 const EMPTY_PROFILE_FORM: ProfileFormState = {
   name: "",
-  email: "",
   phone: "",
 };
 
@@ -54,7 +53,6 @@ export default function TeacherProfile() {
     }
     setForm({
       name: profile.name ?? "",
-      email: profile.email ?? "",
       phone: profile.phone ?? "",
     });
   }, [profile]);
@@ -63,10 +61,9 @@ export default function TeacherProfile() {
     if (!profile) return false;
     return (
       (form.name ?? "") !== (profile.name ?? "") ||
-      (form.email ?? "") !== (profile.email ?? "") ||
       (form.phone ?? "") !== (profile.phone ?? "")
     );
-  }, [profile, form.email, form.name, form.phone]);
+  }, [profile, form.name, form.phone]);
 
   const resetForm = () => {
     if (!profile) {
@@ -75,7 +72,6 @@ export default function TeacherProfile() {
     }
     setForm({
       name: profile.name ?? "",
-      email: profile.email ?? "",
       phone: profile.phone ?? "",
     });
   };
@@ -112,7 +108,6 @@ export default function TeacherProfile() {
     }
     const payload: TeacherProfileUpdatePayload = {
       name: form.name?.trim() || undefined,
-      email: form.email?.trim() || undefined,
       phone: form.phone?.trim() || undefined,
     };
     try {

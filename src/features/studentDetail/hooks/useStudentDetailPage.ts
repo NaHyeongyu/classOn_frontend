@@ -6,7 +6,6 @@ import { useToast } from "@/components/common/Toast";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { readableError } from "@/lib/errors";
 import { useStudentInfo } from "@/features/studentDetail/useStudentInfo";
-import { useStudentNotes } from "@/features/studentDetail/useStudentNotes";
 import { useStudentMemos } from "@/features/studentDetail/useStudentMemos";
 import { useStudentAttendance } from "@/features/studentDetail/useStudentAttendance";
 import { useStudentGrades } from "@/features/studentDetail/useStudentGrades";
@@ -41,7 +40,6 @@ export type StudentDetailPageState = {
   onSelectTab: (tab: TabKey) => void;
   onOpenCourse: (courseId: number) => void;
   onDeleteStudent: () => Promise<void>;
-  notes: ReturnType<typeof useStudentNotes>;
   memos: ReturnType<typeof useStudentMemos>;
   attendance: ReturnType<typeof useStudentAttendance>;
   grades: ReturnType<typeof useStudentGrades>;
@@ -70,8 +68,6 @@ export function useStudentDetailPage(): StudentDetailPageState {
     error: studentError,
     intlAge,
   } = useStudentInfo({ studentId: numericId });
-
-  const notes = useStudentNotes({ studentId: numericId });
 
   const memos = useStudentMemos({
     studentId: numericId,
@@ -161,7 +157,6 @@ export function useStudentDetailPage(): StudentDetailPageState {
     onSelectTab: handleSelectTab,
     onOpenCourse: handleOpenCourse,
     onDeleteStudent,
-    notes,
     memos,
     attendance,
     grades,

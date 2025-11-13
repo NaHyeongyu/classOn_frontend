@@ -16,7 +16,7 @@ export type StudentPayload = {
   joinedDate?: string; // YYYY-MM-DD
   birthDate?: string; // YYYY-MM-DD
   address?: string;
-  parentName?: string;
+  guardianName?: string;
   courseIds?: number[];
 };
 

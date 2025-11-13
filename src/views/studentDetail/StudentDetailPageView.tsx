@@ -9,7 +9,6 @@ import {
   TabButton,
 } from "@/components/studentDetail/StudentDetailStyles";
 import { StudentInfoSection } from "@/components/studentDetail/StudentInfoSection";
-import { StudentNotesCard } from "@/components/studentDetail/StudentNotesCard";
 import { StudentMemoCard } from "@/components/studentDetail/StudentMemoCard";
 import { StudentCoursesTab } from "@/components/studentDetail/StudentCoursesTab";
 import { StudentAttendanceTab } from "@/components/studentDetail/StudentAttendanceTab";
@@ -31,8 +30,8 @@ type StudentDetailPageViewProps = {
   intlAge?: number;
   deleting: boolean;
   editHref: string;
+  canDelete?: boolean;
   onDeleteStudent: () => void;
-  notes: StudentDetailPageState["notes"];
   memos: StudentDetailPageState["memos"];
   activeTab: TabKey;
   onSelectTab: (tab: TabKey) => void;
@@ -51,8 +50,8 @@ export function StudentDetailPageView({
   intlAge,
   deleting,
   editHref,
+  canDelete = true,
   onDeleteStudent,
-  notes,
   memos,
   activeTab,
   onSelectTab,
@@ -82,16 +81,9 @@ export function StudentDetailPageView({
               deleting={deleting}
               editHref={editHref}
               onDelete={onDeleteStudent}
+              canDelete={canDelete}
             />
-            <StudentNotesCard
-              notes={notes.notes}
-              editing={notes.editing}
-              notesInput={notes.notesInput}
-              onChange={notes.setNotesInput}
-              onEdit={notes.startEditing}
-              onCancel={notes.cancelEditing}
-              onSave={notes.save}
-            />
+            {/* 특이사항 입력 기능 제거됨 */}
             <StudentMemoCard
               memos={memos.memos}
               newMemo={memos.newMemo}

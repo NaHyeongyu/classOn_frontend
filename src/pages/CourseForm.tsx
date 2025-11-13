@@ -6,6 +6,11 @@ import { routes } from "@/routes";
 export default function CourseForm() {
   const navigate = useNavigate();
   const state = useCourseFormPage();
+  if (state.isTeacher && !state.isEdit) {
+    // Teachers cannot open the create course form
+    navigate(routes.classes, { replace: true });
+    return null;
+  }
 
   return (
     <CourseFormPageView

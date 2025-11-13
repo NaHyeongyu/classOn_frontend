@@ -176,7 +176,7 @@ function statusIcon(tone: StatusVariant) {
     case "upcoming":
       return "🗓";
     default:
-      return "•";
+      return "⏱️";
   }
 }
 

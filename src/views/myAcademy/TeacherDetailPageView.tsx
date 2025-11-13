@@ -1,9 +1,10 @@
 import styled from "styled-components";
 import type { TeacherDetail } from "@/api/teachers";
-import { TEACHER_MENU_OPTIONS } from "@/constants/teacherMenus";
-import { TeacherCoursesTable } from "@/components/myAcademy/TeacherCoursesTable";
 import type { TeacherCourseBrief } from "@/api/teachers";
-const MENU_LABEL_MAP = new Map<string, string>(TEACHER_MENU_OPTIONS.map((option) => [option.key, option.label]));
+import { TeacherCoursesTable } from "@/components/myAcademy/TeacherCoursesTable";
+import BackButton from "@/components/common/BackButton";
+import { Page, GhostButton } from "@/components/common/UI";
+import { Card as StuCard, SectionTitle as StuSectionTitle, Divider as StuDivider } from "@/components/studentDetail/StudentDetailStyles";
 
 type TeacherDetailPageViewProps = {
   loading: boolean;
@@ -12,7 +13,7 @@ type TeacherDetailPageViewProps = {
   onBack: () => void;
   onRetry: () => void;
   canEditMenus: boolean;
-  onOpenMenuModal?: () => void;
+  onOpenPasswordModal?: () => void;
   canDeleteTeacher?: boolean;
   onRequestDelete?: () => void;
   onChangeInstructor?: (course: TeacherCourseBrief) => void;
@@ -24,224 +25,116 @@ export function TeacherDetailPageView({
   error,
   detail,
   onBack,
-  onRetry,
   canEditMenus,
-  onOpenMenuModal,
+  onOpenPasswordModal,
   canDeleteTeacher = false,
   onRequestDelete,
-  onChangeInstructor,
   coursesRef,
 }: TeacherDetailPageViewProps) {
   if (loading) {
     return (
-      <Container>
-        <Header>
-          <HeaderLeft>
-            <BackButton type="button" onClick={onBack}>
-              ← 강사 목록으로
-            </BackButton>
-            <h1>강사 상세</h1>
-          </HeaderLeft>
-        </Header>
-        <Placeholder>강사 정보를 불러오는 중입니다…</Placeholder>
-      </Container>
+      <Page>
+        <TopBar>
+          <TopLeft>
+            <BackButton onClick={onBack} label="뒤로" />
+            <h2>강사 상세</h2>
+          </TopLeft>
+        </TopBar>
+        <StuCard>강사 정보를 불러오는 중입니다…</StuCard>
+      </Page>
     );
   }
 
   if (error || !detail) {
     return (
-      <Container>
-        <Header>
-          <HeaderLeft>
-            <BackButton type="button" onClick={onBack}>
-              ← 강사 목록으로
-            </BackButton>
-            <h1>강사 상세</h1>
-          </HeaderLeft>
-        </Header>
-        <ErrorCard role="alert">
-          <span>{error ?? "강사 정보를 찾을 수 없습니다."}</span>
-          <div>
-            <ActionButton type="button" onClick={onRetry}>
-              새로고침
-            </ActionButton>
-          </div>
-        </ErrorCard>
-      </Container>
+      <Page>
+        <TopBar>
+          <TopLeft>
+            <BackButton onClick={onBack} label="뒤로" />
+            <h2>강사 상세</h2>
+          </TopLeft>
+        </TopBar>
+        <StuCard role="alert">{error ?? "강사 정보를 찾을 수 없습니다."}</StuCard>
+      </Page>
     );
   }
 
-  const menuLabelMap = MENU_LABEL_MAP;
-  const handleEditMenus = () => {
-    onOpenMenuModal?.();
-  };
+  // 메뉴 권한 UI 제거 (기본 세트 자동 부여)
 
   return (
-    <Container>
-      <Header>
-        <HeaderLeft>
-          <BackButton type="button" onClick={onBack}>
-            ← 강사 목록으로
-          </BackButton>
-          <h1>강사 상세</h1>
-        </HeaderLeft>
+    <Page>
+      <TopBar>
+        <TopLeft>
+          <BackButton label="뒤로" onClick={onBack} />
+          <h2>강사 상세</h2>
+        </TopLeft>
         {canDeleteTeacher ? (
-          <HeaderActions>
-            <DeleteButton type="button" onClick={onRequestDelete}>
-              강사 삭제
-            </DeleteButton>
-          </HeaderActions>
+          <GhostButton data-variant="danger" type="button" onClick={onRequestDelete}>
+            강사 삭제
+          </GhostButton>
         ) : null}
-      </Header>
+      </TopBar>
 
-      <Card>
-        <SectionTitle>기본 정보</SectionTitle>
-        <InfoRow>
-          <Label>이름</Label>
-          <Value>{detail.name}</Value>
-        </InfoRow>
-        <InfoRow>
-          <Label>아이디</Label>
-          <Value>{detail.username}</Value>
-        </InfoRow>
-        <InfoRow>
-          <Label>이메일</Label>
-          <Value>{detail.email || "-"}</Value>
-        </InfoRow>
-        <InfoRow>
-          <Label>연락처</Label>
-          <Value>{detail.phone || "-"}</Value>
-        </InfoRow>
-        <InfoRow>
-          <Label>휴대폰 인증</Label>
-          <Value>{detail.phoneVerified ? "완료" : "미인증"}</Value>
-        </InfoRow>
-      </Card>
+      <Columns>
+        <Left>
+          <StuCard>
+            <HeaderRow>
+              <StuSectionTitle>기본 정보</StuSectionTitle>
+              {canEditMenus ? (
+                <GhostButton type="button" onClick={onOpenPasswordModal}>
+                  비밀번호 재설정
+                </GhostButton>
+              ) : null}
+            </HeaderRow>
+            <StuDivider />
+            <InfoRow>
+              <Label>이름</Label>
+              <Value>{detail.name}</Value>
+            </InfoRow>
+            <InfoRow>
+              <Label>아이디</Label>
+              <Value>{detail.username}</Value>
+            </InfoRow>
+            <InfoRow>
+              <Label>연락처</Label>
+              <Value>{detail.phone || "-"}</Value>
+            </InfoRow>
+          </StuCard>
 
-      <Card>
-        <SectionHeader>
-          <SectionTitle>메뉴 권한</SectionTitle>
-          {canEditMenus ? (
-            <EditButton type="button" onClick={handleEditMenus}>
-              권한 수정
-            </EditButton>
-          ) : null}
-        </SectionHeader>
-        {detail.menus.length === 0 ? (
-          <Placeholder>부여된 메뉴 권한이 없습니다.</Placeholder>
-        ) : (
-          <MenuGrid>
-            {detail.menus.map((menu) => (
-              <MenuChip key={menu}>{menuLabelMap.get(menu) ?? menu}</MenuChip>
-            ))}
-          </MenuGrid>
-        )}
-      </Card>
+          {/* 메뉴 권한 카드 제거 */}
+        </Left>
 
-      <div ref={coursesRef}>
-        <TeacherCoursesTable
-          courses={detail.courses}
-          onChangeInstructor={onChangeInstructor}
-          actionLabel="수정"
-        />
-      </div>
-    </Container>
+        <Right ref={coursesRef as React.RefObject<HTMLDivElement>}>
+          <TeacherCoursesTable teacherId={detail.id} courses={detail.courses} />
+        </Right>
+      </Columns>
+    </Page>
   );
 }
 
-const Container = styled.div`
-  display: grid;
-  gap: 16px;
-`;
-
-const Header = styled.header`
+const TopBar = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  flex-wrap: wrap;
-  h1 {
-    margin: 0;
-    font-size: 24px;
-    color: #111827;
-  }
+  margin-bottom: 2px;
+  h2 { margin: 0; font-size: 20px; color: #0f172a; }
 `;
 
-const HeaderLeft = styled.div`
-  display: flex;
+const TopLeft = styled.div`
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  gap: 10px;
 `;
 
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-`;
-
-const DeleteButton = styled.button`
-  border: none;
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 700;
-  color: #fff;
-  background: #dc2626;
-  cursor: pointer;
-  &:hover {
-    background: #b91c1c;
-  }
-`;
-
-const BackButton = styled.button`
-  border: none;
-  background: transparent;
-  color: #4f46e5;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  padding: 0;
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-const Card = styled.section`
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
-  padding: 18px;
-  display: grid;
-  gap: 12px;
-`;
-
-const SectionHeader = styled.div`
+const HeaderRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
 `;
 
-const SectionTitle = styled.h2`
-  margin: 0;
-  color: #1f2937;
-  font-size: 16px;
-`;
-
-const EditButton = styled.button`
-  border: 1px solid #cbd5f5;
-  background: #ffffff;
-  color: #4f46e5;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 999px;
-  padding: 6px 14px;
-  cursor: pointer;
-  &:hover {
-    background: #eef2ff;
-  }
-`;
+/* removed unused SectionTitle */
 
 const InfoRow = styled.div`
   display: grid;
@@ -264,58 +157,23 @@ const Value = styled.span`
   font-weight: 600;
 `;
 
-const Placeholder = styled.div`
-  border: 1px dashed #d1d5db;
-  border-radius: 12px;
-  padding: 14px;
-  text-align: center;
-  color: #6b7280;
-  font-size: 14px;
-  background: #f9fafb;
-`;
+/* removed: menu permission chips */
 
-const ErrorCard = styled.div`
-  border-radius: 16px;
-  border: 1px solid #fecaca;
-  background: #fef2f2;
-  padding: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  color: #b91c1c;
-  font-size: 14px;
-  flex-wrap: wrap;
-`;
-
-const ActionButton = styled.button`
-  border: none;
-  background: #4f46e5;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 10px;
-  padding: 8px 16px;
-  cursor: pointer;
-  &:hover {
-    background: #4338ca;
+const Columns = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1.25fr;
+  gap: 16px;
+  align-items: start;
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
   }
 `;
 
-const MenuGrid = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+const Left = styled.div`
+  display: grid;
+  gap: 16px;
 `;
 
-const MenuChip = styled.span`
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: #eef2ff;
-  color: #3730a3;
-  font-size: 12px;
-  font-weight: 600;
+const Right = styled.div`
+  display: grid;
 `;

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useStudentForm } from "@/features/studentForm/useStudentForm";
 import { StudentFormHeader } from "@/components/studentForm/StudentFormHeader";
@@ -13,10 +13,13 @@ import {
   AlertError,
   AlertOk,
 } from "@/components/studentForm/StudentForm.styles";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function StudentForm() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
   const nameInputRef = useRef<HTMLInputElement | null>(null);
 
   const studentId = useMemo(() => {
@@ -29,6 +32,13 @@ export default function StudentForm() {
     studentId,
     focusNameInput: () => nameInputRef.current?.focus(),
   });
+
+  // Guard: teachers cannot open create form
+  useEffect(() => {
+    if (isTeacher && !studentId) {
+      navigate("/students", { replace: true });
+    }
+  }, [isTeacher, studentId, navigate]);
 
   const [success, setSuccess] = useState<string | null>(null);
 

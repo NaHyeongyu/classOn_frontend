@@ -30,10 +30,10 @@ export type TeacherListItem = {
   id: number;
   name: string;
   username: string;
-  email?: string | null;
   phone?: string | null;
   phoneVerified?: boolean;
   courseCount: number;
+  createdAt?: string;
 };
 
 export type TeacherCourseBrief = {
@@ -52,7 +52,6 @@ export type TeacherProfile = {
   id: number;
   name: string;
   username: string;
-  email?: string | null;
   phone?: string | null;
   phoneVerified?: boolean;
   courses: TeacherCourseBrief[];
@@ -62,16 +61,13 @@ export type TeacherDetail = {
   id: number;
   name: string;
   username: string;
-  email?: string | null;
   phone?: string | null;
   phoneVerified: boolean;
-  menus: string[];
   courses: TeacherCourseBrief[];
 };
 
 export type TeacherProfileUpdatePayload = {
   name?: string;
-  email?: string;
   phone?: string;
 };
 
@@ -83,11 +79,12 @@ export type ChangeTeacherPasswordPayload = {
 export type CreateTeacherPayload = {
   username: string;
   name: string;
-  email?: string;
   phone: string;
   password: string;
-  menus?: string[];
 };
+
+export type UsernameAvailability = { available: boolean };
+export type PasswordCheck = { valid: boolean; code?: string; message?: string };
 
 export async function listTeachers(): Promise<TeacherListItem[]> {
   return await fetchJSON<TeacherListItem[]>("/api/academy/teachers");
@@ -113,8 +110,8 @@ export async function changeMyTeacherPassword(payload: ChangeTeacherPasswordPayl
   });
 }
 
-export async function createTeacher(payload: CreateTeacherPayload): Promise<TeacherListItem> {
-  const teacher = await fetchJSON<TeacherListItem>("/api/academy/teachers", {
+export async function createTeacher(payload: CreateTeacherPayload): Promise<TeacherDetail> {
+  const teacher = await fetchJSON<TeacherDetail>("/api/academy/teachers", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -126,19 +123,32 @@ export async function getTeacherDetail(id: number | string): Promise<TeacherDeta
   return await fetchJSON<TeacherDetail>(`/api/academy/teachers/${id}`);
 }
 
-export async function updateTeacherMenus(
-  id: number | string,
-  payload: { menus: string[] },
-): Promise<TeacherDetail> {
-  const detail = await fetchJSON<TeacherDetail>(`/api/academy/teachers/${id}/menus`, {
-    method: "PUT",
-    body: JSON.stringify({ menus: Array.isArray(payload.menus) ? payload.menus : [] }),
-  });
-  emitTeacherRefresh({ reason: "update-menus", teacherId: typeof id === "number" ? id : Number(id) });
-  return detail;
-}
+// updateTeacherMenus removed: teacher menus are fixed to default set on backend
 
 export async function deleteTeacher(id: number | string): Promise<void> {
   await fetchJSON(`/api/academy/teachers/${id}`, { method: "DELETE" });
   emitTeacherRefresh({ reason: "delete", teacherId: typeof id === "number" ? id : Number(id) });
+}
+
+export async function checkTeacherUsername(username: string): Promise<UsernameAvailability> {
+  const sp = new URLSearchParams();
+  sp.set("username", username);
+  // Reuse existing auth endpoint which returns OperationResponse { success }
+  const res = await fetchJSON<{ success: boolean; code?: string; message?: string }>(`/api/auth/check-username?${sp.toString()}`);
+  return { available: !!res?.success };
+}
+
+export async function checkPasswordStrength(password: string): Promise<PasswordCheck> {
+  const res = await fetchJSON<{ success: boolean; code?: string; message?: string }>(`/api/auth/check-password`, {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+  return { valid: !!res?.success, code: res?.code, message: res?.message };
+}
+
+export async function resetTeacherPassword(id: number | string, newPassword: string): Promise<void> {
+  await fetchJSON<{ success?: boolean }>(`/api/academy/teachers/${id}/password`, {
+    method: "PUT",
+    body: JSON.stringify({ newPassword }),
+  });
 }

@@ -13,7 +13,6 @@ import type { TeacherProfile } from "@/api/teachers";
 
 export type ProfileFormState = {
   name: string;
-  email: string;
   phone: string;
 };
 
@@ -137,10 +136,6 @@ export function TeacherProfilePageView({
                 <InfoValueBox>{profile.username}</InfoValueBox>
               </InfoField>
               <InfoField>
-                <InfoLabel>이메일</InfoLabel>
-                <InfoValueBox>{profile.email || "미입력"}</InfoValueBox>
-              </InfoField>
-              <InfoField>
                 <InfoLabel>전화번호</InfoLabel>
                 <InfoValueBox>{profile.phone || "미입력"}</InfoValueBox>
               </InfoField>
@@ -178,18 +173,7 @@ export function TeacherProfilePageView({
               autoComplete="name"
             />
           </ModalField>
-          <ModalField>
-            <ModalLabel htmlFor="edit-teacher-email">이메일</ModalLabel>
-            <ModalInput
-              id="edit-teacher-email"
-              type="email"
-              value={form.email}
-              onChange={(event) => onChange("email", event.target.value)}
-              placeholder="teacher@example.com"
-              autoComplete="email"
-            />
-            <ModalHint>이메일은 선택 입력입니다.</ModalHint>
-          </ModalField>
+          {/* 이메일 입력은 수집하지 않습니다. */}
           <ModalField>
             <ModalLabel htmlFor="edit-teacher-phone">연락처</ModalLabel>
             <ModalInput

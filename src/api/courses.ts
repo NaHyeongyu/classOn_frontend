@@ -115,7 +115,7 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
   return res;
 }
 
-export async function updateCourseInstructor(id: number, instructorId: number): Promise<Course> {
+export async function updateCourseInstructor(id: number, instructorId: number | null): Promise<Course> {
   const body = JSON.stringify({ instructorId });
   const res = await fetchJSON<Course>(`/api/courses/${id}/instructor`, { method: "PUT", body });
   try {

@@ -182,11 +182,11 @@ export function StudentFormMain({ flow, nameInputRef }: StudentFormMainProps) {
           <Field>
             <Label>보호자 이름</Label>
             <Input
-              value={form.parentName ?? ""}
+              value={form.guardianName ?? ""}
               onChange={(event) =>
                 setForm((prev) => ({
                   ...prev,
-                  parentName: event.target.value || undefined,
+                  guardianName: event.target.value || undefined,
                 }))
               }
               placeholder="김철수"

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import type { FormEvent, KeyboardEvent, MouseEvent } from "react";
+import type { FormEvent, KeyboardEvent } from "react";
 import {
   AlertError,
   AlertOk,
@@ -58,7 +58,10 @@ type CourseFormPageViewProps = {
   isLastStep: boolean;
   form: FormState;
   setForm: (updater: (prev: FormState) => FormState) => void;
-  toggleDay: (day: import("@/components/courseForm/courseFormHelpers").DayKey, next: boolean) => void;
+  toggleDay: (
+    day: import("@/components/courseForm/courseFormHelpers").DayKey,
+    next: boolean
+  ) => void;
   recurring: boolean;
   setRecurring: (value: boolean) => void;
   studentLoading: boolean;
@@ -75,7 +78,19 @@ type CourseFormPageViewProps = {
     student?: string;
     instructor?: string;
   };
-  setFieldErrors: (updater: (prev: { title?: string; schedule?: string; student?: string; instructor?: string }) => { title?: string; schedule?: string; student?: string; instructor?: string }) => void;
+  setFieldErrors: (
+    updater: (prev: {
+      title?: string;
+      schedule?: string;
+      student?: string;
+      instructor?: string;
+    }) => {
+      title?: string;
+      schedule?: string;
+      student?: string;
+      instructor?: string;
+    }
+  ) => void;
   feeInput: string;
   setFeeInput: (value: string) => void;
   loading: boolean;
@@ -125,13 +140,6 @@ export function CourseFormPageView({
   navigateEditStudents,
 }: CourseFormPageViewProps) {
   const isIndividual = form.courseType === "INDIVIDUAL";
-  const handleNextClick = useCallback(
-    (event: MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      goNext();
-    },
-    [goNext],
-  );
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLFormElement>) => {
       if (event.key !== "Enter") return;
@@ -141,7 +149,7 @@ export function CourseFormPageView({
       event.preventDefault();
       goNext();
     },
-    [goNext, isLastStep],
+    [goNext, isLastStep]
   );
 
   return (
@@ -157,7 +165,11 @@ export function CourseFormPageView({
       {loading ? (
         <CourseFormSkeleton />
       ) : (
-        <FormRoot id="course-form" onSubmit={onSubmit} onKeyDown={handleKeyDown}>
+        <FormRoot
+          id="course-form"
+          onSubmit={onSubmit}
+          onKeyDown={handleKeyDown}
+        >
           <Stepper>
             {steps.map((meta, index) => {
               const canClick = index < step;
@@ -253,15 +265,36 @@ export function CourseFormPageView({
             ) : (
               <span />
             )}
-            {!isLastStep ? (
-              <PrimaryAction type="button" onClick={handleNextClick}>
-                다음 단계
-              </PrimaryAction>
-            ) : (
-              <PrimaryAction type="submit" disabled={saving}>
-                {saving ? "저장 중..." : isEdit ? "수업 수정 완료" : "수업 저장"}
-              </PrimaryAction>
-            )}
+            <PrimaryAction
+              type="button"
+              disabled={isLastStep && saving}
+              onClick={() => {
+                if (!isLastStep) {
+                  goNext();
+                  return;
+                }
+                const formEl = document.getElementById(
+                  "course-form"
+                ) as HTMLFormElement | null;
+                if (formEl) {
+                  try {
+                    if (typeof formEl.requestSubmit === "function")
+                      formEl.requestSubmit();
+                    else formEl.submit();
+                  } catch {
+                    formEl.submit();
+                  }
+                }
+              }}
+            >
+              {isLastStep
+                ? saving
+                  ? "저장 중..."
+                  : isEdit
+                  ? "수업 수정 완료"
+                  : "수업 저장"
+                : "다음 단계"}
+            </PrimaryAction>
           </StepFooter>
         </FormRoot>
       )}

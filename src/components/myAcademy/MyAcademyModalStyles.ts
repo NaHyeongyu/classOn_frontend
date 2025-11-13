@@ -2,17 +2,17 @@ import styled from "styled-components";
 
 export const ModalForm = styled.form`
   display: grid;
-  gap: 16px;
+  gap: 18px;
   width: 100%;
-  min-width: 320px;
-  max-width: 480px;
+  min-width: 360px;
+  max-width: 520px;
 `;
 
 export const ModalLabel = styled.label`
   font-size: 13px;
   color: #475569;
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 `;
 
 export const ModalInput = styled.input`
@@ -45,13 +45,13 @@ export const ModalTextarea = styled.textarea`
 `;
 
 export const ModalHint = styled.p<{ danger?: boolean }>`
-  margin: -2px 0 0;
+  margin: 4px 0 0;
   font-size: 12px;
   color: ${({ danger }) => (danger ? "#b91c1c" : "#64748b")};
 `;
 
 export const ModalError = styled.p`
-  margin: 0;
+  margin: 4px 0 0;
   font-size: 12px;
   color: #dc2626;
 `;
@@ -59,8 +59,9 @@ export const ModalError = styled.p`
 export const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 12px;
   width: 100%;
+  margin-top: 4px;
 `;
 
 export const ModalGhostButton = styled.button`
@@ -105,7 +106,7 @@ export const ModalMessage = styled.span`
 
 export const ModalCheckboxGroup = styled.div`
   display: grid;
-  gap: 8px;
+  gap: 10px;
 `;
 
 export const ModalCheckboxLabel = styled.label`

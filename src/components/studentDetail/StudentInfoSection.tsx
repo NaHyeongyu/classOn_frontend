@@ -28,6 +28,7 @@ type Props = {
   deleting: boolean;
   editHref: string;
   onDelete: () => void | Promise<void>;
+  canDelete?: boolean;
 };
 
 export function StudentInfoSection({
@@ -36,6 +37,7 @@ export function StudentInfoSection({
   deleting,
   editHref,
   onDelete,
+  canDelete = true,
 }: Props) {
   return (
     <>
@@ -46,13 +48,15 @@ export function StudentInfoSection({
             <UIGhostLink to={editHref} data-variant="edit">
               수정
             </UIGhostLink>
-            <UIGhostButton
-              data-variant="danger"
-              disabled={deleting}
-              onClick={() => void onDelete()}
-            >
-              {deleting ? "삭제 중..." : "삭제"}
-            </UIGhostButton>
+            {canDelete && (
+              <UIGhostButton
+                data-variant="danger"
+                disabled={deleting}
+                onClick={() => void onDelete()}
+              >
+                {deleting ? "삭제 중..." : "삭제"}
+              </UIGhostButton>
+            )}
           </CardActions>
         </CardHead>
         {student ? (

@@ -12,7 +12,6 @@ import { getErrorMessage } from "@/lib/errors";
 
 const EMPTY_PROFILE_FORM: ProfileFormState = {
   name: "",
-  email: "",
   phone: "",
 };
 
@@ -55,7 +54,6 @@ export default function TeacherHome() {
     }
     setProfileForm({
       name: profile.name ?? "",
-      email: profile.email ?? "",
       phone: profile.phone ?? "",
     });
   }, [profile]);
@@ -64,10 +62,9 @@ export default function TeacherHome() {
     if (!profile) return false;
     return (
       (profileForm.name ?? "") !== (profile.name ?? "") ||
-      (profileForm.email ?? "") !== (profile.email ?? "") ||
       (profileForm.phone ?? "") !== (profile.phone ?? "")
     );
-  }, [profile, profileForm.email, profileForm.name, profileForm.phone]);
+  }, [profile, profileForm.name, profileForm.phone]);
 
   const handleProfileChange = (field: keyof ProfileFormState, value: string) => {
     setProfileForm((prev) => ({ ...prev, [field]: value }));
@@ -82,7 +79,6 @@ export default function TeacherHome() {
     clearError();
     setProfileForm({
       name: profile.name ?? "",
-      email: profile.email ?? "",
       phone: profile.phone ?? "",
     });
   };
@@ -94,7 +90,6 @@ export default function TeacherHome() {
     if (profile) {
       setProfileForm({
         name: profile.name ?? "",
-        email: profile.email ?? "",
         phone: profile.phone ?? "",
       });
     } else {
@@ -114,7 +109,6 @@ export default function TeacherHome() {
     try {
       await saveProfile({
         name: profileForm.name?.trim() || undefined,
-        email: profileForm.email?.trim() || undefined,
         phone: profileForm.phone?.trim() || undefined,
       });
       setProfileError(null);
@@ -225,18 +219,7 @@ export default function TeacherHome() {
             />
             <ModalHint>아이디는 변경할 수 없습니다.</ModalHint>
           </ModalField>
-          <ModalField>
-            <ModalLabel htmlFor="teacher-home-email">이메일</ModalLabel>
-            <ModalInput
-              id="teacher-home-email"
-              type="email"
-              value={profileForm.email}
-              onChange={(event) => handleProfileChange("email", event.target.value)}
-              placeholder="teacher@example.com"
-              autoComplete="email"
-            />
-            <ModalHint>이메일은 선택 입력입니다.</ModalHint>
-          </ModalField>
+          {/* 이메일 입력은 수집하지 않습니다. */}
           <ModalField>
             <ModalLabel htmlFor="teacher-home-phone">연락처</ModalLabel>
             <ModalInput

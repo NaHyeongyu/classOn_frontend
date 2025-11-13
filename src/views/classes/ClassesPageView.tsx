@@ -38,9 +38,9 @@ export function ClassesPageView({
           <p>{subheading}</p>
         </div>
         <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-          <PrimaryBtn to={routes.classesNew}>
-            {isTeacher ? "수업 추가" : "수업 추가"}
-          </PrimaryBtn>
+          {!isTeacher && (
+            <PrimaryBtn to={routes.classesNew}>수업 추가</PrimaryBtn>
+          )}
         </div>
       </PageHeader>
 

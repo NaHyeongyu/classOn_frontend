@@ -1,4 +1,8 @@
 import styled from "styled-components";
+import { useAuth } from "@/hooks/useAuth";
+import { useMemo } from "react";
+import { useRepresentativeName } from "@/hooks/useRepresentativeName";
+import { isMainAccountForTeacher } from "@/lib/users";
 import {
   SectionCard as Section,
   GhostButton as UIGhostBtn,
@@ -52,6 +56,9 @@ export function CourseFormBasicStep({
   courseTypeOptions,
   meta,
 }: BasicStepProps) {
+  const { user } = useAuth();
+  const repName = useRepresentativeName();
+  const isMainAccount = (opt?: TeacherOption) => isMainAccountForTeacher(user, opt, repName);
   const instructorDisplay =
     form.instructorName?.trim() ||
     teacherOptions.find((opt) => opt.id === form.instructorId)?.name ||
@@ -102,9 +109,7 @@ export function CourseFormBasicStep({
         </Field>
 
         <Field>
-          <Label>
-            담당 강사<span>*</span>
-          </Label>
+          <Label>담당 강사</Label>
           {isTeacher ? (
             <ReadOnlyField>{instructorDisplay || "본인"}</ReadOnlyField>
           ) : teacherLoading ? (
@@ -121,7 +126,6 @@ export function CourseFormBasicStep({
           ) : (
             <>
               <Select
-                aria-invalid={!!fieldErr.instructor}
                 value={form.instructorId ?? ""}
                 onChange={(e) => {
                   const value = e.target.value;
@@ -134,9 +138,6 @@ export function CourseFormBasicStep({
                       instructorName: selected?.name || selected?.username || "",
                     };
                   });
-                  if (fieldErr.instructor) {
-                    setFieldErr((prev) => ({ ...prev, instructor: undefined }));
-                  }
                 }}
                 disabled={teacherOptions.length === 0}
               >
@@ -147,9 +148,11 @@ export function CourseFormBasicStep({
                     typeof opt.courseCount === "number"
                       ? ` (담당 수업 ${opt.courseCount}개)`
                       : "";
+                  const mainTag = isMainAccount(opt) ? " [본계정]" : "";
                   return (
                     <option key={opt.id} value={opt.id}>
                       {base}
+                      {mainTag}
                       {suffix}
                     </option>
                   );
@@ -157,10 +160,12 @@ export function CourseFormBasicStep({
               </Select>
               {teacherOptions.length === 0 ? (
                 <Hint>강사를 먼저 등록해야 합니다. 내 정보 &gt; 강사 관리에서 추가해 주세요.</Hint>
+              ) : user && !teacherOptions.some((opt) => isMainAccount(opt)) ? (
+                <Hint>본계정(담당자)이 목록에 없으면 강사로 등록해 주세요.</Hint>
               ) : null}
             </>
           )}
-          {fieldErr.instructor ? <FieldErr>{fieldErr.instructor}</FieldErr> : null}
+          {/* 담당 강사는 선택 사항입니다. */}
         </Field>
 
         <Field as="div">
@@ -518,8 +523,8 @@ export function CourseFormDetailsStep({
       {isEdit ? (
         <GuideCard>
           <StepLead>수강생 관리</StepLead>
-          <Hint>학생 관리는 상세 페이지의 ‘수강생 수정’에서 변경하세요.</Hint>
-          <UIGhostBtn onClick={onNavigateEditStudents}>수강생 수정 바로가기</UIGhostBtn>
+          <Hint>학생 관리는 상세 페이지의 ‘수강생 관리’에서 변경하세요.</Hint>
+          <UIGhostBtn onClick={onNavigateEditStudents}>수강생 관리 바로가기</UIGhostBtn>
         </GuideCard>
       ) : null}
     </StepCard>

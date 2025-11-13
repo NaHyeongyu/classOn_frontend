@@ -9,6 +9,12 @@ type TeacherCoursesTableProps = {
   courses: TeacherCourseBrief[];
   onChangeInstructor?: (course: TeacherCourseBrief) => void;
   actionLabel?: string;
+  /**
+   * Optional teacher context. When provided, navigation to course detail is
+   * constrained by appending a teacherId query param so the target page can
+   * verify the course actually belongs to that teacher.
+   */
+  teacherId?: number;
 };
 
 const dayOrder: Record<string, number> = {
@@ -81,7 +87,7 @@ function courseTypeLabel(type?: string | null) {
   }
 }
 
-export function TeacherCoursesTable({ courses, onChangeInstructor, actionLabel }: TeacherCoursesTableProps) {
+export function TeacherCoursesTable({ courses, onChangeInstructor, actionLabel, teacherId }: TeacherCoursesTableProps) {
   const navigate = useNavigate();
   const showActions = typeof onChangeInstructor === "function";
 
@@ -145,7 +151,13 @@ export function TeacherCoursesTable({ courses, onChangeInstructor, actionLabel }
                 <tr
                   key={row.id}
                   data-clickable="true"
-                  onClick={() => navigate(`/classes/${row.id}`)}
+                  onClick={() => {
+                    if (teacherId) {
+                      navigate(`/classes/${row.id}?teacherId=${teacherId}`);
+                    } else {
+                      navigate(`/classes/${row.id}`);
+                    }
+                  }}
                 >
                   <td>{row.seq}</td>
                   <td>

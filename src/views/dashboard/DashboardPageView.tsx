@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { DashboardGrid } from "@/components/dashboard/DashboardLayout";
+import { useAuth } from "@/hooks/useAuth";
 import { Page as PageWrap, PageHeader, PrimaryBtn as LinkPrimary } from "@/components/common/UI";
 import KpiTotalStudents from "@/components/dashboard/KpiTotalStudents";
 import KpiAttendance from "@/components/dashboard/KpiAttendance";
@@ -18,6 +19,8 @@ export function DashboardPageView({
   createCourseHref,
   kpiProps,
 }: DashboardPageViewProps) {
+  const { user } = useAuth();
+  const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
   return (
     <PageWrap>
       <DashboardGrid>
@@ -26,8 +29,12 @@ export function DashboardPageView({
             <h2>{title}</h2>
           </div>
           <Actions>
-            <LinkPrimary to={createStudentHref}>원생 추가</LinkPrimary>
-            <LinkPrimary to={createCourseHref}>수업 추가</LinkPrimary>
+            {!isTeacher && (
+              <LinkPrimary to={createStudentHref}>원생 추가</LinkPrimary>
+            )}
+            {!isTeacher && (
+              <LinkPrimary to={createCourseHref}>수업 추가</LinkPrimary>
+            )}
           </Actions>
         </PageHead>
 

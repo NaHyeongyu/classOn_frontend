@@ -30,6 +30,7 @@ type StudentDetailPageViewProps = {
   intlAge?: number;
   deleting: boolean;
   editHref: string;
+  canDelete?: boolean;
   onDeleteStudent: () => void;
   memos: StudentDetailPageState["memos"];
   activeTab: TabKey;
@@ -49,6 +50,7 @@ export function StudentDetailPageView({
   intlAge,
   deleting,
   editHref,
+  canDelete = true,
   onDeleteStudent,
   memos,
   activeTab,
@@ -79,6 +81,7 @@ export function StudentDetailPageView({
               deleting={deleting}
               editHref={editHref}
               onDelete={onDeleteStudent}
+              canDelete={canDelete}
             />
             {/* 특이사항 입력 기능 제거됨 */}
             <StudentMemoCard

@@ -5,6 +5,7 @@ import { maskBiz } from "@/features/myAcademy/utils";
 
 type AccountSectionProps = {
   name: string;
+  username: string;
   phone: string;
   onOpenProfileModal: () => void;
   onOpenPhoneModal: () => void;
@@ -16,31 +17,12 @@ type AcademySectionProps = {
   onOpenEditModal: () => void;
 };
 
-type TeacherSummary = {
-  id: number;
-  name: string;
-  username: string;
-  email?: string | null;
-  phone?: string | null;
-  courseCount: number;
-};
-
-type TeacherSectionProps = {
-  loading: boolean;
-  error: string | null;
-  teachers: TeacherSummary[];
-  onRefresh: () => void | Promise<void>;
-  onOpenCreate: () => void;
-  onSelect: (id: number) => void;
-};
-
 type MyAcademyPageViewProps = {
   error: string | null;
   onDismissError?: () => void;
   onLogout: () => void;
   account: AccountSectionProps;
   academy: AcademySectionProps;
-  teachers: TeacherSectionProps;
 };
 
 export function MyAcademyPageView({
@@ -49,7 +31,6 @@ export function MyAcademyPageView({
   onLogout,
   account,
   academy,
-  teachers,
 }: MyAcademyPageViewProps) {
   const academyCategory = useMemo(() => {
     if (!academy.data) return "미설정";
@@ -98,6 +79,10 @@ export function MyAcademyPageView({
               </InlineButton>
             </ValueRow>
           </Value>
+        </InfoRow>
+        <InfoRow>
+          <Label>아이디</Label>
+          <Value>{account.username || "-"}</Value>
         </InfoRow>
         <InfoRow>
           <Label>휴대폰 번호</Label>
@@ -164,65 +149,7 @@ export function MyAcademyPageView({
         </InfoRow>
       </Card>
 
-      <Card>
-        <SectionHeader>
-          <SectionTitle>강사 목록</SectionTitle>
-          <TeacherActions>
-            <InlineButton type="button" onClick={() => { void teachers.onRefresh(); }} disabled={teachers.loading}>
-              새로고침
-            </InlineButton>
-            <PrimaryButton type="button" onClick={teachers.onOpenCreate}>
-              강사 추가
-            </PrimaryButton>
-          </TeacherActions>
-        </SectionHeader>
-        {teachers.loading ? (
-          <TeacherPlaceholder>강사 정보를 불러오는 중입니다…</TeacherPlaceholder>
-        ) : teachers.error ? (
-          <TeacherError role="alert">
-            <span>{teachers.error}</span>
-            <InlineButton type="button" onClick={() => { void teachers.onRefresh(); }}>
-              다시 시도
-            </InlineButton>
-          </TeacherError>
-        ) : teachers.teachers.length === 0 ? (
-          <TeacherPlaceholder>등록된 강사가 없습니다. 강사 추가 버튼으로 강사를 초대해 보세요.</TeacherPlaceholder>
-        ) : (
-          <TeacherTable>
-            <thead>
-              <tr>
-                <th scope="col">이름</th>
-                <th scope="col">아이디</th>
-                <th scope="col">연락처</th>
-                <th scope="col" className="email">이메일</th>
-                <th scope="col" className="num">담당 수업</th>
-              </tr>
-            </thead>
-            <tbody>
-              {teachers.teachers.map((teacher) => (
-                <tr
-                  key={teacher.id}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => teachers.onSelect(teacher.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" || event.key === " ") {
-                      event.preventDefault();
-                      teachers.onSelect(teacher.id);
-                    }
-                  }}
-                >
-                  <td>{teacher.name || "-"}</td>
-                  <td>{teacher.username}</td>
-                  <td>{teacher.phone || "-"}</td>
-                  <td className="email">{teacher.email || "-"}</td>
-                  <td className="num">{teacher.courseCount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </TeacherTable>
-        )}
-      </Card>
+      {/* 강사 관리는 상단 탭(강사관리)에서 관리합니다. */}
     </Container>
   );
 }

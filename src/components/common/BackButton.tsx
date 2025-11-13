@@ -35,6 +35,14 @@ export default function BackButton({
 }
 
 const Btn = styled(GhostButtonSmall)`
+  /* Make back button compact like other pages */
+  height: 32px;
+  padding: 0 12px;
+  font-size: ${(p) => p.theme.font.size.sm};
+  border-radius: ${(p) => p.theme.radii.sm};
+  /* Prevent stretching inside grid containers like Page */
+  place-self: start;
+  width: max-content;
   display: inline-flex;
   align-items: center;
   gap: 6px;

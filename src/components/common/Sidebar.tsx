@@ -23,10 +23,11 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   const enableFeedback = import.meta.env.VITE_ENABLE_FEEDBACK === 'true';
   const roleValue = (user?.role ?? "").toString().toUpperCase();
   const isTeacher = roleValue.includes("TEACHER");
+  const isOwnerOrAdmin = roleValue === "OWNER" || roleValue === "ADMIN";
   const items = useMemo<NavItem[]>(() => {
     const normalize = (key: unknown) =>
       typeof key === "string" ? key.trim().toUpperCase() : String(key || "").trim().toUpperCase();
-    const teacherMenuKeys = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "PAYMENTS"];
+    const teacherMenuKeys = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "FEEDBACK"];
     const teacherMenuSet = new Set(teacherMenuKeys);
 
     const rawMenus = Array.isArray(user?.menus) ? user?.menus ?? [] : [];
@@ -50,7 +51,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
         { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
         { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
         { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
-        { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments, menuKey: "PAYMENTS" },
+        { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
       ];
       return teacherItems.filter((item) => {
         if (!allowedMenus || !item.menuKey) return true;
@@ -68,6 +69,11 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing, menuKey: "MARKETING" },
       { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
     ];
+    if (isOwnerOrAdmin) {
+      const entry: NavItem = { key: "teachers-manage", label: "강사관리", sub: "Teacher Management", to: routes.teachersManage };
+      const idx = base.findIndex((i) => i.key === "feedback");
+      if (idx >= 0) base.splice(idx, 0, entry); else base.push(entry);
+    }
     if (enableFeedback) {
       base.push({ key: "changelog", label: "업데이트 안내", sub: "Patch Notes", to: routes.feedbackChangelog });
     }
@@ -75,7 +81,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       if (!allowedMenus || !item.menuKey) return true;
       return allowedMenus.has(item.menuKey);
     });
-  }, [enableFeedback, isTeacher, user?.menus]);
+  }, [enableFeedback, isTeacher, isOwnerOrAdmin, user?.menus]);
 
   // Display only academy name in the bottom user box
   const academyName = user?.academy?.name && user.academy.name.trim() ? user.academy.name.trim() : undefined;
@@ -306,6 +312,24 @@ function renderIcon(key: string) {
           <path d="M14 7l-7 7" />
         </svg>
       );
+    case "teachers-manage":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M20 4H6.5A2.5 2.5 0 0 0 4 6.5v13" />
+          <path d="M20 4v13H6.5" />
+        </svg>
+      );
+    
     case "feedback":
       return (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -533,3 +557,4 @@ const LogoutButton = styled.button`
     background: #e0e7ff;
   }
 `;
+    

@@ -27,6 +27,10 @@ export const routes = {
   attendance: '/attendance',
 
   payments: '/payments',
+  teachersManage: '/teachers',
+  // Public payment request (no auth)
+  payRequest: '/pay/:token',
+  payRequestBlank: '/pay',
   devTools: '/dev-tools',
   admin: '/admin',
   adminStats: '/admin/stats',

@@ -1,4 +1,5 @@
 import styled from "styled-components";
+import { createPortal } from "react-dom";
 import SelectBox from "@/components/common/SelectBox";
 import {
   GhostButton as UIGhostButton,
@@ -66,10 +67,10 @@ export default function CounselModal({
   const disableSave =
     savingCounsel || !counselHour || !counselMin || !selStudent;
 
-  return (
+  const modalContent = (
     <ModalBackdrop onClick={onClose}>
-      <ModalCard onClick={(event) => event.stopPropagation()}>
-        <ModalTitle>상담 추가</ModalTitle>
+      <ModalCard onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="counsel-modal-title">
+        <ModalTitle id="counsel-modal-title">상담 추가</ModalTitle>
         <Label>학생 선택</Label>
         <Input
           placeholder="학생 검색…"
@@ -156,6 +157,9 @@ export default function CounselModal({
       </ModalCard>
     </ModalBackdrop>
   );
+
+  if (typeof document === 'undefined') return modalContent;
+  return createPortal(modalContent, document.body);
 }
 
 const ModalBackdrop = styled.div`

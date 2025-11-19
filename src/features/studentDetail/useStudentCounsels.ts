@@ -181,9 +181,18 @@ export function useStudentCounsels({
   }, [studentId, resetEditing, resetAddForm]);
 
   const openAddModal = useCallback(() => {
+    // 기본값: 오늘 날짜 + 현재 시각 반올림(5분)
     setAddModalOpen(true);
-    resetAddForm();
-  }, [resetAddForm]);
+    const d = new Date();
+    const date = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+    const hour = pad2(d.getHours());
+    const minute = pad2(Math.min(55, Math.ceil(d.getMinutes() / 5) * 5));
+    setNewDate(date);
+    setNewHour(hour);
+    setNewMinute(minute);
+    setNewContent("");
+    setAddFormError(null);
+  }, []);
 
   const closeAddModal = useCallback(() => {
     if (addSubmitting) return;

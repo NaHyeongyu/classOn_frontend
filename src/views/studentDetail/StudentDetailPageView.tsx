@@ -14,6 +14,7 @@ import { StudentCoursesTab } from "@/components/studentDetail/StudentCoursesTab"
 import { StudentAttendanceTab } from "@/components/studentDetail/StudentAttendanceTab";
 import { StudentGradesTab } from "@/components/studentDetail/StudentGradesTab";
 import { StudentCounselTab } from "@/components/studentDetail/StudentCounselTab";
+import { StudentCounselAddModal } from "@/components/studentDetail/StudentCounselAddModal";
 import {
   courseStatusLabel,
   formatStudentMemoDate,
@@ -200,6 +201,14 @@ export function StudentDetailPageView({
       ) : null}
 
       {deleteConfirmDialog}
+      {/* 상담 추가 모달 (원생 상세 전용) */}
+      <StudentCounselAddModal
+        open={counsels.addModalOpen}
+        onClose={counsels.handleProtectedCloseAddModal}
+        addForm={counsels.addForm}
+        hourOptions={counsels.hourOptions}
+        minuteOptions={counsels.minuteOptions}
+      />
     </Page>
   );
 }

@@ -41,19 +41,29 @@ export function useCalendarDetailCounsel({ ymd, initialCounsels }: UseCalendarDe
     setStudErr(null);
     try {
       const res = await listStudents({ status: "ENROLLED", size: 200 });
-      setStudents(res.content);
+      const rows = res.content || [];
+      setStudents(rows);
+      // PC 편의성: 자동 선택(첫 번째 학생)
+      if (!selStudent && rows.length > 0) {
+        setSelStudent(rows[0]);
+      }
     } catch (error) {
       setStudErr(readableError(error, "학생 목록을 불러오지 못했습니다."));
     } finally {
       setStudBusy(false);
     }
-  }, []);
+  }, [selStudent]);
 
   const openModal = () => {
     setOpen(true);
     setCounselErr(null);
-    setCounselHour("");
-    setCounselMin("");
+    // 기본 시간: 현재 시각을 5분 단위로 반올림
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mmRounded = Math.min(55, Math.ceil(now.getMinutes() / 5) * 5);
+    const mm = String(mmRounded).padStart(2, "0");
+    setCounselHour(hh);
+    setCounselMin(mm);
     void fetchStudentsList();
   };
 

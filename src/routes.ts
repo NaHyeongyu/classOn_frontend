@@ -5,6 +5,7 @@ export const routes = {
   login: '/login',
   register: '/register',
   myAcademy: '/my-academy',
+  myAcademyPlan: '/my-academy/plan',
 
   calendar: '/calendar',
   calendarDetail: '/calendar/:ymd',

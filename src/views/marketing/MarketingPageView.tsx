@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { GhostBtnSmall as UIGhostBtnSmall, PageHeader } from "@/components/common/UI";
 import { MarketingFilterPanel } from "@/components/marketing/MarketingFilterPanel";
 import { MarketingResultsPanel } from "@/components/marketing/MarketingResultsPanel";
+import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 
 type MarketingFilterPanelProps = React.ComponentProps<typeof MarketingFilterPanel>;
 type MarketingResultsPanelProps = React.ComponentProps<typeof MarketingResultsPanel>;
@@ -12,12 +13,34 @@ type MarketingPageViewProps = {
 };
 
 export function MarketingPageView({ filterProps, resultsProps }: MarketingPageViewProps) {
+  const summary = useDashboardSummary();
+  const limit = summary.data?.marketingLimit ?? null;
+  const remaining = summary.data?.marketingRemaining ?? null;
+  const used = summary.data?.marketingUsed ?? null;
+  const loading = summary.status === "loading" && !summary.data;
+  const quotaError = summary.status === "error";
+  const quotaText = loading
+    ? "불러오는 중…"
+    : quotaError
+      ? "불러오기 실패"
+      : limit != null
+        ? `${Math.max(0, remaining ?? 0)} / ${limit}회 남음`
+        : "정보 없음";
+  const usedText = !quotaError
+    ? limit != null ? `이번 달 사용 ${used ?? 0}회` : used != null ? `이번 달 사용 ${used}회` : null
+    : "다시 시도해 주세요";
+
   return (
     <Viewport>
       <HeaderWrap>
         <PageHeader>
           <div>
-            <h2>마케팅</h2>
+            <TitleRow>
+              <h2>마케팅</h2>
+              <TitleBadge>
+                {quotaText}
+              </TitleBadge>
+            </TitleRow>
             <p>수업 기록을 모아 AI 요약과 콘텐츠로 이어가세요.</p>
           </div>
           <HeaderActions>
@@ -57,6 +80,26 @@ const HeaderWrap = styled.div`
   gap: ${(p) => p.theme.spacing.sm};
 `;
 
+const TitleRow = styled.div`
+  display: inline-flex;
+  gap: ${(p) => p.theme.spacing.xs};
+  align-items: center;
+  flex-wrap: wrap;
+`;
+
+const TitleBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ecfdf3;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: ${(p) => p.theme.font.size.xs};
+  font-weight: 700;
+`;
+
 const BetaNotice = styled.div`
   padding: 10px ${(p) => p.theme.spacing.sm};
   border-radius: ${(p) => p.theme.radii.md};
@@ -74,6 +117,7 @@ const BetaNotice = styled.div`
     margin: 0;
   }
 `;
+
 
 const HeaderActions = styled.div`
   display: inline-flex;

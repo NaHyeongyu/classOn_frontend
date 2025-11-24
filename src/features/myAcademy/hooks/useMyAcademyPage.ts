@@ -17,13 +17,19 @@ import {
 } from "@/api/account";
 import { apiRequestPhoneCode, apiVerifyPhoneCode } from "@/api/auth";
 import {
+  apiGetSubscription,
+  apiUpsertSubscription,
+  apiCancelSubscription,
+  type SubscriptionDto,
+} from "@/api/billing";
+import {
   maskBiz,
   normalizeMobile,
   toErrorMessage,
   unmaskBiz,
 } from "@/features/myAcademy/utils";
 import { createTeacher, listTeachers, type TeacherListItem } from "@/api/teachers";
-import { paths } from "@/routes";
+import { paths, routes } from "@/routes";
 
 // Teacher menus are fixed on the backend; no per-user selection needed.
 
@@ -39,6 +45,24 @@ type AccountViewState = {
 type AcademyViewState = {
   data: AcademyDetail | null;
   onOpenEditModal: () => void;
+  isFreePlan: boolean;
+  paymentEnabled: boolean;
+};
+
+type BillingViewState = {
+  loading: boolean;
+  data: SubscriptionDto | null;
+  createOrUpdate: (payload: {
+    planId: string;
+    planName: string;
+    amountKrw: number;
+    currency?: string;
+    billingKey: string;
+    customerKey: string;
+    cardCompany?: string;
+    cardNumber?: string;
+  }) => Promise<void>;
+  cancel: () => Promise<void>;
 };
 
 export type ProfileModalState = {
@@ -149,6 +173,7 @@ export type UseMyAcademyPageResult = {
   error: string | null;
   account: AccountViewState;
   academy: AcademyViewState;
+  billing: BillingViewState;
   teachers: {
     loading: boolean;
     error: string | null;
@@ -218,6 +243,8 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const [academyModalForm, setAcademyModalForm] = useState<AcademyFormState>(
     createAcademyForm(null),
   );
+  const [subscription, setSubscription] = useState<SubscriptionDto | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [academyModalError, setAcademyModalError] = useState<string | null>(null);
   const [academyModalSubmitting, setAcademyModalSubmitting] = useState(false);
   const [teacherList, setTeacherList] = useState<TeacherListItem[]>([]);
@@ -421,6 +448,24 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         );
       } finally {
         if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const sub = await apiGetSubscription();
+        if (!alive) return;
+        if (sub && (sub as any).id) setSubscription(sub);
+      } catch {
+        // ignore subscription load errors
+      } finally {
+        if (alive) setSubscriptionLoading(false);
       }
     })();
     return () => {
@@ -776,6 +821,37 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const academyView: AcademyViewState = {
     data: academy,
     onOpenEditModal: openAcademyModal,
+    isFreePlan: !subscription || subscription.planId === "free",
+    paymentEnabled: useMemo(() => {
+      const planId = subscription?.planId || academy?.billingSubscriptionId || "";
+      if (!planId) return false;
+      const normalized = planId.toLowerCase();
+      if (normalized === "enterprise") return true;
+      return normalized.includes("-pay");
+    }, [subscription?.planId, academy?.billingSubscriptionId]),
+  };
+
+  const billingView: BillingViewState = {
+    loading: subscriptionLoading,
+    data: subscription,
+    createOrUpdate: async (payload) => {
+      setSubscriptionLoading(true);
+      try {
+        const sub = await apiUpsertSubscription(payload);
+        setSubscription(sub);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    },
+    cancel: async () => {
+      setSubscriptionLoading(true);
+      try {
+        await apiCancelSubscription();
+        setSubscription(null);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    },
   };
 
   const profileModal: ProfileModalState = {
@@ -851,6 +927,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     error,
     account,
     academy: academyView,
+    billing: billingView,
     teachers: teachersView,
     profileModal,
     phoneModal,

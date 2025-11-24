@@ -1,12 +1,59 @@
 import styled from "styled-components";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
+import { useNavigate } from "react-router-dom";
+import { routes } from "@/routes";
 import { TeacherCreateModal } from "@/components/myAcademy/TeacherCreateModal";
 import { Page, PageHeader, SectionCard, Scroller, TableBase as Table, PrimaryButton, EmptyState } from "@/components/common/UI";
 import { formatKoreanDate } from "@/lib/format";
 
 export default function Teachers() {
   const state = useMyAcademyPage();
-  const { teachers } = state;
+  const { teachers, academy } = state;
+  const navigate = useNavigate();
+
+  const isFree = academy.isFreePlan;
+
+  if (isFree) {
+    return (
+      <Page>
+        <PageHeader>
+          <div>
+            <h2>강사관리</h2>
+            <p>현재 요금제로 이용할 수 없습니다.</p>
+          </div>
+        </PageHeader>
+        <SectionCard>
+          <EmptyState>
+            <div>현재 요금제로 이용할 수 없습니다. 업그레이드 후 이용해보세요!</div>
+            <UpgradeButton type="button" onClick={() => state.handleLogout /* placeholder to avoid unused */}>
+              요금제 변경하기
+            </UpgradeButton>
+          </EmptyState>
+        </SectionCard>
+      </Page>
+    );
+  }
+
+  if (isFree) {
+    return (
+      <Page>
+        <PageHeader>
+          <div>
+            <h2>강사관리</h2>
+            <p>현재 요금제로 이용할 수 없습니다.</p>
+          </div>
+        </PageHeader>
+        <SectionCard>
+          <EmptyState>
+            <div>현재 요금제로 이용할 수 없습니다. 업그레이드 후 이용해보세요!</div>
+            <UpgradeButton type="button" onClick={() => navigate(routes.myAcademyPlan)}>
+              요금제 변경하기
+            </UpgradeButton>
+          </EmptyState>
+        </SectionCard>
+      </Page>
+    );
+  }
 
   return (
     <Page>
@@ -191,4 +238,8 @@ const Muted = styled.span`
   margin-top: 4px;
   color: #6b7280;
   font-size: 12px;
+`;
+
+const UpgradeButton = styled(PrimaryButton)`
+  margin-top: 12px;
 `;

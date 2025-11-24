@@ -193,6 +193,8 @@ export async function apiOnboardComplete(payload: {
   representativeName?: string;
   academyPhone?: string;
   billingEmail?: string;
+  studentScale?: string; // 원생 규모
+  selectedPlan?: string; // 선택한 요금제
   // New fields
   category1: string; // 교과목 | 예체능 | 기타
   category2?: string; // 세부 카테고리

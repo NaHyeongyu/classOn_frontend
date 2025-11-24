@@ -16,6 +16,7 @@
   "dependencies": {
     "@classon/shared-types": "file:../packages/shared-types",
     "@tanstack/react-query": "^5.87.1",
+    "@tosspayments/payment-sdk": "^1.9.2",
     "axios": "^1.11.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",

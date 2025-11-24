@@ -21,6 +21,7 @@ export function DashboardPageView({
 }: DashboardPageViewProps) {
   const { user } = useAuth();
   const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
+
   return (
     <PageWrap>
       <DashboardGrid>

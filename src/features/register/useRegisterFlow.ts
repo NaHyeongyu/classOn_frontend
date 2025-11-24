@@ -3,18 +3,36 @@ import {
   apiCheckBizNo,
   apiCheckUsername,
   apiOnboardComplete,
-  apiRequestPhoneCode,
-  apiVerifyPhoneCode,
+  // apiRequestPhoneCode,
+  // apiVerifyPhoneCode,
 } from "@/api/auth";
 import {
   maskBizNo,
   normalizeMobile,
-  readStatus,
   secondCategories,
   toErrorMessage,
 } from "./utils";
 
 type Step = 1 | 2 | 3;
+
+export type StudentScaleOption =
+  | ""
+  | "UNDER_50"
+  | "RANGE_50_100"
+  | "RANGE_100_300"
+  | "RANGE_300_500"
+  | "OVER_500";
+
+export type PlanSelection =
+  | ""
+  | "free"
+  | "plan-100-basic"
+  | "plan-100-pay"
+  | "plan-300-basic"
+  | "plan-300-pay"
+  | "plan-500-basic"
+  | "plan-500-pay"
+  | "enterprise";
 
 export type UseRegisterFlowResult = {
   step: Step;
@@ -63,6 +81,13 @@ export type UseRegisterFlowResult = {
   setCategory2: (value: string) => void;
   categoryEtc: string;
   setCategoryEtc: (value: string) => void;
+  studentScale: StudentScaleOption;
+  setStudentScale: (value: StudentScaleOption) => void;
+  selectedPlan: PlanSelection;
+  setSelectedPlan: (value: PlanSelection) => void;
+  canProceedAccount: boolean;
+  handleAccountSubmit: (event: React.FormEvent) => Promise<void>;
+  backToAccount: () => void;
   referral: string;
   setReferral: (value: string) => void;
   agree: boolean;
@@ -106,6 +131,8 @@ export function useRegisterFlow(): UseRegisterFlowResult {
   >("");
   const [category2, setCategory2] = useState("");
   const [categoryEtc, setCategoryEtc] = useState("");
+  const [studentScale, setStudentScaleState] = useState<StudentScaleOption>("UNDER_50");
+  const [selectedPlan, setSelectedPlanState] = useState<PlanSelection>("");
   const [referral, setReferral] = useState("");
   const [agree, setAgree] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
@@ -139,6 +166,18 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     if (step2Err.code) setStep2Err({});
   }, [step2Err.code]);
 
+  const setStudentScale = useCallback((value: StudentScaleOption) => {
+    setStudentScaleState(value);
+    setSelectedPlanState((prev) => {
+      if (value === "OVER_500") return "enterprise";
+      return prev === "enterprise" ? "" : prev;
+    });
+  }, []);
+
+  const setSelectedPlan = useCallback((value: PlanSelection) => {
+    setSelectedPlanState(value);
+  }, []);
+
   const setUsername = useCallback((value: string) => {
     setUsernameValue(value);
     setUsernameAvailable(null);
@@ -158,21 +197,11 @@ export function useRegisterFlow(): UseRegisterFlowResult {
       }
       setStep1Err(nextErr);
       if (Object.keys(nextErr).length > 0) return;
-      try {
-        setPhone(normalizedPhone!);
-        const res = await apiRequestPhoneCode(normalizedPhone);
-        if (res.code) setDevCodeHint(res.code);
-        setResendCooldown(60);
-        setStep(2);
-      } catch (err) {
-        const status = readStatus(err);
-        const message = toErrorMessage(err, "인증코드 요청에 실패했습니다.");
-        if (status === 429 || message.includes("429")) {
-          setError("너무 많은 요청입니다. 잠시 후 다시 시도해 주세요.");
-        } else {
-          setError(message);
-        }
-      }
+      // NOTE: 문자 인증은 개발 단계에서 비활성화되어 바로 다음 단계로 이동합니다.
+      setPhone(normalizedPhone!);
+      setDevCodeHint(null);
+      setResendCooldown(0);
+      setStep(2);
     },
     [phoneValue, setPhone]
   );
@@ -181,56 +210,41 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     async (event: React.FormEvent) => {
       event.preventDefault();
       setError(null);
-      if (!codeValue.trim()) {
-        setStep2Err({ code: "인증코드를 입력해 주세요." });
-        return;
-      }
-      try {
-        const normalizedPhone = normalizeMobile(phoneValue);
-        if (!normalizedPhone) {
-          setError("휴대폰 번호 형식을 다시 확인해 주세요.");
-          return;
-        }
-        const res = await apiVerifyPhoneCode(normalizedPhone, codeValue);
-        if (res.success) {
-          setStep(3);
-        } else {
-          setError("인증코드가 올바르지 않습니다.");
-        }
-      } catch (err) {
-        setError(toErrorMessage(err, "전화번호 인증에 실패했습니다."));
-      }
+      // NOTE: 실제 인증은 비활성화 상태이므로 코드를 입력하지 않아도 바로 진행합니다.
+      setStep(3);
     },
-    [codeValue, phoneValue]
+    []
   );
 
   const handleResendCode = useCallback(async () => {
-    if (resendCooldown > 0) return;
-    setError(null);
-    try {
-      const normalizedPhone = normalizeMobile(phoneValue);
-      if (!normalizedPhone) {
-        setError("휴대폰 번호 형식을 다시 확인해 주세요.");
-        return;
-      }
-      const res = await apiRequestPhoneCode(normalizedPhone);
-      if (res.code) setDevCodeHint(res.code);
-      setResendCooldown(60);
-    } catch (err) {
-      const status = readStatus(err);
-      const message = toErrorMessage(err, "인증코드 요청에 실패했습니다.");
-      if (status === 429 || message.includes("429")) {
-        setError("너무 많은 요청입니다. 잠시 후 다시 시도해 주세요.");
-      } else {
-        setError(message);
-      }
-    }
-  }, [phoneValue, resendCooldown]);
+    setError("개발 단계에서는 문자 인증이 비활성화되어 있습니다.");
+    setResendCooldown(0);
+  }, []);
 
   const backToStep1 = useCallback(() => {
     setStep(1);
     setCodeValue("");
     setStep2Err({});
+  }, []);
+
+  const handleAccountSubmit = useCallback(
+    async (event: React.FormEvent) => {
+      event.preventDefault();
+      setError(null);
+      const normalized = normalizeMobile(phoneValue);
+      if (!normalized) {
+        setError("휴대폰 번호 형식을 다시 확인해 주세요.");
+        return;
+      }
+      setPhone(normalized);
+      setStep(3);
+    },
+    [phoneValue, setPhone]
+  );
+
+  const backToAccount = useCallback(() => {
+    setStep(2);
+    setError(null);
   }, []);
 
   const checkUsername = useCallback(async () => {
@@ -262,12 +276,22 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     async (event: React.FormEvent) => {
       event.preventDefault();
       setError(null);
+      const normalizedPhone = normalizeMobile(phoneValue);
+      if (!normalizedPhone) {
+        setError("휴대폰 번호 형식을 다시 확인해 주세요.");
+        return false;
+      }
+      const planChosen = studentScale !== "" && selectedPlan !== "";
+      if (!planChosen || !agree) {
+        setError("원생 규모, 요금제 선택 및 약관 동의를 완료해 주세요.");
+        return false;
+      }
       const { raw } = maskBizNo(bizNo);
       setLoading(true);
       try {
         await apiOnboardComplete({
           name: name || undefined,
-          phone: phoneValue,
+          phone: normalizedPhone,
           username: usernameValue,
           password,
           academyName,
@@ -277,6 +301,8 @@ export function useRegisterFlow(): UseRegisterFlowResult {
             category1 !== "기타" ? category2 || undefined : undefined,
           categoryEtc:
             category1 === "기타" ? categoryEtc || undefined : undefined,
+          studentScale: studentScale || undefined,
+          selectedPlan: selectedPlan || undefined,
           referral: referral || undefined,
           address: academyAddress || undefined,
           representativeName: representative || undefined,
@@ -303,8 +329,11 @@ export function useRegisterFlow(): UseRegisterFlowResult {
       name,
       password,
       phoneValue,
+      selectedPlan,
+      agree,
       referral,
       representative,
+      studentScale,
       usernameValue,
     ]
   );
@@ -318,12 +347,13 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     []
   );
 
-  const canSubmitStep3 = useMemo(() => {
+  const canProceedAccount = useMemo(() => {
     const { raw } = maskBizNo(bizNo);
+    const phoneValid = Boolean(normalizeMobile(phoneValue));
     const bizValid =
       raw.length === 0 || (raw.length === 10 && bizNoAvailable !== false);
     return (
-      !loading &&
+      phoneValid &&
       usernameValue.length > 0 &&
       usernameAvailable !== false &&
       pwRuleLen &&
@@ -332,6 +362,40 @@ export function useRegisterFlow(): UseRegisterFlowResult {
       password === password2 &&
       academyName.trim().length > 0 &&
       category1 !== "" &&
+      bizValid
+    );
+  }, [
+    academyName,
+    bizNo,
+    bizNoAvailable,
+    category1,
+    password,
+    password2,
+    phoneValue,
+    pwRuleLen,
+    pwRuleMix,
+    usernameAvailable,
+    usernameValue,
+  ]);
+
+  const canSubmitStep3 = useMemo(() => {
+    const { raw } = maskBizNo(bizNo);
+    const phoneValid = Boolean(normalizeMobile(phoneValue));
+    const planChosen = studentScale !== "" && selectedPlan !== "";
+    const bizValid =
+      raw.length === 0 || (raw.length === 10 && bizNoAvailable !== false);
+    return (
+      !loading &&
+      phoneValid &&
+      usernameValue.length > 0 &&
+      usernameAvailable !== false &&
+      pwRuleLen &&
+      pwRuleMix &&
+      password.length > 0 &&
+      password === password2 &&
+      academyName.trim().length > 0 &&
+      category1 !== "" &&
+      planChosen &&
       bizValid &&
       agree
     );
@@ -342,10 +406,13 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     bizNoAvailable,
     category1,
     loading,
+    phoneValue,
     password,
     password2,
     pwRuleLen,
     pwRuleMix,
+    selectedPlan,
+    studentScale,
     usernameAvailable,
     usernameValue,
   ]);
@@ -397,6 +464,13 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     setCategory2,
     categoryEtc,
     setCategoryEtc,
+    studentScale,
+    setStudentScale,
+    selectedPlan,
+    setSelectedPlan,
+    canProceedAccount,
+    handleAccountSubmit,
+    backToAccount,
     referral,
     setReferral,
     agree,

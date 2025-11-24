@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/common/Toast";
 import styled, { keyframes } from "styled-components";
 import { Routes, Route, Outlet, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState } from "react";
+import { useOutletContext } from "react-router";
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Calendar = lazy(() => import("@/pages/Calendar"));
 const CalendarDetail = lazy(() => import("@/pages/CalendarDetail"));
@@ -38,6 +39,7 @@ const MarketingSavedDetail = lazy(() => import("@/pages/MarketingSavedDetail"));
 const Feedback = lazy(() => import("@/pages/Feedback"));
 const FeedbackChangelog = lazy(() => import("@/pages/FeedbackChangelog"));
 const MyAcademy = lazy(() => import("@/pages/MyAcademy"));
+const MyAcademyPlan = lazy(() => import("@/pages/MyAcademyPlan"));
 const TeachersManage = lazy(() => import("@/pages/Teachers"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminLogin = lazy(() => import("@/pages/AdminLogin"));
@@ -52,6 +54,8 @@ const PaymentRequest = lazy(() => import("@/pages/PaymentRequest"));
 import { PageLoading, LoadingSpinner } from "@/components/common/Loading";
 import { RouteTransition, TopProgressBar } from "@/components/common/RouteTransition";
 import { routes } from "@/routes";
+import { apiGetMyAcademy } from "@/api/account";
+import { apiGetSubscription } from "@/api/billing";
 // 상담 전역 페이지는 학생 상세 내 탭으로 통합됨
 
 const AppContainer = styled.div`
@@ -154,6 +158,7 @@ export default function App() {
           <Route path={routes.marketingSavedDetail} element={<MarketingSavedDetail />} />
           <Route path={routes.feedback} element={<Feedback />} />
           <Route path={routes.myAcademy} element={<MyAcademy />} />
+          <Route path={routes.myAcademyPlan} element={<MyAcademyPlan />} />
           <Route path={routes.teachersManage} element={<TeachersManage />} />
           {enableFeedback && <Route path={routes.feedbackChangelog} element={<FeedbackChangelog />} />}
           { /* Todos page removed; manage todos within Calendar Detail */ }
@@ -189,6 +194,9 @@ function ProtectedLayout() {
   const { user, loading, validate } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [billingChecked, setBillingChecked] = useState(false);
+  const [billingBlocked, setBillingBlocked] = useState(false);
+
   useEffect(() => {
     if (loading) return;
     let cancelled = false;
@@ -200,14 +208,69 @@ function ProtectedLayout() {
     })();
     return () => { cancelled = true; };
   }, [location.pathname, loading, validate, navigate]);
-  if (loading) return <Centered><LoadingSpinner /><span style={{marginTop: 8, color:'#6b7280'}}>로딩 중…</span></Centered>;
+
+  useEffect(() => {
+    if (loading || !user) return;
+    let alive = true;
+    (async () => {
+      try {
+        const academy = await apiGetMyAcademy();
+        const status = (academy.billingStatus || "").toUpperCase();
+        const end = academy.billingCurrentPeriodEnd ? new Date(academy.billingCurrentPeriodEnd) : null;
+        const now = new Date();
+        const expired = end ? now > end : true; // end가 없으면 즉시 만료로 간주
+        const inactive = ["PAST_DUE", "CANCELED", "INACTIVE"].includes(status);
+        const trialExpired = status === "TRIALING" && expired;
+        const activeExpired = status === "ACTIVE" && expired;
+        let shouldBlock = trialExpired || inactive || activeExpired;
+
+        // 구독 정보 기준으로 한 번 더 확인:
+        // 서버 기준으로 Subscription이 ACTIVE이면 차단을 해제합니다.
+        if (shouldBlock) {
+          try {
+            const sub = await apiGetSubscription();
+            if (sub && (sub as any).status && String((sub as any).status).toUpperCase() === "ACTIVE") {
+              shouldBlock = false;
+            }
+          } catch {
+            // 구독 조회 실패는 무시 (academy 상태 기준 차단 유지)
+          }
+        }
+        const allowedPaths = [routes.myAcademyPlan, routes.myAcademy];
+        const onAllowed = allowedPaths.includes(location.pathname);
+        if (alive && shouldBlock) {
+          setBillingBlocked(true);
+          if (!onAllowed) {
+            navigate(routes.myAcademyPlan, { replace: true, state: { reason: "billing-block" } });
+          }
+        } else if (alive) {
+          setBillingBlocked(false);
+        }
+      } catch {
+        // ignore billing check errors to avoid locking out on transient failure
+      } finally {
+        if (alive) setBillingChecked(true);
+      }
+    })();
+    return () => { alive = false; };
+  }, [loading, user, navigate, location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      setBillingChecked(true);
+    }
+  }, [loading, user]);
+
+  if (loading || !billingChecked) return <Centered><LoadingSpinner /><span style={{marginTop: 8, color:'#6b7280'}}>로딩 중…</span></Centered>;
   if (!user) return <Navigate to={routes.login} replace state={{ from: location.pathname }} />;
-  return <Outlet />;
+  return <Outlet context={{ billingBlocked }} />;
 }
 
 function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const outletContext = useOutletContext<{ billingBlocked?: boolean } | null>();
+  const billingBlocked = Boolean(outletContext?.billingBlocked);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -216,16 +279,20 @@ function MainLayout() {
   return (
     <AppContainer>
       <TopProgressBar />
-      <SidebarContainer data-open={sidebarOpen || undefined}>
-        <Sidebar onNavigate={() => setSidebarOpen(false)} />
-      </SidebarContainer>
-      {sidebarOpen && <MobileOverlay onClick={() => setSidebarOpen(false)} />}
+      {!billingBlocked && (
+        <SidebarContainer data-open={sidebarOpen || undefined}>
+          <Sidebar onNavigate={() => setSidebarOpen(false)} />
+        </SidebarContainer>
+      )}
+      {!billingBlocked && sidebarOpen && <MobileOverlay onClick={() => setSidebarOpen(false)} />}
       <ContentContainer>
         <ContentInner>
-          <TopBar>
-            <MenuBtn onClick={() => setSidebarOpen(s => !s)}>☰ 메뉴</MenuBtn>
-            <div />
-          </TopBar>
+          {!billingBlocked && (
+            <TopBar>
+              <MenuBtn onClick={() => setSidebarOpen(s => !s)}>☰ 메뉴</MenuBtn>
+              <div />
+            </TopBar>
+          )}
           <RouteTransition>
             <Suspense fallback={<PageLoading />}> 
               <Outlet />
@@ -321,7 +388,6 @@ const fadeUp = keyframes`
 
 const AuthCard = styled.div`
   width: 100%;
-  max-width: 560px;
   background: transparent; /* 경계 없는 스타일 */
   border-radius: 18px;
   padding: 20px;

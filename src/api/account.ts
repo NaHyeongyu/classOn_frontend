@@ -11,6 +11,9 @@ export type AcademyDetail = {
   category1: string;
   category2?: string;
   categoryEtc?: string;
+  billingStatus?: string;
+  billingCurrentPeriodEnd?: string;
+  billingSubscriptionId?: string;
   stage?: "DEVELOPMENT" | "TEST" | "PRODUCTION";
 };
 

@@ -11,18 +11,16 @@ type TossPaymentsInstance = {
   requestBillingAuth: (method: "카드" | string, params: BillingAuthParams) => Promise<unknown>;
 };
 
-declare global {
-  interface Window {
-    TossPayments?: (clientKey: string) => TossPaymentsInstance;
-  }
-}
+type TossPaymentsFactory = (clientKey: string) => TossPaymentsInstance;
+
+const getFactory = () => (window as any).TossPayments as TossPaymentsFactory | undefined;
 
 const SCRIPT_SRC = "https://js.tosspayments.com/v1/payment";
 let loadingPromise: Promise<void> | null = null;
 
 async function ensureScript(): Promise<void> {
   if (typeof window === "undefined") return;
-  if (window.TossPayments) return;
+  if (getFactory()) return;
   if (loadingPromise) return loadingPromise;
   loadingPromise = new Promise((resolve, reject) => {
     const script = document.createElement("script");
@@ -37,8 +35,9 @@ async function ensureScript(): Promise<void> {
 
 export async function loadTossPayments(clientKey: string): Promise<TossPaymentsInstance> {
   await ensureScript();
-  if (!window.TossPayments) {
+  const factory = getFactory();
+  if (!factory) {
     throw new Error("TossPayments SDK not available");
   }
-  return window.TossPayments(clientKey);
+  return factory(clientKey);
 }

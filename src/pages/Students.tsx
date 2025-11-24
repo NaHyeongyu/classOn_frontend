@@ -470,7 +470,7 @@ const AddWrap = styled.div`
   flex-wrap: wrap;
 `;
 
-const QuotaBadge = styled.span`
+const QuotaBadge = styled.span<{ "data-variant"?: "ai" | "billing" }>`
   display: inline-flex;
   align-items: center;
   gap: 6px;

@@ -96,9 +96,15 @@ export default function MyAcademyPlanPage() {
     (async () => {
       try {
         const [academy, sub, ck] = await Promise.all([
-          apiGetMyAcademy().catch(() => null),
-          apiGetSubscription().catch(() => null),
-          apiGetTossClientKey().catch(() => null),
+          apiGetMyAcademy().catch(
+            (): Awaited<ReturnType<typeof apiGetMyAcademy>> | null => null,
+          ),
+          apiGetSubscription().catch(
+            (): Awaited<ReturnType<typeof apiGetSubscription>> | null => null,
+          ),
+          apiGetTossClientKey().catch(
+            (): Awaited<ReturnType<typeof apiGetTossClientKey>> | null => null,
+          ),
         ]);
         if (!alive) return;
         setClientKey(ck?.clientKey || null);

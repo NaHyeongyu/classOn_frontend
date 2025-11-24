@@ -19,7 +19,13 @@
     "strict": true,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@classon/shared-types": ["./node_modules/@classon/shared-types/src"],
+      "@classon/shared-types/*": ["./node_modules/@classon/shared-types/src/*"]
+    }
   },
   "include": ["vite.config.ts", "vitest.config.ts"]
 }

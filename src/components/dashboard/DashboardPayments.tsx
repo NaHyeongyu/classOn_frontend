@@ -48,7 +48,7 @@ export default function DashboardPayments({ kpi }: Props) {
         </TitleGroup>
         <Buttons>
           {error && onRetry ? (
-            <GhostButton type="button" onClick={onRetry}>
+            <GhostButton type="button" onClick={() => onRetry()}>
               다시 시도
             </GhostButton>
           ) : null}

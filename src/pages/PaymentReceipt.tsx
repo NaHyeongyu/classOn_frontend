@@ -3,6 +3,7 @@ import { useSearchParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { formatKoreanDate, formatKoreanDateTimeKST, formatMoney } from "@/lib/format";
 import { getPublicPaymentReceipt, type PublicPaymentReceipt } from "@/api/payments";
+import type { PaymentCourseBrief } from "@classon/shared-types";
 
 export default function PaymentReceipt() {
   const [sp] = useSearchParams();
@@ -86,7 +87,7 @@ function ReceiptLayout({ data, receiptToken }: { data: PublicPaymentReceipt; rec
         <SectionTitle>수강 과목</SectionTitle>
         <CourseList>
           {data.courses && data.courses.length > 0 ? (
-            data.courses.map((course, index) => (
+            data.courses.map((course: PaymentCourseBrief | null | undefined, index: number) => (
               <li key={`${course?.id ?? "course"}-${index}`}>
                 <div className="info">
                   <strong>{course?.title ?? "-"}</strong>

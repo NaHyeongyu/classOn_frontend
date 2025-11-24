@@ -188,7 +188,7 @@ export default function PaymentsCreate() {
     if (!student || !Array.isArray(student.courses) || student.courses.length === 0) {
       return 0;
     }
-    return student.courses.reduce((total, course: NonNullable<Student["courses"]>[number]) => {
+    return student.courses.reduce((total: number, course: NonNullable<Student["courses"]>[number]) => {
       const fee = typeof course.fee === "number" ? course.fee : Number(course.fee);
       if (!Number.isFinite(fee)) return total;
       return total + Number(fee);

@@ -29,6 +29,7 @@ import type {
   PaymentDetail,
   PaymentMethod,
   PaymentType,
+  PaymentCourseBrief,
 } from "@classon/shared-types";
 import type { PageResult } from "@/types/paging";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -813,14 +814,14 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
   if (!isOpen) return null;
 
   const isInvoiceVariant = variant === "invoice";
-  const courseEntries =
+  const courseEntries: PaymentCourseBrief[] =
     detail?.courses && detail.courses.length
       ? detail.courses
       : [
           detail?.course ?? null,
           detail?.info.course ?? null,
-        ].filter((item): item is NonNullable<typeof item> => Boolean(item));
-  const courseRows = courseEntries.length
+        ].filter((item): item is PaymentCourseBrief => Boolean(item));
+  const courseRows: PaymentCourseBrief[] = courseEntries.length
     ? courseEntries
     : [
         {
@@ -902,8 +903,8 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
             )}
             <SectionTitle>수강 과목</SectionTitle>
             <CourseList>
-              {courseRows.map((course, index) => (
-                <li key={`${course.id ?? "course"}-${index}`}>
+            {courseRows.map((course: PaymentCourseBrief, index: number) => (
+              <li key={`${course.id ?? "course"}-${index}`}>
                   <div className="info">
                     <strong>{course.title ?? "-"}</strong>
                     {course.code ? <span className="code">{course.code}</span> : null}
@@ -1374,7 +1375,7 @@ function OnsitePaymentModal({
   if (!open || !target) return null;
 
   const student = detail?.student ?? target.student;
-  const courseItems =
+  const courseItems: PaymentCourseBrief[] =
     detail?.courses && detail.courses.length
       ? detail.courses
       : detail?.course
@@ -1437,7 +1438,7 @@ function OnsitePaymentModal({
             <SectionHeading>수강 과목</SectionHeading>
             {courseItems.length ? (
               <CourseCard>
-                {courseItems.map((course) => (
+                {courseItems.map((course: PaymentCourseBrief) => (
                   <li key={course?.id ?? course?.title ?? "course"}>
                     <div>
                       <strong>{course?.title ?? "과목 정보 없음"}</strong>

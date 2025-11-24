@@ -238,7 +238,10 @@ export default function PaymentsKakaoConfirm() {
                           (course: NonNullable<PaymentDetail["courses"]>[number]) =>
                             course?.title ?? null,
                         )
-                        .filter((title): title is string => Boolean(title && title.trim())) ?? [];
+                        .filter(
+                          (title: string | null): title is string =>
+                            Boolean(title && title.trim()),
+                        ) ?? [];
                     const courseTitle =
                       courseNames.length > 0
                         ? courseNames.join(", ")
@@ -369,7 +372,9 @@ function renderTemplate(template: string, detail: PaymentDetail, academyName: st
       ?.map(
         (course: NonNullable<PaymentDetail["courses"]>[number]) => course?.title ?? null,
       )
-      .filter((title): title is string => Boolean(title && title.trim())) ?? [];
+      .filter(
+        (title: string | null): title is string => Boolean(title && title.trim()),
+      ) ?? [];
   const fallbackCourse = detail.course?.title ?? "";
   const courseText = courseNames.length ? courseNames.join(", ") : fallbackCourse;
   const invoiceTokenPreview = detail.info.id ? String(detail.info.id) : "PREVIEW_TOKEN";

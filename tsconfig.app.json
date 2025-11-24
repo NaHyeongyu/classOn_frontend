@@ -25,8 +25,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@classon/shared-types": ["../packages/shared-types/src"],
-      "@classon/shared-types/*": ["../packages/shared-types/src/*"]
+      "@classon/shared-types": ["./node_modules/@classon/shared-types/src"],
+      "@classon/shared-types/*": ["./node_modules/@classon/shared-types/src/*"]
     }
   },
   "include": ["src"]

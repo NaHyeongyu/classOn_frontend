@@ -587,7 +587,9 @@ export default function CourseDetail() {
               page += 1;
             }
             const filtered = all.filter((student) =>
-              (student.courses ?? []).some((course) => course.id === numericId)
+              (student.courses ?? []).some(
+                (course: NonNullable<Student["courses"]>[number]) => course?.id === numericId,
+              )
             );
             if (!cancelled) setStudents(filtered);
           } catch (nestedError) {

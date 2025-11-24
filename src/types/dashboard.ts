@@ -8,5 +8,7 @@ export interface DashboardSummary {
   attendanceDenominator: number;
   classCountToday: number;
   dateLabel: string; // e.g. 09/02
+  paymentUnpaidCount: number;
+  paymentPendingCount: number;
+  paymentCompletedCount: number;
 }
-

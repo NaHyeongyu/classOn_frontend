@@ -27,10 +27,17 @@ export const routes = {
   attendance: '/attendance',
 
   payments: '/payments',
+  paymentsCreate: '/payments/create',
+  paymentsKakaoConfirm: '/payments/kakao-confirm',
+  paymentsReceipt: '/payments/receipt',
+  paymentsTossSuccess: '/payments/toss-success',
+  paymentsTossFail: '/payments/toss-fail',
   teachersManage: '/teachers',
   // Public payment request (no auth)
   payRequest: '/pay/:token',
   payRequestBlank: '/pay',
+  invoiceViewer: '/invoice/:token',
+  invoiceViewerBlank: '/invoice',
   devTools: '/dev-tools',
   admin: '/admin',
   adminStats: '/admin/stats',
@@ -57,6 +64,11 @@ export const paths = {
     detail: (id: string | number) => `/students/${id}`,
     detailTab: (id: string | number, tab: string) => `/students/${id}/${tab}`,
     edit: (id: string | number) => `/students/${id}/edit`,
+  },
+  payments: {
+    create: () => '/payments/create',
+    kakaoConfirm: (ids?: string) =>
+      ids && ids.trim() ? `/payments/kakao-confirm?ids=${ids}` : '/payments/kakao-confirm',
   },
   classes: {
     detail: (id: string | number) => `/classes/${id}`,

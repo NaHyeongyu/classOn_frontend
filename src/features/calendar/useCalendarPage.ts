@@ -4,6 +4,9 @@ import { useMonthCalendar } from "@/hooks/useMonthCalendar";
 import { useCoursesCalendar } from "@/features/calendar/useCoursesCalendar";
 import { useTodoEvents } from "@/features/todos/useTodoEvents";
 import { useCounselEvents } from "@/features/counsels/useCounselEvents";
+import { usePaymentEvents } from "@/features/calendar/usePaymentEvents";
+import { usePaymentReminderSettings } from "@/features/calendar/usePaymentReminderSettings";
+import { usePaymentEvents } from "@/features/calendar/usePaymentEvents";
 import {
   buildMonthMatrix,
   formatYMD,
@@ -20,6 +23,8 @@ export function useCalendarPage() {
   });
   const { eventsForDate: todoEventsForDate } = useTodoEvents(matrix);
   const { eventsForDate: counselEventsForDate } = useCounselEvents(matrix);
+  const reminderSettings = usePaymentReminderSettings();
+  const paymentEvents = usePaymentEvents({ enabled: reminderSettings.configured });
 
   useEffect(() => {
     function rangeForMonth(d: Date) {
@@ -65,6 +70,7 @@ export function useCalendarPage() {
       ...classEventsForDate(date),
       ...counselEventsForDate(date),
       ...todoEventsForDate(date),
+      ...paymentEvents.eventsForDate(date),
     ];
   };
 

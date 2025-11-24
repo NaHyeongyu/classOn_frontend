@@ -25,8 +25,7 @@
     /* 경로 alias (원하면 사용) */
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@classon/shared-types": ["src/shared-types"]
+      "@/*": ["src/*"]
     },
 
     /* 테스트 환경 타입 */

@@ -2,6 +2,7 @@ import styled from "styled-components";
 import { useMemo } from "react";
 import type { AcademyDetail } from "@/api/account";
 import { maskBiz } from "@/features/myAcademy/utils";
+import type { SellerDetail } from "@/api/account";
 
 type AccountSectionProps = {
   name: string;
@@ -17,12 +18,20 @@ type AcademySectionProps = {
   onOpenEditModal: () => void;
 };
 
+type SellerSectionProps = {
+  data: SellerDetail | null;
+  loading: boolean;
+  error: string | null;
+  onOpenModal: () => void;
+};
+
 type MyAcademyPageViewProps = {
   error: string | null;
   onDismissError?: () => void;
   onLogout: () => void;
   account: AccountSectionProps;
   academy: AcademySectionProps;
+  seller: SellerSectionProps;
 };
 
 export function MyAcademyPageView({
@@ -31,6 +40,7 @@ export function MyAcademyPageView({
   onLogout,
   account,
   academy,
+  seller,
 }: MyAcademyPageViewProps) {
   const academyCategory = useMemo(() => {
     if (!academy.data) return "미설정";
@@ -41,6 +51,11 @@ export function MyAcademyPageView({
     }
     return category2 ? `${category1} · ${category2}` : category1;
   }, [academy.data]);
+
+  const sellerNeedsSetup =
+    !seller.data ||
+    !seller.data.tossSellerId ||
+    !seller.data.account?.accountNumber;
 
   return (
     <Container>
@@ -147,6 +162,47 @@ export function MyAcademyPageView({
           <Label>사업자번호</Label>
           <Value>{academy.data?.bizNo ? maskBiz(academy.data.bizNo) : "-"}</Value>
         </InfoRow>
+      </Card>
+
+      <Card>
+        <SectionHeader>
+          <div>
+            <SectionTitle>결제관리 정보</SectionTitle>
+            {(!seller.data ||
+              !seller.data.tossSellerId ||
+              !seller.data.account?.accountNumber) && (
+              <Hint danger>결제관리 등록을 완료해 주세요.</Hint>
+            )}
+          </div>
+          <InlineButton type="button" onClick={seller.onOpenModal}>
+            {sellerNeedsSetup ? "등록하기" : "정보 수정"}
+          </InlineButton>
+        </SectionHeader>
+        {seller.error ? <InlineError>{seller.error}</InlineError> : null}
+        {seller.loading ? (
+          <Value>불러오는 중...</Value>
+        ) : seller.data ? (
+          <>
+            <InfoRow>
+              <Label>ClassOn 관리 ID</Label>
+              <Value>{seller.data.refSellerId || "-"}</Value>
+            </InfoRow>
+            <InfoRow>
+              <Label>토스 셀러 ID</Label>
+              <Value>{seller.data.tossSellerId || "-"}</Value>
+            </InfoRow>
+            <InfoRow>
+              <Label>정산 계좌</Label>
+              <Value>
+                {seller.data.account
+                  ? `${seller.data.account.bankCode || ""} ${seller.data.account.accountNumber || ""} (${seller.data.account.holderName || "-"})`
+                  : "-"}
+              </Value>
+            </InfoRow>
+          </>
+        ) : (
+          <Value>등록된 정보가 없습니다. 결제관리 등록하기 버튼을 눌러 시작하세요.</Value>
+        )}
       </Card>
 
       {/* 강사 관리는 상단 탭(강사관리)에서 관리합니다. */}
@@ -287,10 +343,18 @@ const InlineButton = styled.button`
   }
 `;
 
-const Hint = styled.p`
+const InlineError = styled.p`
+  margin: 0;
+  color: #b91c1c;
+  font-size: 13px;
+`;
+
+const Hint = styled.p.withConfig({
+  shouldForwardProp: (prop) => prop !== "danger",
+})<{ danger?: boolean }>`
   margin: 6px 0 0;
   font-size: 12px;
-  color: #6b7280;
+  color: ${({ danger }) => (danger ? "#b91c1c" : "#6b7280")};
 `;
 
 /* removed unused TeacherActions/PrimaryButton */

@@ -19,7 +19,7 @@ export function useCalendarDetailPage({ ymdParam }: UseCalendarDetailPageOptions
   });
 
   const ymdSafe = ymdParam ?? formatYMD(new Date());
-  const { label, classes: classesDerived, counsels, prevYMD, nextYMD, todayYMD } =
+  const { date, label, classes: classesDerived, counsels, prevYMD, nextYMD, todayYMD } =
     useCalendarDetail(ymdSafe);
 
   const classState = useCalendarDetailClasses({
@@ -41,6 +41,7 @@ export function useCalendarDetailPage({ ymdParam }: UseCalendarDetailPageOptions
   const todoErrorMessage = todoState.mutationError || todoState.error || null;
 
   return {
+    ymd: formatYMD(date),
     label,
     prevYMD,
     nextYMD,

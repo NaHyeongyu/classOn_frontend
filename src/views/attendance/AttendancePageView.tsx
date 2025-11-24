@@ -276,11 +276,9 @@ export function AttendancePageView({
                             <StatusBadge data-type={row.status.toLowerCase()}>
                               {statusLabel(row.status)}
                             </StatusBadge>
-                            <MetaItem>
-                              {row.status === "UNPROCESSED"
-                                ? "미처리"
-                                : formatClock(row.createdAt)}
-                            </MetaItem>
+                            {row.status !== "UNPROCESSED" ? (
+                              <MetaItem>{formatClock(row.createdAt)}</MetaItem>
+                            ) : null}
                             {row.status !== "UNPROCESSED" && (
                               <SourceBadge
                                 data-type={(row.source ?? "MANUAL").toUpperCase()}

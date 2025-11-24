@@ -3,6 +3,7 @@ import { MyAcademyProfileModal } from "@/components/myAcademy/MyAcademyProfileMo
 import { MyAcademyPhoneModal } from "@/components/myAcademy/MyAcademyPhoneModal";
 import { MyAcademyPasswordModal } from "@/components/myAcademy/MyAcademyPasswordModal";
 import { MyAcademyAcademyModal } from "@/components/myAcademy/MyAcademyAcademyModal";
+import { MyAcademySellerModal } from "@/components/myAcademy/MyAcademySellerModal";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 
 export default function MyAcademyPage() {
@@ -14,13 +15,15 @@ export default function MyAcademyPage() {
         error={state.error}
         onDismissError={state.clearError}
       onLogout={state.handleLogout}
-      account={state.account}
-      academy={state.academy}
-    />
-    <MyAcademyProfileModal modal={state.profileModal} />
-    <MyAcademyPhoneModal modal={state.phoneModal} />
-    <MyAcademyPasswordModal modal={state.passwordModal} />
-    <MyAcademyAcademyModal modal={state.academyModal} />
+        account={state.account}
+        academy={state.academy}
+        seller={state.seller}
+      />
+      <MyAcademyProfileModal modal={state.profileModal} />
+      <MyAcademyPhoneModal modal={state.phoneModal} />
+      <MyAcademyPasswordModal modal={state.passwordModal} />
+      <MyAcademyAcademyModal modal={state.academyModal} />
+      <MyAcademySellerModal modal={state.sellerModal} />
     </>
   );
 }

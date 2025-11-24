@@ -3,6 +3,7 @@ import CalendarDetailHeader from "@/components/calendar/detail/CalendarDetailHea
 import ClassList from "@/components/calendar/detail/ClassList";
 import CounselList from "@/components/calendar/detail/CounselList";
 import TodoList from "@/components/calendar/detail/TodoList";
+import { PaymentPanel } from "@/components/calendar/detail/PaymentPanel";
 import {
   DetailColumns,
   DetailLeft,
@@ -13,6 +14,7 @@ import TodoModal from "@/components/calendar/detail/modals/TodoModal";
 import CounselModal from "@/components/calendar/detail/modals/CounselModal";
 import ClassCreateModal from "@/components/calendar/detail/modals/ClassCreateModal";
 import type { TaskItem, CounselItem, ClassItem } from "@/types/calendarDetail";
+import type { CalendarPaymentSection } from "@/features/calendar/useCalendarPaymentList";
 
 type TodoModalProps = ComponentProps<typeof TodoModal>;
 type CounselModalProps = ComponentProps<typeof CounselModal>;
@@ -41,7 +43,17 @@ type CalendarDetailPageViewProps = {
   };
   classList: {
     items: ClassItem[];
-    onAdd: () => void;
+    onAdd?: () => void;
+  };
+  paymentPanel?: {
+    configured: boolean;
+    sections: CalendarPaymentSection[];
+    loading?: boolean;
+    error?: string | null;
+    periodLabel?: string;
+    rangeLabel?: string;
+    onOpenSchedule?: () => void;
+    onMore?: () => void;
   };
   todoModal: TodoModalProps;
   counselModal: CounselModalProps;
@@ -55,6 +67,7 @@ export default function CalendarDetailPageView({
   todoList,
   counselList,
   classList,
+  paymentPanel,
   todoModal,
   counselModal,
   classModal,
@@ -92,6 +105,18 @@ export default function CalendarDetailPageView({
             showNotes={true}
             onAdd={classList.onAdd}
           />
+          {paymentPanel ? (
+            <PaymentPanel
+              configured={paymentPanel.configured}
+              sections={paymentPanel.sections}
+              loading={paymentPanel.loading}
+              error={paymentPanel.error}
+              periodLabel={paymentPanel.periodLabel}
+              rangeLabel={paymentPanel.rangeLabel}
+              onOpenSchedule={paymentPanel.onOpenSchedule}
+              onMore={paymentPanel.onMore}
+            />
+          ) : null}
           <TodoModal {...todoModal} />
           <CounselModal {...counselModal} />
           <ClassCreateModal {...classModal} />

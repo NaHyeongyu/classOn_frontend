@@ -11,9 +11,13 @@ import { useToast } from "@/components/common/Toast";
 import {
   apiChangePassword,
   apiGetMyAcademy,
+  apiGetMySeller,
+  apiRegisterSeller,
   apiUpdateMyAcademy,
   apiUpdateMyProfile,
+  apiUpdateSeller,
   type AcademyDetail,
+  type SellerDetail,
 } from "@/api/account";
 import { apiRequestPhoneCode, apiVerifyPhoneCode } from "@/api/auth";
 import {
@@ -39,6 +43,38 @@ type AccountViewState = {
 type AcademyViewState = {
   data: AcademyDetail | null;
   onOpenEditModal: () => void;
+};
+
+type SellerViewState = {
+  data: SellerDetail | null;
+  loading: boolean;
+  error: string | null;
+  onOpenModal: () => void;
+};
+
+type SellerFormState = {
+  refSellerId: string;
+  businessType: "INDIVIDUAL" | "INDIVIDUAL_BUSINESS" | "CORPORATE";
+  companyName: string;
+  representativeName: string;
+  businessRegistrationNumber: string;
+  companyEmail: string;
+  companyPhone: string;
+  accountBankCode: string;
+  accountNumber: string;
+  accountHolderName: string;
+};
+
+export type SellerModalState = {
+  open: boolean;
+  creating: boolean;
+  form: SellerFormState;
+  submitting: boolean;
+  error: string | null;
+  openModal: () => void;
+  closeModal: () => void;
+  updateField: <K extends keyof SellerFormState>(field: K, value: SellerFormState[K]) => void;
+  submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };
 
 export type ProfileModalState = {
@@ -149,6 +185,7 @@ export type UseMyAcademyPageResult = {
   error: string | null;
   account: AccountViewState;
   academy: AcademyViewState;
+  seller: SellerViewState;
   teachers: {
     loading: boolean;
     error: string | null;
@@ -161,6 +198,7 @@ export type UseMyAcademyPageResult = {
   phoneModal: PhoneModalState;
   passwordModal: PasswordModalState;
   academyModal: AcademyModalState;
+  sellerModal: SellerModalState;
   teacherCreateModal: TeacherCreateModalState;
   handleLogout: () => void;
   clearError: () => void;
@@ -177,6 +215,31 @@ function createAcademyForm(detail: AcademyDetail | null): AcademyFormState {
     phone: detail?.phone ?? "",
     billingEmail: detail?.billingEmail ?? "",
     bizNo: maskBiz(detail?.bizNo ?? ""),
+  };
+}
+
+function createSellerForm(
+  academy: AcademyDetail | null,
+  seller: SellerDetail | null,
+): SellerFormState {
+  const defaultRef =
+    seller?.refSellerId ??
+    (academy?.id ? `academy_seller_${academy.id}` : "academy_seller_temp");
+  return {
+    refSellerId: defaultRef,
+    businessType: (seller?.businessType as SellerFormState["businessType"]) ?? "INDIVIDUAL_BUSINESS",
+    companyName: seller?.company?.name ?? academy?.name ?? "",
+    representativeName: seller?.company?.representativeName ?? academy?.representativeName ?? "",
+    businessRegistrationNumber: seller?.company?.businessRegistrationNumber ?? academy?.bizNo ?? "",
+    companyEmail: seller?.company?.email ?? academy?.billingEmail ?? "",
+    companyPhone: seller?.company?.phone ?? academy?.phone ?? "",
+    accountBankCode: seller?.account?.bankCode ?? "",
+    accountNumber: seller?.account?.accountNumber ?? "",
+    accountHolderName:
+      seller?.account?.holderName ??
+      seller?.company?.representativeName ??
+      academy?.representativeName ??
+      "",
   };
 }
 
@@ -220,6 +283,15 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   );
   const [academyModalError, setAcademyModalError] = useState<string | null>(null);
   const [academyModalSubmitting, setAcademyModalSubmitting] = useState(false);
+  const [seller, setSeller] = useState<SellerDetail | null>(null);
+  const [sellerLoading, setSellerLoading] = useState(true);
+  const [sellerError, setSellerError] = useState<string | null>(null);
+  const [sellerModalOpen, setSellerModalOpen] = useState(false);
+  const [sellerModalSubmitting, setSellerModalSubmitting] = useState(false);
+  const [sellerModalError, setSellerModalError] = useState<string | null>(null);
+  const [sellerModalForm, setSellerModalForm] = useState<SellerFormState>(() =>
+    createSellerForm(null, null),
+  );
   const [teacherList, setTeacherList] = useState<TeacherListItem[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(true);
   const [teachersError, setTeachersError] = useState<string | null>(null);
@@ -248,10 +320,29 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     [phoneModalValue],
   );
 
+  const loadSeller = useCallback(async () => {
+    setSellerLoading(true);
+    setSellerError(null);
+    try {
+      const detail = await apiGetMySeller();
+      setSeller(detail);
+    } catch (err) {
+      setSellerError(
+        toErrorMessage(err, "셀러 정보를 불러오지 못했습니다."),
+      );
+    } finally {
+      setSellerLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     setName(user?.name ?? "");
     setPhone(user?.phone ?? "");
   }, [user?.name, user?.phone]);
+
+  useEffect(() => {
+    void loadSeller();
+  }, [loadSeller]);
 
   const loadTeachers = useCallback(async () => {
     setTeachersLoading(true);
@@ -316,6 +407,82 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
       navigate(paths.teachers.detail(id));
     },
     [navigate],
+  );
+
+  const sellerNeedsSetup =
+    !seller || !seller.tossSellerId || !seller.account?.accountNumber;
+
+  const openSellerModal = useCallback(() => {
+    setSellerModalForm(createSellerForm(academy, seller));
+    setSellerModalError(null);
+    setSellerModalSubmitting(false);
+    setSellerModalOpen(true);
+  }, [academy, seller]);
+
+  const closeSellerModal = useCallback(() => {
+    setSellerModalOpen(false);
+    setSellerModalError(null);
+    setSellerModalSubmitting(false);
+  }, []);
+
+  const updateSellerModalField = useCallback(
+    <K extends keyof SellerFormState>(field: K, value: SellerFormState[K]) => {
+      setSellerModalForm((prev) => ({ ...prev, [field]: value }));
+      setSellerModalError(null);
+    },
+    [],
+  );
+
+  const submitSellerModal = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const refSellerId = sellerModalForm.refSellerId.trim();
+      if (!refSellerId || refSellerId.length < 7) {
+        setSellerModalError("refSellerId는 7자 이상 입력해 주세요.");
+        return;
+      }
+      if (!sellerModalForm.accountBankCode.trim()) {
+        setSellerModalError("은행 코드를 입력해 주세요.");
+        return;
+      }
+      if (!sellerModalForm.accountNumber.trim()) {
+        setSellerModalError("계좌번호를 입력해 주세요.");
+        return;
+      }
+      if (!sellerModalForm.accountHolderName.trim()) {
+        setSellerModalError("예금주명을 입력해 주세요.");
+        return;
+      }
+      const payload = {
+        refSellerId,
+        businessType: sellerModalForm.businessType,
+        companyName: sellerModalForm.companyName.trim() || undefined,
+        representativeName: sellerModalForm.representativeName.trim() || undefined,
+        businessRegistrationNumber:
+          sellerModalForm.businessRegistrationNumber.trim() || undefined,
+        companyEmail: sellerModalForm.companyEmail.trim() || undefined,
+        companyPhone: sellerModalForm.companyPhone.trim() || undefined,
+        bankCode: sellerModalForm.accountBankCode.trim(),
+        accountNumber: sellerModalForm.accountNumber.trim(),
+        accountHolderName: sellerModalForm.accountHolderName.trim(),
+      };
+      setSellerModalSubmitting(true);
+      try {
+        const next = sellerNeedsSetup
+          ? await apiRegisterSeller(payload)
+          : await apiUpdateSeller(payload);
+        setSeller(next);
+        toast.success(sellerNeedsSetup ? "셀러가 등록되었습니다." : "셀러 정보가 수정되었습니다.");
+        closeSellerModal();
+      } catch (err) {
+        setSellerModalError(
+          toErrorMessage(err, "셀러 정보를 저장하지 못했습니다."),
+        );
+      } finally {
+        setSellerModalSubmitting(false);
+      }
+    },
+    [closeSellerModal, sellerNeedsSetup, sellerModalForm, toast],
   );
 
   const submitTeacherModal = useCallback(
@@ -837,6 +1004,25 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     submit: submitAcademyModal,
   };
 
+  const sellerView: SellerViewState = {
+    data: seller,
+    loading: sellerLoading,
+    error: sellerError,
+    onOpenModal: openSellerModal,
+  };
+
+  const sellerModalState: SellerModalState = {
+    open: sellerModalOpen,
+    creating: sellerNeedsSetup,
+    form: sellerModalForm,
+    submitting: sellerModalSubmitting,
+    error: sellerModalError,
+    openModal: openSellerModal,
+    closeModal: closeSellerModal,
+    updateField: updateSellerModalField,
+    submit: submitSellerModal,
+  };
+
   const teachersView = {
     loading: teachersLoading,
     error: teachersError,
@@ -851,11 +1037,13 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     error,
     account,
     academy: academyView,
+    seller: sellerView,
     teachers: teachersView,
     profileModal,
     phoneModal,
     passwordModal,
     academyModal,
+    sellerModal: sellerModalState,
       teacherCreateModal: {
         open: teacherModalOpen,
         form: teacherModalForm,

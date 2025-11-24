@@ -28,7 +28,9 @@ const StudentDetail = lazy(() => import("@/pages/StudentDetail"));
 const StudentForm = lazy(() => import("@/pages/StudentForm"));
 const DevTools = lazy(() => import("@/pages/DevTools"));
 const Marketing = lazy(() => import("@/pages/Marketing"));
-const PaymentsWip = lazy(() => import("@/pages/PaymentsWip"));
+const Payments = lazy(() => import("@/pages/Payments"));
+const PaymentsCreate = lazy(() => import("@/pages/PaymentsCreate"));
+const PaymentsKakaoConfirm = lazy(() => import("@/pages/PaymentsKakaoConfirm"));
 const MarketingSummary = lazy(() => import("@/pages/MarketingSummary"));
 const MarketingPreview = lazy(() => import("@/pages/MarketingPreview"));
 const MarketingGenerating = lazy(() => import("@/pages/MarketingGenerating"));
@@ -49,6 +51,9 @@ const AdminStats = lazy(() => import("@/pages/AdminStats"));
 const AdminAcademyDetail = lazy(() => import("@/pages/AdminAcademyDetail"));
 const AdminFeedbacks = lazy(() => import("@/pages/AdminFeedbacks"));
 const PaymentRequest = lazy(() => import("@/pages/PaymentRequest"));
+const PaymentReceipt = lazy(() => import("@/pages/PaymentReceipt"));
+const PaymentTossSuccess = lazy(() => import("@/pages/PaymentTossSuccess"));
+const PaymentTossFail = lazy(() => import("@/pages/PaymentTossFail"));
 import { PageLoading, LoadingSpinner } from "@/components/common/Loading";
 import { RouteTransition, TopProgressBar } from "@/components/common/RouteTransition";
 import { routes } from "@/routes";
@@ -142,7 +147,9 @@ export default function App() {
           <Route path={routes.classHistoryDate} element={<CourseRecordDetail />} />
           <Route path={routes.attendance} element={<Attendance />} />
           { /* 상담 전역 라우트 제거됨: 학생 상세 > 상담기록 탭에서 관리 */ }
-          <Route path={routes.payments} element={<PaymentsWip />} />
+          <Route path={routes.payments} element={<Payments />} />
+          <Route path={routes.paymentsCreate} element={<PaymentsCreate />} />
+          <Route path={routes.paymentsKakaoConfirm} element={<PaymentsKakaoConfirm />} />
           {enableDev && <Route path={routes.devTools} element={<DevTools />} />}
           <Route path={routes.marketing} element={<Marketing />} />
           { /* Marketing guide removed */ }
@@ -164,6 +171,11 @@ export default function App() {
       <Route element={<BareLayout />}>
         <Route path={routes.payRequestBlank} element={<PaymentRequest />} />
         <Route path={routes.payRequest} element={<PaymentRequest />} />
+        <Route path={routes.invoiceViewerBlank} element={<PaymentRequest />} />
+        <Route path={routes.invoiceViewer} element={<PaymentRequest />} />
+        <Route path={routes.paymentsTossSuccess} element={<PaymentTossSuccess />} />
+        <Route path={routes.paymentsTossFail} element={<PaymentTossFail />} />
+        <Route path={routes.paymentsReceipt} element={<PaymentReceipt />} />
       </Route>
 
       <Route element={<PublicLayout />}>

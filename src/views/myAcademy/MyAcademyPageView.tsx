@@ -6,7 +6,7 @@ import { maskBiz } from "@/features/myAcademy/utils";
 import type { SubscriptionDto } from "@/api/billing";
 import { apiIssueBillingKey, apiGetTossClientKey } from "@/api/billing";
 import { formatMoney } from "@/lib/format";
-import { loadTossPayments } from "@tosspayments/payment-sdk";
+import { loadTossPayments } from "@/lib/tossPayments";
 import { useToast } from "@/components/common/Toast";
 import { routes } from "@/routes";
 

@@ -10,9 +10,33 @@ import {
   ModalPrimaryButton,
   ModalSelect,
 } from "@/components/myAcademy/MyAcademyModalStyles";
-import type { SellerModalState } from "@/features/myAcademy/hooks/useMyAcademyPage";
 import { BANK_OPTIONS } from "@/features/myAcademy/banks";
+import type { FormEvent } from "react";
 import styled from "styled-components";
+
+type SellerFormState = {
+  businessType: "INDIVIDUAL" | "INDIVIDUAL_BUSINESS" | "CORPORATE";
+  refSellerId: string;
+  companyName: string;
+  representativeName: string;
+  businessRegistrationNumber: string;
+  companyEmail: string;
+  companyPhone: string;
+  accountBankCode: string;
+  accountNumber: string;
+  accountHolderName: string;
+};
+
+export type SellerModalState = {
+  open: boolean;
+  creating: boolean;
+  submitting: boolean;
+  error: string | null;
+  form: SellerFormState;
+  updateField: <K extends keyof SellerFormState>(field: K, value: SellerFormState[K]) => void;
+  submit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  closeModal: () => void;
+};
 
 type Props = {
   modal: SellerModalState;

@@ -57,8 +57,8 @@ type BillingViewState = {
     planName: string;
     amountKrw: number;
     currency?: string;
-    billingKey: string;
-    customerKey: string;
+    billingKey?: string;
+    customerKey?: string;
     cardCompany?: string;
     cardNumber?: string;
   }) => Promise<void>;

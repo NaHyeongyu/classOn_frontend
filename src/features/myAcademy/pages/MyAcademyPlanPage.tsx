@@ -21,7 +21,7 @@ import {
 } from "@/components/register/RegisterForm.styles";
 import styled from "styled-components";
 import { apiGetMyAcademy } from "@/api/account";
-import { loadTossPayments } from "@tosspayments/payment-sdk";
+import { loadTossPayments } from "@/lib/tossPayments";
 
 type BillingPlanConfig = {
   id: string;

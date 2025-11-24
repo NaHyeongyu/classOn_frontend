@@ -248,7 +248,7 @@ function ProtectedLayout() {
             // 구독 조회 실패는 무시 (academy 상태 기준 차단 유지)
           }
         }
-        const allowedPaths = [routes.myAcademyPlan, routes.myAcademy];
+        const allowedPaths: string[] = [routes.myAcademyPlan, routes.myAcademy];
         const onAllowed = allowedPaths.includes(location.pathname);
         if (alive && shouldBlock) {
           setBillingBlocked(true);

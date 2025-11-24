@@ -29,7 +29,6 @@ import type {
   PaymentDetail,
   PaymentMethod,
   PaymentType,
-  DiscountType,
 } from "@classon/shared-types";
 import type { PageResult } from "@/types/paging";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -227,10 +226,9 @@ export default function Payments() {
   const summary = summaryQuery.data;
   const invoices = invoiceQuery.data;
   const history = historyQuery.data;
-  const rawInvoiceRows = invoices?.content ?? [];
   const invoiceRows = useMemo(
-    () => filterInvoiceQueue(rawInvoiceRows, reminderDays),
-    [rawInvoiceRows, reminderDays],
+    () => filterInvoiceQueue(invoices?.content ?? [], reminderDays),
+    [invoices?.content, reminderDays],
   );
   useEffect(() => {
     if (!invoices) return;
@@ -2088,12 +2086,6 @@ const Paragraph = styled.p`
   padding: 12px;
   min-height: 80px;
   white-space: pre-wrap;
-`;
-
-const FieldHint = styled.p`
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: ${(p) => p.theme.colors.textMuted};
 `;
 
 const DiscountBox = styled.div`

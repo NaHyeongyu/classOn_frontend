@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { useQuery } from "@tanstack/react-query";
 import { PrimaryButton } from "@/components/common/UI";
@@ -8,10 +8,10 @@ import { useToast } from "@/components/common/Toast";
 import {
   getPublicPaymentInvoice,
   preparePublicPaymentCheckout,
-  type PublicPaymentCheckoutInit,
   type PublicPaymentInvoice,
 } from "@/api/payments";
 import type { PaymentDetail } from "@classon/shared-types";
+import type { TossPayments } from "@/types/tossPayments";
 
 type InvoiceViewModel = {
   academyName: string;
@@ -115,7 +115,7 @@ export default function InvoicePreview({
   const canPay = mode === "guardian" && Boolean(token) && !disablePay;
   
   const [paying, setPaying] = useState(false);
-  const [tossPayments, setTossPayments] = useState<any>(null);
+  const [tossPayments, setTossPayments] = useState<TossPayments | null>(null);
   
   const checkoutQuery = useQuery({
     queryKey: ["public-checkout", token],
@@ -544,33 +544,10 @@ const MemoBox = styled.div`
   line-height: 1.5;
 `;
 
-const CheckoutWidget = styled.div`
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  min-height: 220px;
-  padding: 12px;
-  background: #fff;
-  margin-top: 12px;
-`;
-
-const AgreementWidget = styled.div`
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #f9fafb;
-  padding: 12px;
-  margin-top: 12px;
-`;
-
 const Note = styled.p`
   margin: 14px 0 0 0;
   color: #6b7280;
   font-size: 13px;
-`;
-
-const Hint = styled.p`
-  margin: 6px 0 0 0;
-  color: #94a3b8;
-  font-size: 12px;
 `;
 
 const InlineError = styled.p`

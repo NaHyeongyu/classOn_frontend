@@ -1,4 +1,4 @@
-type TossPayments = {
+export type TossPayments = {
   requestPayment: (method: string, params: {
     amount: number;
     orderId: string;
@@ -11,12 +11,10 @@ type TossPayments = {
   }) => Promise<void>;
 };
 
-type TossPaymentsFactory = (clientKey: string) => TossPayments;
+export type TossPaymentsFactory = (clientKey: string) => TossPayments;
 
 declare global {
   interface Window {
     TossPayments?: TossPaymentsFactory;
   }
 }
-
-export {};

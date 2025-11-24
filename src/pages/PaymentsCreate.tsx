@@ -78,13 +78,6 @@ function computePeriodEnd(start: string, months: number): string {
   return dateISO(next);
 }
 
-function parseNumericInput(raw: string): number | undefined {
-  const digits = raw.replace(/[^0-9]/g, "");
-  if (!digits) return undefined;
-  const parsed = Number(digits);
-  return Number.isNaN(parsed) ? undefined : parsed;
-}
-
 export default function PaymentsCreate() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();

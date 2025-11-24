@@ -1302,16 +1302,6 @@ const Input = styled.input`
   box-sizing: border-box;
 `;
 
-const Select = styled.select`
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 14px;
-  width: 100%;
-  box-sizing: border-box;
-  background: #fff;
-`;
-
 const Textarea = styled.textarea`
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: 10px;

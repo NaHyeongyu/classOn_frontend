@@ -21,7 +21,13 @@
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true,
-    "noUncheckedSideEffectImports": true
+    "noUncheckedSideEffectImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@classon/shared-types": ["./node_modules/@classon/shared-types/src"],
+      "@classon/shared-types/*": ["./node_modules/@classon/shared-types/src/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "node_modules/@classon/shared-types/src"]
 }

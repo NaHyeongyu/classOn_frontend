@@ -610,10 +610,12 @@ const InlineButton = styled.button`
   }
 `;
 
-const Hint = styled.p`
+const Hint = styled.p.withConfig({
+  shouldForwardProp: (prop) => prop !== "danger",
+})<{ danger?: boolean }>`
   margin: 6px 0 0;
   font-size: 12px;
-  color: #6b7280;
+  color: ${({ danger }) => (danger ? "#b91c1c" : "#6b7280")};
 `;
 
 /* removed unused TeacherActions/PrimaryButton */

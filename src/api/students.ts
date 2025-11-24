@@ -3,7 +3,13 @@
 
 import { fetchJSON, getCanaryHeaders, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
 import type { PageResult } from "../types/paging";
-import type { Student, StudentAttendance, StudentStatus } from "@classon/shared-types";
+import type {
+  Student,
+  StudentAttendance,
+  StudentStatus,
+  PaymentDetail,
+  PaymentHistoryRow,
+} from "@classon/shared-types";
 
 export type { Student, StudentAttendance } from "@classon/shared-types";
 
@@ -122,6 +128,15 @@ export async function deleteStudent(id: number): Promise<void> {
   } catch {
     /* ignore cross-context dispatch errors */
   }
+}
+
+export type StudentPaymentInfo = {
+  invoice: PaymentDetail | null;
+  history: PaymentHistoryRow[];
+};
+
+export async function getStudentPaymentInfo(id: number): Promise<StudentPaymentInfo> {
+  return await fetchJSON<StudentPaymentInfo>(`/api/students/${id}/payments`);
 }
 
 // Excel helpers (download/upload)

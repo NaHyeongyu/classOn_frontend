@@ -92,6 +92,39 @@ const timeFormatterWithSeconds = new Intl.DateTimeFormat('ko-KR', {
   hour12: false,
 });
 
+const dateFormatterFullKST = new Intl.DateTimeFormat('ko-KR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'Asia/Seoul',
+});
+
+const dateFormatterNoYearKST = new Intl.DateTimeFormat('ko-KR', {
+  month: 'long',
+  day: 'numeric',
+  timeZone: 'Asia/Seoul',
+});
+
+const weekdayFormatterKST = new Intl.DateTimeFormat('ko-KR', {
+  weekday: 'short',
+  timeZone: 'Asia/Seoul',
+});
+
+const timeFormatterKST = new Intl.DateTimeFormat('ko-KR', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Seoul',
+});
+
+const timeFormatterWithSecondsKST = new Intl.DateTimeFormat('ko-KR', {
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: false,
+  timeZone: 'Asia/Seoul',
+});
+
 export function formatKoreanDate(
   value: DateInput,
   options?: { includeYear?: boolean; includeWeekday?: boolean }
@@ -114,6 +147,21 @@ export function formatKoreanDateTime(
   const datePart = formatKoreanDate(date, { includeYear, includeWeekday });
   const timePart = (showSeconds ? timeFormatterWithSeconds : timeFormatter).format(date);
   return `${datePart} ${timePart}`.trim();
+}
+
+export function formatKoreanDateTimeKST(
+  value: DateInput,
+  options?: { includeYear?: boolean; includeWeekday?: boolean; showSeconds?: boolean }
+): string {
+  const date = toDate(value);
+  if (!date) return '—';
+  const { includeYear = true, includeWeekday = true, showSeconds = false } = options ?? {};
+  const baseFormatter = includeYear ? dateFormatterFullKST : dateFormatterNoYearKST;
+  const datePart = baseFormatter.format(date);
+  const weekdayPart = includeWeekday ? ` (${weekdayFormatterKST.format(date)})` : '';
+  const timeFormatterRef = showSeconds ? timeFormatterWithSecondsKST : timeFormatterKST;
+  const timePart = timeFormatterRef.format(date);
+  return `${datePart}${weekdayPart} ${timePart}`.trim();
 }
 
 export function formatTimeLabel(value?: string | null, placeholder = '--:--'): string {

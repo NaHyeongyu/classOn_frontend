@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import { DashboardPanel } from "./DashboardLayout";
+import { DashboardMoreButton } from "./DashboardButtons";
 import { getDailyAttendance, type AttendanceDailySummary } from "@/api/attendance";
 import { EmptyPlaceholder } from "@/components/common/EmptyPlaceholder";
 import { formatYMD } from "@/features/calendar/dateUtils";
@@ -14,7 +15,6 @@ import {
 } from "@/features/attendance/utils";
 import { STATUS_FILTER_OPTIONS } from "@/features/attendance/constants";
 import type { FlatRow, StatusFilter } from "@/features/attendance/types";
-import { GhostButton as UIGhostButton } from "@/components/common/UI";
 
 export default function DashboardAttendance() {
   const navigate = useNavigate();
@@ -78,21 +78,38 @@ export default function DashboardAttendance() {
   return (
     <DashboardPanel span={6}>
       <Head>
-        <HeadInfo>
-          <Title>오늘 출결 요약</Title>
-          <HeadMeta>
-            <Muted>
-              {loading
-                ? "불러오는 중…"
-                : `${summary ? summary.classCount : 0}개 수업`}
-            </Muted>
-            {error ? <Err>{error}</Err> : null}
-          </HeadMeta>
-        </HeadInfo>
+        <TitleGroup>
+          <TitleIcon aria-hidden>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M9 11l3 3L22 4" />
+              <path d="M21 12v7a2 2 0 0 1-2 2H6l-4 4V5a2 2 0 0 1 2-2h9" />
+            </svg>
+          </TitleIcon>
+          <TitleStack>
+            <Title>오늘 출결 요약</Title>
+            <HeadMeta>
+              <Muted>
+                {loading
+                  ? "불러오는 중…"
+                  : `${summary ? summary.classCount : 0}개 수업`}
+              </Muted>
+              {error ? <Err>{error}</Err> : null}
+            </HeadMeta>
+          </TitleStack>
+        </TitleGroup>
         <HeadActions>
-          <MoreButton type="button" onClick={() => navigate("/attendance")}>
+          <DashboardMoreButton type="button" onClick={() => navigate("/attendance")}>
             더보기
-          </MoreButton>
+          </DashboardMoreButton>
         </HeadActions>
       </Head>
 
@@ -152,11 +169,9 @@ export default function DashboardAttendance() {
                     <StatusBadge data-type={row.status.toLowerCase()}>
                       {statusLabel(row.status)}
                     </StatusBadge>
-                    <MetaItem>
-                      {row.status === "UNPROCESSED"
-                        ? "미처리"
-                        : formatClock(row.createdAt)}
-                    </MetaItem>
+                    {row.status !== "UNPROCESSED" ? (
+                      <MetaItem>{formatClock(row.createdAt)}</MetaItem>
+                    ) : null}
                     {row.status !== "UNPROCESSED" && (
                       <SourceBadge data-type={(row.source ?? "MANUAL").toUpperCase()}>
                         {sourceLabel(row.source)}
@@ -209,17 +224,33 @@ const Head = styled.header`
   flex-wrap: wrap;
 `;
 
-const HeadInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${(p) => p.theme.spacing.xs};
-`;
-
 const Title = styled.h3`
   margin: 0;
   font-size: ${(p) => p.theme.font.size.lg};
   font-weight: ${(p) => p.theme.font.weight.semiBold};
   color: ${(p) => p.theme.colors.text};
+`;
+
+const TitleGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+
+const TitleStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.xs};
+`;
+
+const TitleIcon = styled.span`
+  width: 32px;
+  height: 32px;
+  border-radius: ${(p) => p.theme.radii.md};
+  background: ${(p) => p.theme.colors.primarySurface};
+  color: ${(p) => p.theme.colors.primary};
+  display: grid;
+  place-items: center;
 `;
 
 const HeadMeta = styled.div`
@@ -233,16 +264,6 @@ const HeadActions = styled.div`
   align-items: center;
   gap: ${(p) => p.theme.spacing.sm};
   flex-wrap: wrap;
-`;
-
-const MoreButton = styled(UIGhostButton)`
-  border-color: ${(p) => p.theme.colors.primary};
-  background: ${(p) => p.theme.colors.primary};
-  color: #ffffff;
-  &:hover {
-    border-color: ${(p) => p.theme.colors.primaryHover ?? "#4338ca"};
-    background: ${(p) => p.theme.colors.primaryHover ?? "#4338ca"};
-  }
 `;
 
 const Muted = styled.span`

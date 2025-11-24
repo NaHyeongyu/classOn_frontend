@@ -6,7 +6,6 @@ interface ImportMetaEnv {
   readonly VITE_BRIEF_TIMEOUT_MS?: string;
   readonly VITE_RENDER_TIMEOUT_MS?: string;
   readonly VITE_APP_LOGO_PATH?: string;
-  readonly VITE_TOSS_CLIENT_KEY?: string;
   readonly DEV: boolean;
   readonly PROD: boolean;
   readonly MODE: string;

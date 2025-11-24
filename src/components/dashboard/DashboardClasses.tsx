@@ -68,7 +68,7 @@ export default function DashboardClasses() {
   });
 
   return (
-    <DashboardPanel span={6} rowSpan={2}>
+    <DashboardPanel span={6}>
       <Scrollable>
         <ClassList
           items={items}

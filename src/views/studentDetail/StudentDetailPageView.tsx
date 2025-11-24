@@ -15,6 +15,7 @@ import { StudentAttendanceTab } from "@/components/studentDetail/StudentAttendan
 import { StudentGradesTab } from "@/components/studentDetail/StudentGradesTab";
 import { StudentCounselTab } from "@/components/studentDetail/StudentCounselTab";
 import { StudentCounselAddModal } from "@/components/studentDetail/StudentCounselAddModal";
+import { StudentPaymentsSection } from "@/components/studentDetail/StudentPaymentsSection";
 import {
   courseStatusLabel,
   formatStudentMemoDate,
@@ -40,6 +41,7 @@ type StudentDetailPageViewProps = {
   attendance: StudentDetailPageState["attendance"];
   grades: StudentDetailPageState["grades"];
   counsels: StudentDetailPageState["counsels"];
+  payments: StudentDetailPageState["payments"];
   deleteConfirmDialog?: React.ReactNode;
   onOpenCourse: (courseId: number) => void;
 };
@@ -60,6 +62,7 @@ export function StudentDetailPageView({
   attendance,
   grades,
   counsels,
+  payments,
   deleteConfirmDialog,
   onOpenCourse,
 }: StudentDetailPageViewProps) {
@@ -196,6 +199,13 @@ export function StudentDetailPageView({
                 </SectionBody>
               ) : null}
             </Card>
+            <StudentPaymentsSection
+              studentId={student?.id ?? null}
+              payments={payments.data}
+              loading={payments.loading}
+              error={payments.error}
+              onRefresh={payments.refresh}
+            />
           </Right>
         </Columns>
       ) : null}
@@ -294,7 +304,10 @@ const Left = styled.aside`
   gap: 18px;
 `;
 
-const Right = styled.section``;
+const Right = styled.section`
+  display: grid;
+  gap: 18px;
+`;
 
 const Error = styled.div`
   color: #b91c1c;

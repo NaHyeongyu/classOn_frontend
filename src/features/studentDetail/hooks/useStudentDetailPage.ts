@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { deleteStudent } from "@/api/students";
+import { deleteStudent, getStudentPaymentInfo, type StudentPaymentInfo } from "@/api/students";
 import { useToast } from "@/components/common/Toast";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { readableError } from "@/lib/errors";
@@ -46,6 +47,12 @@ export type StudentDetailPageState = {
   counsels: ReturnType<typeof useStudentCounsels> & {
     tabError: string | null;
     handleProtectedCloseAddModal: () => void;
+  };
+  payments: {
+    data: StudentPaymentInfo | null;
+    loading: boolean;
+    error: string | null;
+    refresh: () => void;
   };
   deleteConfirmDialog: ReactNode;
 };
@@ -104,6 +111,16 @@ export function useStudentDetailPage(): StudentDetailPageState {
     onToastError: showError,
   });
 
+  const paymentsQuery = useQuery({
+    queryKey: ["students", numericId, "payments"],
+    enabled: Boolean(numericId),
+    queryFn: () => {
+      if (!numericId) throw new Error("학생 ID가 필요합니다.");
+      return getStudentPaymentInfo(numericId);
+    },
+    staleTime: 30_000,
+  });
+
   const [deleting, setDeleting] = useState(false);
 
   async function onDeleteStudent() {
@@ -144,6 +161,15 @@ export function useStudentDetailPage(): StudentDetailPageState {
   const counselTabError =
     counsels.listError || counsels.editState.formError || null;
 
+  const paymentError =
+    paymentsQuery.error && numericId
+      ? paymentsQuery.error instanceof Error
+        ? paymentsQuery.error.message
+        : "결제 정보를 불러오지 못했습니다."
+      : null;
+
+  const paymentsLoading = paymentsQuery.status === "pending" && Boolean(numericId);
+
   return {
     numericId,
     loading,
@@ -164,6 +190,14 @@ export function useStudentDetailPage(): StudentDetailPageState {
       ...counsels,
       tabError: counselTabError,
       handleProtectedCloseAddModal,
+    },
+    payments: {
+      data: paymentsQuery.data ?? null,
+      loading: paymentsLoading,
+      error: paymentError,
+      refresh: () => {
+        void paymentsQuery.refetch();
+      },
     },
     deleteConfirmDialog,
   };

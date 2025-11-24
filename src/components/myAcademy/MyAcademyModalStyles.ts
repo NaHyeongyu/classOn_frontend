@@ -44,6 +44,21 @@ export const ModalTextarea = styled.textarea`
   }
 `;
 
+export const ModalSelect = styled.select`
+  width: 100%;
+  height: 44px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0 12px;
+  font-size: 14px;
+  background: #fff;
+  &:focus {
+    outline: none;
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
+  }
+`;
+
 export const ModalHint = styled.p<{ danger?: boolean }>`
   margin: 4px 0 0;
   font-size: 12px;

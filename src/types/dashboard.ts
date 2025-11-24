@@ -13,4 +13,7 @@ export interface DashboardSummary {
   marketingLimit?: number | null;
   marketingUsed?: number | null;
   marketingRemaining?: number | null;
+  paymentUnpaidCount: number;
+  paymentPendingCount: number;
+  paymentCompletedCount: number;
 }

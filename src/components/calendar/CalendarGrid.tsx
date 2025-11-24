@@ -65,10 +65,11 @@ export default function CalendarGrid({ viewDate, dates, onSelectDate, getEvents 
                 // Aggregate counts by type (prefer explicit count, fallback to 1 per event)
                 const sum = (t: CalendarEvent["type"]) =>
                   events.filter((e) => e.type === t).reduce((acc, e) => acc + (e.count ?? 1), 0);
-                const classCount = sum('class');
-                const counselCount = sum('counsel');
-                const todoCount = sum('todo');
-                if (classCount + counselCount + todoCount === 0) return null;
+                const classCount = sum("class");
+                const counselCount = sum("counsel");
+                const todoCount = sum("todo");
+                const paymentCount = sum("payment");
+                if (classCount + counselCount + todoCount + paymentCount === 0) return null;
                 return (
                   <CountGrid>
                     {classCount > 0 && (
@@ -79,6 +80,11 @@ export default function CalendarGrid({ viewDate, dates, onSelectDate, getEvents 
                     )}
                     {todoCount > 0 && (
                       <CountPill data-variant="todo" title={`할일 ${todoCount}개`}>할일 {todoCount}개</CountPill>
+                    )}
+                    {paymentCount > 0 && (
+                      <CountPill data-variant="payment" title={`결제 ${paymentCount}건`}>
+                        결제 {paymentCount}건
+                      </CountPill>
                     )}
                   </CountGrid>
                 );
@@ -165,4 +171,5 @@ const CountPill = styled.span`
   &[data-variant='class'] { color:#5b21b6; background:#f5f3ff; border-color:#ede9fe; }
   &[data-variant='counsel'] { color:#1d4ed8; background:#eff6ff; border-color:#dbeafe; }
   &[data-variant='todo'] { color:#047857; background:#ecfdf5; border-color:#bbf7d0; }
+  &[data-variant='payment'] { color:#b45309; background:#fffbeb; border-color:#fde68a; }
 `;

@@ -17,6 +17,48 @@ export type AcademyDetail = {
   stage?: "DEVELOPMENT" | "TEST" | "PRODUCTION";
 };
 
+export type SellerCompany = {
+  name?: string;
+  representativeName?: string;
+  businessRegistrationNumber?: string;
+  email?: string;
+  phone?: string;
+};
+
+export type SellerAccount = {
+  bankCode?: string;
+  accountNumber?: string;
+  holderName?: string;
+};
+
+export type SellerDetail = {
+  id: number;
+  tossSellerId?: string;
+  refSellerId: string;
+  businessType: "INDIVIDUAL" | "INDIVIDUAL_BUSINESS" | "CORPORATE";
+  status?: string;
+  company?: SellerCompany;
+  individual?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+  };
+  account?: SellerAccount;
+};
+
+export type SellerUpsertPayload = {
+  refSellerId: string;
+  businessType: SellerDetail["businessType"];
+  companyName?: string;
+  representativeName?: string;
+  businessRegistrationNumber?: string;
+  companyEmail?: string;
+  companyPhone?: string;
+  bankCode: string;
+  accountNumber: string;
+  accountHolderName: string;
+};
+
 export async function apiGetMyAcademy(): Promise<AcademyDetail> {
   return fetchJSON<AcademyDetail>("/api/account/academy");
 }
@@ -39,5 +81,23 @@ export async function apiChangePassword(currentPassword: string, newPassword: st
   await fetchJSON("/api/account/password", {
     method: "PUT",
     body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+export async function apiGetMySeller(): Promise<SellerDetail | null> {
+  return fetchJSON<SellerDetail | null>("/api/account/seller");
+}
+
+export async function apiRegisterSeller(payload: SellerUpsertPayload): Promise<SellerDetail> {
+  return fetchJSON<SellerDetail>("/api/account/seller", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function apiUpdateSeller(payload: SellerUpsertPayload): Promise<SellerDetail> {
+  return fetchJSON<SellerDetail>("/api/account/seller", {
+    method: "PUT",
+    body: JSON.stringify(payload),
   });
 }

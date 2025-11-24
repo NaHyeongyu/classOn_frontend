@@ -10,7 +10,9 @@ import { CourseStatusBadge } from "@/components/common/CourseStatusBadge";
 
 type Filters = { status?: "" | "IN_PROGRESS" | "STOPPED" | "PENDING"; q?: string };
 
-const dayOrder: Record<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN", number> = {
+type DayKey = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+
+const dayOrder: Record<DayKey, number> = {
   MON: 0,
   TUE: 1,
   WED: 2,
@@ -48,22 +50,22 @@ function buildDays(r: Course) {
           (dayOrder[a as keyof typeof dayOrder] ?? 0) -
           (dayOrder[b as keyof typeof dayOrder] ?? 0)
       )
-      .map((code) => dayLabel(code))
+      .map((code: string) => dayLabel(code))
       .join("/");
   }
   if (typeof r.recurrenceDays === "string" && r.recurrenceDays.trim()) {
     const codes = r.recurrenceDays
       .split(",")
-      .map((value) => value.trim().toUpperCase())
-      .filter(Boolean) as (keyof typeof dayOrder)[];
+      .map((value: string) => value.trim().toUpperCase())
+      .filter(Boolean) as DayKey[];
     codes.sort((a, b) => dayOrder[a] - dayOrder[b]);
-    return codes.map((code) => dayLabel(code)).join("/");
+    return codes.map((code: string) => dayLabel(code)).join("/");
   }
   if (r.schedule && r.schedule.length > 0) {
     return r.schedule
-      .map((s) => s.dayOfWeek)
-      .filter(Boolean)
-      .map((code) => dayLabel(code!))
+      .map((s: NonNullable<Course["schedule"]>[number]) => s.dayOfWeek)
+      .filter((value: string | null | undefined): value is string => Boolean(value))
+      .map((code: string) => dayLabel(code))
       .join(", ");
   }
   return "-";

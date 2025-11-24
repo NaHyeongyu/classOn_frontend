@@ -4,6 +4,7 @@ import type { ClassItem } from "../../../types/calendarDetail";
 import { SmallBtn as UISmallBtn, PrimaryButtonSm } from "../../common/UI";
 import { EmptyPlaceholder } from "../../common/EmptyPlaceholder";
 import { formatKoreanDate } from "@/lib/format";
+import { DashboardMoreButton } from "@/components/dashboard/DashboardButtons";
 
 type Props = {
   items?: ClassItem[] | null;
@@ -34,9 +35,15 @@ export default function ClassList({
         </HeaderLeft>
         {canAdd && (
           <Actions>
-            <AddBtn type="button" onClick={onAdd}>
-              {actionLabel}
-            </AddBtn>
+            {embedded ? (
+              <DashboardMoreButton type="button" onClick={onAdd}>
+                {actionLabel}
+              </DashboardMoreButton>
+            ) : (
+              <AddBtn type="button" onClick={onAdd}>
+                {actionLabel}
+              </AddBtn>
+            )}
           </Actions>
         )}
       </SectionHeader>
@@ -190,8 +197,9 @@ const Section = styled.section<{ $embedded?: boolean }>`
     $embedded ? "transparent" : theme.colors.surface};
   display: flex;
   flex-direction: column;
-  height: 100%; /* fill half container */
-  min-height: 0; /* allow Grid to scroll */
+  max-height: ${({ $embedded }) => ($embedded ? "auto" : "480px")};
+  min-height: 0;
+  overflow: ${({ $embedded }) => ($embedded ? "visible" : "hidden")};
 `;
 const SectionHeader = styled.div`
   display: flex;
@@ -228,13 +236,15 @@ const AddBtn = styled(PrimaryButtonSm)`
 const Grid = styled.div<{ $embedded?: boolean }>`
   display: grid;
   grid-template-columns: 1fr;
-  gap: 10px;
+  gap: 12px;
   padding: ${({ $embedded }) => ($embedded ? "0" : "4px 2px")};
   flex: 1 1 auto;
   min-height: 0;
-  align-content: start; /* prevent single card from stretching to fill */
-  align-items: start; /* keep item height to content */
-  grid-auto-rows: max-content; /* row height equals content height */
+  max-height: ${({ $embedded }) => ($embedded ? "none" : "100%")};
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: max-content;
+  overflow: ${({ $embedded }) => ($embedded ? "visible" : "auto")};
 `;
 // Unified "수업 내역" look
 const RecordCard = styled.div`

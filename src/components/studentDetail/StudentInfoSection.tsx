@@ -109,7 +109,10 @@ export function StudentInfoSection({
         </CardHead>
         {student ? (
           <InfoList>
-            <DetailField label="보호자 이름" value={student.guardianName || "-"} />
+            <DetailField
+              label="보호자 이름"
+              value={typeof student.guardianName === "string" ? student.guardianName : "-"}
+            />
             <DetailField
               label="보호자 연락처"
               value={formatPhone(student.guardianPhone)}

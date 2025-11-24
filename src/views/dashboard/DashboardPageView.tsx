@@ -7,6 +7,7 @@ import KpiAttendance from "@/components/dashboard/KpiAttendance";
 import KpiClasses from "@/components/dashboard/KpiClasses";
 import DashboardAttendance from "@/components/dashboard/DashboardAttendance";
 import DashboardClasses from "@/components/dashboard/DashboardClasses";
+import DashboardPayments from "@/components/dashboard/DashboardPayments";
 import type { DashboardPageData } from "@/features/dashboard/useDashboardPage";
 
 const DEFAULT_TITLE = "대시보드";
@@ -43,7 +44,10 @@ export function DashboardPageView({
         <KpiAttendance {...kpiProps} />
         <KpiClasses {...kpiProps} />
 
-        <DashboardAttendance />
+        <LeftStack>
+          <DashboardAttendance />
+          <DashboardPayments kpi={kpiProps} />
+        </LeftStack>
         <DashboardClasses />
       </DashboardGrid>
     </PageWrap>
@@ -59,4 +63,14 @@ const Actions = styled.div`
 
 const PageHead = styled(PageHeader)`
   grid-column: 1 / -1;
+`;
+
+const LeftStack = styled.div`
+  grid-column: span 6;
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.pageGap};
+  > * {
+    width: 100%;
+  }
 `;

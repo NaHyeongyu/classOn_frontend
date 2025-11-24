@@ -343,7 +343,7 @@ export default function PaymentsCreate() {
                     const courseTitles =
                       student.courses
                         ?.map((course: NonNullable<Student["courses"]>[number]) => course?.title ?? null)
-                        .filter((title): title is string => Boolean(title && title.trim()))
+                        .filter((title: string | null): title is string => Boolean(title && title.trim()))
                         .join(", ") ?? "-";
                     const fee = defaultAmountForStudent(student);
                     const selected = selectedIds.includes(student.id);

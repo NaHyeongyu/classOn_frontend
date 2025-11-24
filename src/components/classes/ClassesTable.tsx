@@ -64,8 +64,8 @@ function buildDays(r: Course) {
   if (r.schedule && r.schedule.length > 0) {
     return r.schedule
       .map((s: NonNullable<Course["schedule"]>[number]) => s.dayOfWeek)
-      .filter((value): value is string => Boolean(value))
-      .map((code) => dayLabel(code))
+      .filter((value: string | null | undefined): value is string => Boolean(value))
+      .map((code: string) => dayLabel(code))
       .join(", ");
   }
   return "-";

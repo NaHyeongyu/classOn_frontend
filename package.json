@@ -14,7 +14,6 @@
     "verify": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {
-    "@classon/shared-types": "file:../packages/shared-types",
     "@tanstack/react-query": "^5.87.1",
     "axios": "^1.11.0",
     "react": "^19.1.1",

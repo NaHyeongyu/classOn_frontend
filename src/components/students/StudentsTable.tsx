@@ -109,7 +109,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
     const courseTitles = Array.isArray(r.courses)
       ? r.courses
           .map((course: NonNullable<Student["courses"]>[number]) => course?.title ?? null)
-          .filter((title): title is string => Boolean(title && title.trim()))
+          .filter((title: string | null): title is string => Boolean(title && title.trim()))
       : [];
     return ({
       seq: seqDesc,

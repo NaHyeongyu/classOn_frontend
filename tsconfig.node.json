@@ -27,5 +27,5 @@
       "@classon/shared-types/*": ["./node_modules/@classon/shared-types/src/*"]
     }
   },
-  "include": ["vite.config.ts", "vitest.config.ts"]
+  "include": ["vite.config.ts", "vitest.config.ts", "node_modules/@classon/shared-types/src"]
 }

@@ -29,5 +29,5 @@
       "@classon/shared-types/*": ["./node_modules/@classon/shared-types/src/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "node_modules/@classon/shared-types/src"]
 }

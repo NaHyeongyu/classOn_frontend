@@ -91,6 +91,14 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
     createEmptyInvoiceForm(),
   );
   const [invoiceDiscountEnabled, setInvoiceDiscountEnabled] = useState(false);
+  const isDetailOpen = detailState.open;
+  const detailVariant = isDetailOpen ? detailState.variant : undefined;
+  const detailLoading = isDetailOpen ? detailState.loading : false;
+  const detailData = isDetailOpen ? detailState.data : null;
+  const resolvedDetailVariant: "invoice" | "history" = detailVariant ?? "invoice";
+  const invoiceEditOpen = invoiceEditState.open;
+  const invoiceEditLoading = invoiceEditOpen ? invoiceEditState.loading : false;
+  const invoiceEditData = invoiceEditOpen ? invoiceEditState.data : null;
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: PaymentInvoiceUpdatePayload }) =>
@@ -143,8 +151,8 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
   }, [detailState]);
 
   useEffect(() => {
-    if (!invoiceEditState.open || invoiceEditState.loading || !invoiceEditState.data) return;
-    const info = invoiceEditState.data.info;
+    if (!invoiceEditOpen || invoiceEditLoading || !invoiceEditData) return;
+    const info = invoiceEditData.info;
     const combinedMemo = combineMemoValues(info.memo, info.managerMemo);
     setInvoiceEditForm({
       dueDate: info.dueDate ?? "",
@@ -155,11 +163,11 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
       managerMemo: combinedMemo,
       discountType: info.discountType ?? undefined,
       discountValue: info.discountValue ?? undefined,
-      cycleValue: invoiceEditState.data.schedule?.cycleValue ?? undefined,
-      cycleUnit: invoiceEditState.data.schedule?.cycleUnit ?? "MONTHS",
+      cycleValue: invoiceEditData.schedule?.cycleValue ?? undefined,
+      cycleUnit: invoiceEditData.schedule?.cycleUnit ?? "MONTHS",
     });
     setInvoiceDiscountEnabled(Boolean(info.discountType && info.discountValue != null));
-  }, [invoiceEditState.open, invoiceEditState.loading, invoiceEditState.data]);
+  }, [invoiceEditOpen, invoiceEditLoading, invoiceEditData]);
 
   useEffect(() => {
     if (!isEditing) {
@@ -226,10 +234,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
       discountType: invoiceDiscountEnabled ? invoiceEditForm.discountType : undefined,
       discountValue: invoiceDiscountEnabled ? invoiceEditForm.discountValue : undefined,
       cycleValue: invoiceEditForm.cycleValue,
-      cycleUnit:
-        invoiceEditForm.cycleUnit ??
-        invoiceEditState.data.schedule?.cycleUnit ??
-        "MONTHS",
+      cycleUnit: invoiceEditForm.cycleUnit ?? invoiceEditData?.schedule?.cycleUnit ?? "MONTHS",
     };
     updateMutation.mutate({ id: invoice.info.id, payload });
   };
@@ -237,8 +242,8 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
   const invoiceEditBaseAmount =
     typeof invoiceEditForm.amount === "number"
       ? invoiceEditForm.amount
-      : invoiceEditState.open && invoiceEditState.data
-        ? invoiceEditState.data.info.originalAmount ?? 0
+      : invoiceEditOpen && invoiceEditData
+        ? invoiceEditData.info.originalAmount ?? 0
         : 0;
 
   const invoiceEditFinalAmount = computeFinalAmount(
@@ -351,63 +356,63 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
       </PaymentsGrid>
 
       <Modal
-        open={detailState.open}
+        open={isDetailOpen}
         onClose={closeDetail}
-        title={detailState.variant === "invoice" ? "청구서 상세" : "결제 상세"}
+        title={resolvedDetailVariant === "invoice" ? "청구서 상세" : "결제 상세"}
         maxWidth={720}
-        blockOutsideClose={detailState.variant === "invoice" && isEditing}
+        blockOutsideClose={detailVariant === "invoice" && isEditing}
       >
-        {detailState.open && detailState.loading ? <Skeleton h={200} /> : null}
-        {!detailState.loading && detailState.data ? (
+        {isDetailOpen && detailLoading ? <Skeleton h={200} /> : null}
+        {!detailLoading && detailData ? (
           <DetailLayout>
             <DetailColumn>
               <SectionHeading>학생 정보</SectionHeading>
-              {detailState.variant === "invoice" ? (
+              {resolvedDetailVariant === "invoice" ? (
                 <DetailList>
                   <li>
                     <span>이름</span>
-                    <strong>{detailState.data.student.name}</strong>
+                    <strong>{detailData.student.name}</strong>
                   </li>
                   <li>
                     <span>학생 코드</span>
-                    <strong>{detailState.data.student.code ?? "-"}</strong>
+                    <strong>{detailData.student.code ?? "-"}</strong>
                   </li>
                   <li>
                     <span>연락처</span>
-                    <strong>{detailState.data.student.phoneNumber ?? "-"}</strong>
+                    <strong>{detailData.student.phoneNumber ?? "-"}</strong>
                   </li>
                   <li>
                     <span>보호자</span>
-                    <strong>{detailState.data.student.guardianPhone ?? "-"}</strong>
+                    <strong>{detailData.student.guardianPhone ?? "-"}</strong>
                   </li>
                 </DetailList>
               ) : (
                 <InfoCard>
                   <InfoRow>
                     <span>이름</span>
-                    <strong>{detailState.data.student.name}</strong>
+                    <strong>{detailData.student.name}</strong>
                   </InfoRow>
                   <InfoRow>
                     <span>코드</span>
-                    <strong>{detailState.data.student.code ?? "-"}</strong>
+                    <strong>{detailData.student.code ?? "-"}</strong>
                   </InfoRow>
                   <InfoRow>
                     <span>등록일</span>
                     <strong>
-                      {detailState.data.student.joinedDate
-                        ? formatKoreanDate(detailState.data.student.joinedDate, { includeWeekday: false })
+                      {detailData.student.joinedDate
+                        ? formatKoreanDate(detailData.student.joinedDate, { includeWeekday: false })
                         : "-"}
                     </strong>
                   </InfoRow>
                   <InfoRow>
                     <span>연락처</span>
-                    <strong>{detailState.data.student.phoneNumber ?? "-"}</strong>
+                    <strong>{detailData.student.phoneNumber ?? "-"}</strong>
                   </InfoRow>
                 </InfoCard>
               )}
               <SectionHeading>수강 과목</SectionHeading>
               <CourseList>
-                {resolveCourseRows(detailState.data).map((course, index) => (
+                {resolveCourseRows(detailData).map((course, index) => (
                   <li key={`${course?.id ?? "course"}-${index}`}>
                     <div className="info">
                       <strong>{course?.title ?? "-"}</strong>
@@ -419,7 +424,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
               </CourseList>
             </DetailColumn>
             <DetailColumn>
-              {detailState.variant === "invoice" ? (
+              {resolvedDetailVariant === "invoice" ? (
                 <form
                   onSubmit={(event) => {
                     event.preventDefault();
@@ -445,12 +450,12 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                         <Input
                           type="date"
                           disabled={!isEditing}
-                          value={form.periodStart ?? detailState.data.info.periodStart ?? ""}
+                          value={form.periodStart ?? detailData.info.periodStart ?? ""}
                           onChange={(event) => {
                             const nextStart = event.target.value;
                             setForm((prev) => {
                               const activeCycle =
-                                prev.cycleValue ?? detailState.data.schedule?.cycleValue ?? null;
+                                prev.cycleValue ?? detailData.schedule?.cycleValue ?? null;
                               const nextPeriodEnd = computePeriodEndByCycle(nextStart, activeCycle);
                               return {
                                 ...prev,
@@ -466,7 +471,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                         <Input
                           type="date"
                           disabled={!isEditing}
-                          value={form.periodEnd ?? detailState.data.info.periodEnd ?? ""}
+                          value={form.periodEnd ?? detailData.info.periodEnd ?? ""}
                           onChange={(event) =>
                             setForm((prev) => ({ ...prev, periodEnd: event.target.value }))
                           }
@@ -482,8 +487,8 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                           disabled={!isEditing}
                           value={
                             isEditing
-                              ? String(form.amount ?? detailState.data.info.originalAmount ?? "")
-                              : formatMoney(form.amount ?? detailState.data.info.originalAmount ?? 0)
+                              ? String(form.amount ?? detailData.info.originalAmount ?? "")
+                              : formatMoney(form.amount ?? detailData.info.originalAmount ?? 0)
                           }
                           onChange={(event) =>
                             setForm((prev) => ({
@@ -499,21 +504,21 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                           type={isEditing ? "number" : "text"}
                           min={1}
                           disabled={!isEditing}
-                        value={
+                          value={
                           isEditing
                             ? String(
                                 form.cycleValue ??
-                                  detailState.data.schedule?.cycleValue ??
+                                  detailData.schedule?.cycleValue ??
                                   "",
                               )
-                            : formatCycleLabelFromSchedule(detailState.data)
+                            : formatCycleLabelFromSchedule(detailData)
                         }
                           onChange={(event) => {
                             const nextCycle = parseCycleInput(event.target.value);
                             setForm((prev) => {
                               const baseStart =
                                 prev.periodStart ??
-                                detailState.data.info.periodStart ??
+                                detailData.info.periodStart ??
                                 "";
                               const nextPeriodEnd =
                                 nextCycle && baseStart ? computePeriodEndByCycle(baseStart, nextCycle) : undefined;
@@ -577,7 +582,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                         </PrimaryButton>
                         <GhostButton
                           type="button"
-                          onClick={detailState.variant === "invoice" && isEditing ? undefined : closeDetail}
+                          onClick={detailVariant === "invoice" && isEditing ? undefined : closeDetail}
                         >
                           닫기
                         </GhostButton>
@@ -598,25 +603,25 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                 (() => {
                   const discountAmount = Math.max(
                     0,
-                    (detailState.data.info.originalAmount ?? 0) -
-                      (detailState.data.info.finalAmount ?? 0),
+                    (detailData.info.originalAmount ?? 0) -
+                      (detailData.info.finalAmount ?? 0),
                   );
                   const discountDisplay = discountAmount ? formatMoney(discountAmount) : "—";
                   const methodDisplay = getPaymentMethodDisplay(
-                    detailState.data.info.paymentMethod,
-                    detailState.data.info.paymentType,
+                    detailData.info.paymentMethod,
+                    detailData.info.paymentType,
                   );
-                  const completedText = detailState.data.info.completedAt
-                    ? formatKoreanDateTimeKST(detailState.data.info.completedAt, {
+                  const completedText = detailData.info.completedAt
+                    ? formatKoreanDateTimeKST(detailData.info.completedAt, {
                         includeWeekday: true,
                         showSeconds: true,
                       })
                     : "-";
                   const approvalNumber =
-                    detailState.data.info.approvalNumber?.trim() || "-";
+                    detailData.info.approvalNumber?.trim() || "-";
                   const statusText =
-                    statusLabel[detailState.data.info.status] ?? detailState.data.info.status;
-                  const nextDueText = computeNextDueDateLabel(detailState.data);
+                    statusLabel[detailData.info.status] ?? detailData.info.status;
+                  const nextDueText = computeNextDueDateLabel(detailData);
 
                   return (
                     <div>
@@ -625,7 +630,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                         <DetailInfoRows>
                           <li>
                             <span>수강 금액</span>
-                            <strong>{formatMoney(detailState.data.info.originalAmount ?? 0)}</strong>
+                            <strong>{formatMoney(detailData.info.originalAmount ?? 0)}</strong>
                           </li>
                           <li>
                             <span>할인</span>
@@ -633,7 +638,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                           </li>
                           <li>
                             <span>최종 결제금액</span>
-                            <strong>{formatMoney(detailState.data.info.finalAmount ?? 0)}</strong>
+                            <strong>{formatMoney(detailData.info.finalAmount ?? 0)}</strong>
                           </li>
                           <li>
                             <span>결제 수단</span>
@@ -641,7 +646,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                           </li>
                           <li>
                           <span>결제 주기</span>
-                          <strong>{getCycleLabel(detailState.data, detailState.variant)}</strong>
+                          <strong>{getCycleLabel(detailData, resolvedDetailVariant)}</strong>
                           </li>
                           <li>
                             <span>결제 시간</span>
@@ -663,7 +668,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                       </DetailInfoCard>
                       <SectionHeading>메모</SectionHeading>
                       <Paragraph>
-                        {combineMemoValues(detailState.data.info.memo, detailState.data.info.managerMemo) ||
+                        {combineMemoValues(detailData.info.memo, detailData.info.managerMemo) ||
                           "메모가 없습니다."}
                       </Paragraph>
                       <ModalActions>
@@ -681,14 +686,14 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
       </Modal>
 
       <Modal
-        open={invoiceEditState.open}
+        open={invoiceEditOpen}
         onClose={updateMutation.isPending ? undefined : closeInvoiceEditModal}
         blockOutsideClose={updateMutation.isPending}
         title="청구서 수정"
         maxWidth={640}
       >
-        {invoiceEditState.open && invoiceEditState.loading ? <Skeleton h={200} /> : null}
-        {invoiceEditState.open && !invoiceEditState.loading && invoiceEditState.data ? (
+        {invoiceEditOpen && invoiceEditLoading ? <Skeleton h={200} /> : null}
+        {invoiceEditOpen && !invoiceEditLoading && invoiceEditData ? (
           <form onSubmit={handleInvoiceEditSubmit}>
             <SectionHeading>결제 상세 설정</SectionHeading>
             <EditFormGrid>
@@ -713,7 +718,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                       setInvoiceEditForm((prev) => {
                         const activeCycle =
                           prev.cycleValue ??
-                          invoiceEditState.data.schedule?.cycleValue ??
+                          invoiceEditData.schedule?.cycleValue ??
                           null;
                         const nextPeriodEnd = computePeriodEndByCycle(nextStart, activeCycle);
                         return {
@@ -745,7 +750,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                     value={
                       typeof invoiceEditForm.amount === "number"
                         ? String(invoiceEditForm.amount)
-                        : String(invoiceEditState.data.info.originalAmount ?? "")
+                        : String(invoiceEditData.info.originalAmount ?? "")
                     }
                     onChange={(event) =>
                       setInvoiceEditForm((prev) => ({
@@ -762,7 +767,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                     min={1}
                     value={
                       invoiceEditForm.cycleValue ??
-                      invoiceEditState.data.schedule?.cycleValue ??
+                      invoiceEditData.schedule?.cycleValue ??
                       ""
                     }
                     onChange={(event) => {
@@ -770,7 +775,7 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                       setInvoiceEditForm((prev) => {
                         const baseStart =
                           prev.periodStart ??
-                          invoiceEditState.data.info.periodStart ??
+                          invoiceEditData.info.periodStart ??
                           "";
                         const nextPeriodEnd =
                           nextCycle && baseStart
@@ -792,13 +797,13 @@ export function StudentPaymentsSection({ studentId, payments, loading, error, on
                 enabled={invoiceDiscountEnabled}
                 discountType={
                   invoiceEditForm.discountType ??
-                  invoiceEditState.data.info.discountType ??
+                  invoiceEditData.info.discountType ??
                   undefined
                 }
                 discountValue={
                   typeof invoiceEditForm.discountValue === "number"
                     ? invoiceEditForm.discountValue
-                    : invoiceEditState.data.info.discountValue
+                    : invoiceEditData.info.discountValue
                 }
                 onToggleEnabled={(next) => {
                   setInvoiceDiscountEnabled(next);

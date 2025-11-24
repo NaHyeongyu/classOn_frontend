@@ -33,6 +33,8 @@ const PAYMENT_LINK_HOST_PREVIEW =
     : "https://pay.myclasson.com/billing/pay");
 const RECEIPT_TOKEN_PREVIEW = "PREVIEW_RECEIPT_TOKEN";
 
+type PreviewMessage = { id: number; student: string; text: string };
+
 const TEMPLATE_DEFINITIONS: Record<
   TemplateKey,
   { label: string; body: string; resend: boolean }
@@ -121,7 +123,7 @@ export default function PaymentsKakaoConfirm() {
 
   const idsKey = ids.slice().sort((a, b) => a - b).join(",");
 
-  const detailsQuery = useQuery({
+  const detailsQuery = useQuery<PaymentDetail[]>({
     queryKey: ["payments", "kakao-confirm", idsKey],
     enabled: ids.length > 0,
     queryFn: async () => {
@@ -149,9 +151,9 @@ export default function PaymentsKakaoConfirm() {
     setMessage(TEMPLATE_DEFINITIONS[templateKey].body);
   }, [templateKey]);
 
-  const details = useMemo(() => detailsQuery.data ?? [], [detailsQuery.data]);
+  const details: PaymentDetail[] = useMemo(() => detailsQuery.data ?? [], [detailsQuery.data]);
 
-  const previewMessages = useMemo(() => {
+  const previewMessages: PreviewMessage[] = useMemo(() => {
     if (!details.length) return [];
     const base = details.length > 1 ? [details[0]] : details;
     return base.map((detail) => ({
@@ -231,7 +233,12 @@ export default function PaymentsKakaoConfirm() {
                 <tbody>
                   {details.map((detail) => {
                     const courseNames =
-                      detail.courses?.map((course) => course.title).filter(Boolean) ?? [];
+                      detail.courses
+                        ?.map(
+                          (course: NonNullable<PaymentDetail["courses"]>[number]) =>
+                            course?.title ?? null,
+                        )
+                        .filter((title): title is string => Boolean(title && title.trim())) ?? [];
                     const courseTitle =
                       courseNames.length > 0
                         ? courseNames.join(", ")
@@ -300,7 +307,7 @@ export default function PaymentsKakaoConfirm() {
               <EmptyState>전송 미리보기를 생성할 수 없습니다.</EmptyState>
             ) : (
               <PreviewList>
-                {previewMessages.map((preview) => (
+                {previewMessages.map((preview: PreviewMessage) => (
                   <li key={preview.id}>
                     <strong>{preview.student}</strong>
                     <span>{preview.text}</span>
@@ -358,7 +365,11 @@ function renderTemplate(template: string, detail: PaymentDetail, academyName: st
     ? formatKoreanDate(detail.info.dueDate, { includeWeekday: false })
     : "-";
   const courseNames =
-    detail.courses?.map((course) => course.title).filter(Boolean) ?? [];
+    detail.courses
+      ?.map(
+        (course: NonNullable<PaymentDetail["courses"]>[number]) => course?.title ?? null,
+      )
+      .filter((title): title is string => Boolean(title && title.trim())) ?? [];
   const fallbackCourse = detail.course?.title ?? "";
   const courseText = courseNames.length ? courseNames.join(", ") : fallbackCourse;
   const invoiceTokenPreview = detail.info.id ? String(detail.info.id) : "PREVIEW_TOKEN";

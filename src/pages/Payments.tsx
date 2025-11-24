@@ -126,7 +126,7 @@ export default function Payments() {
         size: invoicePageSize,
         status: "UNPAID",
       }),
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
   });
 
   const historyQuery = useQuery<PageResult<PaymentHistoryRow>>({
@@ -149,7 +149,7 @@ export default function Payments() {
         page: historyPage,
         size: historyPageSize,
       }),
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
   });
 
   useEffect(() => {
@@ -171,7 +171,8 @@ export default function Payments() {
       return;
     }
     if (activeHistoryId == null) return;
-    const exists = historyQuery.data.content.some((row) => row.id === activeHistoryId);
+    const exists =
+      historyQuery.data?.content?.some((row: PaymentHistoryRow) => row.id === activeHistoryId) ?? false;
     if (!exists) {
       setActiveHistoryId(null);
       setOnsiteTarget(null);
@@ -181,7 +182,7 @@ export default function Payments() {
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: PaymentInvoiceUpdatePayload }) =>
       updatePaymentInvoice(id, payload),
-    onSuccess: (detail) => {
+    onSuccess: (detail: PaymentDetail) => {
       success("청구서를 업데이트했습니다.");
       setDetailState((prev) =>
         prev.open && prev.id === detail.info.id ? { ...prev, data: detail, loading: false } : prev,
@@ -194,7 +195,7 @@ export default function Payments() {
   const onsiteMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: PaymentOnsitePayload }) =>
       markOnsitePayment(id, payload),
-    onSuccess: (detail) => {
+    onSuccess: (detail: PaymentDetail) => {
       success("현장 결제가 기록되었습니다.");
       setOnsiteModalOpen(false);
       setOnsiteTarget(null);

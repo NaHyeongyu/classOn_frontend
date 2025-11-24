@@ -4,7 +4,6 @@ import { useMonthCalendar } from "@/hooks/useMonthCalendar";
 import { useCoursesCalendar } from "@/features/calendar/useCoursesCalendar";
 import { useTodoEvents } from "@/features/todos/useTodoEvents";
 import { useCounselEvents } from "@/features/counsels/useCounselEvents";
-import { usePaymentEvents } from "@/features/calendar/usePaymentEvents";
 import { usePaymentReminderSettings } from "@/features/calendar/usePaymentReminderSettings";
 import { usePaymentEvents } from "@/features/calendar/usePaymentEvents";
 import {

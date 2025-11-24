@@ -23,7 +23,7 @@ export function useCalendarPaymentList(range?: { from: string; to: string }) {
 
   const sections = useMemo<CalendarPaymentSection[]>(() => {
     if (!range?.from || !range?.to) return [];
-    const content = query.data?.content ?? [];
+    const content: PaymentHistoryRow[] = query.data?.content ?? [];
     const filtered = content
       .filter((row) => row.dueDate && row.dueDate >= range.from && row.dueDate <= range.to)
       .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));

@@ -136,18 +136,18 @@ export default function PaymentsCreate() {
   });
 
   const students = useMemo(() => studentsQuery.data?.content ?? [], [studentsQuery.data]);
-  const reservedStudentIds = useMemo(() => {
+  const reservedStudentIds = useMemo<Set<number>>(() => {
     if (!reservedInvoicesQuery.data?.length) return new Set<number>();
     return new Set(
       reservedInvoicesQuery.data
-        .map((row) => row.student?.id)
-        .filter((id): id is number => typeof id === "number"),
+        .map((row: PaymentHistoryRow) => row.student?.id)
+        .filter((id: number | undefined): id is number => typeof id === "number"),
     );
   }, [reservedInvoicesQuery.data]);
 
-  const filteredStudents = useMemo(() => {
+  const filteredStudents: Student[] = useMemo(() => {
     const base = students.filter(
-      (student) =>
+      (student: Student) =>
         Array.isArray(student.courses) &&
         student.courses.length > 0 &&
         typeof student.id === "number" &&
@@ -155,7 +155,7 @@ export default function PaymentsCreate() {
     );
     if (!search.trim()) return base;
     const keyword = search.trim().toLowerCase();
-    return base.filter((student) => student.name?.toLowerCase().includes(keyword));
+    return base.filter((student: Student) => student.name?.toLowerCase().includes(keyword));
   }, [students, search, reservedStudentIds]);
 
   useEffect(() => {
@@ -182,8 +182,8 @@ export default function PaymentsCreate() {
 
   const handleSelectAll = () => {
     if (!filteredStudents.length) return;
-    const filteredIds = filteredStudents.map((student) => student.id);
-    const allSelected = filteredIds.every((id) => selectedIds.includes(id));
+    const filteredIds = filteredStudents.map((student: Student) => student.id);
+    const allSelected = filteredIds.every((id: number) => selectedIds.includes(id));
     if (allSelected) {
       setSelectedIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
     } else {
@@ -195,7 +195,7 @@ export default function PaymentsCreate() {
     if (!student || !Array.isArray(student.courses) || student.courses.length === 0) {
       return 0;
     }
-    return student.courses.reduce((total, course) => {
+    return student.courses.reduce((total, course: NonNullable<Student["courses"]>[number]) => {
       const fee = typeof course.fee === "number" ? course.fee : Number(course.fee);
       if (!Number.isFinite(fee)) return total;
       return total + Number(fee);
@@ -236,13 +236,13 @@ export default function PaymentsCreate() {
         throw new Error("학생을 선택해 주세요.");
       }
       const selectedStudents = selectedIds
-        .map((id) => students.find((student) => student.id === id))
+        .map((id) => students.find((student: Student) => student.id === id))
         .filter((student): student is Student => Boolean(student));
       if (!selectedStudents.length) {
         throw new Error("선택한 학생 정보를 찾을 수 없습니다.");
       }
       await Promise.all(
-        selectedStudents.map((student) => {
+        selectedStudents.map((student: Student) => {
           const override = overrides[student.id];
           const payload = buildPayload(student, override);
           return createPaymentInvoice(payload);
@@ -274,7 +274,7 @@ export default function PaymentsCreate() {
     setOverrideOpen(false);
   };
 
-  const pagedStudents = useMemo(() => {
+  const pagedStudents: Student[] = useMemo(() => {
     const start = studentPage * pageSize;
     return filteredStudents.slice(start, start + pageSize);
   }, [filteredStudents, pageSize, studentPage]);
@@ -346,9 +346,12 @@ export default function PaymentsCreate() {
                     </td>
                   </tr>
                 ) : (
-                  pagedStudents.map((student) => {
+                  pagedStudents.map((student: Student) => {
                     const courseTitles =
-                      student.courses?.map((course) => course.title).filter(Boolean).join(", ") ?? "-";
+                      student.courses
+                        ?.map((course: NonNullable<Student["courses"]>[number]) => course?.title ?? null)
+                        .filter((title): title is string => Boolean(title && title.trim()))
+                        .join(", ") ?? "-";
                     const fee = defaultAmountForStudent(student);
                     const selected = selectedIds.includes(student.id);
                     const canEdit = selected && selectedIds.length >= 2;

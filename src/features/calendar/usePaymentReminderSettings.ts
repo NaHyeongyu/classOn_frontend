@@ -29,7 +29,7 @@ export function usePaymentReminderSettings() {
       const normalized = Number.isFinite(days) && days > 0 ? Math.round(days) : DEFAULT_DAYS;
       return await updatePaymentReminderSetting({ reminderDays: normalized });
     },
-    onSuccess: (data) => {
+    onSuccess: (data: PaymentReminderSetting) => {
       queryClient.setQueryData(["payments", "reminder-setting"], data);
     },
   });

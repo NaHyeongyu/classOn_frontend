@@ -116,6 +116,8 @@ export default function InvoicePreview({
   
   const [paying, setPaying] = useState(false);
   const [tossPayments, setTossPayments] = useState<TossPayments | null>(null);
+  const [refundPolicyExpanded, setRefundPolicyExpanded] = useState(false);
+  const [customerServiceExpanded, setCustomerServiceExpanded] = useState(false);
   
   const checkoutQuery = useQuery({
     queryKey: ["public-checkout", token],
@@ -188,67 +190,137 @@ export default function InvoicePreview({
   const card = loading ? (
     <LoadingState>청구서 정보를 불러오는 중입니다...</LoadingState>
   ) : (
-    <DataCard>
-      <Top>
-        <Academy>{resolvedData.academyName}</Academy>
-        <Course>{resolvedData.courseTitle}</Course>
-        <StudentRow>
-          <SmallLabel>수강생</SmallLabel>
-          <StudentChip>{resolvedData.studentName}</StudentChip>
-        </StudentRow>
-        <StatusRow>
-          <SmallLabel>상태</SmallLabel>
-          <StatusChip data-status={resolvedData.status ?? "UNPAID"}>
-            {statusLabel[resolvedData.status ?? "UNPAID"] ?? resolvedData.status ?? "-"}
-          </StatusChip>
-        </StatusRow>
-        <AmountBox>
-          <AmountLabel>최종 수강료 금액</AmountLabel>
-          <AmountValue>{formatMoney(resolvedData.amount ?? 0)}</AmountValue>
-        </AmountBox>
-      </Top>
+    <>
+      <DataCard>
+        <Top>
+          <Academy>{resolvedData.academyName}</Academy>
+          <Course>{resolvedData.courseTitle}</Course>
+          <StudentRow>
+            <SmallLabel>수강생</SmallLabel>
+            <StudentChip>{resolvedData.studentName}</StudentChip>
+          </StudentRow>
+          <StatusRow>
+            <SmallLabel>상태</SmallLabel>
+            <StatusChip data-status={resolvedData.status ?? "UNPAID"}>
+              {statusLabel[resolvedData.status ?? "UNPAID"] ?? resolvedData.status ?? "-"}
+            </StatusChip>
+          </StatusRow>
+          <AmountBox>
+            <AmountLabel>최종 수강료 금액</AmountLabel>
+            <AmountValue>{formatMoney(resolvedData.amount ?? 0)}</AmountValue>
+          </AmountBox>
+        </Top>
 
-      <SectionTitle>결제 정보</SectionTitle>
-      <DetailList>
-        <DetailRow>
-          <Label>학원명</Label>
-          <Value>{resolvedData.academyName}</Value>
-        </DetailRow>
-        <DetailRow>
-          <Label>수업명</Label>
-          <Value>{resolvedData.courseTitle}</Value>
-        </DetailRow>
-        <DetailRow>
-          <Label>수강생</Label>
-          <Value>{resolvedData.studentName}</Value>
-        </DetailRow>
-        <DetailRow>
-          <Label>수강료 금액</Label>
-          <Value>{formatMoney(resolvedData.originalAmount ?? resolvedData.amount)}</Value>
-        </DetailRow>
-        {typeof resolvedData.discountAmount === "number" && resolvedData.discountAmount > 0 ? (
+        <SectionTitle>결제 정보</SectionTitle>
+        <DetailList>
           <DetailRow>
-            <Label>할인 금액</Label>
-            <Value>-{formatMoney(resolvedData.discountAmount)}</Value>
+            <Label>학원명</Label>
+            <Value>{resolvedData.academyName}</Value>
           </DetailRow>
+          <DetailRow>
+            <Label>수업명</Label>
+            <Value>{resolvedData.courseTitle}</Value>
+          </DetailRow>
+          <DetailRow>
+            <Label>수강생</Label>
+            <Value>{resolvedData.studentName}</Value>
+          </DetailRow>
+          <DetailRow>
+            <Label>수강료 금액</Label>
+            <Value>{formatMoney(resolvedData.originalAmount ?? resolvedData.amount)}</Value>
+          </DetailRow>
+          {typeof resolvedData.discountAmount === "number" && resolvedData.discountAmount > 0 ? (
+            <DetailRow>
+              <Label>할인 금액</Label>
+              <Value>-{formatMoney(resolvedData.discountAmount)}</Value>
+            </DetailRow>
+          ) : null}
+          <DetailRow>
+            <Label>납부 기한</Label>
+            <Value>{formatDate(resolvedData.dueDate) ?? "미정"}</Value>
+          </DetailRow>
+        </DetailList>
+
+        {resolvedData.memo ? (
+          <>
+            <SectionTitle>안내 메모</SectionTitle>
+            <MemoBox>{resolvedData.memo}</MemoBox>
+          </>
         ) : null}
-        <DetailRow>
-          <Label>납부 기한</Label>
-          <Value>{formatDate(resolvedData.dueDate) ?? "미정"}</Value>
-        </DetailRow>
-      </DetailList>
 
-      {resolvedData.memo ? (
-        <>
-          <SectionTitle>안내 메모</SectionTitle>
-          <MemoBox>{resolvedData.memo}</MemoBox>
-        </>
-      ) : null}
+        {canPay && checkoutErrorMessage ? <InlineError>{checkoutErrorMessage}</InlineError> : null}
 
-      {canPay && checkoutErrorMessage ? <InlineError>{checkoutErrorMessage}</InlineError> : null}
+        <Note>결제 버튼을 누르면 안전한 토스페이먼츠 결제 페이지로 이동합니다.</Note>
+      </DataCard>
 
-      <Note>결제 버튼을 누르면 안전한 토스페이먼츠 결제 페이지로 이동합니다.</Note>
-    </DataCard>
+      {variant === "page" && (
+        <FooterSection>
+          <RefundPolicySection>
+            <RefundPolicyHeader onClick={() => setRefundPolicyExpanded(!refundPolicyExpanded)}>
+              <RefundPolicyTitle>취소 환불 규정</RefundPolicyTitle>
+              <ToggleIcon $expanded={refundPolicyExpanded}>
+                {refundPolicyExpanded ? "▲" : "▼"}
+              </ToggleIcon>
+            </RefundPolicyHeader>
+            {refundPolicyExpanded && (
+              <RefundPolicyContent>
+                <RefundPolicyText>
+                  각 학원의 취소 및 환불 규정에 따라 처리 가능하니 각 학원에 문의해주세요.
+                </RefundPolicyText>
+                <RefundPolicyText>
+                  ClassOn은 「전자상거래 등에서의 소비자보호에 관한 법률」 제25조에 따른
+                  통신판매중개자 및 전자지급결제대행자로서,
+                  수업 제공·취소·환불·환급 등 거래 내용에 대한 책임은
+                  <strong> 판매자(학원)</strong>에게 있습니다.
+                  ClassOn은 결제 처리 및 정산에 필요한 기술적 서비스만 제공하며,
+                  개별 거래의 계약 주체가 아니므로
+                  거래 이행, 환불 승인, 금액 산정 등에는 책임을 지지 않습니다.
+                </RefundPolicyText>
+              </RefundPolicyContent>
+            )}
+          </RefundPolicySection>
+
+          <CustomerServiceSection>
+            <CustomerServiceHeader onClick={() => setCustomerServiceExpanded(!customerServiceExpanded)}>
+              <CustomerServiceTitle>고객센터</CustomerServiceTitle>
+              <ToggleIcon $expanded={customerServiceExpanded}>
+                {customerServiceExpanded ? "▲" : "▼"}
+              </ToggleIcon>
+            </CustomerServiceHeader>
+            {customerServiceExpanded && (
+              <CustomerServiceContent>
+                <CustomerServiceGrid>
+                  <CustomerServiceRow>
+                    <CustomerServiceLabel>상호명</CustomerServiceLabel>
+                    <CustomerServiceValue>나루(NARU)</CustomerServiceValue>
+                  </CustomerServiceRow>
+                  <CustomerServiceRow>
+                    <CustomerServiceLabel>대표자명</CustomerServiceLabel>
+                    <CustomerServiceValue>나현규</CustomerServiceValue>
+                  </CustomerServiceRow>
+                  <CustomerServiceRow>
+                    <CustomerServiceLabel>사업자등록번호</CustomerServiceLabel>
+                    <CustomerServiceValue>890-21-02600</CustomerServiceValue>
+                  </CustomerServiceRow>
+                  <CustomerServiceRow>
+                    <CustomerServiceLabel>통신판매업신고번호</CustomerServiceLabel>
+                    <CustomerServiceValue>2025-경기안산-3576</CustomerServiceValue>
+                  </CustomerServiceRow>
+                  <CustomerServiceRow>
+                    <CustomerServiceLabel>사업장주소</CustomerServiceLabel>
+                    <CustomerServiceValue>안산시 상록구 댕이길 25 302호</CustomerServiceValue>
+                  </CustomerServiceRow>
+                  <CustomerServiceRow>
+                    <CustomerServiceLabel>유선전화번호</CustomerServiceLabel>
+                    <CustomerServiceValue>070-4509-2521</CustomerServiceValue>
+                  </CustomerServiceRow>
+                </CustomerServiceGrid>
+              </CustomerServiceContent>
+            )}
+          </CustomerServiceSection>
+        </FooterSection>
+      )}
+    </>
   );
 
   if (variant === "modal") {
@@ -574,7 +646,7 @@ const BottomBar = styled.div`
   border-top: 1px solid #e5e7eb;
   padding: 14px 16px calc(20px + env(safe-area-inset-bottom));
   display: flex;
-  justify-content: flex-end;
+  justify-content: center;
 `;
 
 const ActionStack = styled.div`
@@ -603,6 +675,132 @@ const StaffNotice = styled.span`
 const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
+`;
+
+const FooterSection = styled.div`
+  width: 100%;
+  max-width: 560px;
+  margin: 16px auto 0;
+  display: grid;
+  gap: 12px;
+`;
+
+const RefundPolicySection = styled.div`
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+`;
+
+const RefundPolicyHeader = styled.button`
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  
+  &:hover {
+    background: #f1f5f9;
+  }
+`;
+
+const RefundPolicyTitle = styled.h3`
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+`;
+
+const ToggleIcon = styled.span<{ $expanded: boolean }>`
+  font-size: 12px;
+  color: #64748b;
+  transition: transform 0.2s ease;
+`;
+
+const RefundPolicyContent = styled.div`
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  background: #ffffff;
+`;
+
+const RefundPolicyText = styled.p`
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #475569;
+  
+  strong {
+    font-weight: 700;
+    color: #0f172a;
+  }
+`;
+
+const CustomerServiceSection = styled.div`
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  overflow: hidden;
+`;
+
+const CustomerServiceHeader = styled.button`
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  background: #f8fafc;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  
+  &:hover {
+    background: #f1f5f9;
+  }
+`;
+
+const CustomerServiceTitle = styled.h3`
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+`;
+
+const CustomerServiceContent = styled.div`
+  padding: 16px;
+  background: #ffffff;
+`;
+
+const CustomerServiceGrid = styled.div`
+  display: grid;
+  gap: 8px;
+`;
+
+const CustomerServiceRow = styled.div`
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 12px;
+  align-items: start;
+  font-size: 12px;
+  
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+`;
+
+const CustomerServiceLabel = styled.div`
+  color: #64748b;
+  font-weight: 600;
+`;
+
+const CustomerServiceValue = styled.div`
+  color: #0f172a;
+  font-weight: 500;
 `;
 
 const TOSS_PAYMENTS_SCRIPT_URL = "https://js.tosspayments.com/v1";

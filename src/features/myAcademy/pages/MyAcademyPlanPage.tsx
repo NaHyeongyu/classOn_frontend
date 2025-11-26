@@ -308,7 +308,7 @@ export default function MyAcademyPlanPage() {
                           {plan.id === "free"
                             ? "무료"
                             : plan.priceKrw.toLocaleString("ko-KR")}
-                          {plan.id === "free" ? null : <span>/일</span>}
+                          {plan.id === "free" ? null : <span>/월</span>}
                         </PlanPrice>
                       </PlanPriceWrapper>
                     </PlanHeader>

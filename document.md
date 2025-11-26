@@ -83,13 +83,13 @@
 
 | 경로              | 설명                                                                                                                                       |
 | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/api/`        | REST 래퍼(`fetchJSON`). `courses.ts`, `students.ts`, `calendar.ts`, `todos.ts`, `exams.ts`, `marketing*.ts`, `admin*.ts` 등 도메인별 파일. |
+| `src/api/`        | REST 래퍼(`fetchJSON`). `courses.ts`, `students.ts`, `teachers.ts`, `calendar.ts`, `todos.ts`, `exams.ts`, `marketing*.ts`, `admin*.ts` 등 도메인별 파일. |
 | `src/lib/`        | 인증 토큰(`auth.ts`), 관리자 인증(`adminAuth.ts`), fetch 헬퍼(`fetcher.ts`), 날짜/포맷 유틸.                                               |
 | `src/hooks/`      | `useAuth`, `useAdminAuth`, `useMonthCalendar` 등 컨텍스트/도메인 훅.                                                                       |
 | `src/components/` | UI 구성 요소. `common/`(버튼·모달·토스트·레이아웃), `calendar/`, `dashboard/`, `courses/`, `classes/`, `students/`, `admin/` 등으로 세분.  |
-| `src/views/`      | 페이지별 UI 조합(프레젠테이션 레이어). `components`의 파츠를 배치하는 곳이며, 상태·네비게이션 로직은 포함하지 않음.                        |
+| `src/views/`      | 페이지별 UI 조합(프레젠테이션 레이어). `components`의 파츠를 배치하는 곳이며, 상태·네비게이션 로직은 포함하지 않음. `teacher/` 디렉터리에 강사 홈/프로필 뷰가 위치. |
 | `src/pages/`      | 라우트별 컨테이너. `features` 훅으로 데이터를 준비하고 `views`를 호출해 화면을 그립니다.                                                 |
-| `src/features/`   | 비즈니스 로직 모듈. `calendar`, `attendance`, `counsels`, `exams`, `todos`, `marketing`, `risk` 등.                                        |
+| `src/features/`   | 비즈니스 로직 모듈. `calendar`, `attendance`, `teacher`, `counsels`, `exams`, `todos`, `marketing`, `risk` 등.                           |
 | `src/styles/`     | 테마(`theme.ts`), 전역 초기화(`reset.css`, `index.css`), styled-components 타입 선언.                                                      |
 | `src/types/`      | API 응답 및 공통 타입 선언.                                                                                                                |
 | `public/`         | 정적 자산. 로고, 파비콘 등.                                                                                                                |
@@ -147,6 +147,15 @@
   - 관리자 인증 컨텍스트: `hooks/useAdminAuth`.
   - `VITE_ENABLE_DEV_ROUTES`, `VITE_ENABLE_FEEDBACK` 플래그로 노출 제어.
 
+- **강사 전용 기능**
+
+  - 페이지: `TeacherHome.tsx`, `TeacherProfile.tsx`.
+  - 컨테이너 훅: `features/teacher/useTeacherProfile.ts`에서 `useTeacherHomePage`, `useTeacherProfilePage` 제공.
+  - 뷰 레이어: `views/teacher/TeacherHomePageView.tsx`, `views/teacher/TeacherProfilePageView.tsx`.
+  - API: `api/teachers.ts` (`listTeachers`, `getMyTeacherProfile`, `updateMyTeacherProfile`, `changeMyTeacherPassword`).
+  - 학원 설정: `MyAcademy` 페이지에서 강사 목록 카드와 `TeacherCreateModal`을 통해 강사를 등록하고 기본 메뉴 권한을 부여할 수 있습니다.
+  - 인증 응답(`AuthUser`)의 `role`, `menus` 필드를 활용해 강사 전용 내비게이션/접근 제어를 구성합니다.
+
 - **공통 UI**
   - `components/common/UI.tsx`와 테마 값 사용. 버튼/입력/모달/로딩/토스트/RouteTransition 등 제공.
   - 토스트: `components/common/Toast`.
@@ -161,6 +170,7 @@
   - 로컬 스토리지 접근 실패 대비 try/catch 처리되어 있어 브라우저 제약 고려 필요.
 - API 파일들은 `fetchJSON`을 thin wrapper로 사용. 새로운 엔드포인트 추가 시 동일 패턴 유지.
 - GraphQL 등은 사용하지 않으며, React Query는 의존성만 존재하고 실제 구현은 커스텀 캐시 기반.
+- 인증 컨텍스트(`lib/auth.ts`, `hooks/useAuth.ts`)는 `AuthUser`의 `role`과 `menus`를 포함합니다. 강사(`TEACHER`) 계정은 사이드바 화이트리스트를 적용하므로, 새로운 화면을 추가할 때 허용 메뉴 키(`MenuKeys`)와 일치하는지 확인하세요.
 
 ## 코딩 규칙
 
@@ -177,6 +187,7 @@
 - **데이터 갱신**
   - 수정 이후 관련 리스트 캐시 무효화 (`invalidateCache*`).
   - 자동 저장 기능이 있는 화면에서는 추가 수동 저장 버튼을 만들지 말고 기존 타이머/상태를 존중.
+  - 강사 생성/삭제/권한 수정/담당 강사 이동 시 `api/teachers.ts`가 `/api/academy/teachers` 캐시를 비우고 `teachers:refresh` 커스텀 이벤트를 브로드캐스트합니다. `MyAcademy` 훅(`useMyAcademyPage`)이 이 이벤트를 구독하므로, 강사 관련 신규 기능을 추가할 때 동일 이벤트를 재사용하고 필요한 경우만 수동 새로고침 UI를 노출하세요.
 - **파일 구조**
   - 도메인별 폴더(`features/<domain>`, `components/<domain>`, `views/<domain>`, `pages`)에 맞춰 배치.
   - 페이지 파일은 데이터 로딩/라우팅만 담당하고, 화면 조합은 `views`에서 관리합니다.

@@ -2,8 +2,8 @@ import type { FormEvent } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { StepPhoneForm } from "@/components/register/StepPhoneForm";
-import { StepVerifyForm } from "@/components/register/StepVerifyForm";
 import { StepAccountForm } from "@/components/register/StepAccountForm";
+import { StepPlanForm } from "@/components/register/StepPlanForm";
 import type { UseRegisterFlowResult } from "@/features/register/useRegisterFlow";
 
 type RegisterPageViewProps = {
@@ -27,22 +27,9 @@ export function RegisterPageView({ flow, onComplete }: RegisterPageViewProps) {
         />
       ) : null}
 
-      {flow.step === 2 ? (
-        <StepVerifyForm
-          phone={flow.phone}
-          code={flow.code}
-          setCode={flow.setCode}
-          resendCooldown={flow.resendCooldown}
-          onResendCode={flow.handleResendCode}
-          onSubmit={flow.handleCodeSubmit}
-          onBackToPhone={flow.backToStep1}
-          devCodeHint={flow.devCodeHint}
-          stepError={flow.step2Err.code}
-          error={flow.error}
-        />
-      ) : null}
+      {flow.step === 2 ? <StepAccountForm flow={flow} onSubmit={flow.handleAccountSubmit} /> : null}
 
-      {flow.step === 3 ? <StepAccountForm flow={flow} onSubmit={onComplete} /> : null}
+      {flow.step === 3 ? <StepPlanForm flow={flow} onSubmit={onComplete} onBack={flow.backToAccount} /> : null}
 
       <Footer>
         이미 계정이 있으신가요? <Link to="/login">로그인</Link>
@@ -52,16 +39,17 @@ export function RegisterPageView({ flow, onComplete }: RegisterPageViewProps) {
 }
 
 const Wrapper = styled.div`
-  max-width: 480px;
+  width: 100%;
+  max-width: 1600px;
   margin: 0 auto;
-  padding: 48px 16px 64px;
+  padding: 24px 24px 48px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
 `;
 
 const Title = styled.h1`
-  margin: 0 0 20px;
+  margin: 0 0 12px;
   font-size: 30px;
   color: #111827;
   text-align: center;

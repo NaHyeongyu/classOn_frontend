@@ -17,14 +17,25 @@ import {
 } from "@/api/account";
 import { apiRequestPhoneCode, apiVerifyPhoneCode } from "@/api/auth";
 import {
+  apiGetSubscription,
+  apiUpsertSubscription,
+  apiCancelSubscription,
+  type SubscriptionDto,
+} from "@/api/billing";
+import {
   maskBiz,
   normalizeMobile,
   toErrorMessage,
   unmaskBiz,
 } from "@/features/myAcademy/utils";
+import { createTeacher, listTeachers, type TeacherListItem } from "@/api/teachers";
+import { paths, routes } from "@/routes";
+
+// Teacher menus are fixed on the backend; no per-user selection needed.
 
 type AccountViewState = {
   name: string;
+  username: string;
   phone: string;
   onOpenProfileModal: () => void;
   onOpenPhoneModal: () => void;
@@ -34,6 +45,24 @@ type AccountViewState = {
 type AcademyViewState = {
   data: AcademyDetail | null;
   onOpenEditModal: () => void;
+  isFreePlan: boolean;
+  paymentEnabled: boolean;
+};
+
+type BillingViewState = {
+  loading: boolean;
+  data: SubscriptionDto | null;
+  createOrUpdate: (payload: {
+    planId: string;
+    planName: string;
+    amountKrw: number;
+    currency?: string;
+    billingKey?: string;
+    customerKey?: string;
+    cardCompany?: string;
+    cardNumber?: string;
+  }) => Promise<void>;
+  cancel: () => Promise<void>;
 };
 
 export type ProfileModalState = {
@@ -110,15 +139,54 @@ export type AcademyModalState = {
   submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };
 
+type TeacherCreateFormState = {
+  username: string;
+  name: string;
+  phone: string;
+  password: string;
+  passwordConfirm: string;
+};
+
+type TeacherCreateField = keyof TeacherCreateFormState;
+
+type TeacherCreateFormErrors = Partial<Record<TeacherCreateField, string>>;
+
+export type TeacherCreateModalState = {
+  open: boolean;
+  form: TeacherCreateFormState;
+  submitting: boolean;
+  error: string | null;
+  fieldErrors: TeacherCreateFormErrors;
+  focusField: TeacherCreateField | null;
+  openModal: () => void;
+  closeModal: () => void;
+  updateField: <K extends keyof TeacherCreateFormState>(
+    field: K,
+    value: TeacherCreateFormState[K],
+  ) => void;
+  submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  clearFocusField: () => void;
+};
+
 export type UseMyAcademyPageResult = {
   loading: boolean;
   error: string | null;
   account: AccountViewState;
   academy: AcademyViewState;
+  billing: BillingViewState;
+  teachers: {
+    loading: boolean;
+    error: string | null;
+    teachers: TeacherListItem[];
+    onRefresh: () => Promise<void>;
+    onOpenCreate: () => void;
+    onSelect: (id: number) => void;
+  };
   profileModal: ProfileModalState;
   phoneModal: PhoneModalState;
   passwordModal: PasswordModalState;
   academyModal: AcademyModalState;
+  teacherCreateModal: TeacherCreateModalState;
   handleLogout: () => void;
   clearError: () => void;
 };
@@ -148,6 +216,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
 
   const [name, setName] = useState(user?.name ?? "");
   const [phone, setPhone] = useState(user?.phone ?? "");
+  const username = (user?.username ?? "").toString();
 
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileModalName, setProfileModalName] = useState("");
@@ -174,8 +243,25 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const [academyModalForm, setAcademyModalForm] = useState<AcademyFormState>(
     createAcademyForm(null),
   );
+  const [subscription, setSubscription] = useState<SubscriptionDto | null>(null);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [academyModalError, setAcademyModalError] = useState<string | null>(null);
   const [academyModalSubmitting, setAcademyModalSubmitting] = useState(false);
+  const [teacherList, setTeacherList] = useState<TeacherListItem[]>([]);
+  const [teachersLoading, setTeachersLoading] = useState(true);
+  const [teachersError, setTeachersError] = useState<string | null>(null);
+  const [teacherModalOpen, setTeacherModalOpen] = useState(false);
+  const [teacherModalForm, setTeacherModalForm] = useState<TeacherCreateFormState>(() => ({
+    username: "",
+    name: "",
+    phone: "",
+    password: "",
+    passwordConfirm: "",
+  }));
+  const [teacherModalError, setTeacherModalError] = useState<string | null>(null);
+  const [teacherModalSubmitting, setTeacherModalSubmitting] = useState(false);
+  const [teacherModalFieldErrors, setTeacherModalFieldErrors] = useState<TeacherCreateFormErrors>({});
+  const [teacherModalFocusField, setTeacherModalFocusField] = useState<TeacherCreateField | null>(null);
 
   const passwordTooShort =
     passwordModalNew.length > 0 && passwordModalNew.length < 8;
@@ -193,6 +279,137 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     setName(user?.name ?? "");
     setPhone(user?.phone ?? "");
   }, [user?.name, user?.phone]);
+
+  const loadTeachers = useCallback(async () => {
+    setTeachersLoading(true);
+    setTeachersError(null);
+    try {
+      const rows = await listTeachers();
+      setTeacherList(rows);
+    } catch (err) {
+      setTeachersError(
+        toErrorMessage(err, "강사 목록을 불러오지 못했습니다. 다시 시도해 주세요."),
+      );
+    } finally {
+      setTeachersLoading(false);
+    }
+  }, []);
+
+  const resetTeacherForm = useCallback(() => {
+    setTeacherModalForm({
+      username: "",
+      name: "",
+      phone: "",
+      password: "",
+      passwordConfirm: "",
+    });
+    setTeacherModalError(null);
+    setTeacherModalSubmitting(false);
+    setTeacherModalFieldErrors({});
+    setTeacherModalFocusField(null);
+  }, []);
+
+  const openTeacherModal = useCallback(() => {
+    resetTeacherForm();
+    setTeacherModalOpen(true);
+  }, [resetTeacherForm]);
+
+  const closeTeacherModal = useCallback(() => {
+    setTeacherModalOpen(false);
+    resetTeacherForm();
+  }, [resetTeacherForm]);
+
+  const updateTeacherField = useCallback(
+    <K extends keyof TeacherCreateFormState>(field: K, value: TeacherCreateFormState[K]) => {
+      setTeacherModalForm((prev) => ({ ...prev, [field]: value }));
+      setTeacherModalError(null);
+      setTeacherModalFieldErrors((prev) => {
+        if (!prev[field]) return prev;
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    },
+  []);
+
+  // toggleTeacherMenu removed
+
+  const clearTeacherFocusField = useCallback(() => {
+    setTeacherModalFocusField(null);
+  }, []);
+
+  const openTeacherDetail = useCallback(
+    (id: number) => {
+      navigate(paths.teachers.detail(id));
+    },
+    [navigate],
+  );
+
+  const submitTeacherModal = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const username = teacherModalForm.username.trim();
+      const nameValue = teacherModalForm.name.trim();
+      const normalizedPhone = normalizeMobile(teacherModalForm.phone);
+      const passwordValue = teacherModalForm.password.trim();
+      const passwordConfirmValue = teacherModalForm.passwordConfirm.trim();
+      // menus removed (backend auto-assigns default)
+
+      const raiseFieldError = (field: TeacherCreateField, message: string) => {
+        setTeacherModalFieldErrors({ [field]: message });
+        setTeacherModalFocusField(field);
+      };
+
+      setTeacherModalError(null);
+      setTeacherModalFieldErrors({});
+      setTeacherModalFocusField(null);
+      if (!username) {
+        raiseFieldError("username", "아이디를 입력해주세요.");
+        return;
+      }
+      if (!nameValue) {
+        raiseFieldError("name", "이름을 입력해 주세요.");
+        return;
+      }
+      if (!normalizedPhone) {
+        raiseFieldError("phone", "휴대폰 번호 형식을 확인해 주세요.");
+        return;
+      }
+      if (passwordValue.length < 5) {
+        raiseFieldError("password", "비밀번호는 5자 이상 입력해 주세요.");
+        return;
+      }
+      if (!/[^\w\s]/.test(passwordValue)) {
+        raiseFieldError("password", "비밀번호에 특수문자를 포함해 주세요.");
+        return;
+      }
+      if (passwordValue !== passwordConfirmValue) {
+        raiseFieldError("passwordConfirm", "비밀번호가 일치하지 않습니다.");
+        return;
+      }
+      // 메뉴 선택은 제거됨: 서버가 기본 메뉴 세트를 자동 부여합니다.
+
+      setTeacherModalSubmitting(true);
+      try {
+        await createTeacher({
+          username,
+          name: nameValue,
+          phone: normalizedPhone,
+          password: passwordValue,
+        });
+        await loadTeachers();
+        toast.success("강사가 등록되었습니다.");
+        closeTeacherModal();
+      } catch (err) {
+        setTeacherModalError(
+          toErrorMessage(err, "강사 등록에 실패했습니다."),
+        );
+      } finally {
+        setTeacherModalSubmitting(false);
+      }
+    },
+    [closeTeacherModal, loadTeachers, teacherModalForm, toast],
+  );
 
   useEffect(() => {
     if (!phoneModalOpen || phoneModalCooldown <= 0) return;
@@ -237,6 +454,39 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
       alive = false;
     };
   }, []);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const sub = await apiGetSubscription();
+        if (!alive) return;
+        if (sub && (sub as any).id) setSubscription(sub);
+      } catch {
+        // ignore subscription load errors
+      } finally {
+        if (alive) setSubscriptionLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    void loadTeachers();
+  }, [loadTeachers]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleRefresh = () => {
+      void loadTeachers();
+    };
+    window.addEventListener("teachers:refresh", handleRefresh);
+    return () => {
+      window.removeEventListener("teachers:refresh", handleRefresh);
+    };
+  }, [loadTeachers]);
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -561,6 +811,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
 
   const account: AccountViewState = {
     name,
+    username,
     phone,
     onOpenProfileModal: openProfileModal,
     onOpenPhoneModal: openPhoneModal,
@@ -570,6 +821,37 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const academyView: AcademyViewState = {
     data: academy,
     onOpenEditModal: openAcademyModal,
+    isFreePlan: !subscription || subscription.planId === "free",
+    paymentEnabled: useMemo(() => {
+      const planId = subscription?.planId || academy?.billingSubscriptionId || "";
+      if (!planId) return false;
+      const normalized = planId.toLowerCase();
+      if (normalized === "enterprise") return true;
+      return normalized.includes("-pay");
+    }, [subscription?.planId, academy?.billingSubscriptionId]),
+  };
+
+  const billingView: BillingViewState = {
+    loading: subscriptionLoading,
+    data: subscription,
+    createOrUpdate: async (payload) => {
+      setSubscriptionLoading(true);
+      try {
+        const sub = await apiUpsertSubscription(payload);
+        setSubscription(sub);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    },
+    cancel: async () => {
+      setSubscriptionLoading(true);
+      try {
+        await apiCancelSubscription();
+        setSubscription(null);
+      } finally {
+        setSubscriptionLoading(false);
+      }
+    },
   };
 
   const profileModal: ProfileModalState = {
@@ -631,15 +913,39 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     submit: submitAcademyModal,
   };
 
+  const teachersView = {
+    loading: teachersLoading,
+    error: teachersError,
+    teachers: teacherList,
+    onRefresh: loadTeachers,
+    onOpenCreate: openTeacherModal,
+    onSelect: openTeacherDetail,
+  };
+
   return {
     loading,
     error,
     account,
     academy: academyView,
+    billing: billingView,
+    teachers: teachersView,
     profileModal,
     phoneModal,
     passwordModal,
     academyModal,
+      teacherCreateModal: {
+        open: teacherModalOpen,
+        form: teacherModalForm,
+        submitting: teacherModalSubmitting,
+        error: teacherModalError,
+        fieldErrors: teacherModalFieldErrors,
+        focusField: teacherModalFocusField,
+        openModal: openTeacherModal,
+        closeModal: closeTeacherModal,
+        updateField: updateTeacherField,
+        submit: submitTeacherModal,
+        clearFocusField: clearTeacherFocusField,
+      },
     handleLogout,
     clearError,
   };

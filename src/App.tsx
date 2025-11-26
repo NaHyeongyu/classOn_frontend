@@ -7,6 +7,7 @@ import { ToastProvider } from "@/components/common/Toast";
 import styled, { keyframes } from "styled-components";
 import { Routes, Route, Outlet, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState } from "react";
+import { useOutletContext } from "react-router";
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
 const Calendar = lazy(() => import("@/pages/Calendar"));
 const CalendarDetail = lazy(() => import("@/pages/CalendarDetail"));
@@ -20,12 +21,17 @@ const Attendance = lazy(() => import("@/pages/Attendance"));
 // Payments/Banking routes removed for MVP
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
+const TeacherHome = lazy(() => import("@/pages/TeacherHome"));
+const TeacherProfile = lazy(() => import("@/pages/TeacherProfile"));
+const TeacherDetail = lazy(() => import("@/pages/TeacherDetail"));
 import { useAuth } from "@/hooks/useAuth";
 const StudentDetail = lazy(() => import("@/pages/StudentDetail"));
 const StudentForm = lazy(() => import("@/pages/StudentForm"));
 const DevTools = lazy(() => import("@/pages/DevTools"));
 const Marketing = lazy(() => import("@/pages/Marketing"));
-const PaymentsWip = lazy(() => import("@/pages/PaymentsWip"));
+const Payments = lazy(() => import("@/pages/Payments"));
+const PaymentsCreate = lazy(() => import("@/pages/PaymentsCreate"));
+const PaymentsKakaoConfirm = lazy(() => import("@/pages/PaymentsKakaoConfirm"));
 const MarketingSummary = lazy(() => import("@/pages/MarketingSummary"));
 const MarketingPreview = lazy(() => import("@/pages/MarketingPreview"));
 const MarketingGenerating = lazy(() => import("@/pages/MarketingGenerating"));
@@ -35,6 +41,8 @@ const MarketingSavedDetail = lazy(() => import("@/pages/MarketingSavedDetail"));
 const Feedback = lazy(() => import("@/pages/Feedback"));
 const FeedbackChangelog = lazy(() => import("@/pages/FeedbackChangelog"));
 const MyAcademy = lazy(() => import("@/pages/MyAcademy"));
+const MyAcademyPlan = lazy(() => import("@/pages/MyAcademyPlan"));
+const TeachersManage = lazy(() => import("@/pages/Teachers"));
 const Admin = lazy(() => import("@/pages/Admin"));
 const AdminLogin = lazy(() => import("@/pages/AdminLogin"));
 const AdminLogins = lazy(() => import("@/pages/AdminLogins"));
@@ -44,9 +52,15 @@ const AdminPayments = lazy(() => import("@/pages/AdminPayments"));
 const AdminStats = lazy(() => import("@/pages/AdminStats"));
 const AdminAcademyDetail = lazy(() => import("@/pages/AdminAcademyDetail"));
 const AdminFeedbacks = lazy(() => import("@/pages/AdminFeedbacks"));
+const PaymentRequest = lazy(() => import("@/pages/PaymentRequest"));
+const PaymentReceipt = lazy(() => import("@/pages/PaymentReceipt"));
+const PaymentTossSuccess = lazy(() => import("@/pages/PaymentTossSuccess"));
+const PaymentTossFail = lazy(() => import("@/pages/PaymentTossFail"));
 import { PageLoading, LoadingSpinner } from "@/components/common/Loading";
 import { RouteTransition, TopProgressBar } from "@/components/common/RouteTransition";
 import { routes } from "@/routes";
+import { apiGetMyAcademy } from "@/api/account";
+import { apiGetSubscription } from "@/api/billing";
 // 상담 전역 페이지는 학생 상세 내 탭으로 통합됨
 
 const AppContainer = styled.div`
@@ -116,7 +130,10 @@ export default function App() {
 
       <Route element={<ProtectedLayout />}>
         <Route element={<MainLayout />}>
-          <Route path={routes.home} element={<Dashboard />} />
+          <Route path={routes.home} element={<HomeLanding />} />
+          <Route path={routes.teacherHome} element={<TeacherHome />} />
+          <Route path={routes.teacherProfile} element={<TeacherProfile />} />
+          <Route path={routes.teacherDetail} element={<TeacherDetail />} />
           <Route path={routes.calendar} element={<Calendar />} />
           <Route path={routes.calendarDetail} element={<CalendarDetail />} />
           <Route path={routes.students} element={<Students />} />
@@ -134,7 +151,9 @@ export default function App() {
           <Route path={routes.classHistoryDate} element={<CourseRecordDetail />} />
           <Route path={routes.attendance} element={<Attendance />} />
           { /* 상담 전역 라우트 제거됨: 학생 상세 > 상담기록 탭에서 관리 */ }
-          <Route path={routes.payments} element={<PaymentsWip />} />
+          <Route path={routes.payments} element={<Payments />} />
+          <Route path={routes.paymentsCreate} element={<PaymentsCreate />} />
+          <Route path={routes.paymentsKakaoConfirm} element={<PaymentsKakaoConfirm />} />
           {enableDev && <Route path={routes.devTools} element={<DevTools />} />}
           <Route path={routes.marketing} element={<Marketing />} />
           { /* Marketing guide removed */ }
@@ -146,11 +165,24 @@ export default function App() {
           <Route path={routes.marketingSavedDetail} element={<MarketingSavedDetail />} />
           <Route path={routes.feedback} element={<Feedback />} />
           <Route path={routes.myAcademy} element={<MyAcademy />} />
+          <Route path={routes.myAcademyPlan} element={<MyAcademyPlan />} />
+          <Route path={routes.teachersManage} element={<TeachersManage />} />
           {enableFeedback && <Route path={routes.feedbackChangelog} element={<FeedbackChangelog />} />}
           { /* Todos page removed; manage todos within Calendar Detail */ }
         </Route>
       </Route>
       {/* Public (no auth) routes */}
+      {/* Bare layout for standalone public pages (no inner containers) */}
+      <Route element={<BareLayout />}>
+        <Route path={routes.payRequestBlank} element={<PaymentRequest />} />
+        <Route path={routes.payRequest} element={<PaymentRequest />} />
+        <Route path={routes.invoiceViewerBlank} element={<PaymentRequest />} />
+        <Route path={routes.invoiceViewer} element={<PaymentRequest />} />
+        <Route path={routes.paymentsTossSuccess} element={<PaymentTossSuccess />} />
+        <Route path={routes.paymentsTossFail} element={<PaymentTossFail />} />
+        <Route path={routes.paymentsReceipt} element={<PaymentReceipt />} />
+      </Route>
+
       <Route element={<PublicLayout />}>
         <Route element={<AdminProtectedLayout />}>
           <Route path={routes.admin} element={<Admin />} />
@@ -174,6 +206,9 @@ function ProtectedLayout() {
   const { user, loading, validate } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const [billingChecked, setBillingChecked] = useState(false);
+  const [billingBlocked, setBillingBlocked] = useState(false);
+
   useEffect(() => {
     if (loading) return;
     let cancelled = false;
@@ -185,14 +220,69 @@ function ProtectedLayout() {
     })();
     return () => { cancelled = true; };
   }, [location.pathname, loading, validate, navigate]);
-  if (loading) return <Centered><LoadingSpinner /><span style={{marginTop: 8, color:'#6b7280'}}>로딩 중…</span></Centered>;
+
+  useEffect(() => {
+    if (loading || !user) return;
+    let alive = true;
+    (async () => {
+      try {
+        const academy = await apiGetMyAcademy();
+        const status = (academy.billingStatus || "").toUpperCase();
+        const end = academy.billingCurrentPeriodEnd ? new Date(academy.billingCurrentPeriodEnd) : null;
+        const now = new Date();
+        const expired = end ? now > end : true; // end가 없으면 즉시 만료로 간주
+        const inactive = ["PAST_DUE", "CANCELED", "INACTIVE"].includes(status);
+        const trialExpired = status === "TRIALING" && expired;
+        const activeExpired = status === "ACTIVE" && expired;
+        let shouldBlock = trialExpired || inactive || activeExpired;
+
+        // 구독 정보 기준으로 한 번 더 확인:
+        // 서버 기준으로 Subscription이 ACTIVE이면 차단을 해제합니다.
+        if (shouldBlock) {
+          try {
+            const sub = await apiGetSubscription();
+            if (sub && (sub as any).status && String((sub as any).status).toUpperCase() === "ACTIVE") {
+              shouldBlock = false;
+            }
+          } catch {
+            // 구독 조회 실패는 무시 (academy 상태 기준 차단 유지)
+          }
+        }
+        const allowedPaths: string[] = [routes.myAcademyPlan, routes.myAcademy];
+        const onAllowed = allowedPaths.includes(location.pathname);
+        if (alive && shouldBlock) {
+          setBillingBlocked(true);
+          if (!onAllowed) {
+            navigate(routes.myAcademyPlan, { replace: true, state: { reason: "billing-block" } });
+          }
+        } else if (alive) {
+          setBillingBlocked(false);
+        }
+      } catch {
+        // ignore billing check errors to avoid locking out on transient failure
+      } finally {
+        if (alive) setBillingChecked(true);
+      }
+    })();
+    return () => { alive = false; };
+  }, [loading, user, navigate, location.pathname, location.search]);
+
+  useEffect(() => {
+    if (!loading && !user) {
+      setBillingChecked(true);
+    }
+  }, [loading, user]);
+
+  if (loading || !billingChecked) return <Centered><LoadingSpinner /><span style={{marginTop: 8, color:'#6b7280'}}>로딩 중…</span></Centered>;
   if (!user) return <Navigate to={routes.login} replace state={{ from: location.pathname }} />;
-  return <Outlet />;
+  return <Outlet context={{ billingBlocked }} />;
 }
 
 function MainLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const outletContext = useOutletContext<{ billingBlocked?: boolean } | null>();
+  const billingBlocked = Boolean(outletContext?.billingBlocked);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -201,16 +291,20 @@ function MainLayout() {
   return (
     <AppContainer>
       <TopProgressBar />
-      <SidebarContainer data-open={sidebarOpen || undefined}>
-        <Sidebar onNavigate={() => setSidebarOpen(false)} />
-      </SidebarContainer>
-      {sidebarOpen && <MobileOverlay onClick={() => setSidebarOpen(false)} />}
+      {!billingBlocked && (
+        <SidebarContainer data-open={sidebarOpen || undefined}>
+          <Sidebar onNavigate={() => setSidebarOpen(false)} />
+        </SidebarContainer>
+      )}
+      {!billingBlocked && sidebarOpen && <MobileOverlay onClick={() => setSidebarOpen(false)} />}
       <ContentContainer>
         <ContentInner>
-          <TopBar>
-            <MenuBtn onClick={() => setSidebarOpen(s => !s)}>☰ 메뉴</MenuBtn>
-            <div />
-          </TopBar>
+          {!billingBlocked && (
+            <TopBar>
+              <MenuBtn onClick={() => setSidebarOpen(s => !s)}>☰ 메뉴</MenuBtn>
+              <div />
+            </TopBar>
+          )}
           <RouteTransition>
             <Suspense fallback={<PageLoading />}> 
               <Outlet />
@@ -220,6 +314,18 @@ function MainLayout() {
       </ContentContainer>
     </AppContainer>
   );
+}
+
+function HomeLanding() {
+  const { user } = useAuth();
+  const menus = Array.isArray(user?.menus)
+    ? user?.menus.map((key) => (typeof key === "string" ? key.trim().toUpperCase() : String(key))).filter(Boolean)
+    : [];
+  const hasTeacherDashboard = menus.includes("DASHBOARD");
+  if (user?.role === "TEACHER" && !hasTeacherDashboard) {
+    return <Navigate to={routes.teacherHome} replace />;
+  }
+  return <Dashboard />;
 }
 
 function PublicLayout() {
@@ -234,6 +340,11 @@ function PublicLayout() {
       </ContentInner>
     </ContentContainer>
   );
+}
+
+function BareLayout() {
+  // No wrappers, full-bleed content (used by public pay page)
+  return <Outlet />;
 }
 
 function AdminProtectedLayout() {
@@ -289,7 +400,6 @@ const fadeUp = keyframes`
 
 const AuthCard = styled.div`
   width: 100%;
-  max-width: 560px;
   background: transparent; /* 경계 없는 스타일 */
   border-radius: 18px;
   padding: 20px;

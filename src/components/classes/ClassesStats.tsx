@@ -3,8 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { listCourses, type Course, type PageResult } from "../../api/courses";
 import { formatYMD } from "../../features/calendar/dateUtils";
 import { readableError } from "@/lib/errors";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function ClassesStats() {
+  const { authGeneration, user } = useAuth();
+  const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState<number>(0);
@@ -43,13 +46,13 @@ export default function ClassesStats() {
     }
     void load();
     return () => { cancelled = true; };
-  }, [today, version]);
+  }, [today, version, authGeneration]);
 
   return (
     <Row>
       <StatCard>
         <Head>
-          <Title>총 수업 수</Title>
+          <Title>{isTeacher ? "담당 수업 수" : "총 수업 수"}</Title>
           <IconBox aria-hidden>{booksIcon}</IconBox>
         </Head>
         <Value>{loading ? "…" : `${total}개`}</Value>
@@ -57,14 +60,14 @@ export default function ClassesStats() {
       </StatCard>
       <StatCard>
         <Head>
-          <Title>진행중 수업</Title>
+          <Title>{isTeacher ? "진행중 (담당)" : "진행중 수업"}</Title>
           <IconBox aria-hidden>{playIcon}</IconBox>
         </Head>
         <Value>{loading ? "…" : `${inProgress}개`}</Value>
       </StatCard>
       <StatCard>
         <Head>
-          <Title>오늘 수업</Title>
+          <Title>{isTeacher ? "오늘 담당 수업" : "오늘 수업"}</Title>
           <IconBox aria-hidden>{calendarIcon}</IconBox>
         </Head>
         <Value>{loading ? "…" : `${todayCount}개`}</Value>

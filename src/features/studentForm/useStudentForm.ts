@@ -94,7 +94,8 @@ export function useStudentForm({
           joinedDate: student.joinedDate ?? student.createdAt?.slice(0, 10),
           birthDate: student.birthDate,
           address: student.address,
-          parentName: student.parentName,
+          guardianName: (student as unknown as { guardianName?: string | null; parentName?: string | null }).guardianName ??
+                        (student as unknown as { guardianName?: string | null; parentName?: string | null }).parentName,
         });
         if (student.birthDate) {
           const [y, m, d] = String(student.birthDate).split("-");

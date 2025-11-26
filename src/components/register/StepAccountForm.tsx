@@ -1,7 +1,5 @@
 import type { FormEventHandler } from "react";
-import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { PrimaryButtonLg as UIPrimaryBtn } from "@/components/common/UI";
-import { formatPhone } from "@/lib/format";
 import type { UseRegisterFlowResult } from "@/features/register/useRegisterFlow";
 import {
   Sub,
@@ -18,11 +16,7 @@ import {
   PillTextInput,
   Hint,
   ErrorText,
-  AgreeRow,
-  ScrollArea,
-  TermsBody,
 } from "./RegisterForm.styles";
-import { TERMS_TEXT, PRIVACY_TEXT } from "./registerTermsContent";
 
 type StepAccountFormProps = {
   flow: UseRegisterFlowResult;
@@ -51,6 +45,7 @@ export function StepAccountForm({ flow, onSubmit }: StepAccountFormProps) {
     setCategoryEtc,
     secondCategories,
     phone,
+    setPhone,
     name,
     setName,
     bizNo,
@@ -67,15 +62,9 @@ export function StepAccountForm({ flow, onSubmit }: StepAccountFormProps) {
     setBillingEmail,
     referral,
     setReferral,
+    canProceedAccount,
     error,
-    agree,
-    setAgree,
-    showTerms,
-    setShowTerms,
-    showPrivacy,
-    setShowPrivacy,
-    loading,
-    canSubmitStep3,
+    normalizeMobile,
   } = flow;
 
   const bizNoMasked = maskBizNo(bizNo);
@@ -177,8 +166,25 @@ export function StepAccountForm({ flow, onSubmit }: StepAccountFormProps) {
           </>
         ) : null}
 
-        <Label>담당자 연락처</Label>
-        <Input value={formatPhone(phone)} disabled />
+        <Divider />
+        <SectionTitle>담당자 및 청구 정보</SectionTitle>
+
+        <Label>
+          담당자 연락처<span>*</span>
+        </Label>
+        <Input
+          value={phone}
+          inputMode="tel"
+          onChange={(event) => setPhone(event.target.value)}
+          onBlur={(event) => {
+            const normalized = normalizeMobile(event.target.value);
+            if (normalized) setPhone(normalized);
+          }}
+          placeholder="010-1234-5678"
+          aria-invalid={phone !== "" && !normalizeMobile(phone)}
+          required
+        />
+        <Hint>문자 인증 없이 연락처만 확인하고 있어요.</Hint>
 
         <Label>담당자 성함 (선택)</Label>
         <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="홍길동" />
@@ -209,67 +215,13 @@ export function StepAccountForm({ flow, onSubmit }: StepAccountFormProps) {
         <Label>가입 경로 (선택)</Label>
         <Input value={referral} onChange={(event) => setReferral(event.target.value)} placeholder="예: 친구 추천, 광고, 검색 등" />
 
+        <Hint>다음 단계에서 원생 규모와 요금제를 선택합니다.</Hint>
         {error && <ErrorText>{error}</ErrorText>}
 
-        <AgreeRow>
-          <input id="agree" type="checkbox" checked={agree} onChange={(event) => setAgree(event.target.checked)} />
-          <label htmlFor="agree">
-            이용약관 및 개인정보 처리방침에 동의합니다{" "}
-            <a
-              href="#"
-              onClick={(event) => {
-                event.preventDefault();
-                setShowTerms(true);
-              }}
-            >
-              이용약관
-            </a>{" "}
-            ·{" "}
-            <a
-              href="#"
-              onClick={(event) => {
-                event.preventDefault();
-                setShowPrivacy(true);
-              }}
-            >
-              개인정보 처리방침
-            </a>
-          </label>
-        </AgreeRow>
-
-        <UIPrimaryBtn type="submit" disabled={!canSubmitStep3}>
-          {loading ? "완료 중..." : "완료"}
+        <UIPrimaryBtn type="submit" disabled={!canProceedAccount}>
+          다음
         </UIPrimaryBtn>
       </Form>
-
-      <ConfirmDialog
-        open={showTerms}
-        title="이용약관"
-        message={
-          <ScrollArea>
-            <TermsBody>{TERMS_TEXT}</TermsBody>
-          </ScrollArea>
-        }
-        hideCancel
-        confirmLabel="닫기"
-        maxWidth={720}
-        onConfirm={() => setShowTerms(false)}
-        onCancel={() => setShowTerms(false)}
-      />
-      <ConfirmDialog
-        open={showPrivacy}
-        title="개인정보 처리방침"
-        message={
-          <ScrollArea>
-            <TermsBody>{PRIVACY_TEXT}</TermsBody>
-          </ScrollArea>
-        }
-        hideCancel
-        confirmLabel="닫기"
-        maxWidth={720}
-        onConfirm={() => setShowPrivacy(false)}
-        onCancel={() => setShowPrivacy(false)}
-      />
     </>
   );
 }

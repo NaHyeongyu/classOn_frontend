@@ -5,10 +5,14 @@ import { readableError } from "@/lib/errors";
 import { useNavigate } from "react-router-dom";
 import { listCourses, type Course, type PageResult } from "../../api/courses";
 import { visiblePages } from "../../lib/pagination";
+import { useAuth } from "@/hooks/useAuth";
+import { CourseStatusBadge } from "@/components/common/CourseStatusBadge";
 
 type Filters = { status?: "" | "IN_PROGRESS" | "STOPPED" | "PENDING"; q?: string };
 
-const dayOrder: Record<"MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN", number> = {
+type DayKey = "MON" | "TUE" | "WED" | "THU" | "FRI" | "SAT" | "SUN";
+
+const dayOrder: Record<DayKey, number> = {
   MON: 0,
   TUE: 1,
   WED: 2,
@@ -46,22 +50,22 @@ function buildDays(r: Course) {
           (dayOrder[a as keyof typeof dayOrder] ?? 0) -
           (dayOrder[b as keyof typeof dayOrder] ?? 0)
       )
-      .map((code) => dayLabel(code))
+      .map((code: string) => dayLabel(code))
       .join("/");
   }
   if (typeof r.recurrenceDays === "string" && r.recurrenceDays.trim()) {
     const codes = r.recurrenceDays
       .split(",")
-      .map((value) => value.trim().toUpperCase())
-      .filter(Boolean) as (keyof typeof dayOrder)[];
+      .map((value: string) => value.trim().toUpperCase())
+      .filter(Boolean) as DayKey[];
     codes.sort((a, b) => dayOrder[a] - dayOrder[b]);
-    return codes.map((code) => dayLabel(code)).join("/");
+    return codes.map((code: string) => dayLabel(code)).join("/");
   }
   if (r.schedule && r.schedule.length > 0) {
     return r.schedule
-      .map((s) => s.dayOfWeek)
-      .filter(Boolean)
-      .map((code) => dayLabel(code!))
+      .map((s: NonNullable<Course["schedule"]>[number]) => s.dayOfWeek)
+      .filter((value: string | null | undefined): value is string => Boolean(value))
+      .map((code: string) => dayLabel(code))
       .join(", ");
   }
   return "-";
@@ -78,19 +82,6 @@ function buildTimeRange(r: Course) {
   return r.courseTime || "-";
 }
 
-function statusLabel(s?: Course["status"]) {
-  switch (s) {
-    case "IN_PROGRESS":
-      return "진행중";
-    case "PENDING":
-      return "대기";
-    case "STOPPED":
-      return "중단";
-    default:
-      return s;
-  }
-}
-
 function courseTypeLabel(type?: Course["courseType"]) {
   switch (type) {
     case "INDIVIDUAL":
@@ -104,6 +95,8 @@ function courseTypeLabel(type?: Course["courseType"]) {
 
 export default function ClassesTable({ filters, refreshKey }: { filters: Filters; refreshKey?: number }) {
   const navigate = useNavigate();
+  const { authGeneration, user } = useAuth();
+  const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
   const [rows, setRows] = useState<Course[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -112,7 +105,7 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => { setPage(0); }, [filters.status, filters.q]);
+  useEffect(() => { setPage(0); }, [filters.status, filters.q, authGeneration]);
 
   useEffect(() => {
     let cancelled = false;
@@ -138,7 +131,7 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
     }
     void load();
     return () => { cancelled = true; };
-  }, [page, size, filters.status, filters.q, refreshKey]);
+  }, [page, size, filters.status, filters.q, refreshKey, authGeneration]);
 
   const view = useMemo(() => rows.map((r, idx) => {
     const seqDesc = Math.max(0, totalElements - (page * size) - idx);
@@ -149,7 +142,6 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
       code: r.code,
       courseType: courseTypeLabel(r.courseType),
       rawStatus: r.status,
-      statusText: statusLabel(r.status),
       days: buildDays(r),
       time: buildTimeRange(r),
       enrolled: r.enrolledCount ?? '-',
@@ -159,27 +151,42 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
 
   function changePage(p: number) { if (p >= 0 && p < totalPages) setPage(p); }
 
+  const CLASS_TABLE_COLS = useMemo(
+    () => [
+      { key: "seq", width: "7%" }, // 번호
+      { key: "title", width: "28%" }, // 수업명
+      { key: "type", width: "10%" }, // 유형
+      { key: "days", width: "12%" }, // 요일
+      { key: "time", width: "18%" }, // 시간
+      { key: "enrolled", width: "9%" }, // 수강인원
+      { key: "next", width: "10%" }, // 다음 수업
+      { key: "status", width: "6%" }, // 상태
+    ],
+    [],
+  );
+
   return (
     <Card>
       <CardInner>
       <Head>
         <div>
           <strong>수업 목록</strong>
-          <Muted>{loading ? "불러오는 중..." : `총 ${totalElements}개의 수업이 조회되었습니다.`}</Muted>
+          <Muted>
+            {loading
+              ? "불러오는 중..."
+              : isTeacher
+                ? `담당 수업 ${totalElements}개`
+                : `총 ${totalElements}개의 수업이 조회되었습니다.`}
+          </Muted>
           {error && <Err>{error}</Err>}
         </div>
       </Head>
       <Scroller>
         <StyledTable>
           <colgroup>
-            <col style={{ width: '7%' }} />    {/* 번호 */}
-            <col style={{ width: '28%' }} />   {/* 수업명 */}
-            <col style={{ width: '10%' }} />   {/* 유형 */}
-            <col style={{ width: '12%' }} />   {/* 요일 */}
-            <col style={{ width: '18%' }} />   {/* 시간 */}
-            <col style={{ width: '9%' }} />    {/* 수강인원 */}
-            <col style={{ width: '10%' }} />   {/* 다음 수업 */}
-            <col style={{ width: '6%' }} />    {/* 상태 */}
+            {CLASS_TABLE_COLS.map((col) => (
+              <col key={col.key} style={{ width: col.width }} />
+            ))}
           </colgroup>
           <thead>
             <tr>
@@ -194,20 +201,32 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
             </tr>
           </thead>
           <tbody>
-            {view.map(r => (
-              <tr key={r.id} onClick={() => navigate(`/classes/${r.id}`)} data-clickable="true">
-                <td>{r.seq}</td>
-                <td>
-                  <TitleText>{r.title}</TitleText>
+            {view.length === 0 ? (
+              <tr>
+                <td colSpan={8} className="empty">
+                  {loading
+                    ? "불러오는 중입니다…"
+                    : isTeacher
+                      ? "담당 수업이 없습니다."
+                      : "조회된 수업이 없습니다."}
                 </td>
-                <td>{r.courseType}</td>
-                <td>{r.days}</td>
-                <td>{r.time}</td>
-                <td>{r.enrolled}</td>
-                <td>{r.next}</td>
-                <td><StatusChip data-type={r.rawStatus}>{r.statusText}</StatusChip></td>
               </tr>
-            ))}
+            ) : (
+              view.map((r) => (
+                <tr key={r.id} onClick={() => navigate(`/classes/${r.id}`)} data-clickable="true">
+                  <td>{r.seq}</td>
+                  <td>
+                    <TitleText>{r.title}</TitleText>
+                  </td>
+                  <td>{r.courseType}</td>
+                  <td>{r.days}</td>
+                  <td>{r.time}</td>
+                  <td>{r.enrolled}</td>
+                  <td>{r.next}</td>
+                  <td><CourseStatusBadge status={r.rawStatus} /></td>
+                </tr>
+              ))
+            )}
           </tbody>
         </StyledTable>
       </Scroller>
@@ -237,12 +256,6 @@ const Muted = styled.div` color:#6b7280; font-size:12px; margin-top:4px; `;
 const Err = styled.div` color:#b91c1c; font-size:12px; `;
 // Table provided by common UI
 /* Row is clickable; title uses normal text */
-const StatusChip = styled.span`
-  padding: 2px 8px; border-radius: 9999px; font-size: 12px; font-weight: 800;
-  &[data-type='IN_PROGRESS'] { background:#dcfce7; color:#16a34a; }
-  &[data-type='PENDING'] { background:#f3e8ff; color:#7c3aed; }
-  &[data-type='STOPPED'] { background:#e5e7eb; color:#374151; }
-`;
 const Pager = styled.div` display:flex; gap:6px; justify-content:center; padding-top:4px; `;
 const Btn = styled.button<{disabled?:boolean}>`
   min-width:28px; height:28px; padding:0 8px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; font-size:12px; color:#111827;
@@ -273,6 +286,12 @@ const StyledTable = styled(Table)`
   }
   thead th:last-child, tbody td:last-child { border-right: none; }
   tbody td { font-size: 13.5px; color: #0f172a; }
+  tbody td.empty {
+    text-align: center;
+    white-space: normal;
+    padding: 32px 12px;
+    color: #64748b;
+  }
   tbody tr[data-clickable='true'] { cursor: pointer; }
   tbody tr[data-clickable='true']:active td { background: ${({ theme }) => theme.colors.surfaceAlt}; }
 `;

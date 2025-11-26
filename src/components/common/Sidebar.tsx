@@ -1,5 +1,5 @@
 // 사이드바: 주요 내비게이션과 사용자 정보 카드 UI를 담당합니다.
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import styled from "styled-components";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,28 +9,97 @@ type SidebarProps = {
   onNavigate?: () => void;
 };
 
+type NavItem = {
+  key: string;
+  label: string;
+  sub: string;
+  to: string;
+  menuKey?: string | null;
+};
+
 export default function Sidebar({ onNavigate }: SidebarProps) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const enableFeedback = import.meta.env.VITE_ENABLE_FEEDBACK === 'true';
-  const items = useMemo(() => {
-    const base = [
-      { key: "dashboard", label: "대시보드", sub: "Dashboard", to: routes.home },
-      { key: "calendar", label: "일정", sub: "Calendar", to: routes.calendar },
-      { key: "students", label: "원생관리", sub: "Student Management", to: routes.students },
-      { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes },
-      { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance },
-      // { key: "stats", label: "통계", sub: "Analytics", to: routes.stats },
-      { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments },
-      { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing },
-      { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback },
-    ] as { key: string; label: string; sub: string; to: string }[];
-    if (enableFeedback) base.push({ key: "changelog", label: "업데이트 안내", sub: "Patch Notes", to: routes.feedbackChangelog });
-    return base;
-  }, [enableFeedback]);
+  const roleValue = (user?.role ?? "").toString().toUpperCase();
+  const isTeacher = roleValue.includes("TEACHER");
+  const isOwnerOrAdmin = roleValue === "OWNER" || roleValue === "ADMIN";
+  const items = useMemo<NavItem[]>(() => {
+    const normalize = (key: unknown) =>
+      typeof key === "string" ? key.trim().toUpperCase() : String(key || "").trim().toUpperCase();
+    const teacherMenuKeys = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "FEEDBACK"];
+    const teacherMenuSet = new Set(teacherMenuKeys);
+
+    const rawMenus = Array.isArray(user?.menus) ? user?.menus ?? [] : [];
+    const normalizedMenus = new Set(
+      rawMenus
+        .map((key) => normalize(key))
+        .filter((key) => key.length > 0),
+    );
+
+    let allowedMenus: Set<string> | null = normalizedMenus.size > 0 ? normalizedMenus : null;
+    if (isTeacher) {
+      if (allowedMenus) {
+        const filtered = Array.from(allowedMenus).filter((key) => teacherMenuSet.has(key));
+        allowedMenus = new Set(filtered.length > 0 ? filtered : teacherMenuKeys);
+      } else {
+        allowedMenus = new Set(teacherMenuKeys);
+      }
+      const teacherItems: NavItem[] = [
+        { key: "dashboard", label: "대시보드", sub: "Dashboard", to: routes.home, menuKey: "DASHBOARD" },
+        { key: "calendar", label: "일정", sub: "Calendar", to: routes.calendar, menuKey: "CALENDAR" },
+        { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
+        { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
+        { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
+        { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
+      ];
+      return teacherItems.filter((item) => {
+        if (!allowedMenus || !item.menuKey) return true;
+        return allowedMenus.has(item.menuKey);
+      });
+    }
+
+    const base: NavItem[] = [
+      { key: "dashboard", label: "대시보드", sub: "Dashboard", to: routes.home, menuKey: "DASHBOARD" },
+      { key: "calendar", label: "일정", sub: "Calendar", to: routes.calendar, menuKey: "CALENDAR" },
+      { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
+      { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
+      { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
+      { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments, menuKey: "PAYMENTS" },
+      { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing, menuKey: "MARKETING" },
+      { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
+    ];
+    if (isOwnerOrAdmin) {
+      const entry: NavItem = { key: "teachers-manage", label: "강사관리", sub: "Teacher Management", to: routes.teachersManage };
+      const idx = base.findIndex((i) => i.key === "feedback");
+      if (idx >= 0) base.splice(idx, 0, entry); else base.push(entry);
+    }
+    if (enableFeedback) {
+      base.push({ key: "changelog", label: "업데이트 안내", sub: "Patch Notes", to: routes.feedbackChangelog });
+    }
+    return base.filter((item) => {
+      if (!allowedMenus || !item.menuKey) return true;
+      return allowedMenus.has(item.menuKey);
+    });
+  }, [enableFeedback, isTeacher, isOwnerOrAdmin, user?.menus]);
 
   // Display only academy name in the bottom user box
   const academyName = user?.academy?.name && user.academy.name.trim() ? user.academy.name.trim() : undefined;
+  const profileName = isTeacher ? (user?.name?.trim() || "강사") : academyName || "학원 미지정";
+  const profileRoute = isTeacher ? routes.teacherHome : routes.myAcademy;
+  const profileTitle = isTeacher ? "강사 홈" : "내 정보";
+  const profileAria = `${profileTitle}: ${profileName}`;
+
+  const handleProfileClick = useCallback(() => {
+    navigate(profileRoute);
+    onNavigate?.();
+  }, [navigate, onNavigate, profileRoute]);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    navigate(routes.login, { replace: true, state: undefined });
+    onNavigate?.();
+  }, [logout, navigate, onNavigate]);
 
   return (
     <SidebarWrapper>
@@ -72,12 +141,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       <BottomInfo>
         <AcademyCard
           type="button"
-          onClick={() => {
-            navigate(routes.myAcademy);
-            onNavigate?.();
-          }}
-          title="내 정보"
-          aria-label={`내 정보: ${academyName || '학원 미지정'}`}
+          onClick={handleProfileClick}
+          title={profileTitle}
+          aria-label={profileAria}
         >
           <LeadingIcon aria-hidden>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -94,13 +160,22 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
           </LeadingIcon>
           <div style={{flex:1, minWidth:0}}>
             <AcademyLabel>내 정보</AcademyLabel>
-            <AcademyName title={academyName || '학원 미지정'}>
-              {academyName || '학원 미지정'}
+            <AcademyName title={profileName}>
+              {profileName}
             </AcademyName>
           </div>
           <Chevron aria-hidden viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></Chevron>
         </AcademyCard>
-        <FooterText>academy.com</FooterText>
+        {isTeacher ? (
+          <>
+            <LogoutButton type="button" onClick={handleLogout}>
+              로그아웃
+            </LogoutButton>
+            <FooterText>academy.com</FooterText>
+          </>
+        ) : (
+          <FooterText>academy.com</FooterText>
+        )}
       </BottomInfo>
     </SidebarWrapper>
   );
@@ -237,6 +312,24 @@ function renderIcon(key: string) {
           <path d="M14 7l-7 7" />
         </svg>
       );
+    case "teachers-manage":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+          <path d="M20 4H6.5A2.5 2.5 0 0 0 4 6.5v13" />
+          <path d="M20 4v13H6.5" />
+        </svg>
+      );
+    
     case "feedback":
       return (
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -443,3 +536,25 @@ const FooterText = styled.div`
   font-size: 11px;
   color: #9ca3af;
 `;
+
+const LogoutButton = styled.button`
+  margin-top: 12px;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  &:hover {
+    background: #e2e8f0;
+    border-color: #cbd5f5;
+  }
+  &:active {
+    background: #e0e7ff;
+  }
+`;
+    

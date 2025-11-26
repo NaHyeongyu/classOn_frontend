@@ -5,6 +5,7 @@ export const routes = {
   login: '/login',
   register: '/register',
   myAcademy: '/my-academy',
+  myAcademyPlan: '/my-academy/plan',
 
   calendar: '/calendar',
   calendarDetail: '/calendar/:ymd',
@@ -27,6 +28,17 @@ export const routes = {
   attendance: '/attendance',
 
   payments: '/payments',
+  paymentsCreate: '/payments/create',
+  paymentsKakaoConfirm: '/payments/kakao-confirm',
+  paymentsReceipt: '/payments/receipt',
+  paymentsTossSuccess: '/payments/toss-success',
+  paymentsTossFail: '/payments/toss-fail',
+  teachersManage: '/teachers',
+  // Public payment request (no auth)
+  payRequest: '/pay/:token',
+  payRequestBlank: '/pay',
+  invoiceViewer: '/invoice/:token',
+  invoiceViewerBlank: '/invoice',
   devTools: '/dev-tools',
   admin: '/admin',
   adminStats: '/admin/stats',
@@ -40,6 +52,11 @@ export const routes = {
   marketingSavedDetail: '/marketing/saved/:id',
   feedback: '/feedback',
   feedbackChangelog: '/feedback/changelog',
+
+  teacherHome: '/teacher',
+  teacherClasses: '/teacher/classes',
+  teacherProfile: '/teacher/profile',
+  teacherDetail: '/my-academy/teachers/:id',
 } as const;
 
 export const paths = {
@@ -49,6 +66,11 @@ export const paths = {
     detailTab: (id: string | number, tab: string) => `/students/${id}/${tab}`,
     edit: (id: string | number) => `/students/${id}/edit`,
   },
+  payments: {
+    create: () => '/payments/create',
+    kakaoConfirm: (ids?: string) =>
+      ids && ids.trim() ? `/payments/kakao-confirm?ids=${ids}` : '/payments/kakao-confirm',
+  },
   classes: {
     detail: (id: string | number) => `/classes/${id}`,
     detailTab: (id: string | number, tab: string) => `/classes/${id}/${tab}`,
@@ -56,5 +78,8 @@ export const paths = {
     editStudents: (id: string | number) => `/classes/${id}/edit-students`,
     historyRecord: (id: string | number, recordId: string | number) => `/classes/${id}/history/${recordId}`,
     historyDate: (id: string | number, ymd: string) => `/classes/${id}/history/date/${ymd}`,
+  },
+  teachers: {
+    detail: (id: string | number) => `/my-academy/teachers/${id}`,
   },
 } as const;

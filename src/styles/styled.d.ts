@@ -7,6 +7,7 @@ declare module 'styled-components' {
       textMuted: string
       textInverted: string
       bg: string
+      background: string
       surface: string
       surfaceAlt: string
       surfaceMuted: string
@@ -65,6 +66,7 @@ declare module 'styled-components' {
         medium: number
         semiBold: number
         bold: number
+        extraBold: number
       }
     }
     shadow: {

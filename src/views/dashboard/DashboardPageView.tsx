@@ -1,11 +1,13 @@
 import styled from "styled-components";
 import { DashboardGrid } from "@/components/dashboard/DashboardLayout";
+import { useAuth } from "@/hooks/useAuth";
 import { Page as PageWrap, PageHeader, PrimaryBtn as LinkPrimary } from "@/components/common/UI";
 import KpiTotalStudents from "@/components/dashboard/KpiTotalStudents";
 import KpiAttendance from "@/components/dashboard/KpiAttendance";
 import KpiClasses from "@/components/dashboard/KpiClasses";
 import DashboardAttendance from "@/components/dashboard/DashboardAttendance";
 import DashboardClasses from "@/components/dashboard/DashboardClasses";
+import DashboardPayments from "@/components/dashboard/DashboardPayments";
 import type { DashboardPageData } from "@/features/dashboard/useDashboardPage";
 
 const DEFAULT_TITLE = "대시보드";
@@ -18,6 +20,9 @@ export function DashboardPageView({
   createCourseHref,
   kpiProps,
 }: DashboardPageViewProps) {
+  const { user } = useAuth();
+  const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
+
   return (
     <PageWrap>
       <DashboardGrid>
@@ -26,8 +31,12 @@ export function DashboardPageView({
             <h2>{title}</h2>
           </div>
           <Actions>
-            <LinkPrimary to={createStudentHref}>원생 추가</LinkPrimary>
-            <LinkPrimary to={createCourseHref}>수업 추가</LinkPrimary>
+            {!isTeacher && (
+              <LinkPrimary to={createStudentHref}>원생 추가</LinkPrimary>
+            )}
+            {!isTeacher && (
+              <LinkPrimary to={createCourseHref}>수업 추가</LinkPrimary>
+            )}
           </Actions>
         </PageHead>
 
@@ -35,7 +44,10 @@ export function DashboardPageView({
         <KpiAttendance {...kpiProps} />
         <KpiClasses {...kpiProps} />
 
-        <DashboardAttendance />
+        <LeftStack>
+          <DashboardAttendance />
+          <DashboardPayments kpi={kpiProps} />
+        </LeftStack>
         <DashboardClasses />
       </DashboardGrid>
     </PageWrap>
@@ -51,4 +63,14 @@ const Actions = styled.div`
 
 const PageHead = styled(PageHeader)`
   grid-column: 1 / -1;
+`;
+
+const LeftStack = styled.div`
+  grid-column: span 6;
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.pageGap};
+  > * {
+    width: 100%;
+  }
 `;

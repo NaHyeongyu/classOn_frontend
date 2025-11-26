@@ -26,15 +26,25 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
+      watch: { // Vite가 주기적으로 디렉토리를 직접 스캔해서 변경 감지
+        usePolling: true,
+        interval: 300, // 0.3초마다 변경 감지
+      },
       proxy: {
         // Proxy API during dev to avoid CORS issues
         '/api': {
-          target: 'http://localhost:8080',
+          target: 'http://backend:8080',
           changeOrigin: true,
           secure: false,
         },
         // Proxy output/static served by Spring if needed
       },
     },
+      test: {
+          globals: true,
+          environment: 'jsdom',
+          setupFiles: './src/setupTests.ts',
+          include: ['src/**/*.spec.{ts,tsx}'],
+      },
   }
 })

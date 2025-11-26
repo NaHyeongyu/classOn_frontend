@@ -26,9 +26,13 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@classon/shared-types": ["src/shared-types"]
-    }
+      "@classon/shared-types": ["./node_modules/@classon/shared-types/src"],
+      "@classon/shared-types/*": ["./node_modules/@classon/shared-types/src/*"]
+    },
+
+    /* 테스트 환경 타입 */
+    "types": ["vitest", "@testing-library/jest-dom"]
   },
-  "include": ["src"],
+  "include": ["src", "node_modules/@classon/shared-types/src"],
   "exclude": ["node_modules", "dist"]
 }

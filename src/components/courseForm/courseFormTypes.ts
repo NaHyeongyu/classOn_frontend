@@ -16,9 +16,19 @@ export type FormState = {
   endTime?: string;
   primaryStudentId?: number | null;
   primaryStudentName?: string;
+  instructorId?: number | null;
+  instructorName?: string;
 };
 
 export type StudentOption = Pick<Student, "id" | "name" | "code" | "status">;
+
+export type TeacherOption = {
+  id: number;
+  name?: string | null;
+  username?: string | null;
+  phone?: string | null;
+  courseCount?: number | null;
+};
 
 export const DEFAULT_FORM: FormState = {
   title: "",
@@ -27,6 +37,8 @@ export const DEFAULT_FORM: FormState = {
   courseType: "GROUP",
   primaryStudentId: null,
   primaryStudentName: "",
+  instructorId: null,
+  instructorName: "",
 };
 
 export type CourseFormStepMeta = {

@@ -16,6 +16,7 @@ export default function MyAcademyPage() {
         onLogout={state.handleLogout}
         account={state.account}
         academy={state.academy}
+        billing={state.billing}
       />
       <MyAcademyProfileModal modal={state.profileModal} />
       <MyAcademyPhoneModal modal={state.phoneModal} />

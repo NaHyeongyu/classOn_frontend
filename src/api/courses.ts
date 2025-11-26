@@ -1,4 +1,5 @@
 import { fetchJSON, getCanaryHeaders, invalidateCacheByPrefix, resolveApiUrl } from "../lib/fetcher";
+import { dispatchTeacherRefresh } from "./teachers";
 import type { Student } from "./students";
 import type { PageResult } from "../types/paging";
 import type { Attendance, Course, CourseRecord } from "@classon/shared-types";
@@ -46,6 +47,7 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
     startTime: payload.startTime,
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
+    instructorId: payload.instructorId,
     primaryStudentId: payload.primaryStudentId,
   });
   const res = await fetchJSON<Course>(`/api/courses`, { method: "POST", body });
@@ -61,6 +63,9 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
     ]);
   } catch {
     /* ignore cache invalidation failures */
+  }
+  if (typeof payload.instructorId === "number") {
+    dispatchTeacherRefresh({ reason: "course-create", teacherId: payload.instructorId, courseId: res?.id });
   }
   try {
     window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'create', id: res.id } }));
@@ -83,6 +88,7 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
     startTime: payload.startTime,
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
+    instructorId: payload.instructorId,
     primaryStudentId: payload.primaryStudentId,
   });
   const res = await fetchJSON<Course>(`/api/courses/${id}`, { method: "PUT", body });
@@ -98,8 +104,35 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
   } catch {
     /* ignore cache invalidation failures */
   }
+  if (typeof payload.instructorId === "number") {
+    dispatchTeacherRefresh({ reason: "course-update", teacherId: payload.instructorId, courseId: id });
+  }
   try {
     window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'update', id } }));
+  } catch {
+    /* ignore cross-context dispatch errors */
+  }
+  return res;
+}
+
+export async function updateCourseInstructor(id: number, instructorId: number | null): Promise<Course> {
+  const body = JSON.stringify({ instructorId });
+  const res = await fetchJSON<Course>(`/api/courses/${id}/instructor`, { method: "PUT", body });
+  try {
+    invalidateCacheByPrefix([
+      '/api/courses',
+      `/api/courses/${id}`,
+      `/api/courses/${id}/records`,
+      '/api/calendar/classes',
+      '/api/calendar/classes-range',
+      '/api/dashboard/summary',
+    ]);
+  } catch {
+    /* ignore cache invalidation failures */
+  }
+  dispatchTeacherRefresh({ reason: "course-instructor-update", teacherId: instructorId, courseId: id });
+  try {
+    window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'update-instructor', id } }));
   } catch {
     /* ignore cross-context dispatch errors */
   }
@@ -266,6 +299,7 @@ export async function deleteCourse(id: number): Promise<void> {
   } catch {
     /* ignore cache invalidation failures */
   }
+  dispatchTeacherRefresh({ reason: "course-delete", courseId: id });
   try {
     window.dispatchEvent(new CustomEvent('courses:refresh', { detail: { reason: 'delete', id } }));
   } catch {

@@ -34,6 +34,7 @@ export type CourseRecordDetailPageViewProps = {
     whenInfo: UseCourseRecordEditorReturn["meta"]["whenInfo"];
     canDelete: boolean;
   };
+  instructorName?: string | null;
   onBack: () => void;
   onDeleteRecord: () => Promise<boolean>;
   error: string | null;
@@ -63,6 +64,7 @@ export type CourseRecordDetailPageViewProps = {
 
 export function CourseRecordDetailPageView({
   header,
+  instructorName,
   onBack,
   onDeleteRecord,
   error,
@@ -114,6 +116,7 @@ export function CourseRecordDetailPageView({
             displayDateValue={editor.meta.displayDateValue}
             displayTimeValue={editor.meta.displayTimeValue}
             durationLabel={editor.meta.durationLabel}
+            instructorName={instructorName}
             onStartEdit={editor.schedule.onStartEdit}
             onSave={editor.schedule.onSave}
             onCancel={editor.schedule.onCancelEdit}

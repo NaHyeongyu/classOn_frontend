@@ -1,5 +1,7 @@
-import { type Dispatch, type SetStateAction } from "react";
 import styled from "styled-components";
+import { useAuth } from "@/hooks/useAuth";
+import { useRepresentativeName } from "@/hooks/useRepresentativeName";
+import { isMainAccountForTeacher } from "@/lib/users";
 import {
   SectionCard as Section,
   GhostButton as UIGhostBtn,
@@ -9,12 +11,14 @@ import type {
   CourseTypeValue,
   FormState,
   StudentOption,
+  TeacherOption,
 } from "@/components/courseForm/courseFormTypes";
 
 type FieldErrors = {
   title?: string;
   schedule?: string;
   student?: string;
+  instructor?: string;
 };
 
 type StepMeta = {
@@ -27,6 +31,10 @@ type BasicStepProps = {
   setForm: (updater: (prev: FormState) => FormState) => void;
   fieldErr: FieldErrors;
   setFieldErr: (updater: (prev: FieldErrors) => FieldErrors) => void;
+  teacherOptions: TeacherOption[];
+  teacherLoading: boolean;
+  teacherError: string | null;
+  isTeacher: boolean;
   courseTypeOptions: Array<{
     value: CourseTypeValue;
     label: string;
@@ -40,9 +48,22 @@ export function CourseFormBasicStep({
   setForm,
   fieldErr,
   setFieldErr,
+  teacherOptions,
+  teacherLoading,
+  teacherError,
+  isTeacher,
   courseTypeOptions,
   meta,
 }: BasicStepProps) {
+  const { user } = useAuth();
+  const repName = useRepresentativeName();
+  const isMainAccount = (opt?: TeacherOption) => isMainAccountForTeacher(user, opt, repName);
+  const instructorDisplay =
+    form.instructorName?.trim() ||
+    teacherOptions.find((opt) => opt.id === form.instructorId)?.name ||
+    teacherOptions.find((opt) => opt.id === form.instructorId)?.username ||
+    "";
+
   return (
     <StepCard>
       <StepHeaderWrap>
@@ -84,6 +105,66 @@ export function CourseFormBasicStep({
             <option value="PENDING">대기</option>
             <option value="STOPPED">중단</option>
           </Select>
+        </Field>
+
+        <Field>
+          <Label>담당 강사</Label>
+          {isTeacher ? (
+            <ReadOnlyField>{instructorDisplay || "본인"}</ReadOnlyField>
+          ) : teacherLoading ? (
+            <Select disabled>
+              <option>강사 목록을 불러오는 중입니다…</option>
+            </Select>
+          ) : teacherError ? (
+            <>
+              <Select disabled aria-invalid={true}>
+                <option>강사 목록을 불러오지 못했습니다.</option>
+              </Select>
+              <FieldErr>{teacherError}</FieldErr>
+            </>
+          ) : (
+            <>
+              <Select
+                value={form.instructorId ?? ""}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const nextId = value ? Number(value) : null;
+                  setForm((state) => {
+                    const selected = teacherOptions.find((opt) => opt.id === nextId);
+                    return {
+                      ...state,
+                      instructorId: nextId,
+                      instructorName: selected?.name || selected?.username || "",
+                    };
+                  });
+                }}
+                disabled={teacherOptions.length === 0}
+              >
+                <option value="">강사를 선택해 주세요</option>
+                {teacherOptions.map((opt) => {
+                  const base = opt.name || opt.username || `강사 #${opt.id}`;
+                  const suffix =
+                    typeof opt.courseCount === "number"
+                      ? ` (담당 수업 ${opt.courseCount}개)`
+                      : "";
+                  const mainTag = isMainAccount(opt) ? " [본계정]" : "";
+                  return (
+                    <option key={opt.id} value={opt.id}>
+                      {base}
+                      {mainTag}
+                      {suffix}
+                    </option>
+                  );
+                })}
+              </Select>
+              {teacherOptions.length === 0 ? (
+                <Hint>강사를 먼저 등록해야 합니다. 내 정보 &gt; 강사 관리에서 추가해 주세요.</Hint>
+              ) : user && !teacherOptions.some((opt) => isMainAccount(opt)) ? (
+                <Hint>본계정(담당자)이 목록에 없으면 강사로 등록해 주세요.</Hint>
+              ) : null}
+            </>
+          )}
+          {/* 담당 강사는 선택 사항입니다. */}
         </Field>
 
         <Field as="div">
@@ -441,8 +522,8 @@ export function CourseFormDetailsStep({
       {isEdit ? (
         <GuideCard>
           <StepLead>수강생 관리</StepLead>
-          <Hint>학생 관리는 상세 페이지의 ‘수강생 수정’에서 변경하세요.</Hint>
-          <UIGhostBtn onClick={onNavigateEditStudents}>수강생 수정 바로가기</UIGhostBtn>
+          <Hint>학생 관리는 상세 페이지의 ‘수강생 관리’에서 변경하세요.</Hint>
+          <UIGhostBtn onClick={onNavigateEditStudents}>수강생 관리 바로가기</UIGhostBtn>
         </GuideCard>
       ) : null}
     </StepCard>
@@ -474,7 +555,7 @@ const StepLead = styled.p`
 const StepGrid = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.md};
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  grid-template-columns: 1fr; /* 세로 배치 고정 */
 `;
 
 const Field = styled.div`
@@ -507,12 +588,28 @@ const Input = styled.input`
 `;
 
 const Select = styled.select`
+  width: 100%;
   height: 44px;
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
   padding: 0 ${(p) => p.theme.spacing.sm};
   font-size: ${(p) => p.theme.font.size.sm};
   color: ${(p) => p.theme.colors.text};
+`;
+
+const ReadOnlyField = styled.div`
+  height: 44px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: 0 ${(p) => p.theme.spacing.sm};
+  background: ${(p) => p.theme.colors.surfaceAlt};
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.text};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  word-break: break-word;
 `;
 
 const FieldErr = styled.span`
@@ -523,7 +620,7 @@ const FieldErr = styled.span`
 const TypeToggleGroup = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.sm};
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr; /* 옵션 버튼도 세로 배치 */
 `;
 
 const TypeToggleButton = styled.button`

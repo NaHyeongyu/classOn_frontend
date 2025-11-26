@@ -10,6 +10,18 @@ import { visiblePages } from "../../lib/pagination";
 // No row-level destructive actions here; deletion is available only on edit page.
 
 type ChipType = "수강중" | "휴학" | "대기중";
+type ViewRow = {
+  seq: number;
+  code?: string | null;
+  id: number;
+  name: string;
+  age: string;
+  phone: string;
+  course: string;
+  guardian: string;
+  status: ChipType;
+  joinedAt: string;
+};
 
 function statusKr(s: Student["status"]): ChipType {
   return s === "ENROLLED" ? "수강중" : s === "ON_LEAVE" ? "휴학" : "대기중";
@@ -66,7 +78,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
         ageMin: filters.ageMin ? Number(filters.ageMin) : undefined,
         ageMax: filters.ageMax ? Number(filters.ageMax) : undefined,
       }),
-    placeholderData: (previousData) => previousData,
+    placeholderData: (previousData: PageResult<Student> | undefined) => previousData,
     staleTime: 30_000,
     gcTime: 5 * 60 * 1000,
     retry: 1,
@@ -83,7 +95,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
   useEffect(() => { setPage(0); }, [filters.status, filters.q, filters.from, filters.to, filters.ageMin, filters.ageMax]);
 
   // Sync from URL params (for back/forward navigation)
-  const view = useMemo(() => rows.map((r, idx) => {
+  const view: ViewRow[] = useMemo(() => rows.map((r: Student, idx: number) => {
     let ageText: string;
     if (r.birthDate) {
       const y = Number(r.birthDate.split('-')[0]);
@@ -94,6 +106,11 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
       ageText = r.age != null ? String(r.age) : '-';
     }
     const seqDesc = Math.max(0, totalElements - (page * size) - idx);
+    const courseTitles = Array.isArray(r.courses)
+      ? r.courses
+          .map((course: NonNullable<Student["courses"]>[number]) => course?.title ?? null)
+          .filter((title: string | null): title is string => Boolean(title && title.trim()))
+      : [];
     return ({
       seq: seqDesc,
       code: r.code,
@@ -101,7 +118,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
       name: r.name,
       age: ageText,
       phone: formatPhone(r.phoneNumber),
-      course: r.courses?.map((c: any) => c.title).join(", ") || "-",
+      course: courseTitles.length ? courseTitles.join(", ") : "-",
       guardian: formatPhone(r.guardianPhone),
       status: statusKr(r.status),
       joinedAt: r.joinedDate || (r.createdAt?.slice(0,10)) || "-",
@@ -112,6 +129,20 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
     if (p < 0 || p >= totalPages) return;
     setPage(p);
   }
+
+  const STUDENT_TABLE_COLS = useMemo(
+    () => [
+      { key: "seq", width: "7%" }, // 번호
+      { key: "name", width: "16%" }, // 이름
+      { key: "phone", width: "12%" }, // 연락처
+      { key: "age", width: "7%" }, // 나이
+      { key: "courses", width: "27%" }, // 수강수업
+      { key: "guardian", width: "10%" }, // 보호자 연락처
+      { key: "status", width: "7%" }, // 상태
+      { key: "joined", width: "14%" }, // 등록일
+    ],
+    [],
+  );
 
   // no bulk/Excel features
 
@@ -130,14 +161,9 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
       <Scroller>
         <StyledTable>
           <colgroup>
-            <col style={{ width: '7%' }} />       {/* 번호 */}
-            <col style={{ width: '16%' }} />      {/* 이름 */}
-            <col style={{ width: '12%' }} />      {/* 연락처 */}
-            <col style={{ width: '7%' }} />       {/* 나이 */}
-            <col style={{ width: '27%' }} />      {/* 수강수업 */}
-            <col style={{ width: '10%' }} />      {/* 보호자 연락처 */}
-            <col style={{ width: '7%' }} />       {/* 상태 */}
-            <col style={{ width: '14%' }} />      {/* 등록일 */}
+            {STUDENT_TABLE_COLS.map((col) => (
+              <col key={col.key} style={{ width: col.width }} />
+            ))}
           </colgroup>
           <thead>
             <tr>
@@ -166,7 +192,7 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
                 </td>
               </tr>
             )}
-            {view.map((r) => (
+            {view.map((r: ViewRow) => (
               <tr key={r.id} onClick={() => navigate(`/students/${r.id}/courses`)} data-clickable="true">
                 <td>{r.seq}</td>
                 <td>

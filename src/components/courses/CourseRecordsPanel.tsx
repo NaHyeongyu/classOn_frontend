@@ -1,6 +1,6 @@
 import React from 'react';
 import styled from 'styled-components';
-import { SectionCard as Section, TitleH3 as Title, GhostButton as UIGhostButton, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, buttonVariants } from "@/components/common/UI";
+import { SectionCard as Section, TitleH3 as Title, GhostButton as UIGhostButton, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, PrimaryButton as UIPrimaryButton, buttonVariants } from "@/components/common/UI";
 
 type HistoryItem = {
   id?: number;
@@ -26,6 +26,7 @@ type Props = {
   todayHref: string;
   detailHrefFor: (id?: number, date?: Date) => string;
   getAttendanceMap: (recordId: number) => Record<number, boolean>;
+  onCreateRecord?: () => void;
 };
 
 export default function CourseRecordsPanel({
@@ -43,6 +44,7 @@ export default function CourseRecordsPanel({
   todayHref,
   detailHrefFor,
   getAttendanceMap,
+  onCreateRecord,
 }: Props) {
   return (
     <Section>
@@ -55,7 +57,11 @@ export default function CourseRecordsPanel({
           <UIGhostButton type="button" onClick={onToggleCollapsed}>
             {collapsed ? '펼치기' : '목록 접기'}
           </UIGhostButton>
-          <UIPrimaryBtn to={todayHref}>수업 생성</UIPrimaryBtn>
+          {onCreateRecord ? (
+            <UIPrimaryButton type="button" onClick={onCreateRecord}>수업 생성</UIPrimaryButton>
+          ) : (
+            <UIPrimaryBtn to={todayHref}>수업 생성</UIPrimaryBtn>
+          )}
         </div>
       </Head>
 

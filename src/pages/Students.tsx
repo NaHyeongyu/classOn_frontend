@@ -7,6 +7,7 @@ import styled from "styled-components";
 import { SectionCard as Section } from "@/components/common/UI";
 import { useSearchParams } from "react-router-dom";
 import { PageHeader, PrimaryBtn, GhostButton } from "@/components/common/UI";
+import { useAuth } from "@/hooks/useAuth";
 import {
   downloadStudentsExcel,
   downloadStudentsTemplate,
@@ -16,6 +17,7 @@ import {
 import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 
 type ImportPreviewRow = {
   row?: number;
@@ -88,6 +90,12 @@ function toImportPreview(source: PreviewApiResponse): ImportPreview {
 
 export default function Students() {
   const { show, success, error: showError } = useToast();
+  const { user } = useAuth();
+  const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
+  const summary = useDashboardSummary();
+  const studentLimit = summary.data?.studentLimit ?? null;
+  const studentRemaining = summary.data?.studentRemaining ?? null;
+  const quotaError = summary.status === "error";
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState(() => ({
     status: "" as "" | "ENROLLED" | "ON_LEAVE" | "PENDING",
@@ -162,21 +170,32 @@ export default function Students() {
               <p>등록된 원생들을 한눈에 확인해보세요!</p>
             </div>
             <ActionsRow>
-              <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
-              <ExcelActions>
-                <GhostButton as="button" onClick={handleTemplate}>
-                  템플릿 다운
-                </GhostButton>
-                <GhostButton as="button" onClick={handleExport}>
-                  추출
-                </GhostButton>
-                <GhostButton
-                  as="button"
-                  onClick={() => setShowImportGuide(true)}
-                >
-                  엑셀 업로드
-                </GhostButton>
-              </ExcelActions>
+              {!isTeacher && (
+                <AddWrap>
+                  <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
+                  {studentLimit != null && (
+                    <QuotaBadge title="요금제별 등록 가능 잔여 인원">
+                      잔여 {Math.max(0, studentRemaining ?? 0)} / {studentLimit}명
+                    </QuotaBadge>
+                  )}
+                </AddWrap>
+              )}
+              {!isTeacher && (
+                <ExcelActions>
+                  <GhostButton as="button" onClick={handleTemplate}>
+                    템플릿 다운
+                  </GhostButton>
+                  <GhostButton as="button" onClick={handleExport}>
+                    추출
+                  </GhostButton>
+                  <GhostButton
+                    as="button"
+                    onClick={() => setShowImportGuide(true)}
+                  >
+                    엑셀 업로드
+                  </GhostButton>
+                </ExcelActions>
+              )}
               <input
                 ref={fileRef}
                 type="file"
@@ -186,6 +205,9 @@ export default function Students() {
               />
             </ActionsRow>
           </StickyHeader>
+          {quotaError && (
+            <Hint role="status">요금제 한도를 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.</Hint>
+          )}
           <StudentsStats />
           <FiltersCard>
             <StudentsFilters
@@ -197,10 +219,11 @@ export default function Students() {
         </StickyInner>
       </StickyWrap>
       <StudentsTable filters={filters} refreshKey={refreshKey} />
-      <ConfirmDialog
-        open={showImportGuide}
-        title="엑셀 업로드 안내"
-        message={
+      {!isTeacher && (
+        <ConfirmDialog
+          open={showImportGuide}
+          title="엑셀 업로드 안내"
+          message={
           <GuideList>
             <li>템플릿 헤더 이름과 순서를 변경하지 말아주세요.</li>
             <li>필수 입력값: 이름 (빈 행은 자동으로 건너뜁니다).</li>
@@ -226,14 +249,15 @@ export default function Students() {
             </li>
           </GuideList>
         }
-        confirmLabel="업로드 진행"
-        cancelLabel="취소"
-        onCancel={() => setShowImportGuide(false)}
-        onConfirm={() => {
-          setShowImportGuide(false);
-          setTimeout(() => fileRef.current?.click(), 0);
-        }}
-      />
+          confirmLabel="업로드 진행"
+          cancelLabel="취소"
+          onCancel={() => setShowImportGuide(false)}
+          onConfirm={() => {
+            setShowImportGuide(false);
+            setTimeout(() => fileRef.current?.click(), 0);
+          }}
+        />
+      )}
 
       {/* Preview modal */}
       <ConfirmDialog
@@ -437,6 +461,26 @@ const ActionsRow = styled.div`
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+`;
+
+const AddWrap = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const QuotaBadge = styled.span<{ "data-variant"?: "ai" | "billing" }>`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: ${({ "data-variant": variant }) => (variant === "ai" ? "#ecfdf3" : "#fff7ed")};
+  color: ${({ "data-variant": variant }) => (variant === "ai" ? "#166534" : "#9a3412")};
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid ${({ "data-variant": variant }) => (variant === "ai" ? "#bbf7d0" : "#fed7aa")};
 `;
 
 const ExcelActions = styled.div`

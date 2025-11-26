@@ -6,6 +6,7 @@ export const defaultTheme: DefaultTheme = {
     textMuted: "#6B7280",
     textInverted: "#FFFFFF",
     bg: "#FFFFFF",
+    background: "#FFFFFF",
     surface: "#FFFFFF",
     surfaceAlt: "#F9FAFB",
     surfaceMuted: "#F3F4F6",
@@ -64,6 +65,7 @@ export const defaultTheme: DefaultTheme = {
       medium: 500,
       semiBold: 600,
       bold: 700,
+      extraBold: 800,
     },
   },
   shadow: {

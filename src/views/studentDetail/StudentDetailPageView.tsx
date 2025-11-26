@@ -9,12 +9,13 @@ import {
   TabButton,
 } from "@/components/studentDetail/StudentDetailStyles";
 import { StudentInfoSection } from "@/components/studentDetail/StudentInfoSection";
-import { StudentNotesCard } from "@/components/studentDetail/StudentNotesCard";
 import { StudentMemoCard } from "@/components/studentDetail/StudentMemoCard";
 import { StudentCoursesTab } from "@/components/studentDetail/StudentCoursesTab";
 import { StudentAttendanceTab } from "@/components/studentDetail/StudentAttendanceTab";
 import { StudentGradesTab } from "@/components/studentDetail/StudentGradesTab";
 import { StudentCounselTab } from "@/components/studentDetail/StudentCounselTab";
+import { StudentCounselAddModal } from "@/components/studentDetail/StudentCounselAddModal";
+import { StudentPaymentsSection } from "@/components/studentDetail/StudentPaymentsSection";
 import {
   courseStatusLabel,
   formatStudentMemoDate,
@@ -31,8 +32,8 @@ type StudentDetailPageViewProps = {
   intlAge?: number;
   deleting: boolean;
   editHref: string;
+  canDelete?: boolean;
   onDeleteStudent: () => void;
-  notes: StudentDetailPageState["notes"];
   memos: StudentDetailPageState["memos"];
   activeTab: TabKey;
   onSelectTab: (tab: TabKey) => void;
@@ -40,6 +41,7 @@ type StudentDetailPageViewProps = {
   attendance: StudentDetailPageState["attendance"];
   grades: StudentDetailPageState["grades"];
   counsels: StudentDetailPageState["counsels"];
+  payments: StudentDetailPageState["payments"];
   deleteConfirmDialog?: React.ReactNode;
   onOpenCourse: (courseId: number) => void;
 };
@@ -51,8 +53,8 @@ export function StudentDetailPageView({
   intlAge,
   deleting,
   editHref,
+  canDelete = true,
   onDeleteStudent,
-  notes,
   memos,
   activeTab,
   onSelectTab,
@@ -60,6 +62,7 @@ export function StudentDetailPageView({
   attendance,
   grades,
   counsels,
+  payments,
   deleteConfirmDialog,
   onOpenCourse,
 }: StudentDetailPageViewProps) {
@@ -82,16 +85,9 @@ export function StudentDetailPageView({
               deleting={deleting}
               editHref={editHref}
               onDelete={onDeleteStudent}
+              canDelete={canDelete}
             />
-            <StudentNotesCard
-              notes={notes.notes}
-              editing={notes.editing}
-              notesInput={notes.notesInput}
-              onChange={notes.setNotesInput}
-              onEdit={notes.startEditing}
-              onCancel={notes.cancelEditing}
-              onSave={notes.save}
-            />
+            {/* 특이사항 입력 기능 제거됨 */}
             <StudentMemoCard
               memos={memos.memos}
               newMemo={memos.newMemo}
@@ -203,11 +199,26 @@ export function StudentDetailPageView({
                 </SectionBody>
               ) : null}
             </Card>
+            <StudentPaymentsSection
+              studentId={student?.id ?? null}
+              payments={payments.data}
+              loading={payments.loading}
+              error={payments.error}
+              onRefresh={payments.refresh}
+            />
           </Right>
         </Columns>
       ) : null}
 
       {deleteConfirmDialog}
+      {/* 상담 추가 모달 (원생 상세 전용) */}
+      <StudentCounselAddModal
+        open={counsels.addModalOpen}
+        onClose={counsels.handleProtectedCloseAddModal}
+        addForm={counsels.addForm}
+        hourOptions={counsels.hourOptions}
+        minuteOptions={counsels.minuteOptions}
+      />
     </Page>
   );
 }
@@ -293,7 +304,10 @@ const Left = styled.aside`
   gap: 18px;
 `;
 
-const Right = styled.section``;
+const Right = styled.section`
+  display: grid;
+  gap: 18px;
+`;
 
 const Error = styled.div`
   color: #b91c1c;

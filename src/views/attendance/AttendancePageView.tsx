@@ -46,6 +46,7 @@ type AttendancePageViewProps = {
     recordId?: number | null,
   ) => void;
   onOpenRecord: (entry: AttendanceClassSummary) => void;
+  isTeacher?: boolean;
 };
 
 export function AttendancePageView({
@@ -63,13 +64,19 @@ export function AttendancePageView({
   onNavigateCalendar,
   onOpenCourseRecord,
   onOpenRecord,
+  isTeacher = false,
 }: AttendancePageViewProps) {
+  const heading = isTeacher ? "출결 현황" : "출결 관리";
+  const description = isTeacher
+    ? "담당 수업의 일자별 출결 정보를 확인하세요."
+    : "날짜별로 출결 현황을 확인하고 수업 상세로 이동하세요.";
+
   return (
     <PageLocal>
       <PageHeader>
         <div>
-          <h2>출결 관리</h2>
-          <p>날짜별로 출결 현황을 확인하고 수업 상세로 이동하세요.</p>
+          <h2>{heading}</h2>
+          <p>{description}</p>
         </div>
       </PageHeader>
 
@@ -269,11 +276,9 @@ export function AttendancePageView({
                             <StatusBadge data-type={row.status.toLowerCase()}>
                               {statusLabel(row.status)}
                             </StatusBadge>
-                            <MetaItem>
-                              {row.status === "UNPROCESSED"
-                                ? "미처리"
-                                : formatClock(row.createdAt)}
-                            </MetaItem>
+                            {row.status !== "UNPROCESSED" ? (
+                              <MetaItem>{formatClock(row.createdAt)}</MetaItem>
+                            ) : null}
                             {row.status !== "UNPROCESSED" && (
                               <SourceBadge
                                 data-type={(row.source ?? "MANUAL").toUpperCase()}

@@ -1,6 +1,6 @@
 // 수업 상세 페이지: 수업 기본 정보, 재원생, 시험, 수업 기록 요약을 보여줍니다.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 import {
   SectionCard as Section,
@@ -9,6 +9,7 @@ import {
   GhostBtnSmall as UIGhostBtnSmall,
   buttonVariants,
   GhostButton as UIGhostButton,
+  PrimaryButton as UIPrimaryButton,
 } from "@/components/common/UI";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import {
@@ -20,6 +21,7 @@ import {
   listRecordAttendance,
   deleteCourse,
   downloadCourseRecordsExcel,
+  createCourseRecord,
 } from "@/api/courses";
 import { formatMoney } from "@/lib/format";
 import { listStudents, type Student } from "@/api/students";
@@ -41,6 +43,10 @@ import {
   type Exam,
 } from "@/api/exams";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
+import { paths } from "@/routes";
+import { useAuth } from "@/hooks/useAuth";
+import Modal from "@/components/common/Modal";
+import { toHHMM, toHHMMSS } from "@/features/courseRecord/utils";
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -69,7 +75,16 @@ export default function CourseDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const numericId = useMemo(() => (id ? Number(id) : null), [id]);
+  const [searchParams] = useSearchParams();
+  const restrictTeacherId = useMemo<number | null>(() => {
+    const raw = searchParams.get("teacherId");
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }, [searchParams]);
   const { error: showError, success } = useToast();
+  const { user } = useAuth();
+  const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
   const { confirm: confirmDanger, dialog: confirmDangerDialog } =
     useConfirmDialog({
       confirmLabel: "삭제",
@@ -113,6 +128,14 @@ export default function CourseDetail() {
   const [attByRec, setAttByRec] = useState<
     Record<number, Record<number, boolean>>
   >({});
+
+  // Create record modal state
+  const [createOpen, setCreateOpen] = useState(false);
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+  const [createDate, setCreateDate] = useState<string>("");
+  const [createStart, setCreateStart] = useState<string>("");
+  const [createEnd, setCreateEnd] = useState<string>("");
   useEffect(() => {
     if (!numericId) return;
     const matchesFilter = (recordDate: string) => {
@@ -193,6 +216,42 @@ export default function CourseDetail() {
     return fallback;
   }
 
+  // Create record modal helpers
+  const openCreateModal = useCallback(() => {
+    const today = new Date();
+    setCreateDate(fmt(today));
+    setCreateStart(toHHMM(course?.startTime || ""));
+    setCreateEnd(toHHMM(course?.endTime || ""));
+    setCreateError(null);
+    setCreateOpen(true);
+  }, [course?.endTime, course?.startTime]);
+
+  const closeCreateModal = useCallback(() => {
+    if (createSaving) return;
+    setCreateOpen(false);
+    setCreateError(null);
+  }, [createSaving]);
+
+  const handleConfirmCreate = useCallback(async () => {
+    if (!numericId) return;
+    setCreateSaving(true);
+    setCreateError(null);
+    try {
+      await createCourseRecord(numericId, {
+        recordDate: createDate,
+        startTime: toHHMMSS(createStart),
+        endTime: toHHMMSS(createEnd),
+      });
+      setCreateOpen(false);
+    } catch (e) {
+      const msg = readableError(e, "수업 생성에 실패했습니다.");
+      if (msg.includes("409")) setCreateError("이미 등록된 수업이 있습니다.");
+      else setCreateError(msg || "수업 생성에 실패했습니다.");
+    } finally {
+      setCreateSaving(false);
+    }
+  }, [numericId, createDate, createStart, createEnd]);
+
   useEffect(() => {
     if (!numericId) return;
     let cancelled = false;
@@ -214,6 +273,14 @@ export default function CourseDetail() {
       cancelled = true;
     };
   }, [numericId]);
+
+  // Guard: if navigated from teacher detail with teacherId context,
+  // and the loaded course belongs to a different instructor, block the view.
+  const blockedByTeacherContext = useMemo(() => {
+    if (!restrictTeacherId) return false;
+    if (!course || typeof course.instructorId !== "number") return false;
+    return course.instructorId !== restrictTeacherId;
+  }, [restrictTeacherId, course]);
 
   const refreshExams = useCallback(async () => {
     if (!numericId) return;
@@ -519,8 +586,10 @@ export default function CourseDetail() {
               if (last || content.length === 0 || page > 100) break;
               page += 1;
             }
-            const filtered = all.filter((s: any) =>
-              (s.courses || []).some((c: any) => c.id === numericId)
+            const filtered = all.filter((student) =>
+              (student.courses ?? []).some(
+                (course: NonNullable<Student["courses"]>[number]) => course?.id === numericId,
+              )
             );
             if (!cancelled) setStudents(filtered);
           } catch (nestedError) {
@@ -595,6 +664,10 @@ export default function CourseDetail() {
     return students.length;
   }, [course, students.length]);
   const capacity = course?.capacity;
+  const instructorName =
+    course?.instructorName && String(course.instructorName).trim().length > 0
+      ? String(course.instructorName).trim()
+      : "-";
   const completedCount = useMemo(
     () => history.filter((h) => h.type === "지난 수업").length,
     [history]
@@ -628,6 +701,25 @@ export default function CourseDetail() {
   // Toggle to collapse/expand the session list view
   const [collapsedList, setCollapsedList] = useState(false);
 
+  if (!loading && course && blockedByTeacherContext) {
+    return (
+      <Section>
+        <Title>접근 제한</Title>
+        <p style={{ marginTop: 8, color: "#6b7280" }}>
+          이 강사의 담당 수업이 아닙니다. 강사 상세로 돌아가 다시 선택해 주세요.
+        </p>
+        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+          {restrictTeacherId != null && (
+            <UIGhostButton type="button" onClick={() => navigate(paths.teachers.detail(restrictTeacherId))}>
+              강사 상세로 이동
+            </UIGhostButton>
+          )}
+          <UIGhostButton type="button" onClick={() => navigate("/classes")}>수업 목록으로</UIGhostButton>
+        </div>
+      </Section>
+    );
+  }
+
   return (
     <Wrap>
       <Head>
@@ -636,21 +728,25 @@ export default function CourseDetail() {
         </BackBtn>
         <h2>{course?.title || "수업 상세"}</h2>
         <Actions>
-          <UIGhostBtn
-            to={`/classes/${numericId || ""}/edit-students`}
-            title="수강생 수정"
-            data-variant="edit"
-          >
-            수강생 수정
-          </UIGhostBtn>
-          <UIGhostBtn
-            to={`/classes/${numericId || ""}/edit`}
-            title="기본 정보 수정"
-            data-variant="edit"
-          >
-            기본정보 수정
-          </UIGhostBtn>
-          {numericId && (
+          {!isTeacher && (
+            <UIGhostBtn
+              to={`/classes/${numericId || ""}/edit-students`}
+              title="수강생 관리"
+              data-variant="edit"
+            >
+              수강생 관리
+            </UIGhostBtn>
+          )}
+          {!isTeacher && (
+            <UIGhostBtn
+              to={`/classes/${numericId || ""}/edit`}
+              title="기본 정보 수정"
+              data-variant="edit"
+            >
+              기본정보 수정
+            </UIGhostBtn>
+          )}
+          {numericId && !isTeacher && (
             <UIGhostButton
               type="button"
               onClick={() => setConfirmDeleteOpen(true)}
@@ -776,6 +872,10 @@ export default function CourseDetail() {
                     <div>{info.time || "-"}</div>
                   </Field>
                   <Field>
+                    <Label>담당 강사</Label>
+                    <div>{instructorName}</div>
+                  </Field>
+                  <Field>
                     <Label>정원</Label>
                     <div>{course?.capacity ?? "-"}</div>
                   </Field>
@@ -804,6 +904,7 @@ export default function CourseDetail() {
                 loading={stuLoading}
                 error={stuError}
                 editHref={`/classes/${numericId || ''}/edit-students`}
+                showAddButton={!isTeacher}
               />
               <CourseExamsPanel
                 exams={exams}
@@ -841,6 +942,7 @@ export default function CourseDetail() {
               todayHref={`/classes/${numericId || ''}/history/date/${fmt(new Date())}`}
               detailHrefFor={(id, date) => id ? `/classes/${numericId}/history/${id}` : `/classes/${numericId}/history/date/${fmt(date!)}`}
               getAttendanceMap={(recordId) => (attByRec[recordId] || localAttendanceMap(recordId))}
+              onCreateRecord={openCreateModal}
             />
           </Right>
         </Columns>
@@ -848,6 +950,51 @@ export default function CourseDetail() {
 
       {/* history block moved to right column */}
       {/* Exam modal moved into CourseExamsPanel */}
+
+      {/* Create course record modal */}
+      <Modal
+        open={createOpen}
+        onClose={closeCreateModal}
+        title="수업 생성"
+        description="날짜와 시간을 선택해 단일 수업 내역을 생성합니다."
+      >
+        <div>
+          <ModalRow>
+            <ModalLabel htmlFor="create-record-date">일자</ModalLabel>
+            <ModalInput
+              id="create-record-date"
+              type="date"
+              value={createDate}
+              onChange={(e) => setCreateDate(e.currentTarget.value)}
+            />
+          </ModalRow>
+          <ModalRow>
+            <ModalLabel htmlFor="create-record-start">시작 시간</ModalLabel>
+            <ModalInput
+              id="create-record-start"
+              type="time"
+              value={createStart}
+              onChange={(e) => setCreateStart(e.currentTarget.value)}
+            />
+          </ModalRow>
+          <ModalRow>
+            <ModalLabel htmlFor="create-record-end">종료 시간</ModalLabel>
+            <ModalInput
+              id="create-record-end"
+              type="time"
+              value={createEnd}
+              onChange={(e) => setCreateEnd(e.currentTarget.value)}
+            />
+          </ModalRow>
+          {createError ? <ModalError role="alert">{createError}</ModalError> : null}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+          <UIGhostButton type="button" onClick={closeCreateModal} disabled={createSaving}>취소</UIGhostButton>
+          <UIPrimaryButton type="button" onClick={handleConfirmCreate} disabled={createSaving || !createDate}>
+            {createSaving ? '생성 중…' : '생성'}
+          </UIPrimaryButton>
+        </div>
+      </Modal>
     </Wrap>
   );
 }
@@ -892,6 +1039,21 @@ function saveBlobAsFile(blob: Blob, filename: string) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+// Modal layout bits
+const ModalRow = styled.div`
+  display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: center; margin-bottom: 10px;
+`;
+const ModalLabel = styled.label`
+  color: #374151; font-size: 14px; font-weight: 600;
+`;
+const ModalInput = styled.input`
+  height: 36px; padding: 0 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px;
+`;
+const ModalError = styled.div`
+  color: #b91c1c; font-size: 13px; margin-top: 4px;
+`;
+
 
 function sanitizeFilename(raw: string) {
   const base = raw ? raw.trim() : "export";

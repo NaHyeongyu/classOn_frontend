@@ -11,6 +11,7 @@ type PanelProps = {
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
+  dense?: boolean;
 };
 
 export function DashboardPanel({
@@ -18,6 +19,7 @@ export function DashboardPanel({
   rowSpan = 1,
   className,
   style,
+  dense = false,
   children,
 }: PanelProps) {
   return (
@@ -26,6 +28,7 @@ export function DashboardPanel({
       style={style}
       $span={span}
       $rowSpan={rowSpan}
+      $dense={dense}
     >
       {children}
     </Panel>
@@ -49,7 +52,7 @@ const Wrapper = styled.section`
   }
 `;
 
-const Panel = styled.section<{ $span: number; $rowSpan: number }>`
+const Panel = styled.section<{ $span: number; $rowSpan: number; $dense?: boolean }>`
   display: flex;
   flex-direction: column;
   gap: ${(p) => p.theme.spacing.md};
@@ -65,9 +68,11 @@ const Panel = styled.section<{ $span: number; $rowSpan: number }>`
   border: 1px solid ${(p) => p.theme.colors.border};
   background: ${(p) => p.theme.colors.surface};
   box-shadow: ${(p) => p.theme.shadow.low};
-  padding: ${(p) => p.theme.spacing.lg};
+  padding: ${({ $dense, theme }) => ($dense ? theme.spacing.md : theme.spacing.lg)};
   color: ${(p) => p.theme.colors.text};
   overflow: hidden;
+  align-self: start;
+  width: 100%;
 
   @media (max-width: 1024px) {
     grid-column: 1 / -1;

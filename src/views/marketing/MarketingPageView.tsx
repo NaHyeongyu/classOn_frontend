@@ -60,7 +60,7 @@ export function MarketingPageView({ filterProps, resultsProps }: MarketingPageVi
           <MarketingFilterPanel {...filterProps} />
         </FilterColumn>
         <ResultColumn>
-          <MarketingResultsPanel {...resultsProps} />
+          <MarketingResultsPanel quotaText={quotaText} {...resultsProps} />
         </ResultColumn>
       </ContentGrid>
     </Viewport>

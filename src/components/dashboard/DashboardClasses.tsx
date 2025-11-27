@@ -26,10 +26,9 @@ export default function DashboardClasses() {
       } finally { /* no-op */ }
     }
     void load();
-    const t = setInterval(load, 15_000);
-    const onVis = () => { if (document.visibilityState === 'visible') void load(); };
-    document.addEventListener('visibilitychange', onVis);
-    return () => { cancelled = true; clearInterval(t); document.removeEventListener('visibilitychange', onVis); };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const items: ClassItem[] = rows.map((row) => {

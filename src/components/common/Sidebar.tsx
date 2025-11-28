@@ -70,9 +70,25 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
     ];
     if (isOwnerOrAdmin) {
-      const entry: NavItem = { key: "teachers-manage", label: "강사관리", sub: "Teacher Management", to: routes.teachersManage };
-      const idx = base.findIndex((i) => i.key === "feedback");
-      if (idx >= 0) base.splice(idx, 0, entry); else base.push(entry);
+      const reportsEntry: NavItem = { key: "reports", label: "보고서", sub: "Reports", to: routes.reports };
+      const teachersEntry: NavItem = {
+        key: "teachers-manage",
+        label: "강사관리",
+        sub: "Teacher Management",
+        to: routes.teachersManage,
+      };
+      const attendanceIndex = base.findIndex((i) => i.key === "attendance");
+      if (attendanceIndex >= 0) {
+        base.splice(attendanceIndex + 1, 0, reportsEntry);
+      } else {
+        base.unshift(reportsEntry);
+      }
+      const feedbackIndex = base.findIndex((i) => i.key === "feedback");
+      if (feedbackIndex >= 0) {
+        base.splice(feedbackIndex, 0, teachersEntry);
+      } else {
+        base.push(teachersEntry);
+      }
     }
     if (enableFeedback) {
       base.push({ key: "changelog", label: "업데이트 안내", sub: "Patch Notes", to: routes.feedbackChangelog });
@@ -294,6 +310,23 @@ function renderIcon(key: string) {
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
           <path d="M9 16l2 2 4-4" />
+        </svg>
+      );
+    case "reports":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="3" width="4" height="18" />
+          <rect x="10" y="9" width="4" height="12" />
+          <rect x="17" y="13" width="4" height="8" />
         </svg>
       );
     case "marketing":

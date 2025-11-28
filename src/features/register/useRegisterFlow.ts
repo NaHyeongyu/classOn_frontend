@@ -3,8 +3,8 @@ import {
   apiCheckBizNo,
   apiCheckUsername,
   apiOnboardComplete,
-  // apiRequestPhoneCode,
-  // apiVerifyPhoneCode,
+  apiRequestPhoneCode,
+  apiVerifyPhoneCode,
 } from "@/api/auth";
 import {
   maskBizNo,
@@ -13,7 +13,7 @@ import {
   toErrorMessage,
 } from "./utils";
 
-type Step = 1 | 2 | 3;
+type Step = 1 | 2 | 3 | 4;
 
 export type StudentScaleOption =
   | ""
@@ -196,12 +196,27 @@ export function useRegisterFlow(): UseRegisterFlowResult {
         nextErr.phone = "010-1234-5678 형식으로 입력해 주세요.";
       }
       setStep1Err(nextErr);
+      setStep2Err({});
       if (Object.keys(nextErr).length > 0) return;
-      // NOTE: 문자 인증은 개발 단계에서 비활성화되어 바로 다음 단계로 이동합니다.
-      setPhone(normalizedPhone!);
-      setDevCodeHint(null);
+      const safePhone = normalizedPhone!;
       setResendCooldown(0);
-      setStep(2);
+      setDevCodeHint(null);
+      try {
+        const res = await apiRequestPhoneCode(safePhone);
+        if (!res.success) {
+          setError("인증번호 발송에 실패했습니다.");
+          return;
+        }
+        if (res.code) {
+          setDevCodeHint(res.code);
+        }
+        setPhone(safePhone);
+        setCodeValue("");
+        setResendCooldown(60);
+        setStep(2);
+      } catch (err) {
+        setError(toErrorMessage(err, "인증번호 발송에 실패했습니다."));
+      }
     },
     [phoneValue, setPhone]
   );
@@ -210,16 +225,54 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     async (event: React.FormEvent) => {
       event.preventDefault();
       setError(null);
-      // NOTE: 실제 인증은 비활성화 상태이므로 코드를 입력하지 않아도 바로 진행합니다.
-      setStep(3);
+      const trimmed = codeValue.trim();
+      const nextErr: { code?: string } = {};
+      if (trimmed.length !== 6) {
+        nextErr.code = "인증번호 6자리를 입력해 주세요.";
+      }
+      setStep2Err(nextErr);
+      if (Object.keys(nextErr).length > 0) return;
+      const normalizedPhone = normalizeMobile(phoneValue);
+      if (!normalizedPhone) {
+        setError("휴대폰 번호 형식을 다시 확인해 주세요.");
+        return;
+      }
+      try {
+        const res = await apiVerifyPhoneCode(normalizedPhone, trimmed);
+        if (!res.success) {
+          setStep2Err({ code: "인증번호가 올바르지 않습니다." });
+          return;
+        }
+        setStep(3);
+      } catch (err) {
+        setError(toErrorMessage(err, "인증번호 확인에 실패했습니다."));
+      }
     },
-    []
+    [codeValue, phoneValue]
   );
 
   const handleResendCode = useCallback(async () => {
-    setError("개발 단계에서는 문자 인증이 비활성화되어 있습니다.");
-    setResendCooldown(0);
-  }, []);
+    setError(null);
+    setStep2Err({});
+    const normalizedPhone = normalizeMobile(phoneValue);
+    if (!normalizedPhone) {
+      setError("휴대폰 번호 형식을 다시 확인해 주세요.");
+      return;
+    }
+    try {
+      const res = await apiRequestPhoneCode(normalizedPhone);
+      if (!res.success) {
+        setError("인증번호 발송에 실패했습니다.");
+        return;
+      }
+      if (res.code) {
+        setDevCodeHint(res.code);
+      }
+      setResendCooldown(60);
+    } catch (err) {
+      setError(toErrorMessage(err, "인증번호 발송에 실패했습니다."));
+    }
+  }, [phoneValue]);
 
   const backToStep1 = useCallback(() => {
     setStep(1);
@@ -237,13 +290,13 @@ export function useRegisterFlow(): UseRegisterFlowResult {
         return;
       }
       setPhone(normalized);
-      setStep(3);
+      setStep(4);
     },
     [phoneValue, setPhone]
   );
 
   const backToAccount = useCallback(() => {
-    setStep(2);
+    setStep(3);
     setError(null);
   }, []);
 

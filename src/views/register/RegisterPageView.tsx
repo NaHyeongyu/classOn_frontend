@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 import styled from "styled-components";
 import { Link } from "react-router-dom";
 import { StepPhoneForm } from "@/components/register/StepPhoneForm";
+import { StepVerifyForm } from "@/components/register/StepVerifyForm";
 import { StepAccountForm } from "@/components/register/StepAccountForm";
 import { StepPlanForm } from "@/components/register/StepPlanForm";
 import type { UseRegisterFlowResult } from "@/features/register/useRegisterFlow";
@@ -27,9 +28,24 @@ export function RegisterPageView({ flow, onComplete }: RegisterPageViewProps) {
         />
       ) : null}
 
-      {flow.step === 2 ? <StepAccountForm flow={flow} onSubmit={flow.handleAccountSubmit} /> : null}
+      {flow.step === 2 ? (
+        <StepVerifyForm
+          phone={flow.phone}
+          code={flow.code}
+          setCode={flow.setCode}
+          resendCooldown={flow.resendCooldown}
+          onResendCode={flow.handleResendCode}
+          onSubmit={flow.handleCodeSubmit}
+          onBackToPhone={flow.backToStep1}
+          devCodeHint={flow.devCodeHint}
+          stepError={flow.step2Err.code}
+          error={flow.error}
+        />
+      ) : null}
 
-      {flow.step === 3 ? <StepPlanForm flow={flow} onSubmit={onComplete} onBack={flow.backToAccount} /> : null}
+      {flow.step === 3 ? <StepAccountForm flow={flow} onSubmit={flow.handleAccountSubmit} /> : null}
+
+      {flow.step === 4 ? <StepPlanForm flow={flow} onSubmit={onComplete} onBack={flow.backToAccount} /> : null}
 
       <Footer>
         이미 계정이 있으신가요? <Link to="/login">로그인</Link>

@@ -184,7 +184,7 @@ export function StepAccountForm({ flow, onSubmit }: StepAccountFormProps) {
           aria-invalid={phone !== "" && !normalizeMobile(phone)}
           required
         />
-        <Hint>문자 인증 없이 연락처만 확인하고 있어요.</Hint>
+        <Hint>회원가입 시 문자 인증을 진행한 담당자 연락처입니다.</Hint>
 
         <Label>담당자 성함 (선택)</Label>
         <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="홍길동" />

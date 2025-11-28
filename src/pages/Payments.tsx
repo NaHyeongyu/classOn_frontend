@@ -383,7 +383,6 @@ export default function Payments() {
       onsiteSelectorOpen &&
       (onsiteContext === "invoice" || (onsiteContext === "history" && historyFilters.status !== "COMPLETED")),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
-    keepPreviousData: true,
   });
   const onsiteCandidates = onsiteCandidatesQuery.data?.content ?? [];
   const onsiteTotalPages = onsiteCandidatesQuery.data?.totalPages ?? 0;

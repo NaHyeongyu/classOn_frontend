@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { useState, useRef, useEffect } from "react";
+import SelectBox from "@/components/common/SelectBox";
 
 type Filters = {
   status: "" | "IN_PROGRESS" | "STOPPED" | "PENDING";
@@ -42,14 +43,17 @@ export default function ClassesFilters({
         <Group>
           <Label>상태</Label>
           <Select
+            ariaLabel="수업 상태"
+            placeholder="전체"
             value={v.status}
-            onChange={(e) => set("status", e.target.value as Filters["status"])}
-          >
-            <option value="">전체</option>
-            <option value="IN_PROGRESS">진행중</option>
-            <option value="STOPPED">중단</option>
-            <option value="PENDING">대기</option>
-          </Select>
+            onChange={(value) => set("status", value as Filters["status"])}
+            options={[
+              { label: "전체", value: "" },
+              { label: "진행중", value: "IN_PROGRESS" },
+              { label: "중단", value: "STOPPED" },
+              { label: "대기", value: "PENDING" },
+            ]}
+          />
         </Group>
       )}
       <Group>
@@ -76,9 +80,9 @@ export default function ClassesFilters({
               }
             }}
           />
-          <PrimaryBtn type="button" onClick={apply}>
+          <SearchButton type="button" onClick={apply}>
             검색
-          </PrimaryBtn>
+          </SearchButton>
         </SearchBox>
       </Group>
     </Bar>
@@ -88,7 +92,7 @@ export default function ClassesFilters({
 const Bar = styled.div<{ $single: boolean }>`
   display: grid;
   grid-template-columns: ${({ $single }) => ($single ? "1fr" : "0.7fr 2.3fr")};
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.md};
   align-items: end;
   @media (max-width: 720px) {
     grid-template-columns: 1fr;
@@ -96,38 +100,34 @@ const Bar = styled.div<{ $single: boolean }>`
 `;
 const Group = styled.div`
   display: grid;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.xs};
 `;
 const Label = styled.span`
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 700;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.bold};
 `;
-const Select = styled.select`
-  height: 36px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 10px;
+const Select = styled(SelectBox)`
   width: 100%;
 `;
 const SearchBox = styled.div`
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.xs};
 `;
 const SearchInput = styled.input`
-  height: 36px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 12px;
+  height: 40px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.sm};
+  padding: 0 ${(p) => p.theme.spacing.sm};
   width: 100%;
 `;
-const PrimaryBtn = styled.button`
+const SearchButton = styled.button`
   height: 40px;
-  padding: 0 16px;
-  border-radius: 10px;
-  border: 1px solid #111827;
-  background: #111827;
-  color: #fff;
-  font-weight: 700;
+  padding: 0 ${(p) => p.theme.spacing.md};
+  border-radius: ${(p) => p.theme.radii.sm};
+  border: 1px solid ${(p) => p.theme.colors.navy};
+  background: ${(p) => p.theme.colors.navy};
+  color: ${(p) => p.theme.colors.textInverted};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
 `;

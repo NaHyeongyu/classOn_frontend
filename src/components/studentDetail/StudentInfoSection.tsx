@@ -9,7 +9,6 @@ import {
   SectionTitle,
   SmallMuted,
   StatusChip,
-  Avatar,
   Field,
   Label,
   Value,
@@ -62,7 +61,6 @@ export function StudentInfoSection({
         {student ? (
           <InfoList>
             <Row>
-              <Avatar>{student.name.slice(0, 1)}</Avatar>
               <div>
                 <Name>{student.name}</Name>
                 <SmallMuted>

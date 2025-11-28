@@ -99,7 +99,7 @@ const Item = styled.div`
   padding: 10px 12px;
   background: #fff;
   transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  &:hover { background: ${({ theme }) => theme.colors.surfaceMuted}; border-color: ${({ theme }) => theme.colors.borderMuted}; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceMuted}; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
 `;
 const Dot = styled.span`
   width: 10px; height: 10px; border-radius: 9999px; background: #4f46e5; margin-top: 3px;
@@ -108,11 +108,17 @@ const TextBox = styled.div`
   min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow: hidden;
 `;
 const Title = styled.div`
-  font-weight: 800; color: #0f172a; font-size: 14px; letter-spacing: -0.01em;
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  color: ${(p) => p.theme.colors.text};
+  font-size: ${(p) => p.theme.font.size.md}; /* 14px */
+  letter-spacing: -0.01em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 `;
 const Body = styled.div`
-  color: #64748b; font-size: 12.5px; line-height: 1.45; overflow: hidden;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm}; /* 13px */
+  line-height: 1.45;
+  overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 `;
 const Hint = styled.div`

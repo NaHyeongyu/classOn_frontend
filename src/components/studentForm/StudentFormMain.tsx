@@ -2,19 +2,21 @@ import type { RefObject } from "react";
 import type { useStudentForm } from "@/features/studentForm/useStudentForm";
 import {
   Section,
+  SectionHeader,
   SectionTitle,
   SectionLead,
   Grid,
   Field,
   Label,
   Input,
-  Select,
   TripleGrid,
   Help,
+  LabelHint,
   FieldErr,
   StatusSwitch,
   StatusButton,
 } from "./StudentForm.styles";
+import SelectBox from "@/components/common/SelectBox";
 
 type StudentFormState = ReturnType<typeof useStudentForm>;
 
@@ -41,8 +43,10 @@ export function StudentFormMain({ flow, nameInputRef }: StudentFormMainProps) {
   return (
     <>
       <Section>
-        <SectionTitle>기본 정보</SectionTitle>
-        <SectionLead>수업 및 청구에 사용되는 핵심 정보입니다.</SectionLead>
+        <SectionHeader>
+          <SectionTitle>기본 정보</SectionTitle>
+          <SectionLead>수업 및 청구에 사용되는 핵심 정보입니다.</SectionLead>
+        </SectionHeader>
         <Grid>
           <Field>
             <Label>
@@ -96,48 +100,39 @@ export function StudentFormMain({ flow, nameInputRef }: StudentFormMainProps) {
           <Field>
             <Label>생년월일</Label>
             <TripleGrid>
-              <Select
+              <SelectBox
+                ariaLabel="생년월일 연도"
+                placeholder="연도"
                 value={dob.y}
-                onChange={(event) =>
-                  dob.update(event.target.value || "", undefined, undefined)
-                }
+                onChange={(value) => dob.update(value || "", undefined, undefined)}
                 disabled={saving}
-              >
-                <option value="">연도</option>
-                {dob.years.map((year) => (
-                  <option key={year} value={year}>
-                    {year}
-                  </option>
-                ))}
-              </Select>
-              <Select
+                options={dob.years.map((year) => ({
+                  label: String(year),
+                  value: String(year),
+                }))}
+              />
+              <SelectBox
+                ariaLabel="생년월일 월"
+                placeholder="월"
                 value={dob.m}
-                onChange={(event) =>
-                  dob.update(undefined, event.target.value || "", undefined)
-                }
+                onChange={(value) => dob.update(undefined, value || "", undefined)}
                 disabled={saving}
-              >
-                <option value="">월</option>
-                {dob.months.map((month) => (
-                  <option key={month} value={month}>
-                    {month}
-                  </option>
-                ))}
-              </Select>
-              <Select
+                options={dob.months.map((month) => ({
+                  label: String(month),
+                  value: String(month),
+                }))}
+              />
+              <SelectBox
+                ariaLabel="생년월일 일"
+                placeholder="일"
                 value={dob.d}
-                onChange={(event) =>
-                  dob.update(undefined, undefined, event.target.value || "")
-                }
+                onChange={(value) => dob.update(undefined, undefined, value || "")}
                 disabled={saving}
-              >
-                <option value="">일</option>
-                {dob.days.map((day) => (
-                  <option key={day} value={day}>
-                    {day}
-                  </option>
-                ))}
-              </Select>
+                options={dob.days.map((day) => ({
+                  label: String(day),
+                  value: String(day),
+                }))}
+              />
             </TripleGrid>
             <Help>생년월일 입력 시 나이는 자동 계산됩니다.</Help>
           </Field>
@@ -174,10 +169,12 @@ export function StudentFormMain({ flow, nameInputRef }: StudentFormMainProps) {
       </Section>
 
       <Section>
-        <SectionTitle>부모님/주소</SectionTitle>
-        <SectionLead>
-          연락 경로와 청구 주소를 정돈해 두면 업무가 편해져요.
-        </SectionLead>
+        <SectionHeader>
+          <SectionTitle>부모님/주소</SectionTitle>
+          <SectionLead>
+            연락 경로와 청구 주소를 정돈해 두면 업무가 편해져요.
+          </SectionLead>
+        </SectionHeader>
         <Grid>
           <Field>
             <Label>보호자 이름</Label>
@@ -194,7 +191,10 @@ export function StudentFormMain({ flow, nameInputRef }: StudentFormMainProps) {
             />
           </Field>
           <Field>
-            <Label>보호자 연락처</Label>
+            <Label>
+              보호자 연락처
+              <LabelHint>비상 연락을 위해 입력해 주세요.</LabelHint>
+            </Label>
             <Input
               value={form.guardianPhone ?? ""}
               onChange={(event) =>
@@ -206,7 +206,6 @@ export function StudentFormMain({ flow, nameInputRef }: StudentFormMainProps) {
               placeholder="010-0000-0000"
               disabled={saving}
             />
-            <Help>비상 연락을 위해 보호자 연락처를 입력해 주세요.</Help>
           </Field>
           <Field style={{ gridColumn: "1 / -1" }}>
             <Label>주소</Label>

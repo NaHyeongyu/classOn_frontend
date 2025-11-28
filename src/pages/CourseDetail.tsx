@@ -3,8 +3,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import styled from "styled-components";
 import {
-  SectionCard as Section,
-  TitleH3 as Title,
   GhostBtn as UIGhostBtn,
   GhostBtnSmall as UIGhostBtnSmall,
   buttonVariants,
@@ -25,12 +23,7 @@ import {
 } from "@/api/courses";
 import { formatMoney } from "@/lib/format";
 import { listStudents, type Student } from "@/api/students";
-import {
-  KPI,
-  UsersIcon,
-  ClassIcon,
-  CheckIcon,
-} from "@/components/dashboard/KPI";
+
 import { useToast } from "@/components/common/Toast";
 import CourseExamsPanel from "@/components/courses/CourseExamsPanel";
 import CourseStudentsPanel from "@/components/courses/CourseStudentsPanel";
@@ -703,8 +696,8 @@ export default function CourseDetail() {
 
   if (!loading && course && blockedByTeacherContext) {
     return (
-      <Section>
-        <Title>접근 제한</Title>
+      <DetailCard>
+        <DetailSectionTitle>접근 제한</DetailSectionTitle>
         <p style={{ marginTop: 8, color: "#6b7280" }}>
           이 강사의 담당 수업이 아닙니다. 강사 상세로 돌아가 다시 선택해 주세요.
         </p>
@@ -716,7 +709,7 @@ export default function CourseDetail() {
           )}
           <UIGhostButton type="button" onClick={() => navigate("/classes")}>수업 목록으로</UIGhostButton>
         </div>
-      </Section>
+      </DetailCard>
     );
   }
 
@@ -792,37 +785,34 @@ export default function CourseDetail() {
 
       {/* KPI row */}
       <KPIGrid>
-        <KPI
-          title="총 수강생"
-          icon={<UsersIcon />}
-          iconAccent="indigo"
-          value={
-            <>
-              {typeof totalStudents === "number" ? `${totalStudents}명` : "—"}
-            </>
-          }
-          footerLeft={<span>정원 {capacity ?? "—"}명</span>}
-        />
-        <KPI
-          title="평균 출석률"
-          icon={<CheckIcon />}
-          iconAccent="green"
-          value={<>{avgAttendance != null ? `${avgAttendance}%` : "—"}</>}
-          footerLeft={<span>처리된 회차 기준</span>}
-        />
-        <KPI
-          title="완료된 수업"
-          icon={<ClassIcon />}
-          iconAccent="violet"
-          value={<>{completedCount || 0}회</>}
-          footerRight={
-            progressPct != null ? (
-              <span>진행률 {progressPct}%</span>
-            ) : (
-              <span>—</span>
-            )
-          }
-        />
+        <StatCard>
+          <StatHead>
+            <StatTitle>총 수강생</StatTitle>
+            <IconBox aria-hidden>{usersIcon}</IconBox>
+          </StatHead>
+          <StatValue>
+            {typeof totalStudents === "number" ? `${totalStudents}명` : "—"}
+          </StatValue>
+          <StatMeta>정원 {capacity ?? "—"}명</StatMeta>
+        </StatCard>
+        <StatCard>
+          <StatHead>
+            <StatTitle>평균 출석률</StatTitle>
+            <IconBox aria-hidden>{checkIcon}</IconBox>
+          </StatHead>
+          <StatValue>{avgAttendance != null ? `${avgAttendance}%` : "—"}</StatValue>
+          <StatMeta>처리된 회차 기준</StatMeta>
+        </StatCard>
+        <StatCard>
+          <StatHead>
+            <StatTitle>완료된 수업</StatTitle>
+            <IconBox aria-hidden>{classIcon}</IconBox>
+          </StatHead>
+          <StatValue>{completedCount || 0}회</StatValue>
+          <StatMeta>
+            {progressPct != null ? `진행률 ${progressPct}%` : "진행률 정보 없음"}
+          </StatMeta>
+        </StatCard>
       </KPIGrid>
 
       {/* Segmented tabs removed */}
@@ -832,9 +822,9 @@ export default function CourseDetail() {
         <Columns>
           <Left>
             <StickyLeft>
-              <Section>
-                <SectionHead>
-                  <Title>수업 정보</Title>
+              <DetailCard>
+                <DetailCardHead>
+                  <DetailSectionTitle>수업 정보</DetailSectionTitle>
                   <div>
                     <UIGhostBtnSmall
                       to={`/classes/${numericId || ""}/edit`}
@@ -843,7 +833,7 @@ export default function CourseDetail() {
                       기본정보 수정
                     </UIGhostBtnSmall>
                   </div>
-                </SectionHead>
+                </DetailCardHead>
                 <GridTwo>
                   <Field>
                     <Label>코드</Label>
@@ -898,7 +888,7 @@ export default function CourseDetail() {
                     <Desc>{course?.description || "-"}</Desc>
                   </Field>
                 </GridTwo>
-              </Section>
+              </DetailCard>
               <CourseStudentsPanel
                 students={students}
                 loading={stuLoading}
@@ -1097,37 +1087,27 @@ const Head = styled.div`
   align-items: center;
   h2 {
     margin: 0;
+    font-size: ${(p) => p.theme.font.size.display};
+    color: ${(p) => p.theme.colors.text};
+    font-weight: ${(p) => p.theme.font.weight.bold};
+    letter-spacing: -0.01em;
   }
 `;
 const Actions = styled.div`
   display: inline-flex;
   gap: 12px;
 `;
-// (tabs removed)
-// Section, Title from common UI
-const GridTwo = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
-`;
-const Field = styled.div`
-  display: grid;
-  gap: 6px;
-`;
 const Label = styled.div`
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 700;
+  color: #6B7280;
+  font-size: 13px;
 `;
 const Desc = styled.div`
-  color: #111827;
+  color: ${(p) => p.theme.colors.text};
+  font-size: ${(p) => p.theme.font.size.md};
   white-space: pre-wrap;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 6; /* clamp to ~6 lines */
+  -webkit-line-clamp: 6;
   -webkit-box-orient: vertical;
 `;
 const StatusChip = styled.span`
@@ -1187,8 +1167,9 @@ const leftIcon = (
 // new layout styles
 const KPIGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 12px;
+  width: 100%;
 `;
 const Columns = styled.div`
   display: flex;
@@ -1222,10 +1203,116 @@ const Right = styled.div`
   gap: 12px;
   align-content: flex-start;
 `;
-const SectionHead = styled.div`
+const DetailCard = styled.section`
+  background: ${(p) => p.theme.colors.surface};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.lg};
+  padding: ${(p) => p.theme.spacing.lg};
+  min-width: 0;
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  margin-bottom: 8px;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.md};
+  box-shadow: ${(p) => p.theme.shadow.low};
 `;
+
+const DetailCardHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+
+const DetailSectionTitle = styled.h3`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.lg};
+  color: ${(p) => p.theme.colors.text};
+`;
+
+const GridTwo = styled.div`
+  display: grid;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+
+const Field = styled.div`
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: ${(p) => p.theme.spacing.xs};
+  align-items: center;
+  min-height: 32px;
+  & > div:nth-child(2) {
+    font-size: ${(p) => p.theme.font.size.md};
+    color: ${(p) => p.theme.colors.text};
+  }
+`;
+
+
 // 진행 현황 섹션 제거로 불필요한 스타일 삭제됨
+
+const StatCard = styled.article`
+  background: ${(p) => p.theme.colors.surface};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.lg};
+  padding: ${(p) => p.theme.spacing.md};
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.xs};
+`;
+
+const StatHead = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const StatTitle = styled.h4`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.md};
+  color: ${(p) => p.theme.colors.textMuted};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+`;
+
+const IconBox = styled.span`
+  width: 34px;
+  height: 34px;
+  border-radius: ${(p) => p.theme.radii.sm};
+  display: grid;
+  place-items: center;
+  background: ${(p) => p.theme.colors.primarySurface};
+  color: ${(p) => p.theme.colors.primary};
+`;
+
+const StatValue = styled.div`
+  font-size: 28px;
+  font-weight: ${(p) => p.theme.font.weight.extraBold ?? 800};
+  color: ${(p) => p.theme.colors.text};
+  letter-spacing: -0.02em;
+`;
+
+const StatMeta = styled.div`
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const usersIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M20 21v-2a5 5 0 0 0-5-5H9a5 5 0 0 0-5 5v2" />
+    <circle cx="12" cy="7" r="4" />
+  </svg>
+);
+
+const checkIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9 12l2 2 4-4" />
+  </svg>
+);
+
+const classIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="4" />
+    <path d="M16 2v4M8 2v4" />
+    <path d="M3 10h18" />
+    <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+  </svg>
+);
+

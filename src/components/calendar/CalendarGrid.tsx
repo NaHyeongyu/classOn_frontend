@@ -60,36 +60,34 @@ export default function CalendarGrid({ viewDate, dates, onSelectDate, getEvents 
             <DateNum $today={isToday}>
               {d.getDate()}
             </DateNum>
-            <Events>
-              {(() => {
-                // Aggregate counts by type (prefer explicit count, fallback to 1 per event)
-                const sum = (t: CalendarEvent["type"]) =>
-                  events.filter((e) => e.type === t).reduce((acc, e) => acc + (e.count ?? 1), 0);
-                const classCount = sum("class");
-                const counselCount = sum("counsel");
-                const todoCount = sum("todo");
-                const paymentCount = sum("payment");
-                if (classCount + counselCount + todoCount + paymentCount === 0) return null;
-                return (
-                  <CountGrid>
-                    {classCount > 0 && (
-                      <CountPill data-variant="class" title={`수업 ${classCount}건`}>수업 {classCount}건</CountPill>
-                    )}
-                    {counselCount > 0 && (
-                      <CountPill data-variant="counsel" title={`상담 ${counselCount}건`}>상담 {counselCount}건</CountPill>
-                    )}
-                    {todoCount > 0 && (
-                      <CountPill data-variant="todo" title={`할일 ${todoCount}개`}>할일 {todoCount}개</CountPill>
-                    )}
-                    {paymentCount > 0 && (
-                      <CountPill data-variant="payment" title={`결제 ${paymentCount}건`}>
-                        결제 {paymentCount}건
-                      </CountPill>
-                    )}
-                  </CountGrid>
-                );
-              })()}
-            </Events>
+            {(() => {
+              // Aggregate counts by type (prefer explicit count, fallback to 1 per event)
+              const sum = (t: CalendarEvent["type"]) =>
+                events.filter((e) => e.type === t).reduce((acc, e) => acc + (e.count ?? 1), 0);
+              const classCount = sum("class");
+              const counselCount = sum("counsel");
+              const todoCount = sum("todo");
+              const paymentCount = sum("payment");
+              if (classCount + counselCount + todoCount + paymentCount === 0) return null;
+              return (
+                <CountGrid>
+                  {classCount > 0 && (
+                    <CountPill data-variant="class" title={`수업 ${classCount}건`}>수업 {classCount}건</CountPill>
+                  )}
+                  {counselCount > 0 && (
+                    <CountPill data-variant="counsel" title={`상담 ${counselCount}건`}>상담 {counselCount}건</CountPill>
+                  )}
+                  {todoCount > 0 && (
+                    <CountPill data-variant="todo" title={`할일 ${todoCount}개`}>할일 {todoCount}개</CountPill>
+                  )}
+                  {paymentCount > 0 && (
+                    <CountPill data-variant="payment" title={`결제 ${paymentCount}건`}>
+                      결제 {paymentCount}건
+                    </CountPill>
+                  )}
+                </CountGrid>
+              );
+            })()}
           </Cell>
         );
       })}
@@ -101,18 +99,19 @@ const Grid = styled.div`
   flex: 1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-template-rows: repeat(5, minmax(100px, 1fr));
+  grid-template-rows: repeat(5, minmax(105px, auto));
   gap: 6px;
   padding: 0 4px;
   height: 100%;
   min-height: 0;
+  align-content: start;
   @media (min-width: 1024px) {
-    grid-template-rows: repeat(5, minmax(120px, 1fr));
+    grid-template-rows: repeat(5, minmax(125px, auto));
     gap: 8px;
     padding: 0 6px;
   }
   @media (min-width: 1536px) {
-    grid-template-rows: repeat(5, minmax(135px, 1fr));
+    grid-template-rows: repeat(5, minmax(145px, auto));
     gap: 10px;
   }
 `;
@@ -123,17 +122,17 @@ const Cell = styled.div<{ $dim?: boolean; $today?: boolean }>`
   padding: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  height: 100%;
+  gap: 6px;
   overflow: hidden;
   min-height: 0;
-  height: 100%;
   opacity: ${(p) => (p.$dim ? 0.4 : 1)};
   cursor: pointer;
   transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
   box-shadow: ${(p) => (p.$today ? "0 0 0 2px rgba(99, 102, 241, 0.18)" : "0 2px 6px rgba(15, 23, 42, 0.04)")};
   &:hover { border-color: #cbd5f5; box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08); transform: translateY(-2px); }
   &:focus-visible { outline: 0; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.28); border-color: #93c5fd; }
-  @media (min-width: 1280px) { padding: 16px; gap: 10px; }
+  @media (min-width: 1280px) { padding: 16px; gap: 8px; }
 `;
 const DateNum = styled.div<{ $today?: boolean }>`
   font-size: 14px;
@@ -144,18 +143,12 @@ const DateNum = styled.div<{ $today?: boolean }>`
   border-radius: 8px;
   background: ${(p) => (p.$today ? "#eef2ff" : "transparent")};
 `;
-const Events = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 1 1 auto;
-  min-height: 0;
-`;
 const CountGrid = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   grid-auto-rows: minmax(0, auto);
   gap: 6px;
+  align-content: center;
 `;
 const CountPill = styled.span`
   display: inline-flex;
@@ -168,6 +161,10 @@ const CountPill = styled.span`
   border: 1px solid #e2e8f0;
   background: #f8fafc;
   color: #334155;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   &[data-variant='class'] { color:#5b21b6; background:#f5f3ff; border-color:#ede9fe; }
   &[data-variant='counsel'] { color:#1d4ed8; background:#eff6ff; border-color:#dbeafe; }
   &[data-variant='todo'] { color:#047857; background:#ecfdf5; border-color:#bbf7d0; }

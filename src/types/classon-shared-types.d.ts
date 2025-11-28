@@ -127,6 +127,7 @@ declare module "@classon/shared-types" {
     phoneNumber?: string | null;
     guardianPhone?: string | null;
     joinedDate?: string | null;
+    status?: string | null;
     [key: string]: unknown;
   }
 
@@ -147,6 +148,7 @@ declare module "@classon/shared-types" {
     completedAt?: string | null;
     paymentMethod?: PaymentMethod | null;
     paymentType?: PaymentType | null;
+    invoiceRequestedAt?: string | null;
     student: PaymentStudentRef;
     course?: PaymentCourseBrief | null;
     [key: string]: unknown;

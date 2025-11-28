@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useDailyAttendance } from "@/features/attendance/useDailyAttendance";
 import { buildFlatRows } from "@/features/attendance/utils";
 import type {
@@ -12,6 +12,9 @@ export type AttendancePageState = {
   onChangeDate: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onQuickSelect: (offset: number) => void;
+  courseSearch: string;
+  onChangeCourseSearch: (value: string) => void;
+  onResetFilters: () => void;
   loading: boolean;
   error: string | null;
   viewMode: ViewMode;
@@ -33,6 +36,7 @@ export function useAttendancePage(): AttendancePageState {
   } = useDailyAttendance();
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
+  const [courseSearch, setCourseSearch] = useState("");
 
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -45,6 +49,14 @@ export function useAttendancePage(): AttendancePageState {
       setViewMode("daily");
     }
   };
+
+  const handleReset = useCallback(() => {
+    applyQuick(0);
+    setCourseSearch("");
+    if (viewMode !== "daily") {
+      setViewMode("daily");
+    }
+  }, [applyQuick, viewMode]);
 
   const dailyRows = useMemo<DailyWithRows[]>(
     () =>
@@ -60,6 +72,9 @@ export function useAttendancePage(): AttendancePageState {
     onChangeDate: setDate,
     onSubmit,
     onQuickSelect: handleQuickSelect,
+    courseSearch,
+    onChangeCourseSearch: setCourseSearch,
+    onResetFilters: handleReset,
     loading,
     error,
     viewMode,

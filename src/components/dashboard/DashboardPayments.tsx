@@ -17,15 +17,15 @@ export default function DashboardPayments({ kpi }: Props) {
 
   const cards = useMemo(
     () => [
-      { key: "UNPAID", label: "미납", count: data?.paymentUnpaidCount ?? 0 },
-      { key: "PENDING", label: "대기", count: data?.paymentPendingCount ?? 0 },
+      { key: "UNPAID", label: "대기", count: data?.paymentUnpaidCount ?? 0 },
+      { key: "PENDING", label: "미납", count: data?.paymentPendingCount ?? 0 },
       { key: "COMPLETED", label: "완료", count: data?.paymentCompletedCount ?? 0 },
     ],
     [data?.paymentCompletedCount, data?.paymentPendingCount, data?.paymentUnpaidCount],
   );
 
   return (
-    <DashboardPanel span={6}>
+    <DashboardPanel height="auto">
       <Header>
         <TitleGroup>
           <TitleIcon aria-hidden>
@@ -110,9 +110,11 @@ const Buttons = styled.div`
 `;
 
 const CardRow = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  display: flex;
+  flex-direction: column;
   gap: ${(p) => p.theme.spacing.sm};
+  flex: 1 1 auto;
+  min-height: 0;
 `;
 
 const StatusCard = styled.article`

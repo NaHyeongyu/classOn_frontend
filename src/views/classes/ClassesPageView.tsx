@@ -1,3 +1,4 @@
+import styled from "styled-components";
 import {
   Page as PageWrap,
   PageHeader,
@@ -32,30 +33,58 @@ export function ClassesPageView({
 
   return (
     <PageWrap>
-      <PageHeader>
-        <div>
-          <h2>{heading}</h2>
-          <p>{subheading}</p>
-        </div>
-        <div style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-          {!isTeacher && (
-            <PrimaryBtn to={routes.classesNew}>수업 추가</PrimaryBtn>
-          )}
-        </div>
-      </PageHeader>
+      <Stack>
+        <Header>
+          <div>
+            <h2>{heading}</h2>
+            <p>{subheading}</p>
+          </div>
+          <Actions>
+            {!isTeacher && <PrimaryBtn to={routes.classesNew}>수업 추가</PrimaryBtn>}
+          </Actions>
+        </Header>
 
-      <ClassesStats />
+        <StatsWrapper>
+          <ClassesStats />
+        </StatsWrapper>
 
-      <SectionCard>
-        <ClassesFilters
-          value={filters}
-          onChange={onChangeFilters}
-          onApply={onApplyFilters}
-          hideStatusFilter={false}
-        />
-      </SectionCard>
+        <FiltersCard>
+          <ClassesFilters
+            value={filters}
+            onChange={onChangeFilters}
+            onApply={onApplyFilters}
+            hideStatusFilter={false}
+          />
+        </FiltersCard>
 
-      <ClassesTable filters={filters} refreshKey={refreshKey} />
+        <ClassesTable filters={filters} refreshKey={refreshKey} />
+      </Stack>
     </PageWrap>
   );
 }
+
+const Stack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.pageGap};
+`;
+
+const Header = styled(PageHeader)`
+  margin-bottom: 0;
+`;
+
+const Actions = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+
+const StatsWrapper = styled.div`
+  width: 100%;
+`;
+
+const FiltersCard = styled(SectionCard)`
+  padding: ${(p) => p.theme.spacing.md};
+  overflow: visible;
+  position: relative;
+`;

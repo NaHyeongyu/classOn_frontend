@@ -12,7 +12,7 @@ import { useStudentAttendance } from "@/features/studentDetail/useStudentAttenda
 import { useStudentGrades } from "@/features/studentDetail/useStudentGrades";
 import { useStudentCounsels } from "@/features/studentDetail/useStudentCounsels";
 
-export type TabKey = "courses" | "attendance" | "counsels" | "grades";
+export type TabKey = "courses" | "attendance" | "counsels" | "grades" | "invoice" | "paymentHistory";
 
 type ConfirmDialogResult = {
   dialog: ReactNode;
@@ -87,6 +87,8 @@ export function useStudentDetailPage(): StudentDetailPageState {
       case "attendance":
       case "counsels":
       case "grades":
+      case "invoice":
+      case "paymentHistory":
         return tabParam;
       default:
         return "courses";

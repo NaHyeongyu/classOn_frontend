@@ -44,13 +44,13 @@ const TEMPLATE_DEFINITIONS: Record<
     resend: false,
     body: [
       "[#{academyName}]",
-      "안녕하세요. #{studentName} 학부모님 😊",
       "",
-      "#{courseName} 수업의 수강료를 안내드립니다.",
-      "총 금액은 #{finalAmount}원이며,",
-      "납부 기한은 #{dueDate}까지 입니다.",
+      "안녕하세요 😊",
       "",
-      "아래 버튼을 눌러 청구서 상세 내역을 확인해 주세요.",
+      "#{studentName} 학생의",
+      "#{courseName} 수업과 관련된 비용 안내가 있어 알려드립니다.",
+      "",
+      "자세한 내용은 아래에서 확인하실 수 있습니다.",
     ].join("\n"),
   },
   RETRY: {
@@ -93,8 +93,8 @@ const TEMPLATE_DEFINITIONS: Record<
 };
 
 const statusLabelMap: Record<string, string> = {
-  UNPAID: "미납",
-  PENDING: "대기",
+  UNPAID: "대기",
+  PENDING: "미납",
   COMPLETED: "완료",
   FAILED: "실패",
 };
@@ -105,6 +105,14 @@ const statusColor: Record<string, string> = {
   COMPLETED: "#059669",
   FAILED: "#dc2626",
 };
+
+function normalizeTemplateKey(raw: string | null): TemplateKey | null {
+  if (!raw) return null;
+  const key = raw.trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(TEMPLATE_DEFINITIONS, key)
+    ? (key as TemplateKey)
+    : null;
+}
 
 export default function PaymentsKakaoConfirm() {
   const { user } = useAuth();
@@ -137,8 +145,10 @@ export default function PaymentsKakaoConfirm() {
   });
 
   const [academyName, setAcademyName] = useState("OO학원");
-  const [templateKey, setTemplateKey] = useState<TemplateKey>("GUIDE");
-  const [message, setMessage] = useState(TEMPLATE_DEFINITIONS.GUIDE.body);
+  const queryTemplate = normalizeTemplateKey(searchParams.get("template"));
+  const initialTemplateKey = queryTemplate ?? "GUIDE";
+  const [templateKey, setTemplateKey] = useState<TemplateKey>(initialTemplateKey);
+  const [message, setMessage] = useState(TEMPLATE_DEFINITIONS[initialTemplateKey].body);
   const [previewDetail, setPreviewDetail] = useState<PaymentDetail | null>(null);
 
   useEffect(() => {

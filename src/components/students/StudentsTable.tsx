@@ -236,10 +236,18 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
 
 // Card provided by common UI
 const TableHead = styled.div`
-  display: flex; align-items: center; justify-content: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: ${(p) => p.theme.spacing.xs};
+  strong {
+    font-size: ${(p) => p.theme.font.size.sm};
+  }
 `;
 const Muted = styled.div`
-  color: #6b7280; font-size: 12px; margin-top: 4px;
+  color: #6b7280;
+  font-size: 12px;
+  margin-top: 4px;
 `;
 // Buttons from common UI
 // Scroller/Table from common UI
@@ -252,7 +260,10 @@ const ErrText = styled.div`
   color: #b91c1c; font-size: 12px; margin-top: 4px;
 `;
 const Pager = styled.div`
-  display: flex; gap: 6px; justify-content: center; padding-top: 4px;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: ${(p) => p.theme.spacing.md};
 `;
 const PageBtn = styled.button<{ disabled?: boolean }>`
   min-width: 28px; height: 28px; padding: 0 8px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; font-size: 12px; color: #111827;
@@ -264,7 +275,12 @@ const PageSize = styled.div`
   select { height: 28px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; padding: 0 8px; }
 `;
 
-const CardInner = styled.div` position: relative; `;
+const CardInner = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
 
 const StyledTable = styled(Table)`
   table-layout: fixed;
@@ -275,14 +291,12 @@ const StyledTable = styled(Table)`
     font-weight: 800;
     text-align: center;
   }
-  thead th, tbody td {
+  thead th,
+  tbody td {
     vertical-align: middle;
-    padding: 12px;
+    padding: ${(p) => p.theme.spacing.sm};
     text-align: center;
-    /* vertical separators between columns */
-    border-right: 1px solid #f1f5f9;
   }
-  thead th:last-child, tbody td:last-child { border-right: none; }
   tbody td { font-size: 13.5px; color: #0f172a; }
   tbody tr[data-clickable='true'] { cursor: pointer; }
   tbody tr[data-clickable='true']:active td { background: ${({ theme }) => theme.colors.surfaceAlt}; }

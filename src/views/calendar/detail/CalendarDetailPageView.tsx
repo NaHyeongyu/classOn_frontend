@@ -1,12 +1,13 @@
 import type { ComponentProps, ReactNode } from "react";
 import CalendarDetailHeader from "@/components/calendar/detail/CalendarDetailHeader";
-import ClassList from "@/components/calendar/detail/ClassList";
+import ClassTimetable from "@/components/calendar/detail/ClassTimetable";
 import CounselList from "@/components/calendar/detail/CounselList";
 import TodoList from "@/components/calendar/detail/TodoList";
 import { PaymentPanel } from "@/components/calendar/detail/PaymentPanel";
 import {
   DetailColumns,
   DetailLeft,
+  DetailCenter,
   DetailPage,
   DetailRight,
 } from "@/components/calendar/detail/DetailLayout";
@@ -14,7 +15,7 @@ import TodoModal from "@/components/calendar/detail/modals/TodoModal";
 import CounselModal from "@/components/calendar/detail/modals/CounselModal";
 import ClassCreateModal from "@/components/calendar/detail/modals/ClassCreateModal";
 import type { TaskItem, CounselItem, ClassItem } from "@/types/calendarDetail";
-import type { CalendarPaymentSection } from "@/features/calendar/useCalendarPaymentList";
+import type { CalendarPaymentRow } from "@/features/calendar/useCalendarPaymentList";
 
 type TodoModalProps = ComponentProps<typeof TodoModal>;
 type CounselModalProps = ComponentProps<typeof CounselModal>;
@@ -46,13 +47,9 @@ type CalendarDetailPageViewProps = {
     onAdd?: () => void;
   };
   paymentPanel?: {
-    configured: boolean;
-    sections: CalendarPaymentSection[];
+    rows: CalendarPaymentRow[];
     loading?: boolean;
     error?: string | null;
-    periodLabel?: string;
-    rangeLabel?: string;
-    onOpenSchedule?: () => void;
     onMore?: () => void;
   };
   todoModal: TodoModalProps;
@@ -98,35 +95,32 @@ export default function CalendarDetailPageView({
             onDetail={counselList.onDetail}
           />
         </DetailLeft>
-        <DetailRight>
-          <ClassList
+        <DetailCenter>
+          <ClassTimetable
             items={classList.items}
-            titleMode="subject"
-            showNotes={true}
             onAdd={classList.onAdd}
           />
+        </DetailCenter>
+        <DetailRight>
           {paymentPanel ? (
             <PaymentPanel
-              configured={paymentPanel.configured}
-              sections={paymentPanel.sections}
+              rows={paymentPanel.rows}
               loading={paymentPanel.loading}
               error={paymentPanel.error}
-              periodLabel={paymentPanel.periodLabel}
-              rangeLabel={paymentPanel.rangeLabel}
-              onOpenSchedule={paymentPanel.onOpenSchedule}
               onMore={paymentPanel.onMore}
             />
           ) : null}
-          <TodoModal {...todoModal} />
-          <CounselModal {...counselModal} />
-          <ClassCreateModal {...classModal} />
-          {todoErrorMessage && (
-            <div style={{ color: "#b91c1c", marginTop: 8 }}>
-              {todoErrorMessage}
-            </div>
-          )}
         </DetailRight>
       </DetailColumns>
+      <TodoModal {...todoModal} />
+      <CounselModal {...counselModal} />
+      <ClassCreateModal {...classModal} />
+      {todoErrorMessage && (
+        <div style={{ color: "#b91c1c", marginTop: 8 }}>
+          {todoErrorMessage}
+        </div>
+      )}
     </DetailPage>
   );
 }
+

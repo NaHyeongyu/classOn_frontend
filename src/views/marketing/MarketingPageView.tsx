@@ -1,22 +1,33 @@
 import styled from "styled-components";
-import { GhostBtnSmall as UIGhostBtnSmall, PageHeader } from "@/components/common/UI";
-import { MarketingFilterPanel } from "@/components/marketing/MarketingFilterPanel";
+import { 
+  GhostBtnSmall as UIGhostBtnSmall, 
+  PageHeader,
+  PrimaryButton,
+  GhostButtonSmall,
+} from "@/components/common/UI";
+import { MarketingClassSelector } from "@/components/marketing/MarketingClassSelector";
+import { MarketingPeriodSelector } from "@/components/marketing/MarketingPeriodSelector";
 import { MarketingResultsPanel } from "@/components/marketing/MarketingResultsPanel";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
 
-type MarketingFilterPanelProps = React.ComponentProps<typeof MarketingFilterPanel>;
+type MarketingClassSelectorProps = React.ComponentProps<typeof MarketingClassSelector>;
+type MarketingPeriodSelectorProps = React.ComponentProps<typeof MarketingPeriodSelector>;
 type MarketingResultsPanelProps = React.ComponentProps<typeof MarketingResultsPanel>;
 
 type MarketingPageViewProps = {
-  filterProps: MarketingFilterPanelProps;
+  classSelectorProps: MarketingClassSelectorProps;
+  periodSelectorProps: MarketingPeriodSelectorProps;
   resultsProps: MarketingResultsPanelProps;
 };
 
-export function MarketingPageView({ filterProps, resultsProps }: MarketingPageViewProps) {
+export function MarketingPageView({
+  classSelectorProps,
+  periodSelectorProps,
+  resultsProps,
+}: MarketingPageViewProps) {
   const summary = useDashboardSummary();
   const limit = summary.data?.marketingLimit ?? null;
   const remaining = summary.data?.marketingRemaining ?? null;
-  const used = summary.data?.marketingUsed ?? null;
   const loading = summary.status === "loading" && !summary.data;
   const quotaError = summary.status === "error";
   const quotaText = loading
@@ -26,9 +37,6 @@ export function MarketingPageView({ filterProps, resultsProps }: MarketingPageVi
       : limit != null
         ? `${Math.max(0, remaining ?? 0)} / ${limit}회 남음`
         : "정보 없음";
-  const usedText = !quotaError
-    ? limit != null ? `이번 달 사용 ${used ?? 0}회` : used != null ? `이번 달 사용 ${used}회` : null
-    : "다시 시도해 주세요";
 
   return (
     <Viewport>
@@ -56,9 +64,28 @@ export function MarketingPageView({ filterProps, resultsProps }: MarketingPageVi
       </HeaderWrap>
 
       <ContentGrid>
-        <FilterColumn>
-          <MarketingFilterPanel {...filterProps} />
-        </FilterColumn>
+        <Column>
+          <MarketingClassSelector {...classSelectorProps} />
+        </Column>
+        <PeriodColumn>
+          <MarketingPeriodSelector {...periodSelectorProps} />
+          <PeriodActions>
+            <PrimaryButton 
+              type="button" 
+              onClick={periodSelectorProps.onSubmit} 
+              disabled={periodSelectorProps.loading}
+            >
+              {periodSelectorProps.loading ? "조회 중..." : "조회하기"}
+            </PrimaryButton>
+            <GhostButtonSmall 
+              as="button" 
+              type="button" 
+              onClick={periodSelectorProps.onReset}
+            >
+              초기화
+            </GhostButtonSmall>
+          </PeriodActions>
+        </PeriodColumn>
         <ResultColumn>
           <MarketingResultsPanel quotaText={quotaText} {...resultsProps} />
         </ResultColumn>
@@ -72,12 +99,13 @@ const Viewport = styled.div`
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  gap: ${(p) => p.theme.spacing.xl};
 `;
 
 const HeaderWrap = styled.div`
   padding: 0 ${(p) => p.theme.spacing.xs};
   display: grid;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: ${(p) => p.theme.spacing.lg};
 `;
 
 const TitleRow = styled.div`
@@ -90,7 +118,7 @@ const TitleRow = styled.div`
 const TitleBadge = styled.span`
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: ${(p) => p.theme.spacing.xs};
   padding: 6px 10px;
   border-radius: 999px;
   background: #ecfdf3;
@@ -101,7 +129,7 @@ const TitleBadge = styled.span`
 `;
 
 const BetaNotice = styled.div`
-  padding: 10px ${(p) => p.theme.spacing.sm};
+  padding: ${(p) => p.theme.spacing.sm};
   border-radius: ${(p) => p.theme.radii.md};
   background: #eef2ff;
   border: 1px solid #c7d2fe;
@@ -109,7 +137,8 @@ const BetaNotice = styled.div`
   font-size: ${(p) => p.theme.font.size.sm};
   line-height: 1.5;
   display: grid;
-  gap: 4px;
+  gap: ${(p) => p.theme.spacing.xs};
+  width: 100%;
   strong {
     font-weight: 700;
   }
@@ -118,10 +147,9 @@ const BetaNotice = styled.div`
   }
 `;
 
-
 const HeaderActions = styled.div`
   display: inline-flex;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: ${(p) => p.theme.spacing.md};
   flex-wrap: wrap;
   justify-content: flex-end;
 `;
@@ -133,19 +161,54 @@ const ContentGrid = styled.div`
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  @media (min-width: 1120px) {
-    grid-template-columns: 360px 1fr;
+  
+  /* 3-column layout for larger screens */
+  @media (min-width: 1280px) {
+    grid-template-columns: 320px 320px 1fr;
+  }
+  /* Stacked layout for smaller screens */
+  @media (max-width: 1279px) {
+    overflow-y: auto;
+    grid-template-columns: 1fr;
+    padding-bottom: 24px;
   }
 `;
 
-const FilterColumn = styled.div`
+const Column = styled.div`
   display: flex;
   min-height: 0;
   overflow: hidden;
+  /* Allow height to grow in stacked mode */
+  @media (max-width: 1279px) {
+    min-height: auto;
+    overflow: visible;
+  }
 `;
 
 const ResultColumn = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.xl};
   min-height: 0;
+  /* Allow height to grow in stacked mode */
+  @media (max-width: 1279px) {
+    min-height: auto;
+  }
+`;
+
+const PeriodColumn = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.lg};
+  min-height: 0;
+  /* Allow height to grow in stacked mode */
+  @media (max-width: 1279px) {
+    min-height: auto;
+    overflow: visible;
+  }
+`;
+
+const PeriodActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: ${(p) => p.theme.spacing.md};
 `;

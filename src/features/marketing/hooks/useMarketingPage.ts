@@ -298,7 +298,7 @@ export function useMarketingPage() {
   }, [jsonData, navigate, totalRecords, warning]);
 
   return {
-    filterProps: {
+    classSelectorProps: {
       courseQuery,
       onCourseQueryChange: handleCourseQueryChange,
       filteredCourses,
@@ -309,6 +309,8 @@ export function useMarketingPage() {
       maxSelectable: MAX_MARKETING_SELECTED_COURSES,
       loadingCourses,
       coursesError,
+    },
+    periodSelectorProps: {
       preset,
       onSelectPreset: applyPreset,
       from,

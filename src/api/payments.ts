@@ -70,12 +70,18 @@ export async function listPaymentInvoices(params?: {
   q?: string;
   page?: number;
   size?: number;
+  from?: string;
+  to?: string;
+  studentStatus?: string;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
   sp.set("status", params?.status ?? "UNPAID");
   if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
+  if (params?.from) sp.set("from", params.from);
+  if (params?.to) sp.set("to", params.to);
+  if (params?.studentStatus && params.studentStatus !== "ALL") sp.set("studentStatus", params.studentStatus);
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/invoices${q}`);
 }
@@ -97,6 +103,25 @@ export async function listPaymentHistory(params?: {
   if (typeof params?.size === "number") sp.set("size", String(params.size));
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/history${q}`);
+}
+
+export async function listPendingHistory(params?: {
+  from?: string;
+  to?: string;
+  q?: string;
+  page?: number;
+  size?: number;
+  status?: string;
+}): Promise<PageResult<PaymentHistoryRow>> {
+  const sp = new URLSearchParams();
+  if (params?.from) sp.set("from", params.from);
+  if (params?.to) sp.set("to", params.to);
+  if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
+  if (typeof params?.page === "number") sp.set("page", String(params.page));
+  if (typeof params?.size === "number") sp.set("size", String(params.size));
+  if (params?.status && params.status.trim()) sp.set("status", params.status.trim());
+  const q = sp.toString() ? `?${sp.toString()}` : "";
+  return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/history/pending${q}`);
 }
 
 export async function getPaymentDetail(id: number): Promise<PaymentDetail> {
@@ -223,6 +248,8 @@ export type PublicPaymentCheckoutInit = {
   studentName?: string;
   successUrl?: string;
   failUrl?: string;
+  sellerRefId?: string | null;
+  tossSellerId?: string | null;
 };
 
 export async function preparePublicPaymentCheckout(token: string): Promise<PublicPaymentCheckoutInit> {

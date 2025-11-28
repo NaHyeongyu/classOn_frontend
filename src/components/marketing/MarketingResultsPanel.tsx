@@ -248,7 +248,7 @@ const ResultCard = styled(SectionCard)`
 
 const PanelHeader = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xs};
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 
 const PanelTitle = styled.h3`
@@ -271,7 +271,7 @@ const ResultBody = styled.div`
 
 const ResultContent = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.lg};
+  gap: ${(p) => p.theme.spacing.xl};
 `;
 
 const ResultMeta = styled.div`
@@ -283,7 +283,7 @@ const ResultMeta = styled.div`
 
 const SectionStack = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.lg};
+  gap: ${(p) => p.theme.spacing.xl};
 `;
 
 const ResultError = styled.span`
@@ -293,7 +293,7 @@ const ResultError = styled.span`
 
 const ResultSection = styled.section`
   display: grid;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: ${(p) => p.theme.spacing.md};
 `;
 
 const ResultSectionHeader = styled.header`

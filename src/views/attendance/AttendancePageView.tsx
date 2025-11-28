@@ -33,6 +33,9 @@ type AttendancePageViewProps = {
   onChangeDate: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onQuickSelect: (offset: number) => void;
+  courseSearch: string;
+  onChangeCourseSearch: (value: string) => void;
+  onResetFilters: () => void;
   loading: boolean;
   error: string | null;
   viewMode: ViewMode;
@@ -54,6 +57,9 @@ export function AttendancePageView({
   onChangeDate,
   onSubmit,
   onQuickSelect,
+  courseSearch,
+  onChangeCourseSearch,
+  onResetFilters,
   loading,
   error,
   viewMode,
@@ -70,6 +76,12 @@ export function AttendancePageView({
   const description = isTeacher
     ? "담당 수업의 일자별 출결 정보를 확인하세요."
     : "날짜별로 출결 현황을 확인하고 수업 상세로 이동하세요.";
+  const searchKeyword = courseSearch.trim().toLowerCase();
+  const matchesSearch = (title: string | null | undefined) => {
+    if (!searchKeyword) return true;
+    if (!title) return false;
+    return title.toLowerCase().includes(searchKeyword);
+  };
 
   return (
     <PageLocal>
@@ -97,26 +109,12 @@ export function AttendancePageView({
             수업별 보기
           </TabButton>
         </ViewTabs>
-        {viewMode === "daily" && (
-          <StatusFilterBar>
-            {STATUS_FILTER_OPTIONS.map((option) => (
-              <FilterButton
-                key={option.value}
-                type="button"
-                data-active={statusFilter === option.value || undefined}
-                onClick={() => onChangeStatusFilter(option.value)}
-              >
-                {option.label}
-              </FilterButton>
-            ))}
-          </StatusFilterBar>
-        )}
       </Controls>
 
       <Card as="form" onSubmit={onSubmit}>
         <Filters>
           <Field>
-            <label htmlFor="attendance-date">조회일</label>
+            <label htmlFor="attendance-date">날짜</label>
             <input
               id="attendance-date"
               type="date"
@@ -131,14 +129,43 @@ export function AttendancePageView({
             <QuickButton type="button" onClick={() => onQuickSelect(-1)}>
               어제
             </QuickButton>
-            <QuickButton type="button" onClick={() => onQuickSelect(-2)}>
-              이틀 전
-            </QuickButton>
-          </QuickButtons>
+          <QuickButton type="button" onClick={() => onQuickSelect(-2)}>
+            이틀 전
+          </QuickButton>
+        </QuickButtons>
+        <SearchField>
+          <label htmlFor="attendance-course-search">수업 이름</label>
+          <SearchInput
+            id="attendance-course-search"
+            type="text"
+            placeholder="수업명을 입력하세요."
+            value={courseSearch}
+            onChange={(event) => onChangeCourseSearch(event.target.value)}
+          />
+        </SearchField>
+        <StatusField>
+          <label htmlFor="attendance-status-filter">상태</label>
+          <StatusSelect
+            id="attendance-status-filter"
+            value={statusFilter}
+            onChange={(event) => onChangeStatusFilter(event.target.value as StatusFilter)}
+          >
+            {STATUS_FILTER_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </StatusSelect>
+        </StatusField>
+        <ButtonRow>
           <ApplyButton type="submit">조회</ApplyButton>
-        </Filters>
-        {error && <ErrorText>{error}</ErrorText>}
-      </Card>
+          <ResetButton type="button" onClick={onResetFilters}>
+            초기화
+          </ResetButton>
+        </ButtonRow>
+      </Filters>
+      {error && <ErrorText>{error}</ErrorText>}
+    </Card>
 
       {loading && (
         <LoadingBox>
@@ -162,7 +189,13 @@ export function AttendancePageView({
       {dailyRows.map(({ day, rows }) => {
         const filteredFlatRows =
           viewMode === "daily" ? filterByStatus(rows, statusFilter) : rows;
-        const sortedFlatRows = filteredFlatRows;
+        const searchableRows = searchKeyword
+          ? filteredFlatRows.filter((row) => matchesSearch(row.courseTitle))
+          : filteredFlatRows;
+        const sortedFlatRows = searchableRows;
+        const filteredClasses = searchKeyword
+          ? day.classes.filter((cls) => matchesSearch(cls.courseTitle))
+          : day.classes;
 
         return (
           <Card key={day.date}>
@@ -189,7 +222,7 @@ export function AttendancePageView({
             </DayHeader>
 
             {viewMode === "class" ? (
-              day.classes.length > 0 ? (
+              filteredClasses.length > 0 ? (
                 <TableWrapper>
                   <StyledTable>
                     <thead>
@@ -203,7 +236,7 @@ export function AttendancePageView({
                       </tr>
                     </thead>
                     <tbody>
-                      {day.classes.map((cls, idx) => (
+                      {filteredClasses.map((cls, idx) => (
                         <tr
                           key={`${day.date}-${
                             cls.recordId ?? `${cls.courseId ?? "course"}-${idx}`
@@ -245,36 +278,37 @@ export function AttendancePageView({
                 <SectionTitle>출석 학생</SectionTitle>
                 {sortedFlatRows.length > 0 ? (
                   <CardList>
-                    {sortedFlatRows.map((row) => (
-                      <AttendanceCard key={row.key}>
-                        <CardTop>
-                          <CardMain>
-                            <strong>{row.studentName}</strong>
-                            <span className="course">
-                              {row.courseTitle ? (
-                                row.courseId ? (
-                                  <CourseLink
-                                    type="button"
-                                    onClick={() =>
-                                      onOpenCourseRecord(
-                                        row.courseId,
-                                        row.recordId,
-                                      )
-                                    }
-                                  >
-                                    {row.courseTitle}
-                                  </CourseLink>
-                                ) : (
-                                  row.courseTitle
-                                )
-                              ) : (
-                                "-"
-                              )}
-                            </span>
-                          </CardMain>
-                          <CardMeta>
-                            <StatusBadge data-type={row.status.toLowerCase()}>
-                              {statusLabel(row.status)}
+                    {sortedFlatRows.map((row) => {
+                      const clickable = !!row.courseId;
+                      return (
+                        <AttendanceCard
+                          key={row.key}
+                          data-clickable={clickable || undefined}
+                          onClick={() => {
+                            if (clickable) {
+                              onOpenCourseRecord(row.courseId ?? undefined, row.recordId);
+                            }
+                          }}
+                          role={clickable ? "button" : undefined}
+                          tabIndex={clickable ? 0 : -1}
+                          onKeyDown={(event) => {
+                            if (!clickable) return;
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              onOpenCourseRecord(row.courseId ?? undefined, row.recordId);
+                            }
+                          }}
+                        >
+                          <CardTop>
+                            <CardMain>
+                              <strong>{row.studentName}</strong>
+                              <span className="course">
+                                {row.courseTitle || "-"}
+                              </span>
+                            </CardMain>
+                            <CardMeta>
+                              <StatusBadge data-type={row.status.toLowerCase()}>
+                                {statusLabel(row.status)}
                             </StatusBadge>
                             {row.status !== "UNPROCESSED" ? (
                               <MetaItem>{formatClock(row.createdAt)}</MetaItem>
@@ -314,8 +348,9 @@ export function AttendancePageView({
                             <MutedNote>사유 없음</MutedNote>
                           </CardFooter>
                         ) : null}
-                      </AttendanceCard>
-                    ))}
+                        </AttendanceCard>
+                      );
+                    })}
                   </CardList>
                 ) : (
                   <NoClassText>조건에 맞는 출석 기록이 없습니다.</NoClassText>
@@ -355,6 +390,31 @@ const Field = styled.div`
   }
 `;
 
+const SearchField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 200px;
+  label {
+    font-size: 13px;
+    color: #4b5563;
+  }
+`;
+
+const SearchInput = styled.input`
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #111827;
+  width: 100%;
+  &::placeholder {
+    color: #9ca3af;
+  }
+`;
+
 const QuickButtons = styled.div`
   display: inline-flex;
   flex-wrap: wrap;
@@ -363,14 +423,48 @@ const QuickButtons = styled.div`
 
 const QuickButton = styled.button`
   ${buttonVariants.outline};
-  height: 36px;
+  height: 40px;
   padding: 0 14px;
   font-size: 13px;
+`;
+
+const StatusField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+  label {
+    font-size: 13px;
+    color: #4b5563;
+  }
+`;
+
+const StatusSelect = styled.select`
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #111827;
+  width: 100%;
 `;
 
 const ApplyButton = styled(PrimaryButton)`
   height: 40px;
   padding: 0 20px;
+`;
+
+const ButtonRow = styled.div`
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+`;
+
+const ResetButton = styled.button`
+  ${buttonVariants.outline};
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
 `;
 
 const ErrorText = styled.div`
@@ -415,24 +509,6 @@ const TabButton = styled.button`
     background: #111827;
     color: #ffffff;
     border-color: #111827;
-  }
-`;
-
-const StatusFilterBar = styled.div`
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
-`;
-
-const FilterButton = styled.button`
-  ${buttonVariants.outline};
-  height: 32px;
-  padding: 0 14px;
-  font-size: 12px;
-  &[data-active] {
-    background: #1f2937;
-    color: #fff;
-    border-color: #1f2937;
   }
 `;
 
@@ -573,111 +649,115 @@ const SectionTitle = styled.h4`
 
 const CardList = styled.div`
   display: grid;
-  gap: 4px;
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 
-const AttendanceCard = styled.div`
+const AttendanceCard = styled.article`
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #ffffff;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+  gap: ${(p) => p.theme.spacing.sm};
+  padding: ${(p) => p.theme.spacing.md};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  background: ${(p) => p.theme.colors.surface};
+  box-shadow: ${(p) => p.theme.shadow.low};
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  &[data-clickable] {
+    cursor: pointer;
+  }
+  &[data-clickable]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+    border-color: ${(p) => p.theme.colors.borderStrong};
+  }
+  &[data-clickable]:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25);
+  }
 `;
 
 const CardTop = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.md};
   flex-wrap: wrap;
 `;
 
 const CardMain = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: ${(p) => p.theme.spacing.xs};
+  min-width: 0;
   strong {
-    font-size: 15px;
-    color: #111827;
+    font-size: ${(p) => p.theme.font.size.md};
+    color: ${(p) => p.theme.colors.text};
+    font-weight: ${(p) => p.theme.font.weight.semiBold};
     letter-spacing: -0.01em;
   }
   .course {
-    font-size: 13px;
-    color: #6b7280;
+    font-size: ${(p) => p.theme.font.size.sm};
+    color: ${(p) => p.theme.colors.textMuted};
   }
 `;
 
 const CardMeta = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: ${(p) => p.theme.spacing.xs};
   flex-wrap: wrap;
 `;
 
 const MetaItem = styled.span`
-  font-size: 12px;
-  color: #6b7280;
+  font-size: ${(p) => p.theme.font.size.xs};
+  color: ${(p) => p.theme.colors.textMuted};
 `;
 
 const CardFooter = styled.div`
-  font-size: 12px;
-  color: #4b5563;
-  border-top: 1px solid #f3f4f6;
-  padding-top: 6px;
+  font-size: ${(p) => p.theme.font.size.xs};
+  color: ${(p) => p.theme.colors.textMuted};
+  border-top: 1px solid ${(p) => p.theme.colors.borderMuted};
+  padding-top: ${(p) => p.theme.spacing.xs};
 `;
 
 const StatusBadge = styled.span`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 56px;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid transparent;
+  padding: 4px ${(p) => p.theme.spacing.sm};
+  border-radius: 999px;
+  font-size: ${(p) => p.theme.font.size.xs};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  border: 1px solid ${(p) => p.theme.colors.border};
   &[data-type="present"] {
-    background: #dcfce7;
-    color: #15803d;
-    border-color: #bbf7d0;
+    background: ${(p) => p.theme.colors.successSurface};
+    color: ${(p) => p.theme.colors.success};
+    border-color: rgba(34, 197, 94, 0.4);
   }
   &[data-type="absent"] {
-    background: #fee2e2;
-    color: #b91c1c;
-    border-color: #fecaca;
+    background: ${(p) => p.theme.colors.dangerSurface};
+    color: ${(p) => p.theme.colors.danger};
+    border-color: rgba(239, 68, 68, 0.4);
   }
   &[data-type="unprocessed"] {
-    background: #fef3c7;
-    color: #b45309;
-    border-color: #fcd34d;
+    background: ${(p) => p.theme.colors.warningSurface ?? "#FEF3C7"};
+    color: ${(p) => p.theme.colors.warning ?? "#B45309"};
+    border-color: rgba(251, 191, 36, 0.6);
   }
 `;
 
 const SourceBadge = styled.span`
-  padding: 2px 8px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 700;
-  border: 1px solid #e5e7eb;
-  color: #374151;
-  background: #f9fafb;
+  padding: 2px ${(p) => p.theme.spacing.xs};
+  border-radius: 999px;
+  font-size: ${(p) => p.theme.font.size.xs};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  color: ${(p) => p.theme.colors.text};
+  background: ${(p) => p.theme.colors.surfaceMuted};
   &[data-type="MOBILE"] {
-    background: #dcfce7;
-    color: #16a34a;
-    border-color: #bbf7d0;
-  }
-`;
-
-const CourseLink = styled.button`
-  all: unset;
-  cursor: pointer;
-  color: #2563eb;
-  font-weight: 600;
-  &:hover {
-    text-decoration: underline;
+    background: ${(p) => p.theme.colors.successSurface};
+    color: ${(p) => p.theme.colors.success};
+    border-color: rgba(34, 197, 94, 0.4);
   }
 `;
 

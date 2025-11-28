@@ -65,7 +65,7 @@ export default function DashboardAttendance() {
     !loading && !error && summary != null && filteredRows.length === 0;
 
   return (
-    <DashboardPanel span={6}>
+    <DashboardPanel height="100%">
       <Head>
         <TitleGroup>
           <TitleIcon aria-hidden>
@@ -148,7 +148,17 @@ export default function DashboardAttendance() {
         {!loading && !showEmptyFiltered && (
           <StudentList>
             {filteredRows.map((row) => (
-              <StudentCard key={row.key}>
+              <StudentCard
+                key={row.key}
+                $clickable={!!row.courseId && !!summary?.date}
+                onClick={() => {
+                  if (row.courseId && summary?.date) {
+                    navigate(
+                      `/classes/${row.courseId}/history/date/${summary.date}`
+                    );
+                  }
+                }}
+              >
                 <CardTop>
                   <CardMain>
                     <StudentName>{row.studentName ?? "이름 없음"}</StudentName>
@@ -325,8 +335,11 @@ const FilterButton = styled.button<{ "data-active"?: boolean }>`
 `;
 
 const StudentBlock = styled.section`
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: ${(p) => p.theme.spacing.sm};
+  flex: 1 1 auto;
+  min-height: 0;
 `;
 
 const LoadingBox = styled.div`
@@ -344,9 +357,15 @@ const LoadingBox = styled.div`
 const StudentList = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.sm};
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 4px;
+  align-content: start;
+  grid-auto-rows: max-content;
 `;
 
-const StudentCard = styled.article`
+const StudentCard = styled.article<{ $clickable?: boolean }>`
   display: flex;
   flex-direction: column;
   gap: ${(p) => p.theme.spacing.sm};
@@ -355,6 +374,17 @@ const StudentCard = styled.article`
   border-radius: ${(p) => p.theme.radii.md};
   background: ${(p) => p.theme.colors.surface};
   box-shadow: ${(p) => p.theme.shadow.low};
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+
+  ${({ $clickable }) =>
+    $clickable &&
+    `
+    cursor: pointer;
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+  `}
 `;
 
 const CardTop = styled.div`

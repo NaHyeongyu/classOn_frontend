@@ -68,12 +68,12 @@ export function CalendarPageView({
 }
 
 const Viewport = styled.div`
-  height: calc(100vh - 48px);
-  overflow: hidden;
+  min-height: calc(100vh - 48px);
+  padding-bottom: ${(p) => p.theme.spacing.sm};
 `;
 
 const Card = styled.section`
-  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 0;
@@ -151,12 +151,14 @@ const CalendarSurface = styled(SectionCard)`
   border-radius: ${(p) => p.theme.radii.xl};
   gap: ${(p) => p.theme.spacing.md};
   min-height: 0;
-  min-height: 500px;
+  min-height: 520px;
+  overflow: auto;
   @media (min-width: 1280px) {
     padding: ${(p) => p.theme.spacing.xl};
     min-height: 560px;
   }
 `;
+
 
 const MonthToolbar = styled.div`
   display: flex;

@@ -54,8 +54,8 @@ const SAMPLE_DATA: InvoiceViewModel = {
 };
 
 const statusLabel: Record<string, string> = {
-  UNPAID: "미납",
-  PENDING: "결제 중",
+  UNPAID: "대기",
+  PENDING: "미납",
   COMPLETED: "완료",
   FAILED: "실패",
 };
@@ -169,6 +169,10 @@ export default function InvoicePreview({
     
     try {
       setPaying(true);
+      const metadata: Record<string, string> = {};
+      if (checkoutQuery.data.sellerRefId) metadata.sellerRefId = checkoutQuery.data.sellerRefId;
+      if (checkoutQuery.data.tossSellerId) metadata.tossSellerId = checkoutQuery.data.tossSellerId;
+      if (checkoutQuery.data.customerKey) metadata.customerKey = checkoutQuery.data.customerKey;
       await tossPayments.requestPayment("카드", {
         amount: checkoutQuery.data.amount,
         orderId: checkoutQuery.data.orderId,
@@ -176,6 +180,7 @@ export default function InvoicePreview({
         customerName: checkoutQuery.data.studentName ?? resolvedData.studentName,
         successUrl: checkoutQuery.data.successUrl ?? window.location.href,
         failUrl: checkoutQuery.data.failUrl ?? window.location.href,
+        metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
       });
     } catch (err) {
       const message =
@@ -239,6 +244,12 @@ export default function InvoicePreview({
             <Label>납부 기한</Label>
             <Value>{formatDate(resolvedData.dueDate) ?? "미정"}</Value>
           </DetailRow>
+          {resolvedData.periodStart || resolvedData.periodEnd ? (
+            <DetailRow>
+              <Label>수강 기간</Label>
+              <Value>{formatPeriod(resolvedData.periodStart, resolvedData.periodEnd) ?? "미정"}</Value>
+            </DetailRow>
+          ) : null}
         </DetailList>
 
         {resolvedData.memo ? (
@@ -455,6 +466,21 @@ function formatDate(value?: string | null) {
   } catch {
     return value;
   }
+}
+
+function formatPeriod(start?: string | null, end?: string | null) {
+  const formattedStart = formatDate(start) ?? start;
+  const formattedEnd = formatDate(end) ?? end;
+  if (formattedStart && formattedEnd) {
+    return `${formattedStart} ~ ${formattedEnd}`;
+  }
+  if (formattedStart) {
+    return `${formattedStart} ~`;
+  }
+  if (formattedEnd) {
+    return `~ ${formattedEnd}`;
+  }
+  return null;
 }
 
 const Shell = styled.div`

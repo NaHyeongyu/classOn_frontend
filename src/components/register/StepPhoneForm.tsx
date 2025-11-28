@@ -21,7 +21,7 @@ export function StepPhoneForm({
 }: StepPhoneFormProps) {
   return (
     <>
-      <Sub>휴대폰 번호를 입력해 주세요. 개발 단계에서는 문자 인증 없이 바로 다음 단계로 이동합니다.</Sub>
+      <Sub>휴대폰 번호를 입력해 주세요. 인증번호를 보내 드립니다.</Sub>
       <Form onSubmit={onSubmit}>
         <Label>
           휴대폰<span>*</span>
@@ -40,9 +40,9 @@ export function StepPhoneForm({
           required
         />
         {stepError && <Hint danger>{stepError}</Hint>}
-        {!stepError && <Hint>현재는 인증 없이 연락처만 받아요.</Hint>}
+        {!stepError && <Hint>입력하신 번호로 문자 인증번호를 발송합니다.</Hint>}
         {error && <ErrorText>{error}</ErrorText>}
-        <UIPrimaryBtn type="submit">다음</UIPrimaryBtn>
+        <UIPrimaryBtn type="submit">인증번호 받기</UIPrimaryBtn>
       </Form>
     </>
   );

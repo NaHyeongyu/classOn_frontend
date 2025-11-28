@@ -105,7 +105,7 @@ export function StudentDetailPageView({
           </Left>
 
           <Right>
-            <Card>
+            <CourseCard>
               <MiniHead>
                 <Tabs>
                   <TabButton
@@ -131,6 +131,18 @@ export function StudentDetailPageView({
                     onClick={() => onSelectTab("counsels")}
                   >
                     상담기록
+                  </TabButton>
+                  <TabButton
+                    data-active={activeTab === "invoice"}
+                    onClick={() => onSelectTab("invoice")}
+                  >
+                    청구서
+                  </TabButton>
+                  <TabButton
+                    data-active={activeTab === "paymentHistory"}
+                    onClick={() => onSelectTab("paymentHistory")}
+                  >
+                    결제 내역
                   </TabButton>
                 </Tabs>
               </MiniHead>
@@ -198,14 +210,38 @@ export function StudentDetailPageView({
                   />
                 </SectionBody>
               ) : null}
-            </Card>
-            <StudentPaymentsSection
-              studentId={student?.id ?? null}
-              payments={payments.data}
-              loading={payments.loading}
-              error={payments.error}
-              onRefresh={payments.refresh}
-            />
+
+              {activeTab === "invoice" ? (
+                <SectionBody>
+                  <StudentPaymentsSection
+                    studentId={student?.id ?? null}
+                    payments={payments.data}
+                    loading={payments.loading}
+                    error={payments.error}
+                    onRefresh={payments.refresh}
+                    view="invoice"
+                    showTabs={false}
+                    withinCard={false}
+                  />
+                </SectionBody>
+              ) : null}
+
+              {activeTab === "paymentHistory" ? (
+                <SectionBody>
+                  <StudentPaymentsSection
+                    studentId={student?.id ?? null}
+                    payments={payments.data}
+                    loading={payments.loading}
+                    error={payments.error}
+                    onRefresh={payments.refresh}
+                    view="history"
+                    showTabs={false}
+                    withinCard={false}
+                  />
+                </SectionBody>
+              ) : null}
+
+            </CourseCard>
           </Right>
         </Columns>
       ) : null}
@@ -230,9 +266,8 @@ function StudentDetailSkeleton() {
         <Card>
           <SectionTitle>기본 정보</SectionTitle>
           <SkeletonRow>
-            <AvatarSkeleton />
             <div>
-              <Skeleton w={140} h={18} />
+              <Skeleton w={160} h={18} />
               <Skeleton w={120} h={12} mt={6} />
             </div>
             <SkeletonChip />
@@ -273,27 +308,28 @@ function StudentDetailSkeleton() {
 
 const Page = styled.div`
   display: grid;
-  gap: 14px;
+  gap: ${(p) => p.theme.spacing.lg};
 `;
 
 const TopBar = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
-
+  gap: ${(p) => p.theme.spacing.sm};
+  justify-content: flex-start;
   h2 {
     margin: 0;
-    font-size: 20px;
-    color: #0f172a;
+    font-size: ${(p) => p.theme.font.size.display};
+    color: ${(p) => p.theme.colors.text};
+    display: flex;
+    align-items: center;
   }
 `;
 
 const Columns = styled.div`
   display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 14px;
+  grid-template-columns: 380px 1fr;
+  gap: ${(p) => p.theme.spacing.pageGap};
   align-items: start;
-
   @media (max-width: 1200px) {
     grid-template-columns: 1fr;
   }
@@ -301,12 +337,21 @@ const Columns = styled.div`
 
 const Left = styled.aside`
   display: grid;
-  gap: 18px;
+  grid-template-columns: 1fr;
+  gap: ${(p) => p.theme.spacing.xl};
 `;
 
 const Right = styled.section`
   display: grid;
-  gap: 18px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: ${(p) => p.theme.spacing.xl};
+  @media (max-width: 1080px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const CourseCard = styled(Card)`
+  grid-column: 1 / -1;
 `;
 
 const Error = styled.div`
@@ -328,7 +373,7 @@ const MiniHead = styled.div`
 
 const SectionBody = styled.div`
   display: grid;
-  gap: 10px;
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 
 const shimmer = keyframes`
@@ -348,13 +393,9 @@ const SkeletonBase = styled.div<{ w?: number; h?: number; mt?: number }>`
 
 const Skeleton = SkeletonBase;
 
-const AvatarSkeleton = styled(SkeletonBase).attrs({ w: 44, h: 44 })`
-  border-radius: 12px;
-`;
-
 const SkeletonRow = styled.div`
   display: grid;
-  grid-template-columns: 44px 1fr 80px;
+  grid-template-columns: 1fr 80px;
   gap: 10px;
   align-items: center;
   margin-bottom: 8px;

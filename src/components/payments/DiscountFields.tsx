@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import type { DiscountType } from "@classon/shared-types";
+import { ToggleSwitch } from "@/components/common/UI";
 
 type DiscountValue = number | undefined | null;
 
@@ -43,14 +44,16 @@ export function DiscountFields({
       <DiscountControls>
         <DiscountRow>
           <span className="discount-label">할인 유무</span>
-          <ChoiceGroup role="group" aria-label="할인 유무">
-          <ChoiceButton type="button" data-active={!enabled} onClick={() => handleToggle(false)} disabled={disabled}>
-            미적용
-          </ChoiceButton>
-          <ChoiceButton type="button" data-active={enabled} onClick={() => handleToggle(true)} disabled={disabled}>
-            적용
-          </ChoiceButton>
-        </ChoiceGroup>
+          <ToggleSwitch>
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => handleToggle(event.currentTarget.checked)}
+              disabled={disabled}
+            />
+            <span className="switch" aria-hidden="true" />
+            <span className="text">{enabled ? "적용" : "미적용"}</span>
+          </ToggleSwitch>
         </DiscountRow>
         <DiscountRow>
           <span className="discount-label">할인 방식</span>

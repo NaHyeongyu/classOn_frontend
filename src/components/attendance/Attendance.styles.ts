@@ -82,6 +82,31 @@ export const Field = styled.div`
   }
 `;
 
+export const SearchField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 200px;
+  label {
+    font-size: 13px;
+    color: #4b5563;
+  }
+`;
+
+export const SearchInput = styled.input`
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  padding: 0 12px;
+  font-size: 14px;
+  color: #111827;
+  width: 100%;
+  &::placeholder {
+    color: #9ca3af;
+  }
+`;
+
 export const QuickButtons = styled.div`
   display: inline-flex;
   flex-wrap: wrap;
@@ -90,7 +115,7 @@ export const QuickButtons = styled.div`
 
 export const QuickButton = styled.button`
   ${buttonVariants.outline};
-  height: 36px;
+  height: 40px;
   padding: 0 14px;
   font-size: 13px;
 `;
@@ -98,6 +123,19 @@ export const QuickButton = styled.button`
 export const ApplyButton = styled(PrimaryButton)`
   height: 40px;
   padding: 0 20px;
+`;
+
+export const ButtonRow = styled.div`
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+`;
+
+export const ResetButton = styled.button`
+  ${buttonVariants.outline};
+  height: 40px;
+  padding: 0 16px;
+  font-size: 13px;
 `;
 
 export const ErrorText = styled.div`

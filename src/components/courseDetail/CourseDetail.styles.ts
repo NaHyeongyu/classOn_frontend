@@ -8,7 +8,7 @@ import {
 
 export const Wrap = styled.div`
   display: grid;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.pageGap};
 `;
 
 export const Head = styled.div`
@@ -45,81 +45,80 @@ export const BackButton = styled.button`
 
 export const KPIGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: ${(p) => p.theme.spacing.sm};
+  width: 100%;
 `;
 
 export const Columns = styled.div`
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+  gap: ${(p) => p.theme.spacing.pageGap};
+  align-items: start;
+  @media (max-width: 1080px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const Left = styled.div`
-  flex: 4 1 320px;
   display: grid;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.md};
   align-content: flex-start;
 `;
 
 export const StickyLeft = styled.div`
   position: sticky;
-  top: var(--sticky-top, 64px);
+  top: var(--sticky-top, 72px);
   z-index: 31;
-  background: ${({ theme }) => theme.colors.surface};
   display: grid;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.md};
   align-content: flex-start;
   align-self: start;
-  height: max-content;
-  will-change: top;
+  background: ${(p) => p.theme.colors.surface};
   @media (max-width: 900px) {
     position: static;
   }
 `;
 
 export const Right = styled.div`
-  flex: 6 1 360px;
   display: grid;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.md};
   align-content: flex-start;
 `;
 
 export const SectionHead = styled.div`
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.sm};
   flex-wrap: wrap;
 `;
 
-export const Section = SectionCardBase;
+export const Section = styled(SectionCardBase)`
+  display: grid;
+  gap: ${(p) => p.theme.spacing.md};
+`;
 export const Title = TitleBase;
 
 export const GridTwo = styled.div`
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-  @media (max-width: 900px) {
-    grid-template-columns: 1fr;
-  }
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: ${(p) => p.theme.spacing.md};
 `;
 
 export const Field = styled.div`
   display: grid;
-  gap: 6px;
+  gap: ${(p) => p.theme.spacing.xs};
 `;
 
 export const Label = styled.div`
-  color: #6b7280;
-  font-size: 12px;
-  font-weight: 700;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
 `;
 
 export const Description = styled.div`
-  color: #111827;
+  color: ${(p) => p.theme.colors.text};
   white-space: pre-wrap;
   overflow: hidden;
   display: -webkit-box;

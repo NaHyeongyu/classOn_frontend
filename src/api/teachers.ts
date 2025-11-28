@@ -66,6 +66,11 @@ export type TeacherDetail = {
   courses: TeacherCourseBrief[];
 };
 
+export type InstructorCourseCount = {
+  instructorId: number;
+  courseCount: number;
+};
+
 export type TeacherProfileUpdatePayload = {
   name?: string;
   phone?: string;
@@ -88,6 +93,13 @@ export type PasswordCheck = { valid: boolean; code?: string; message?: string };
 
 export async function listTeachers(): Promise<TeacherListItem[]> {
   return await fetchJSON<TeacherListItem[]>("/api/academy/teachers");
+}
+
+export async function getInstructorCourseCounts(ids: number[]): Promise<InstructorCourseCount[]> {
+  if (!ids.length) return [];
+  const sp = new URLSearchParams();
+  sp.set("ids", ids.join(","));
+  return await fetchJSON<InstructorCourseCount[]>(`/api/academy/teachers/course-counts?${sp.toString()}`);
 }
 
 export async function getMyTeacherProfile(): Promise<TeacherProfile> {

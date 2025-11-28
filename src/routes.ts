@@ -69,8 +69,13 @@ export const paths = {
   },
   payments: {
     create: () => '/payments/create',
-    kakaoConfirm: (ids?: string) =>
-      ids && ids.trim() ? `/payments/kakao-confirm?ids=${ids}` : '/payments/kakao-confirm',
+    kakaoConfirm: (params?: { ids?: string; template?: string }) => {
+      const sp = new URLSearchParams();
+      if (params?.ids && params.ids.trim()) sp.set("ids", params.ids.trim());
+      if (params?.template && params.template.trim()) sp.set("template", params.template.trim());
+      const qs = sp.toString();
+      return qs ? `/payments/kakao-confirm?${qs}` : `/payments/kakao-confirm`;
+    },
   },
   classes: {
     detail: (id: string | number) => `/classes/${id}`,

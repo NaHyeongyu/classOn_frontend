@@ -91,33 +91,43 @@ export default function StudentsFilters({ value, onChange, onApply }: { value: S
 }
 
 const Bar = styled.div`
-  display: grid; grid-template-columns: 0.6fr 1.2fr 1fr 2.7fr; gap: 12px; align-items: end;
-  @media (max-width: 1080px) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  @media (max-width: 720px) { grid-template-columns: 1fr; }
-  /* Make filters sticky when scrolling under the header block */
-  position: sticky;
-  top: 64px; /* adjust if page header height differs */
-  z-index: 37;
-  background: #fff;
+  display: grid;
+  grid-template-columns: 0.6fr 1.1fr 1fr 2.7fr;
+  gap: ${(p) => p.theme.spacing.md};
+  align-items: end;
+  @media (max-width: 1080px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
 `;
 const Group = styled.div`
-  display: grid; gap: 8px; align-items: start;
+  display: grid;
+  gap: ${(p) => p.theme.spacing.xs};
+  align-items: start;
 `;
 // (inline search layout)
 const Label = styled.span`
-  color: #6b7280; font-size: 12px; font-weight: 700;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.bold};
 `;
 // unified via SelectBox
 const Input = styled.input`
-  height: 36px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 10px; width: 100%;
+  height: 40px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.sm};
+  padding: 0 ${(p) => p.theme.spacing.sm};
+  width: 100%;
 `;
 
 // Korean-friendly date placeholder (YYYY.MM.DD) for empty values
 const DateInput = styled.input`
-  height: 36px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 10px;
+  height: 40px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.sm};
+  padding: 0 ${(p) => p.theme.spacing.sm};
   width: 100%;
   position: relative;
   background: #fff;
@@ -141,22 +151,46 @@ const DateInput = styled.input`
   &::-webkit-calendar-picker-indicator { opacity: 1; }
 `;
 const RangeWrap = styled.div`
-  display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: center;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: ${(p) => p.theme.spacing.xs};
+  align-items: center;
 `;
 const Sep = styled.span`
-  color: #6b7280; font-size: 12px; text-align: center;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
+  text-align: center;
 `;
 const SearchBox = styled.div`
-  display: grid; grid-template-columns: 1fr auto auto; gap: 8px; align-items: end;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: ${(p) => p.theme.spacing.xs};
+  align-items: end;
 `;
 const SearchInput = styled.input`
-  height: 36px; border: 1px solid #e5e7eb; border-radius: 10px; padding: 0 12px; width: 100%;
+  height: 40px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.sm};
+  padding: 0 ${(p) => p.theme.spacing.sm};
+  width: 100%;
 `;
 const SearchBtn = styled.button`
-  height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #111827; background: #111827; color: #fff; font-weight: 700;
+  height: 40px;
+  padding: 0 ${(p) => p.theme.spacing.md};
+  border-radius: ${(p) => p.theme.radii.sm};
+  border: 1px solid ${(p) => p.theme.colors.navy};
+  background: ${(p) => p.theme.colors.navy};
+  color: ${(p) => p.theme.colors.textInverted};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
 `;
 const GhostBtn = styled.button`
-  height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid #e5e7eb; background: #fff; color: #111827; font-weight: 700;
+  height: 40px;
+  padding: 0 ${(p) => p.theme.spacing.md};
+  border-radius: ${(p) => p.theme.radii.sm};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: ${(p) => p.theme.colors.surface};
+  color: ${(p) => p.theme.colors.text};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
 `;
 
 /* segmented styles removed; using Select for status */

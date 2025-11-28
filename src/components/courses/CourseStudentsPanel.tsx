@@ -1,8 +1,9 @@
 import React from 'react';
 import styled from 'styled-components';
-import { SectionCard as Section, TitleH3 as Title, TableBase as UITable, PrimaryBtn as UIPrimaryBtn } from '@/components/common/UI';
+import { TableBase as UITable, PrimaryBtn as UIPrimaryBtn } from '@/components/common/UI';
 import type { Student } from '@/api/students';
 import { formatPhone } from '@/lib/format';
+import { Section, SectionHead, Title, AlertError as ErrorBanner } from '@/components/courseDetail/CourseDetail.styles';
 
 type Props = {
   students: Student[];
@@ -15,15 +16,15 @@ type Props = {
 export default function CourseStudentsPanel({ students, loading, error, editHref, showAddButton = true }: Props) {
   return (
     <Section>
-      <Head>
+      <SectionHead>
         <div>
-          <Title style={{ margin: 0 }}>수강생 목록</Title>
+          <Title>수강생 목록</Title>
           <Muted>총 {students.length}명의 학생이 수강중입니다.</Muted>
         </div>
         {showAddButton && <UIPrimaryBtn to={editHref}>수강생 관리</UIPrimaryBtn>}
-      </Head>
+      </SectionHead>
       {loading && <Muted>불러오는 중...</Muted>}
-      {error && <AlertError>{error}</AlertError>}
+      {error && <ErrorBanner>{error}</ErrorBanner>}
       <TableWrap>
         <Table>
           <thead>
@@ -70,18 +71,15 @@ function statusText(s: Student['status']) {
   }
 }
 
-const Head = styled.div`
-  display: flex; align-items: center; justify-content: space-between;
-`;
-const Muted = styled.div`
-  color: #6b7280; font-size: 12px;
-`;
-const AlertError = styled.div`
-  color: #b91c1c; background: #fee2e2; border: 1px solid #fecaca; padding: 8px 10px; border-radius: 8px; font-size: 13px;
+const Muted = styled.p`
+  margin: 0;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.xs};
 `;
 const TableWrap = styled.div` overflow: auto; `;
 const Table = styled(UITable)`
-  thead th { background:#f9fafb; }
+  thead th { background:#f9fafb; text-align: center; }
+  tbody td { text-align: center; }
   tbody tr:nth-child(even) td { background:#fcfcfd; }
   tbody tr:hover td { background:#f8fafc; }
 `;

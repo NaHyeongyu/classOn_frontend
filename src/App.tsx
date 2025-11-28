@@ -243,7 +243,8 @@ function ProtectedLayout() {
         if (shouldBlock) {
           try {
             const sub = await apiGetSubscription();
-            if (sub && (sub as any).status && String((sub as any).status).toUpperCase() === "ACTIVE") {
+            const status = typeof sub?.status === "string" ? sub.status.toUpperCase() : null;
+            if (status === "ACTIVE") {
               shouldBlock = false;
             }
           } catch {

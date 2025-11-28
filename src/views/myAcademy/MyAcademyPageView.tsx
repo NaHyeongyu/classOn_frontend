@@ -1,8 +1,9 @@
 import styled from "styled-components";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { AcademyDetail } from "@/api/account";
+import type { AcademyDetail, SellerDetail } from "@/api/account";
 import { maskBiz } from "@/features/myAcademy/utils";
+import { BANK_OPTIONS } from "@/features/myAcademy/banks";
 import type { SubscriptionDto } from "@/api/billing";
 import { apiIssueBillingKey, apiGetTossClientKey } from "@/api/billing";
 import { formatMoney } from "@/lib/format";
@@ -40,6 +41,13 @@ type BillingSectionProps = {
   cancel: () => Promise<void>;
 };
 
+type SellerSectionProps = {
+  loading: boolean;
+  data: SellerDetail | null;
+  canRegister: boolean;
+  onOpenRegister: () => void;
+};
+
 type MyAcademyPageViewProps = {
   error: string | null;
   onDismissError?: () => void;
@@ -47,7 +55,14 @@ type MyAcademyPageViewProps = {
   account: AccountSectionProps;
   academy: AcademySectionProps;
   billing: BillingSectionProps;
+  seller: SellerSectionProps;
 };
+
+type MyAcademyLocationState = {
+  billingBlock?: boolean;
+  selectedPlanId?: string;
+  triggerCardRegister?: boolean;
+} | null;
 
 export function MyAcademyPageView({
   error,
@@ -56,13 +71,18 @@ export function MyAcademyPageView({
   account,
   academy,
   billing,
+  seller,
 }: MyAcademyPageViewProps) {
   const location = useLocation();
+  const locationState = (location.state as MyAcademyLocationState) ?? null;
   const navigate = useNavigate();
   const { success, error: showError, warning } = useToast();
   const [clientKey, setClientKey] = useState<string | null>(null);
-  const billingBlockState = (location.state as any) || {};
-  const customerKeyRef = useRef<string | null>(null);
+  const [requireSeller, setRequireSeller] = useState(true);
+  const billingBlockState = locationState;
+  const selectedPlanFromState = billingBlockState?.selectedPlanId;
+  const shouldTriggerCardRegister = billingBlockState?.triggerCardRegister;
+  const isBillingBlockForced = billingBlockState?.billingBlock ?? false;
   const lastCustomerKeyRef = useRef<string | null>(null);
   const processedAuthKeyRef = useRef<string | null>(null);
 
@@ -111,17 +131,12 @@ export function MyAcademyPageView({
   );
 
   useEffect(() => {
-    if (billingBlockState.selectedPlanId) {
-      setSelectedPlanId(billingBlockState.selectedPlanId);
+    if (selectedPlanFromState) {
+      setSelectedPlanId(selectedPlanFromState);
     } else if (billing.data?.planId) {
       setSelectedPlanId(billing.data.planId);
     }
-  }, [billing.data?.planId, billingBlockState.selectedPlanId]);
-
-  const selectedPlan = useMemo(
-    () => getPlanById(selectedPlanId),
-    [selectedPlanId],
-  );
+  }, [billing.data?.planId, selectedPlanFromState]);
 
   const isTrialing = useMemo(() => {
     const status = academy.data?.billingStatus;
@@ -133,6 +148,8 @@ export function MyAcademyPageView({
     return new Date() <= end;
   }, [academy.data]);
 
+  const sellerNeedsRegistration = requireSeller && (!seller.data || !seller.data.tossSellerId);
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -140,9 +157,11 @@ export function MyAcademyPageView({
         const res = await apiGetTossClientKey();
         if (!alive) return;
         setClientKey(res?.clientKey || null);
+        setRequireSeller(res?.requireSeller ?? false);
       } catch {
         if (!alive) return;
         setClientKey(null);
+        setRequireSeller(false);
       }
     })();
     return () => {
@@ -150,16 +169,12 @@ export function MyAcademyPageView({
     };
   }, []);
 
-  const handlePlanSelectChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedPlanId(event.target.value);
-  };
-
   const handleRegisterOrChangeCard = async () => {
     if (!academy.data?.id) {
       warning("학원 정보가 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.");
       return;
     }
-    if (isTrialing && !billingBlockState?.billingBlock) {
+    if (isTrialing && !isBillingBlockForced) {
       warning("무료 체험 기간에는 카드 등록이 불가능합니다. 체험 기간 종료 후 등록해 주세요.");
       return;
     }
@@ -182,8 +197,8 @@ export function MyAcademyPageView({
         successUrl,
         failUrl,
       });
-    } catch (e: any) {
-      showError(e?.message || "카드 등록 창을 열지 못했습니다.");
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "카드 등록 창을 열지 못했습니다.");
     }
   };
 
@@ -191,8 +206,8 @@ export function MyAcademyPageView({
     try {
       await billing.cancel();
       success("자동결제가 해지되었습니다.");
-    } catch (e: any) {
-      showError(e?.message || "자동결제 해지에 실패했습니다.");
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "자동결제 해지에 실패했습니다.");
     }
   };
 
@@ -267,8 +282,8 @@ export function MyAcademyPageView({
           // ignore cache invalidation failures
         }
         success("카드가 등록되고 요금제가 설정되었습니다.");
-      } catch (e: any) {
-        showError(e?.message || "카드 등록에 실패했습니다.");
+      } catch (err) {
+        showError(err instanceof Error ? err.message : "카드 등록에 실패했습니다.");
       } finally {
         clean();
       }
@@ -277,13 +292,13 @@ export function MyAcademyPageView({
 
   const autoCardRequested = useRef(false);
   useEffect(() => {
-    if (!billingBlockState.triggerCardRegister) return;
+    if (!shouldTriggerCardRegister) return;
     if (autoCardRequested.current) return;
     if (!academy.data?.id) return;
     autoCardRequested.current = true;
     handleRegisterOrChangeCard();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billingBlockState.triggerCardRegister, academy.data?.id]);
+  }, [shouldTriggerCardRegister, academy.data?.id]);
 
   return (
     <Container>
@@ -472,6 +487,45 @@ export function MyAcademyPageView({
         )}
       </Card>
 
+      <Card>
+        <SectionHeader>
+          <SectionTitle>셀러 등록</SectionTitle>
+          {requireSeller && sellerNeedsRegistration ? (
+            <SellerHeaderActions>
+              <HeaderHint>
+                셀러 등록을 완료하면 토스페이먼츠에서 결제 금액을 정산받을 수 있습니다.
+              </HeaderHint>
+              <SellerRegisterButton
+                type="button"
+                onClick={seller.onOpenRegister}
+                disabled={!seller.canRegister}
+              >
+                등록하기
+              </SellerRegisterButton>
+            </SellerHeaderActions>
+          ) : null}
+        </SectionHeader>
+        {!requireSeller ? (
+          <Hint>현재 환경에서는 셀러 등록이 필요하지 않습니다.</Hint>
+        ) : seller.loading ? (
+          <Hint>불러오는 중...</Hint>
+        ) : (
+          <>
+            <InfoRow>
+              <Label>셀러 ID</Label>
+              <Value>{seller.data?.refSellerId || "-"}</Value>
+            </InfoRow>
+            <InfoRow>
+              <Label>정산 계좌</Label>
+              <Value>{formatSellerAccount(seller.data?.account)}</Value>
+            </InfoRow>
+            {!seller.canRegister && sellerNeedsRegistration ? (
+              <Hint danger>학원 정보를 먼저 저장한 후 다시 시도해 주세요.</Hint>
+            ) : null}
+          </>
+        )}
+      </Card>
+
       {/* 강사 관리는 상단 탭(강사관리)에서 관리합니다. */}
     </Container>
   );
@@ -618,6 +672,41 @@ const Hint = styled.p.withConfig({
   color: ${({ danger }) => (danger ? "#b91c1c" : "#6b7280")};
 `;
 
+const SellerRegisterButton = styled.button`
+  border: none;
+  background: #4f46e5;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+  padding: 8px 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  &:hover:not(:disabled) {
+    background: #4338ca;
+  }
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+`;
+
+const SellerHeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-height: 34px;
+`;
+
+const HeaderHint = styled.span`
+  font-size: 12px;
+  color: #6b7280;
+`;
+
 /* removed unused TeacherActions/PrimaryButton */
 
 const ErrorBanner = styled.div`
@@ -681,18 +770,6 @@ const DangerInlineButton = styled.button`
   }
 `;
 
-const PlanSelect = styled.select`
-  min-width: 220px;
-  max-width: 100%;
-  height: 36px;
-  border-radius: 10px;
-  border: 1px solid #e5e7eb;
-  padding: 0 10px;
-  font-size: 13px;
-  color: #111827;
-  background: #ffffff;
-`;
-
 type BillingPlan = { id: string; name: string; priceKrw: number };
 
 const BILLING_PLANS: BillingPlan[] = [
@@ -717,4 +794,19 @@ function getOrCreateCustomerKey(academyId?: number | null) {
   const generated = `academy-${academyId ?? "anon"}-${crypto.randomUUID()}`;
   window.localStorage.setItem(key, generated);
   return generated;
+}
+
+function formatBankName(code?: string | null) {
+  if (!code) return "";
+  return BANK_OPTIONS.find((bank) => bank.code === code)?.name ?? code;
+}
+
+function formatSellerAccount(account?: SellerDetail["account"]) {
+  if (!account) return "-";
+  const bank = formatBankName(account.bankCode);
+  const parts = [];
+  if (bank) parts.push(bank);
+  if (account.accountNumber) parts.push(account.accountNumber);
+  if (account.holderName) parts.push(`(${account.holderName})`);
+  return parts.length > 0 ? parts.join(" ") : "-";
 }

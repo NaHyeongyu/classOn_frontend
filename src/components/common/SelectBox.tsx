@@ -1,5 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import styled from 'styled-components';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useLayoutEffect,
+} from "react";
+import { createPortal } from "react-dom";
+import styled from "styled-components";
 
 export type SelectOption = { label: string; value: string };
 
@@ -19,6 +27,8 @@ export default function SelectBox({ value, onChange, options, placeholder, disab
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState<number>(-1);
   const ref = useRef<HTMLDivElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const [menuRect, setMenuRect] = useState<{ top: number; left: number; width: number } | null>(null);
 
   const label = useMemo(() => {
     const f = options.find(o => o.value === value);
@@ -35,25 +45,66 @@ export default function SelectBox({ value, onChange, options, placeholder, disab
 
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (!ref.current) return;
-      if (ref.current.contains(e.target as Node)) return;
+      const target = e.target as Node | null;
+      if (!target) return;
+      if (ref.current?.contains(target)) return;
+      if (menuRef.current?.contains(target)) return;
       setOpen(false);
     }
-    document.addEventListener('mousedown', onDocClick);
-    return () => document.removeEventListener('mousedown', onDocClick);
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
   }, []);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (!open) return;
-      if (e.key === 'Escape') { e.preventDefault(); setOpen(false); return; }
-      if (e.key === 'ArrowDown') { e.preventDefault(); setHover(h => Math.min(options.length - 1, Math.max(0, h + 1))); }
-      if (e.key === 'ArrowUp') { e.preventDefault(); setHover(h => Math.max(0, (h < 0 ? options.length - 1 : h - 1))); }
-      if (e.key === 'Enter') { e.preventDefault(); select(hover >= 0 ? hover : Math.max(0, options.findIndex(o => o.value === value))); }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setHover((h) => Math.min(options.length - 1, Math.max(0, h + 1)));
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setHover((h) => Math.max(0, (h < 0 ? options.length - 1 : h - 1)));
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        select(hover >= 0 ? hover : Math.max(0, options.findIndex((o) => o.value === value)));
+      }
     }
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
   }, [open, hover, options, value, select]);
+
+  const updateMenuRect = useCallback(() => {
+    if (!ref.current) return;
+    const rect = ref.current.getBoundingClientRect();
+    setMenuRect({
+      top: rect.bottom + 4,
+      left: rect.left,
+      width: rect.width,
+    });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updateMenuRect();
+    const handle = () => updateMenuRect();
+    window.addEventListener("resize", handle);
+    window.addEventListener("scroll", handle, true);
+    return () => {
+      window.removeEventListener("resize", handle);
+      window.removeEventListener("scroll", handle, true);
+    };
+  }, [open, updateMenuRect]);
+
+  useEffect(() => {
+    if (!open) setMenuRect(null);
+  }, [open]);
 
   useEffect(() => {
     if (!open) setHover(-1);
@@ -73,23 +124,32 @@ export default function SelectBox({ value, onChange, options, placeholder, disab
           </svg>
         </Chevron>
       </Control>
-      {open && (
-        <Menu role="listbox">
-          {options.map((o, i) => (
-            <MenuItem key={o.value}
-              role="option"
-              aria-selected={o.value === value}
-              data-active={i === hover || undefined}
-              data-selected={o.value === value || undefined}
-              onMouseEnter={() => setHover(i)}
-              onMouseLeave={() => setHover(-1)}
-              onClick={() => select(i)}>
-              {o.label}
-            </MenuItem>
-          ))}
-          {options.length === 0 && <Empty>옵션이 없습니다.</Empty>}
-        </Menu>
-      )}
+      {open && menuRect && typeof document !== "undefined"
+        ? createPortal(
+            <Menu
+              ref={menuRef}
+              role="listbox"
+              style={{ top: menuRect.top, left: menuRect.left, width: menuRect.width }}
+            >
+              {options.map((o, i) => (
+                <MenuItem
+                  key={o.value}
+                  role="option"
+                  aria-selected={o.value === value}
+                  data-active={i === hover || undefined}
+                  data-selected={o.value === value || undefined}
+                  onMouseEnter={() => setHover(i)}
+                  onMouseLeave={() => setHover(-1)}
+                  onClick={() => select(i)}
+                >
+                  {o.label}
+                </MenuItem>
+              ))}
+              {options.length === 0 && <Empty>옵션이 없습니다.</Empty>}
+            </Menu>,
+            document.body,
+          )
+        : null}
     </Wrap>
   );
 }
@@ -121,9 +181,15 @@ const Chevron = styled.span`
   display: inline-flex; color:#9ca3af;
 `;
 const Menu = styled.div`
-  position: absolute; inset: auto 0 0 0; transform: translateY(calc(100% + 4px));
-  max-height: 220px; overflow: auto; border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; box-shadow: 0 8px 24px rgba(0,0,0,0.06);
-  z-index: 40; padding: 4px;
+  position: fixed;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  z-index: 4000;
+  padding: 4px;
 `;
 const MenuItem = styled.div`
   height: 36px; display: flex; align-items: center; padding: 0 10px; border-radius: 8px; font-size: 14px; color:#111827; cursor: pointer;

@@ -3,7 +3,7 @@ import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { createCourse, getCourse, updateCourse, updateCourseInstructor } from "@/api/courses";
 import { listStudents } from "@/api/students";
-import { listTeachers } from "@/api/teachers";
+import { listTeachers, getInstructorCourseCounts } from "@/api/teachers";
 import { getErrorMessage } from "@/lib/errors";
 import { useAuth } from "@/hooks/useAuth";
 import {
@@ -28,9 +28,6 @@ type UseCourseFormPageResult = {
   courseId: number | null;
   isTeacher: boolean;
   steps: ReadonlyArray<CourseFormStepMeta>;
-  step: number;
-  setStep: (index: number) => void;
-  isLastStep: boolean;
   form: FormState;
   setForm: (updater: (prev: FormState) => FormState) => void;
   accordionToggle: (day: import("@/components/courseForm/courseFormHelpers").DayKey, next: boolean) => void;
@@ -52,8 +49,6 @@ type UseCourseFormPageResult = {
   saving: boolean;
   error: string | null;
   success: string | null;
-  goNext: () => void;
-  goPrev: () => void;
   submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onSelectStudent: (student: StudentOption) => void;
   navigateEditStudents: () => void;
@@ -75,6 +70,15 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     }
     return null;
   }, [authId, isTeacher]);
+  const ownerInstructorId = useMemo<number | null>(() => {
+    if (!isOwnerOrAdmin) return null;
+    if (typeof authId === "number") return authId;
+    if (typeof authId === "string") {
+      const parsed = Number(authId);
+      return Number.isFinite(parsed) ? parsed : null;
+    }
+    return null;
+  }, [authId, isOwnerOrAdmin]);
   const teacherDisplayName = useMemo(() => {
     const base = (user?.name ?? "").trim();
     if (base.length > 0) return base;
@@ -97,8 +101,6 @@ export function useCourseFormPage(): UseCourseFormPageResult {
   const [feeInput, setFeeInput] = useState("");
   const toggleDay = useToggleDay(form, internalSetForm);
   const [recurring, setRecurring] = useState(true);
-  const [step, setStep] = useState(0);
-
   const [studentOptions, setStudentOptions] = useState<StudentOption[]>([]);
   const [studentLoading, setStudentLoading] = useState(false);
   const [studentError, setStudentError] = useState<string | null>(null);
@@ -144,7 +146,6 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     [],
   );
 
-  const isLastStep = step === steps.length - 1;
   const isIndividual = form.courseType === "INDIVIDUAL";
 
   const setForm = useCallback(
@@ -192,13 +193,19 @@ export function useCourseFormPage(): UseCourseFormPageResult {
               (a.name || a.username || "").localeCompare(b.name || b.username || "", "ko-KR"),
             );
           // Ensure current login account appears as selectable option when owner/admin
-          if (isOwnerOrAdmin && user) {
-            const selfId = typeof user.id === 'number' ? user.id : Number(user.id);
-            const exists = mapped.some(t => t.id === selfId);
-            if (!Number.isNaN(selfId) && !exists) {
-              const display = (user.name?.trim() || user.username || `사용자 #${selfId}`);
-              mapped = mapped.concat({ id: selfId, name: display, username: user.username, phone: undefined, courseCount: 0 })
-                .sort((a, b) => (a.name || "").localeCompare(b.name || "", 'ko-KR'));
+          if (isOwnerOrAdmin && user && ownerInstructorId != null) {
+            const exists = mapped.some((t) => t.id === ownerInstructorId);
+            if (!exists) {
+              const display = user.name?.trim() || user.username || `사용자 #${ownerInstructorId}`;
+              mapped = mapped
+                .concat({
+                  id: ownerInstructorId,
+                  name: display,
+                  username: user.username,
+                  phone: undefined,
+                  courseCount: undefined,
+                })
+                .sort((a, b) => (a.name || "").localeCompare(b.name || "", "ko-KR"));
             }
           }
           setTeacherOptions(mapped);
@@ -217,7 +224,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     return () => {
       cancelled = true;
     };
-  }, [teachersLoaded, isTeacher, isOwnerOrAdmin, user]);
+  }, [teachersLoaded, isTeacher, isOwnerOrAdmin, ownerInstructorId, user]);
 
   useEffect(() => {
     if (!isTeacher || !teacherId) return;
@@ -243,6 +250,35 @@ export function useCourseFormPage(): UseCourseFormPageResult {
       };
     });
   }, [isTeacher, teacherId, teacherDisplayName, teacherUsername]);
+
+  useEffect(() => {
+    if (!ownerInstructorId) return;
+    if (!teacherOptions.some((teacher) => teacher.id === ownerInstructorId)) return;
+    const needsCount = teacherOptions.some(
+      (teacher) => teacher.id === ownerInstructorId && typeof teacher.courseCount !== "number",
+    );
+    if (!needsCount) return;
+    let cancelled = false;
+    async function loadSelfCourseCount() {
+      try {
+        const counts = await getInstructorCourseCounts([ownerInstructorId]);
+        const resolved = counts[0]?.courseCount ?? 0;
+        if (!cancelled) {
+          setTeacherOptions((prev) =>
+            prev.map((teacher) =>
+              teacher.id === ownerInstructorId ? { ...teacher, courseCount: resolved } : teacher,
+            ),
+          );
+        }
+      } catch {
+        // Ignore count fetch errors to avoid blocking the form.
+      }
+    }
+    void loadSelfCourseCount();
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerInstructorId, teacherOptions]);
 
   useEffect(() => {
     if (!isIndividual || studentsLoaded) return;
@@ -347,59 +383,9 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     };
   }, [courseId, ensureInstructorOption, isEdit, setForm]);
 
-  const validateStep = useCallback(
-    (current: number) => {
-      if (current === 0) {
-        if (!form.title || !form.title.trim()) {
-          setFieldErrors((prev) => ({ ...prev, title: "수업명을 입력해 주세요." }));
-          return false;
-        }
-        setFieldErrors((prev) => ({ ...prev, title: undefined }));
-      }
-      if (current === 1) {
-        if (form.courseType === "INDIVIDUAL" && !form.primaryStudentId) {
-    setFieldErrors((prev) => ({ ...prev, student: "학생을 선택해 주세요." }));
-          return false;
-        }
-        setFieldErrors((prev) => ({ ...prev, student: undefined }));
-        if (
-          recurring &&
-          (!form.recurrenceDays ||
-            !form.recurrenceDays.trim() ||
-            !form.startTime ||
-            !form.endTime)
-        ) {
-    setFieldErrors((prev) => ({
-        ...prev,
-        schedule: "반복 요일과 시작/종료 시간을 선택해 주세요.",
-      }));
-          return false;
-        }
-        setFieldErrors((prev) => ({ ...prev, schedule: undefined }));
-      }
-      return true;
-    },
-    [form, recurring],
-  );
-
-  const goNext = useCallback(() => {
-    if (!validateStep(step)) return;
-    setStep((prev) => Math.min(prev + 1, steps.length - 1));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, [step, steps.length, validateStep]);
-
-  const goPrev = useCallback(() => {
-    setStep((prev) => Math.max(prev - 1, 0));
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
   const submit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!isLastStep) {
-        goNext();
-        return;
-      }
       setError(null);
       setSuccess(null);
       setFieldErrors({});
@@ -412,21 +398,21 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         setFieldErrors((prev) => ({ ...prev, student: "학생을 선택해 주세요." }));
         return;
       }
+      if (
+        recurring &&
+        (!form.recurrenceDays ||
+          !form.recurrenceDays.trim() ||
+          !form.startTime ||
+          !form.endTime)
+      ) {
+        setFieldErrors((prev) => ({
+          ...prev,
+          schedule: "반복 요일과 시작/종료 시간을 선택해 주세요.",
+        }));
+        return;
+      }
       setSaving(true);
       try {
-        if (
-          recurring &&
-          (!form.recurrenceDays ||
-            !form.recurrenceDays.trim() ||
-            !form.startTime ||
-            !form.endTime)
-        ) {
-          setFieldErrors((prev) => ({
-            ...prev,
-            schedule: "반복 요일과 시작/종료 시간을 선택해 주세요.",
-          }));
-          return;
-        }
         const payload = {
           ...form,
           startTime: form.startTime?.length === 5 ? `${form.startTime}:00` : form.startTime,
@@ -455,14 +441,18 @@ export function useCourseFormPage(): UseCourseFormPageResult {
           }
           setSuccess("수업이 추가되었습니다.");
         }
-        navigate(routes.classes, { replace: true });
+        if (isEdit && courseId) {
+          navigate(paths.classes.detail(courseId), { replace: true });
+        } else {
+          navigate(routes.classes, { replace: true });
+        }
       } catch (err) {
         setError(getErrorMessage(err, "저장에 실패했습니다."));
       } finally {
         setSaving(false);
       }
     },
-    [courseId, form, goNext, isEdit, isIndividual, isLastStep, navigate, recurring, isOwnerOrAdmin, user?.id],
+    [courseId, form, isEdit, isIndividual, navigate, recurring, isOwnerOrAdmin, user?.id],
   );
 
   const onSelectStudent = useCallback((student: StudentOption) => {
@@ -483,9 +473,6 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     courseId,
     isTeacher,
     steps,
-    step,
-    setStep,
-    isLastStep,
     form,
     setForm,
     accordionToggle: toggleDay,
@@ -507,8 +494,6 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     saving,
     error,
     success,
-    goNext,
-    goPrev,
     submit,
     onSelectStudent,
     navigateEditStudents,

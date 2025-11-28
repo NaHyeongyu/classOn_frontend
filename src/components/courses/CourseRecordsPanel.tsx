@@ -1,6 +1,7 @@
 import React from 'react';
 import styled from 'styled-components';
-import { SectionCard as Section, TitleH3 as Title, GhostButton as UIGhostButton, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, PrimaryButton as UIPrimaryButton, buttonVariants } from "@/components/common/UI";
+import { GhostButton as UIGhostButton, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, PrimaryButton as UIPrimaryButton, buttonVariants } from "@/components/common/UI";
+import { Section, Title, SectionHead } from "@/components/courseDetail/CourseDetail.styles";
 
 type HistoryItem = {
   id?: number;
@@ -48,7 +49,7 @@ export default function CourseRecordsPanel({
 }: Props) {
   return (
     <Section>
-      <Head>
+      <SectionHead>
         <Title>{title}</Title>
         <div style={{ display: 'inline-flex', gap: 8 }}>
           <UIGhostButton type="button" onClick={onExport} disabled={exporting}>
@@ -63,7 +64,7 @@ export default function CourseRecordsPanel({
             <UIPrimaryBtn to={todayHref}>수업 생성</UIPrimaryBtn>
           )}
         </div>
-      </Head>
+      </SectionHead>
 
       <FilterRow>
         <FilterItem>
@@ -90,50 +91,55 @@ export default function CourseRecordsPanel({
         <SmallLink type="button" onClick={onResetFilters}>초기화</SmallLink>
       </FilterRow>
 
-      {history.length === 0 && <Muted>표시할 일정이 없습니다.</Muted>}
-      {history.map((h) => (
-        collapsed ? (
-          <CollapsedRow key={h.id || h.dateLabel}>
-            <div className="left">
-              <strong>{h.dateLabel}</strong>
-              <SmallMuted style={{ marginLeft: 8 }}>{h.time}</SmallMuted>
-              <SmallMuted style={{ marginLeft: 8 }}>{h.type}</SmallMuted>
-            </div>
-            <div className="right">
-              <UIGhostBtnSmall to={detailHrefFor(h.id, h.date)}>상세</UIGhostBtnSmall>
-            </div>
-          </CollapsedRow>
-        ) : (
-          <RecordCard key={h.id || h.dateLabel}>
-            <RecordHead>
-              <div>
-                <strong>{h.dateLabel}</strong>
-                <SmallMuted style={{ marginLeft: 8 }}>{h.time}</SmallMuted>
-                <SmallMuted style={{ marginLeft: 8 }}>{h.type}</SmallMuted>
-                {h.id && (() => {
-                  const map = getAttendanceMap(h.id!);
-                  const present = Object.values(map).filter(v => v === true).length;
-                  const absent = Object.values(map).filter(v => v === false).length;
-                  const processed = present + absent;
-                  return processed > 0 ? (
-                    <SmallMuted style={{ marginLeft: 10 }}>
-                      출석 {present} · 결석 {absent} · 처리 {processed}
-                    </SmallMuted>
-                  ) : null;
-                })()}
-              </div>
-              <div>
-                <UIGhostBtnSmall to={detailHrefFor(h.id, h.date)}>상세</UIGhostBtnSmall>
-              </div>
-            </RecordHead>
-            {h.notes && (
-              <RecordBody>
-                <p>{h.notes}</p>
-              </RecordBody>
-            )}
-          </RecordCard>
-        )
-      ))}
+      {history.length === 0 ? (
+        <Muted>표시할 일정이 없습니다.</Muted>
+      ) : (
+        <RecordsList>
+          {history.map((h) =>
+            collapsed ? (
+              <CollapsedRow key={h.id || h.dateLabel}>
+                <div className="left">
+                  <strong>{h.dateLabel}</strong>
+                  <SmallMuted>{h.time}</SmallMuted>
+                  <SmallMuted>{h.type}</SmallMuted>
+                </div>
+                <div className="right">
+                  <UIGhostBtnSmall to={detailHrefFor(h.id, h.date)}>상세</UIGhostBtnSmall>
+                </div>
+              </CollapsedRow>
+            ) : (
+              <RecordCard key={h.id || h.dateLabel}>
+                <RecordHead>
+                  <RecordMeta>
+                    <strong>{h.dateLabel}</strong>
+                    <SmallMuted>{h.time}</SmallMuted>
+                    <SmallMuted>{h.type}</SmallMuted>
+                    {h.id && (() => {
+                      const map = getAttendanceMap(h.id!);
+                      const present = Object.values(map).filter(v => v === true).length;
+                      const absent = Object.values(map).filter(v => v === false).length;
+                      const processed = present + absent;
+                      return processed > 0 ? (
+                        <SmallMuted>
+                          출석 {present} · 결석 {absent} · 처리 {processed}
+                        </SmallMuted>
+                      ) : null;
+                    })()}
+                  </RecordMeta>
+                  <div>
+                    <UIGhostBtnSmall to={detailHrefFor(h.id, h.date)}>상세</UIGhostBtnSmall>
+                  </div>
+                </RecordHead>
+                {h.notes && (
+                  <RecordBody>
+                    <p>{h.notes}</p>
+                  </RecordBody>
+                )}
+              </RecordCard>
+            )
+          )}
+        </RecordsList>
+      )}
     </Section>
   );
 }
@@ -147,41 +153,75 @@ function buildYears(): number[] {
   return arr;
 }
 
-const Head = styled.div`
-  display: flex; align-items: center; justify-content: space-between;
-`;
-const Muted = styled.div`
-  color: #6b7280; font-size: 12px;
+const Muted = styled.p`
+  margin: 0;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.xs};
 `;
 const SmallMuted = styled.span`
-  color: #6b7280; font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.xs};
 `;
 const FilterRow = styled.div`
-  display: flex; gap: 12px; align-items: flex-end; margin-bottom: 8px; background:#f9fafb; border:1px solid #f1f5f9; border-radius:10px; padding:8px 10px;
+  display: flex;
+  gap: ${(p) => p.theme.spacing.sm};
+  align-items: flex-end;
+  background: ${(p) => p.theme.colors.surfaceMuted};
+  border: 1px solid ${(p) => p.theme.colors.borderMuted};
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: ${(p) => p.theme.spacing.sm};
 `;
 const FilterItem = styled.label`
-  display: grid; gap: 4px;
+  display: grid;
+  gap: ${(p) => p.theme.spacing.xs};
 `;
 const SmallLabel = styled.span`
-  display:block; color:#6b7280; font-size:12px; margin-bottom:4px;
+  display: block;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.xs};
 `;
 const SmallSelect = styled.select`
-  height: 32px; padding: 0 10px; border:1px solid #e5e7eb; border-radius:8px; font-size:12px; background:#fff; min-width:110px;
+  height: 32px;
+  padding: 0 ${(p) => p.theme.spacing.sm};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  font-size: ${(p) => p.theme.font.size.sm};
+  background: ${(p) => p.theme.colors.surface};
+  min-width: 110px;
 `;
 const SmallLink = styled.button`
-  ${buttonVariants.outline}; height:32px; padding:0 12px; font-size:12px;
+  ${buttonVariants.outline}; height:32px; padding:0 ${(p) => p.theme.spacing.sm}; font-size:${(p) => p.theme.font.size.xs};
+`;
+const RecordsList = styled.div`
+  display: grid;
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 const CollapsedRow = styled.div`
-  display:flex; align-items:center; justify-content:space-between; padding:12px; border:1px solid #f1f5f9; border-radius:10px; margin-bottom:8px; background:#fff;
-  .left{ display:flex; align-items:center; }
+  display:flex; align-items:center; justify-content:space-between; padding:${(p) => p.theme.spacing.sm}; border:1px solid ${(p) => p.theme.colors.borderMuted}; border-radius:${(p) => p.theme.radii.md}; background:${(p) => p.theme.colors.surface};
+  .left{ display:flex; align-items:center; gap:${(p) => p.theme.spacing.xs}; flex-wrap:wrap; }
 `;
 const RecordCard = styled.div`
-  border:1px solid #f1f5f9; border-radius:12px; margin-bottom:10px; overflow:hidden; background:#fff;
+  border:1px solid ${(p) => p.theme.colors.borderMuted};
+  border-radius:${(p) => p.theme.radii.lg};
+  overflow:hidden;
+  background:${(p) => p.theme.colors.surface};
 `;
 const RecordHead = styled.div`
-  display:flex; align-items:center; justify-content:space-between; padding:12px; background:#f9fafb;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:${(p) => p.theme.spacing.sm};
+  background:${(p) => p.theme.colors.surfaceMuted};
+  gap:${(p) => p.theme.spacing.sm};
+  flex-wrap:wrap;
+`;
+const RecordMeta = styled.div`
+  display:flex;
+  align-items:center;
+  gap:${(p) => p.theme.spacing.xs};
+  flex-wrap:wrap;
 `;
 const RecordBody = styled.div`
-  padding:12px;
-  p{ margin:0; color:#374151; font-size:14px; }
+  padding:${(p) => p.theme.spacing.sm};
+  p{ margin:0; color:${(p) => p.theme.colors.text}; font-size:${(p) => p.theme.font.size.md}; }
 `;

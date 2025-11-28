@@ -6,43 +6,32 @@ import type { PaymentHistoryRow } from "@classon/shared-types";
 export type CalendarPaymentRow = {
   id: number;
   studentName: string;
+  studentCode?: string | null;
   courseTitle?: string | null;
   amountLabel: string;
+  status?: string | null;
   statusLabel: string;
   dueDateLabel: string;
-};
-
-export type CalendarPaymentSection = {
-  date: string;
-  label: string;
-  rows: CalendarPaymentRow[];
+  dueDateRaw?: string | null;
 };
 
 export function useCalendarPaymentList(range?: { from: string; to: string }) {
-  const query = useCalendarPaymentInvoices(Boolean(range));
+  const query = useCalendarPaymentInvoices(true);
 
-  const sections = useMemo<CalendarPaymentSection[]>(() => {
-    if (!range?.from || !range?.to) return [];
+  const rows = useMemo<CalendarPaymentRow[]>(() => {
     const content: PaymentHistoryRow[] = query.data?.content ?? [];
-    const filtered = content
-      .filter((row) => row.dueDate && row.dueDate >= range.from && row.dueDate <= range.to)
-      .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
-    const grouped = new Map<string, CalendarPaymentRow[]>();
-    for (const row of filtered) {
-      if (!row.dueDate) continue;
-      const entry = grouped.get(row.dueDate) ?? [];
-      entry.push(toCalendarRow(row));
-      grouped.set(row.dueDate, entry);
-    }
-    return Array.from(grouped.entries()).map(([date, rows]) => ({
-      date,
-      label: formatKoreanDate(date, { includeWeekday: true }),
-      rows,
-    }));
+    return content
+      .filter((row) => {
+        if (!row.dueDate) return false;
+        if (!range?.from || !range?.to) return true;
+        return row.dueDate >= range.from && row.dueDate <= range.to;
+      })
+      .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""))
+      .map((row) => toCalendarRow(row));
   }, [query.data?.content, range?.from, range?.to]);
 
   return {
-    sections,
+    rows,
     isLoading: query.isLoading,
     error: query.error instanceof Error ? query.error.message : null,
   };
@@ -52,12 +41,15 @@ function toCalendarRow(row: PaymentHistoryRow): CalendarPaymentRow {
   return {
     id: row.id,
     studentName: row.student?.name ?? "-",
+    studentCode: row.student?.code ?? null,
     courseTitle: row.course?.title ?? null,
     amountLabel: formatCurrency(row.finalAmount ?? row.originalAmount ?? 0),
+    status: row.status,
     statusLabel: statusLabel(row.status),
     dueDateLabel: row.dueDate
       ? formatKoreanDate(row.dueDate, { includeWeekday: true })
       : "-",
+    dueDateRaw: row.dueDate,
   };
 }
 
@@ -68,9 +60,9 @@ function formatCurrency(value: number): string {
 function statusLabel(status?: string | null): string {
   switch (status) {
     case "UNPAID":
-      return "미납";
-    case "PENDING":
       return "대기";
+    case "PENDING":
+      return "미납";
     case "COMPLETED":
       return "완료";
     default:

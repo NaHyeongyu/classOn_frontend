@@ -1,97 +1,108 @@
 import styled from "styled-components";
-import type { CalendarPaymentSection } from "@/features/calendar/useCalendarPaymentList";
-import { EmptyPlaceholder } from "@/components/common/EmptyPlaceholder";
-import { PrimaryButtonSm, GhostButtonSmall } from "@/components/common/UI";
-import { Fragment } from "react";
+import type { CalendarPaymentRow } from "@/features/calendar/useCalendarPaymentList";
+import { PrimaryButtonSm, TableBase, Skeleton } from "@/components/common/UI";
 
 export type PaymentPanelProps = {
-  configured: boolean;
-  sections?: CalendarPaymentSection[];
+  rows?: CalendarPaymentRow[];
   loading?: boolean;
   error?: string | null;
-  periodLabel?: string;
-  rangeLabel?: string;
-  onOpenSchedule?: () => void;
   onMore?: () => void;
 };
 
 export function PaymentPanel({
-  configured,
-  sections = [],
+  rows = [],
   loading,
   error,
-  periodLabel,
-  rangeLabel,
-  onOpenSchedule,
   onMore,
 }: PaymentPanelProps) {
   return (
     <Section>
       <Header>
-        <div>
-          <Title>결제 관리</Title>
-          {periodLabel ? <SubInfo>{periodLabel}</SubInfo> : null}
-          {rangeLabel ? <RangeInfo>{rangeLabel}</RangeInfo> : null}
-          {error ? <ErrorText>{error}</ErrorText> : null}
-        </div>
-        <Actions>
-          <GhostButtonSmall type="button" onClick={onOpenSchedule}>
-            주기 설정
-          </GhostButtonSmall>
-          <PrimaryButtonSm type="button" onClick={onMore}>
-            더보기
-          </PrimaryButtonSm>
-        </Actions>
+        <TitleGroup>
+          <SectionIcon aria-hidden>{walletIcon}</SectionIcon>
+          <TitleStack>
+            <Title>결제 관리</Title>
+            <HeadMeta>
+              <SubInfo>결제 예정일이 임박한 순으로 정렬됩니다.</SubInfo>
+              {error ? <ErrorText>{error}</ErrorText> : null}
+            </HeadMeta>
+          </TitleStack>
+        </TitleGroup>
+        {onMore ? (
+          <Actions>
+            <PrimaryButtonSm type="button" onClick={onMore}>
+              더보기
+            </PrimaryButtonSm>
+          </Actions>
+        ) : null}
       </Header>
-      {loading ? (
-        <Placeholder>결제 정보를 불러오는 중...</Placeholder>
-      ) : !configured ? (
-        <EmptyPlaceholder
-          title="알림 주기를 설정하면 결제 예정 학생을 볼 수 있어요."
-          description="1주일, 2주일 등 원하는 기간을 선택해 결제 예정 학생을 모아보세요."
-          actionLabel="주기 설정"
-          onAction={onOpenSchedule}
-        />
-      ) : sections.length === 0 ? (
-        <EmptyPlaceholder
-          title="선택한 기간에 결제 예정인 학생이 없습니다."
-          description="자동으로 생성된 청구서는 결제 예정일 5일 전에 표시됩니다."
-        />
-      ) : (
-        <Table>
+      <TableWrapper>
+        <CenteredTable>
+          <colgroup>
+            <col style={{ width: "70px" }} />
+          <col style={{ width: "26%" }} />
+          <col style={{ width: "17%" }} />
+          <col style={{ width: "25%" }} />
+            <col />
+          </colgroup>
           <thead>
             <tr>
+              <th>번호</th>
               <th>학생</th>
-              <th>수강 금액</th>
               <th>상태</th>
+              <th>총 결제금액</th>
               <th>결제 예정일</th>
             </tr>
           </thead>
           <tbody>
-            {sections.map((section) => (
-              <Fragment key={section.date}>
-                <tr className="date-row">
-                  <td colSpan={4}>{section.label}</td>
+            {loading ? (
+              <tr>
+                <td colSpan={5}>
+                  <Skeleton h={32} />
+                </td>
+              </tr>
+            ) : rows.length === 0 ? (
+              <tr>
+                <td colSpan={5}>
+                  <NoData>표시할 결제 대기/미납 학생이 없습니다.</NoData>
+                </td>
+              </tr>
+            ) : (
+              rows.map((row, index) => (
+                <tr key={row.id}>
+                  <td>{index + 1}</td>
+                  <td>
+                    <StudentName>{row.studentName}</StudentName>
+                    {row.studentCode ? <MetaText>{row.studentCode}</MetaText> : null}
+                    {row.courseTitle ? <CourseName>{row.courseTitle}</CourseName> : null}
+                  </td>
+                  <td>
+                    <StatusBadge data-status={row.status ?? undefined}>{row.statusLabel}</StatusBadge>
+                  </td>
+                  <td>{row.amountLabel}</td>
+                  <td>{renderDueDate(row)}</td>
                 </tr>
-                {section.rows.map((row) => (
-                  <tr key={`${section.date}-${row.id}`}>
-                    <td>
-                      <strong>{row.studentName}</strong>
-                      {row.courseTitle ? <CourseMeta>{row.courseTitle}</CourseMeta> : null}
-                    </td>
-                    <td className="amount">{row.amountLabel}</td>
-                    <td>
-                      <StatusBadge>{row.statusLabel}</StatusBadge>
-                    </td>
-                    <td>{row.dueDateLabel}</td>
-                  </tr>
-                ))}
-              </Fragment>
-            ))}
+              ))
+            )}
           </tbody>
-        </Table>
-      )}
+        </CenteredTable>
+      </TableWrapper>
     </Section>
+  );
+}
+
+function renderDueDate(row: CalendarPaymentRow) {
+  if (!row.dueDateRaw) return row.dueDateLabel ?? "-";
+  const parsed = new Date(row.dueDateRaw);
+  if (Number.isNaN(parsed.getTime())) return row.dueDateLabel ?? "-";
+  const year = parsed.getFullYear();
+  const month = String(parsed.getMonth() + 1).padStart(2, "0");
+  const day = String(parsed.getDate()).padStart(2, "0");
+  return (
+    <DueDateCell>
+      <span className="year">{year}</span>
+      <span className="day">{`${month}.${day}`}</span>
+    </DueDateCell>
   );
 }
 
@@ -103,33 +114,58 @@ const Section = styled.section`
   display: flex;
   flex-direction: column;
   gap: 12px;
+  height: 100%;
+  min-height: 0;
 `;
 
 const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.md};
   flex-wrap: wrap;
+  margin-bottom: ${(p) => p.theme.spacing.sm};
 `;
 
-const Title = styled.h4`
+const TitleGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+
+const TitleStack = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.xs};
+`;
+
+const SectionIcon = styled.span`
+  width: 32px;
+  height: 32px;
+  border-radius: ${(p) => p.theme.radii.md};
+  display: grid;
+  place-items: center;
+  background: ${(p) => p.theme.colors.primarySurface};
+  color: ${(p) => p.theme.colors.primary};
+  flex-shrink: 0;
+`;
+
+const Title = styled.h3`
   margin: 0;
-  font-size: 16px;
+  font-size: ${(p) => p.theme.font.size.lg};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
   color: ${(p) => p.theme.colors.text};
 `;
 
-const SubInfo = styled.p`
-  margin: 2px 0 0;
-  font-size: 13px;
-  color: ${(p) => p.theme.colors.text};
-  font-weight: 600;
+const HeadMeta = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.xs};
 `;
 
-const RangeInfo = styled.p`
-  margin: 0;
-  font-size: 12px;
+const SubInfo = styled.span`
   color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
 `;
 
 const Actions = styled.div`
@@ -138,59 +174,101 @@ const Actions = styled.div`
   flex-wrap: wrap;
 `;
 
-const Placeholder = styled.div`
-  font-size: 14px;
-  color: ${(p) => p.theme.colors.textMuted};
+const TableWrapper = styled.div`
+  width: 100%;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
 `;
 
-const Table = styled.table`
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
+const CenteredTable = styled(TableBase)`
+  min-width: 100%;
+  th,
+  td {
+    text-align: center;
+  }
   thead th {
-    text-align: left;
-    padding-bottom: 8px;
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-    border-bottom: 1px solid ${(p) => p.theme.colors.border};
+    text-align: center;
+    white-space: nowrap;
   }
   tbody td {
-    padding: 10px 0;
-    border-bottom: 1px solid ${(p) => p.theme.colors.borderMuted};
-  }
-  tbody tr:last-child td {
-    border-bottom: none;
-  }
-  td.amount {
-    font-weight: 600;
-    color: ${(p) => p.theme.colors.text};
-  }
-  .date-row td {
-    padding: 14px 0 6px;
-    font-weight: 600;
-    color: ${(p) => p.theme.colors.text};
+    font-size: 14px;
   }
 `;
 
-const CourseMeta = styled.span`
-  display: block;
-  font-size: 12px;
-  color: ${(p) => p.theme.colors.textMuted};
-  margin-top: 4px;
-`;
+const statusBadgeColors: Record<string, string> = {
+  UNPAID: "#f97316",
+  PENDING: "#2563EB",
+  COMPLETED: "#059669",
+  FAILED: "#dc2626",
+};
 
-const StatusBadge = styled.span`
+const StatusBadge = styled.span<{ "data-status"?: string }>`
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 48px;
-  padding: 2px 10px;
+  padding: 2px 8px;
   border-radius: 999px;
-  border: 1px solid ${(p) => p.theme.colors.border};
+  font-size: 11px;
+  font-weight: 600;
+  background: ${({ "data-status": status }) =>
+    (status && `${statusBadgeColors[status] ?? "#d1d5db"}1A`) || "rgba(209,213,219,0.2)"};
+  color: ${({ "data-status": status }) => statusBadgeColors[status ?? "UNPAID"] ?? "#52525b"};
+`;
+
+const MetaText = styled.span`
+  display: block;
   font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
+  margin-top: 2px;
 `;
 
 const ErrorText = styled.span`
   font-size: 12px;
   color: ${(p) => p.theme.colors.danger};
 `;
+
+const DueDateCell = styled.span`
+  display: inline-flex;
+  flex-direction: column;
+  line-height: 1.2;
+  .year {
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+  .day {
+    font-size: 15px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
+  }
+`;
+
+const StudentName = styled.strong`
+  display: block;
+  font-size: ${(p) => p.theme.font.size.md}; /* 14px */
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  color: ${(p) => p.theme.colors.text};
+  letter-spacing: -0.01em;
+`;
+
+const CourseName = styled.span`
+  display: block;
+  font-size: ${(p) => p.theme.font.size.sm}; /* 13px */
+  color: ${(p) => p.theme.colors.textMuted};
+  margin-top: 2px;
+`;
+
+const NoData = styled.div`
+  padding: 20px 0;
+  text-align: center;
+  font-size: 14px;
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const walletIcon = (
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+    <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+    <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+  </svg>
+);

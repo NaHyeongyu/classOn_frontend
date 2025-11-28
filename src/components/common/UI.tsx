@@ -61,7 +61,7 @@ export const PageHeader = styled.header`
   padding-bottom: 0;
   margin-bottom: 0;
   h2 {
-    margin: 0;
+    margin: 0 0 4px;
     font-size: ${(p) => p.theme.font.size.display};
     font-weight: ${(p) => p.theme.font.weight.bold};
     line-height: ${(p) => p.theme.font.lineHeight.tight};
@@ -144,7 +144,7 @@ const buttonBase = css`
   gap: 8px;
   height: 40px;
   padding: 0 16px;
-  border-radius: 12px;
+  border-radius: 8px;
   font-weight: ${(p) => p.theme.font.weight.semiBold};
   font-size: ${(p) => p.theme.font.size.md};
   line-height: 1;
@@ -265,7 +265,7 @@ export const PrimaryBtn = styled(Link)`
 export const PrimaryBtnLg = styled(PrimaryBtn)`
   height: 48px;
   padding: 0 20px;
-  border-radius: ${(p) => p.theme.radii.lg};
+  border-radius: 8px;
   font-size: ${(p) => p.theme.font.size.lg};
 `;
 
@@ -332,6 +332,57 @@ export const SmallBtn = styled.button`
   height: 40px;
   padding: 0 16px;
   font-size: ${(p) => p.theme.font.size.md};
+`;
+
+export const ToggleSwitch = styled.label`
+  display: inline-flex;
+  align-items: center;
+  gap: ${(p) => p.theme.spacing.sm};
+  cursor: pointer;
+  position: relative;
+  input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .switch {
+    width: 44px;
+    height: 24px;
+    border-radius: 999px;
+    background: ${(p) => p.theme.colors.border};
+    position: relative;
+    transition: background 0.2s ease;
+  }
+  .switch::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: ${(p) => p.theme.colors.surface};
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.2);
+    transition: transform 0.2s ease;
+  }
+  input:checked + .switch {
+    background: ${(p) => p.theme.colors.primary};
+  }
+  input:checked + .switch::after {
+    transform: translateX(20px);
+  }
+  input:focus-visible + .switch {
+    box-shadow: ${(p) => p.theme.shadow.focusPrimary};
+  }
+  input:disabled + .switch {
+    opacity: 0.5;
+  }
+  .text {
+    font-size: ${(p) => p.theme.font.size.sm};
+    font-weight: ${(p) => p.theme.font.weight.medium};
+    color: ${(p) => p.theme.colors.text};
+  }
 `;
 
 // Empty state pattern

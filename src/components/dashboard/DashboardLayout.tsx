@@ -12,6 +12,8 @@ type PanelProps = {
   className?: string;
   style?: CSSProperties;
   dense?: boolean;
+  height?: string;
+  maxHeight?: string;
 };
 
 export function DashboardPanel({
@@ -20,6 +22,8 @@ export function DashboardPanel({
   className,
   style,
   dense = false,
+  height,
+  maxHeight,
   children,
 }: PanelProps) {
   return (
@@ -29,6 +33,8 @@ export function DashboardPanel({
       $span={span}
       $rowSpan={rowSpan}
       $dense={dense}
+      $height={height}
+      $maxHeight={maxHeight}
     >
       {children}
     </Panel>
@@ -37,22 +43,23 @@ export function DashboardPanel({
 
 const Wrapper = styled.section`
   display: grid;
-  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   grid-auto-rows: minmax(0, auto);
   gap: ${(p) => p.theme.spacing.pageGap};
   width: 100%;
 
-  @media (max-width: 1200px) {
-    gap: ${(p) => p.theme.spacing.lg};
-  }
-
   @media (max-width: 768px) {
-    grid-template-columns: 1fr;
     gap: ${(p) => p.theme.spacing.md};
   }
 `;
 
-const Panel = styled.section<{ $span: number; $rowSpan: number; $dense?: boolean }>`
+const Panel = styled.section<{
+  $span: number;
+  $rowSpan: number;
+  $dense?: boolean;
+  $height?: string;
+  $maxHeight?: string;
+}>`
   display: flex;
   flex-direction: column;
   gap: ${(p) => p.theme.spacing.md};
@@ -73,6 +80,22 @@ const Panel = styled.section<{ $span: number; $rowSpan: number; $dense?: boolean
   overflow: hidden;
   align-self: start;
   width: 100%;
+  ${({ $height }) =>
+    $height
+      ? css`
+          height: ${$height};
+        `
+      : null};
+  ${({ $maxHeight, $height }) =>
+    $maxHeight
+      ? css`
+          max-height: ${$maxHeight};
+        `
+      : $height
+        ? css`
+            max-height: ${$height};
+          `
+        : null};
 
   @media (max-width: 1024px) {
     grid-column: 1 / -1;

@@ -75,33 +75,48 @@ export default function StudentsStats() {
 
 const Row = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 
 const StatCard = styled.article`
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 14px;
+  background: ${(p) => p.theme.colors.surface};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.lg};
+  padding: ${(p) => p.theme.spacing.md};
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.xs};
 `;
 const Head = styled.div`
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 `;
 const Title = styled.h4`
-  margin: 0; font-size: 14px; color: #6b7280; font-weight: 600;
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.md};
+  color: ${(p) => p.theme.colors.textMuted};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
 `;
 const IconBox = styled.span`
-  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: #eef2ff; color: #4f46e5;
+  width: 34px;
+  height: 34px;
+  border-radius: ${(p) => p.theme.radii.sm};
+  display: grid;
+  place-items: center;
+  background: ${(p) => p.theme.colors.primarySurface};
+  color: ${(p) => p.theme.colors.primary};
 `;
 const Value = styled.div`
-  font-size: 28px; font-weight: 800; color: #111827; letter-spacing: -0.02em;
+  font-size: 28px;
+  font-weight: ${(p) => p.theme.font.weight.extraBold ?? 800};
+  color: ${(p) => p.theme.colors.text};
+  letter-spacing: -0.02em;
 `;
 const Err = styled.div`
-  color: #b91c1c; font-size: 12px;
+  color: ${(p) => p.theme.colors.danger};
+  font-size: ${(p) => p.theme.font.size.sm};
 `;
 
 const usersIcon = (

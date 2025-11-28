@@ -1,19 +1,9 @@
 // Lightweight loader for TossPayments browser SDK without bundling the NPM package.
 // It injects the official script and returns the TossPayments instance.
 
-type BillingAuthParams = {
-  customerKey: string;
-  successUrl: string;
-  failUrl: string;
-};
+import type { TossPayments } from "@/types/tossPayments";
 
-type TossPaymentsInstance = {
-  requestBillingAuth: (method: "카드" | string, params: BillingAuthParams) => Promise<unknown>;
-};
-
-type TossPaymentsFactory = (clientKey: string) => TossPaymentsInstance;
-
-const getFactory = () => (window as any).TossPayments as TossPaymentsFactory | undefined;
+const getFactory = () => (typeof window !== "undefined" ? window.TossPayments : undefined);
 
 const SCRIPT_SRC = "https://js.tosspayments.com/v1/payment";
 let loadingPromise: Promise<void> | null = null;
@@ -33,7 +23,7 @@ async function ensureScript(): Promise<void> {
   return loadingPromise;
 }
 
-export async function loadTossPayments(clientKey: string): Promise<TossPaymentsInstance> {
+export async function loadTossPayments(clientKey: string): Promise<TossPayments> {
   await ensureScript();
   const factory = getFactory();
   if (!factory) {

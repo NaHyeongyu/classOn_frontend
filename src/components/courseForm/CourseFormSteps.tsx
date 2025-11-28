@@ -1,10 +1,13 @@
 import styled from "styled-components";
+import type { ReactNode } from "react";
+import SelectBox from "@/components/common/SelectBox";
 import { useAuth } from "@/hooks/useAuth";
 import { useRepresentativeName } from "@/hooks/useRepresentativeName";
 import { isMainAccountForTeacher } from "@/lib/users";
 import {
   SectionCard as Section,
   GhostButton as UIGhostBtn,
+  ToggleSwitch,
 } from "@/components/common/UI";
 import { Hint } from "@/components/courseRecord/CourseRecordStyles";
 import type {
@@ -65,11 +68,7 @@ export function CourseFormBasicStep({
     "";
 
   return (
-    <StepCard>
-      <StepHeaderWrap>
-        <StepTitle>{meta.title}</StepTitle>
-        <StepLead>{meta.lead}</StepLead>
-      </StepHeaderWrap>
+    <StepSection meta={meta}>
       <StepGrid>
         <Field>
           <Label>
@@ -90,44 +89,59 @@ export function CourseFormBasicStep({
           {fieldErr.title ? <FieldErr>{fieldErr.title}</FieldErr> : null}
         </Field>
 
-        <Field>
+        <Field style={{ gridColumn: "1 / -1" }}>
           <Label>상태</Label>
           <Select
+            ariaLabel="수업 상태"
+            placeholder="상태 선택"
             value={form.status}
-            onChange={(e) =>
+            onChange={(value) =>
               setForm((state) => ({
                 ...state,
-                status: e.target.value as FormState["status"],
+                status: (value as FormState["status"]) || "IN_PROGRESS",
               }))
             }
-          >
-            <option value="IN_PROGRESS">진행중</option>
-            <option value="PENDING">대기</option>
-            <option value="STOPPED">중단</option>
-          </Select>
+            options={[
+              { label: "진행중", value: "IN_PROGRESS" },
+              { label: "대기", value: "PENDING" },
+              { label: "중단", value: "STOPPED" },
+            ]}
+          />
         </Field>
 
-        <Field>
+        <Field style={{ gridColumn: "1 / -1" }}>
           <Label>담당 강사</Label>
           {isTeacher ? (
             <ReadOnlyField>{instructorDisplay || "본인"}</ReadOnlyField>
           ) : teacherLoading ? (
-            <Select disabled>
-              <option>강사 목록을 불러오는 중입니다…</option>
-            </Select>
+            <Select
+              disabled
+              ariaLabel="담당 강사"
+              placeholder="강사 목록을 불러오는 중입니다…"
+              value=""
+              onChange={() => {}}
+              options={[]}
+            />
           ) : teacherError ? (
             <>
-              <Select disabled aria-invalid={true}>
-                <option>강사 목록을 불러오지 못했습니다.</option>
-              </Select>
+              <Select
+                disabled
+                aria-invalid={true}
+                ariaLabel="담당 강사"
+                placeholder="강사 목록을 불러오지 못했습니다."
+                value=""
+                onChange={() => {}}
+                options={[]}
+              />
               <FieldErr>{teacherError}</FieldErr>
             </>
           ) : (
             <>
               <Select
-                value={form.instructorId ?? ""}
-                onChange={(e) => {
-                  const value = e.target.value;
+                ariaLabel="담당 강사"
+                placeholder="강사를 선택해 주세요"
+                value={form.instructorId != null ? String(form.instructorId) : ""}
+                onChange={(value) => {
                   const nextId = value ? Number(value) : null;
                   setForm((state) => {
                     const selected = teacherOptions.find((opt) => opt.id === nextId);
@@ -139,24 +153,22 @@ export function CourseFormBasicStep({
                   });
                 }}
                 disabled={teacherOptions.length === 0}
-              >
-                <option value="">강사를 선택해 주세요</option>
-                {teacherOptions.map((opt) => {
-                  const base = opt.name || opt.username || `강사 #${opt.id}`;
-                  const suffix =
-                    typeof opt.courseCount === "number"
-                      ? ` (담당 수업 ${opt.courseCount}개)`
-                      : "";
-                  const mainTag = isMainAccount(opt) ? " [본계정]" : "";
-                  return (
-                    <option key={opt.id} value={opt.id}>
-                      {base}
-                      {mainTag}
-                      {suffix}
-                    </option>
-                  );
-                })}
-              </Select>
+                options={[
+                  { label: "강사를 선택해 주세요", value: "" },
+                  ...teacherOptions.map((opt) => {
+                    const base = opt.name || opt.username || `강사 #${opt.id}`;
+                    const suffix =
+                      typeof opt.courseCount === "number"
+                        ? ` (담당 수업 ${opt.courseCount}개)`
+                        : "";
+                    const mainTag = isMainAccount(opt) ? " [본계정]" : "";
+                    return {
+                      label: `${base}${mainTag}${suffix}`,
+                      value: String(opt.id),
+                    };
+                  }),
+                ]}
+              />
               {teacherOptions.length === 0 ? (
                 <Hint>강사를 먼저 등록해야 합니다. 내 정보 &gt; 강사 관리에서 추가해 주세요.</Hint>
               ) : user && !teacherOptions.some((opt) => isMainAccount(opt)) ? (
@@ -204,7 +216,7 @@ export function CourseFormBasicStep({
           <Hint>수업 형태에 따라 통계와 요금 정책을 나눌 수 있어요.</Hint>
         </Field>
       </StepGrid>
-    </StepCard>
+    </StepSection>
   );
 }
 
@@ -286,11 +298,7 @@ export function CourseFormScheduleStep({
   };
 
   return (
-    <StepCard>
-      <StepHeaderWrap>
-        <StepTitle>{meta.title}</StepTitle>
-        <StepLead>{meta.lead}</StepLead>
-      </StepHeaderWrap>
+    <StepSection meta={meta}>
       <StepGrid>
         {isIndividual ? (
           <Field>
@@ -321,15 +329,15 @@ export function CourseFormScheduleStep({
 
         <Field>
           <Label>반복 여부</Label>
-          <Toggle>
+          <ToggleSwitch>
             <input
-              id="recurring"
               type="checkbox"
               checked={recurring}
               onChange={(e) => setRecurring(e.currentTarget.checked)}
             />
-            <label htmlFor="recurring">정기 반복</label>
-          </Toggle>
+            <span className="switch" aria-hidden="true" />
+            <span className="text">정기 반복</span>
+          </ToggleSwitch>
           <Hint>정기 수업이 아니라면 체크를 해제하세요.</Hint>
         </Field>
 
@@ -357,82 +365,70 @@ export function CourseFormScheduleStep({
           <Hint>예: 월/수는 MON,WED 로 저장됩니다.</Hint>
         </Field>
 
-        <Field>
+        <Field style={{ gridColumn: "1 / -1" }}>
           <Label>반복 시간{recurring ? <span>*</span> : null}</Label>
           <TimeRow>
-            <select
+            <TimeSelect
+              aria-label="시작 시간 시"
               disabled={!recurring}
               aria-invalid={recurring && !!fieldErr.schedule}
-              value={(form.startTime ?? "").slice(0, 2) || "00"}
-              onChange={(e) => {
-                const hh = e.target.value;
+              placeholder="시"
+              value={(form.startTime ?? "").slice(0, 2) || ""}
+              onChange={(value) => {
+                const hh = value || "00";
                 const mm = (form.startTime ?? "00:00").slice(3, 5) || "00";
                 setForm((state) => ({ ...state, startTime: `${hh}:${mm}` }));
               }}
-            >
-              {hourOptions.map((h) => (
-                <option key={h} value={h}>
-                  {h}
-                </option>
-              ))}
-            </select>
+              options={hourOptions.map((h) => ({ label: h, value: h }))}
+            />
             <span>:</span>
-            <select
+            <TimeSelect
+              aria-label="시작 시간 분"
               disabled={!recurring}
               aria-invalid={recurring && !!fieldErr.schedule}
-              value={(form.startTime ?? "").slice(3, 5) || "00"}
-              onChange={(e) => {
-                const mm = e.target.value;
+              placeholder="분"
+              value={(form.startTime ?? "").slice(3, 5) || ""}
+              onChange={(value) => {
+                const mm = value || "00";
                 const hh = (form.startTime ?? "00:00").slice(0, 2) || "00";
                 setForm((state) => ({ ...state, startTime: `${hh}:${mm}` }));
               }}
-            >
-              {minuteOptions.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+              options={minuteOptions.map((m) => ({ label: m, value: m }))}
+            />
             <span>~</span>
-            <select
+            <TimeSelect
+              aria-label="종료 시간 시"
               disabled={!recurring}
               aria-invalid={recurring && !!fieldErr.schedule}
-              value={(form.endTime ?? "").slice(0, 2) || "00"}
-              onChange={(e) => {
-                const hh = e.target.value;
+              placeholder="시"
+              value={(form.endTime ?? "").slice(0, 2) || ""}
+              onChange={(value) => {
+                const hh = value || "00";
                 const mm = (form.endTime ?? "00:00").slice(3, 5) || "00";
                 setForm((state) => ({ ...state, endTime: `${hh}:${mm}` }));
               }}
-            >
-              {hourOptions.map((h) => (
-                <option key={h} value={h}>
-                  {h}
-                </option>
-              ))}
-            </select>
+              options={hourOptions.map((h) => ({ label: h, value: h }))}
+            />
             <span>:</span>
-            <select
+            <TimeSelect
+              aria-label="종료 시간 분"
               disabled={!recurring}
               aria-invalid={recurring && !!fieldErr.schedule}
-              value={(form.endTime ?? "").slice(3, 5) || "00"}
-              onChange={(e) => {
-                const mm = e.target.value;
+              placeholder="분"
+              value={(form.endTime ?? "").slice(3, 5) || ""}
+              onChange={(value) => {
+                const mm = value || "00";
                 const hh = (form.endTime ?? "00:00").slice(0, 2) || "00";
                 setForm((state) => ({ ...state, endTime: `${hh}:${mm}` }));
               }}
-            >
-              {minuteOptions.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+              options={minuteOptions.map((m) => ({ label: m, value: m }))}
+            />
           </TimeRow>
           <Hint>시/분을 고정 옵션으로 선택합니다(5분 단위).</Hint>
           {fieldErr.schedule ? <FieldErr>{fieldErr.schedule}</FieldErr> : null}
         </Field>
       </StepGrid>
-    </StepCard>
+    </StepSection>
   );
 }
 
@@ -460,11 +456,7 @@ export function CourseFormDetailsStep({
   onNavigateEditStudents,
 }: DetailsStepProps) {
   return (
-    <StepCard>
-      <StepHeaderWrap>
-        <StepTitle>{meta.title}</StepTitle>
-        <StepLead>{meta.lead}</StepLead>
-      </StepHeaderWrap>
+    <StepSection meta={meta}>
       <StepGrid>
         <Field>
           <Label>정원</Label>
@@ -526,36 +518,53 @@ export function CourseFormDetailsStep({
           <UIGhostBtn onClick={onNavigateEditStudents}>수강생 관리 바로가기</UIGhostBtn>
         </GuideCard>
       ) : null}
-    </StepCard>
+    </StepSection>
   );
 }
 
 const StepCard = styled(Section)`
   display: grid;
   gap: ${(p) => p.theme.spacing.md};
+  height: 100%;
+  align-content: start;
 `;
+
+const STEP_HEADER_GAP = 8;
 
 const StepHeaderWrap = styled.header`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xs};
+  gap: ${STEP_HEADER_GAP}px;
 `;
 
 const StepTitle = styled.h3`
   margin: 0;
   font-size: ${(p) => p.theme.font.size.lg};
   font-weight: ${(p) => p.theme.font.weight.bold};
+  line-height: ${(p) => p.theme.font.lineHeight.tight};
 `;
 
 const StepLead = styled.p`
   margin: 0;
   color: ${(p) => p.theme.colors.textMuted};
   font-size: ${(p) => p.theme.font.size.sm};
+  line-height: ${(p) => p.theme.font.lineHeight.relaxed};
 `;
+
+function StepSection({ meta, children }: { meta: StepMeta; children: ReactNode }) {
+  return (
+    <StepCard>
+      <StepHeaderWrap>
+        <StepTitle>{meta.title}</StepTitle>
+        <StepLead>{meta.lead}</StepLead>
+      </StepHeaderWrap>
+      {children}
+    </StepCard>
+  );
+}
 
 const StepGrid = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.md};
-  grid-template-columns: 1fr; /* 세로 배치 고정 */
 `;
 
 const Field = styled.div`
@@ -587,14 +596,8 @@ const Input = styled.input`
   }
 `;
 
-const Select = styled.select`
+const Select = styled(SelectBox)`
   width: 100%;
-  height: 44px;
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.md};
-  padding: 0 ${(p) => p.theme.spacing.sm};
-  font-size: ${(p) => p.theme.font.size.sm};
-  color: ${(p) => p.theme.colors.text};
 `;
 
 const ReadOnlyField = styled.div`
@@ -620,7 +623,7 @@ const FieldErr = styled.span`
 const TypeToggleGroup = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.sm};
-  grid-template-columns: 1fr; /* 옵션 버튼도 세로 배치 */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
 `;
 
 const TypeToggleButton = styled.button`
@@ -690,20 +693,6 @@ const StudentOptionBtn = styled.button`
   }
 `;
 
-const Toggle = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: ${(p) => p.theme.spacing.xs};
-  input {
-    width: 18px;
-    height: 18px;
-  }
-  label {
-    font-size: ${(p) => p.theme.font.size.sm};
-    color: ${(p) => p.theme.colors.text};
-  }
-`;
-
 const DayChips = styled.div`
   display: flex;
   flex-wrap: wrap;
@@ -733,16 +722,14 @@ const TimeRow = styled.div`
   display: inline-flex;
   align-items: center;
   gap: ${(p) => p.theme.spacing.xs};
-  select {
-    height: 40px;
-    border: 1px solid ${(p) => p.theme.colors.border};
-    border-radius: ${(p) => p.theme.radii.md};
-    padding: 0 ${(p) => p.theme.spacing.xs};
-  }
   span {
     font-size: ${(p) => p.theme.font.size.sm};
     color: ${(p) => p.theme.colors.textMuted};
   }
+`;
+
+const TimeSelect = styled(SelectBox)`
+  min-width: 80px;
 `;
 
 const FeeWrap = styled.div`

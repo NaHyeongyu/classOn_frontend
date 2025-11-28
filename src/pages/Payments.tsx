@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import styled from "styled-components";
+import SelectBox from "@/components/common/SelectBox";
 import {
   Page,
   SectionCard,
@@ -17,6 +18,7 @@ import {
   getPaymentDetail,
   getPaymentSummary,
   listPaymentHistory,
+  listPendingHistory,
   listPaymentInvoices,
   markOnsitePayment,
   updatePaymentInvoice,
@@ -38,7 +40,6 @@ import { readableError } from "@/lib/errors";
 import { useNavigate } from "react-router-dom";
 import { routes, paths } from "@/routes";
 import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
-import { usePaymentReminderSettings } from "@/features/calendar/usePaymentReminderSettings";
 import { DiscountFields } from "@/components/payments/DiscountFields";
 
 type DetailState =
@@ -53,19 +54,39 @@ type DetailState =
 
 const today = new Date();
 const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+const createDefaultDateRange = () => {
+  const start = new Date(today.getFullYear(), today.getMonth(), 1);
+  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  return {
+    from: start.toISOString().slice(0, 10),
+    to: end.toISOString().slice(0, 10),
+  };
+};
+const createDefaultHistoryFilters = (): HistoryFilters => ({
+  ...createDefaultDateRange(),
+  q: "",
+  status: "ALL",
+});
 
 const statusLabel: Record<string, string> = {
-  UNPAID: "미납",
-  PENDING: "대기",
+  UNPAID: "대기",
+  PENDING: "미납",
   COMPLETED: "완료",
   FAILED: "실패",
 };
 
 const statusColor: Record<string, string> = {
-  UNPAID: "#f97316",
+  UNPAID: "#4b5563",
   PENDING: "#2563EB",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
+};
+
+const studentStatusColor: Record<string, string> = {
+  ENROLLED: "#059669",
+  ON_LEAVE: "#8b5cf6",
+  PENDING: "#f97316",
+  STOPPED: "#dc2626",
 };
 
 const methodLabel: Record<string, string> = {
@@ -79,6 +100,23 @@ const paymentTypeLabel: Record<string, string> = {
   OFFLINE: "오프라인",
 };
 
+type StudentStatusFilter = "ALL" | "ENROLLED" | "ON_LEAVE" | "PENDING" | "STOPPED";
+type HistoryStatusFilter = "ALL" | "UNPAID" | "PENDING" | "COMPLETED";
+
+const studentStatusLabel: Record<string, string> = {
+  ENROLLED: "수강중",
+  ON_LEAVE: "휴학",
+  PENDING: "대기중",
+  STOPPED: "퇴원",
+};
+
+type HistoryFilters = {
+  from: string;
+  to: string;
+  q: string;
+  status: HistoryStatusFilter;
+};
+
 export default function Payments() {
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
@@ -86,21 +124,15 @@ export default function Payments() {
 
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoiceSearchInput, setInvoiceSearchInput] = useState("");
+  const [invoiceStudentStatus, setInvoiceStudentStatus] = useState<StudentStatusFilter>("ALL");
+  const [invoiceDateRange, setInvoiceDateRange] = useState(createDefaultDateRange);
   const [invoicePage, setInvoicePage] = useState(0);
   const invoicePageSize = 10;
 
-  const [historyFilters, setHistoryFilters] = useState(() => {
-    const start = new Date(today.getFullYear(), today.getMonth(), 1);
-    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    return {
-      from: start.toISOString().slice(0, 10),
-      to: end.toISOString().slice(0, 10),
-      status: "CURRENT",
-      q: "",
-    };
-  });
-  const [historyPage, setHistoryPage] = useState(0);
-  const historyPageSize = 15;
+  const [historyFilters, setHistoryFilters] = useState<HistoryFilters>(createDefaultHistoryFilters);
+  const [historyCompletedPage, setHistoryCompletedPage] = useState(0);
+  const [historyPendingPage, setHistoryPendingPage] = useState(0);
+  const historyPageSize = 10;
 
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<number[]>([]);
   const [detailState, setDetailState] = useState<DetailState>({ open: false });
@@ -118,35 +150,71 @@ export default function Payments() {
   });
 
   const invoiceQuery = useQuery<PageResult<PaymentHistoryRow>>({
-    queryKey: ["payments", "invoices", invoiceSearch, invoicePage, invoicePageSize],
+    queryKey: [
+      "payments",
+      "invoices",
+      invoiceSearch,
+      invoiceDateRange.from,
+      invoiceDateRange.to,
+      invoiceStudentStatus,
+      invoicePage,
+      invoicePageSize,
+    ],
     queryFn: () =>
       listPaymentInvoices({
         q: invoiceSearch,
         page: invoicePage,
         size: invoicePageSize,
         status: "UNPAID",
+        from: invoiceDateRange.from,
+        to: invoiceDateRange.to,
+        studentStatus: invoiceStudentStatus === "ALL" ? undefined : invoiceStudentStatus,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
   });
 
-  const historyQuery = useQuery<PageResult<PaymentHistoryRow>>({
+  const completedHistoryQuery = useQuery<PageResult<PaymentHistoryRow>>({
     queryKey: [
       "payments",
       "history",
+      "completed",
       historyFilters.from,
       historyFilters.to,
-      historyFilters.status,
       historyFilters.q,
-      historyPage,
+      historyCompletedPage,
       historyPageSize,
     ],
     queryFn: () =>
       listPaymentHistory({
         from: historyFilters.from,
         to: historyFilters.to,
-        status: historyFilters.status === "CURRENT" ? undefined : historyFilters.status,
+        status: "COMPLETED",
         q: historyFilters.q,
-        page: historyPage,
+        page: historyCompletedPage,
+        size: historyPageSize,
+      }),
+    placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
+  });
+
+  const pendingHistoryQuery = useQuery<PageResult<PaymentHistoryRow>>({
+    queryKey: [
+      "payments",
+      "history",
+      "pending",
+      historyFilters.from,
+      historyFilters.to,
+      historyFilters.q,
+      historyFilters.status,
+      historyPendingPage,
+      historyPageSize,
+    ],
+    queryFn: () =>
+      listPendingHistory({
+        from: historyFilters.from,
+        to: historyFilters.to,
+        q: historyFilters.q,
+        status: historyFilters.status === "ALL" ? undefined : historyFilters.status,
+        page: historyPendingPage,
         size: historyPageSize,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
@@ -157,27 +225,17 @@ export default function Payments() {
   }, [invoiceSearch]);
 
   useEffect(() => {
+    setInvoicePage(0);
+  }, [invoiceDateRange.from, invoiceDateRange.to, invoiceStudentStatus]);
+
+  useEffect(() => {
     setInvoiceSearchInput(invoiceSearch);
   }, [invoiceSearch]);
 
   useEffect(() => {
-    setHistoryPage(0);
-  }, [historyFilters.from, historyFilters.to, historyFilters.status, historyFilters.q]);
-
-  useEffect(() => {
-    if (!historyQuery.data?.content?.length) {
-      setActiveHistoryId(null);
-      setOnsiteTarget(null);
-      return;
-    }
-    if (activeHistoryId == null) return;
-    const exists =
-      historyQuery.data?.content?.some((row: PaymentHistoryRow) => row.id === activeHistoryId) ?? false;
-    if (!exists) {
-      setActiveHistoryId(null);
-      setOnsiteTarget(null);
-    }
-  }, [historyQuery.data, activeHistoryId]);
+    setHistoryCompletedPage(0);
+    setHistoryPendingPage(0);
+  }, [historyFilters.from, historyFilters.to, historyFilters.q, historyFilters.status]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: PaymentInvoiceUpdatePayload }) =>
@@ -219,18 +277,44 @@ export default function Payments() {
     }
   }, [toastError]);
 
-  const reminderSettings = usePaymentReminderSettings();
-  const reminderDays = reminderSettings.configured
-    ? reminderSettings.days ?? reminderSettings.defaultDays
-    : null;
-
   const summary = summaryQuery.data;
   const invoices = invoiceQuery.data;
-  const history = historyQuery.data;
-  const invoiceRows = useMemo(
-    () => filterInvoiceQueue(invoices?.content ?? [], reminderDays),
-    [invoices?.content, reminderDays],
+  const invoiceRows = useMemo<PaymentHistoryRow[]>(
+    () => invoices?.content ?? [],
+    [invoices],
   );
+  const completedRows = completedHistoryQuery.data?.content ?? [];
+  const pendingRows = useMemo<PaymentHistoryRow[]>(
+    () => pendingHistoryQuery.data?.content ?? [],
+    [pendingHistoryQuery.data],
+  );
+  const completedTotalPages = completedHistoryQuery.data?.totalPages ?? 0;
+  const pendingTotalPages = pendingHistoryQuery.data?.totalPages ?? 0;
+  const completedIsLast = completedHistoryQuery.data?.last ?? true;
+  const pendingIsLast = pendingHistoryQuery.data?.last ?? true;
+  const pendingTitle = historyFilters.status === "UNPAID" ? "미납 내역" : "발송 완료 내역";
+  const pendingDescription = historyFilters.status === "COMPLETED"
+    ? "선택한 상태는 오른쪽 결제 완료 내역에서 확인하세요."
+    : historyFilters.status === "UNPAID"
+      ? "청구서 발송 전 미납 청구서"
+      : "발송 후 결제 대기 중인 청구서 (발송 5일 후 재발송 버튼이 노출됩니다.)";
+
+  useEffect(() => {
+    const completedRows = completedHistoryQuery.data?.content ?? [];
+    if (!completedRows.length && !pendingRows.length) {
+      setActiveHistoryId(null);
+      setOnsiteTarget(null);
+      return;
+    }
+    if (activeHistoryId == null) return;
+    const exists =
+      completedRows.some((row: PaymentHistoryRow) => row.id === activeHistoryId) ||
+      pendingRows.some((row: PaymentHistoryRow) => row.id === activeHistoryId);
+    if (!exists) {
+      setActiveHistoryId(null);
+      setOnsiteTarget(null);
+    }
+  }, [completedHistoryQuery.data, pendingRows, activeHistoryId]);
   useEffect(() => {
     if (!invoices) return;
     const totalPages = invoices.totalPages ?? 0;
@@ -247,18 +331,62 @@ export default function Payments() {
     }
   }, [invoices, invoicePage, invoiceRows.length, invoiceQuery.isFetching]);
   const invoiceTotalPages = invoices?.totalPages ?? 0;
-  const isLastPage = invoices?.last ?? true;
-  // Show pager only if there's a next page (i.e., not on last page)
-  const showInvoicePager = !isLastPage;
+  const showInvoicePager = invoiceTotalPages > 1;
 
   useEffect(() => {
     const idsOnPage = new Set(invoiceRows.map((item) => item.id));
     setSelectedInvoiceIds((prev) => prev.filter((id) => idsOnPage.has(id)));
   }, [invoiceRows]);
-  const onsiteCandidates = invoiceRows.filter((row) =>
-    row.status === "UNPAID" || row.status === "PENDING",
-  );
-  const historyRows = history?.content ?? [];
+  const invoiceTotalElements = invoices?.totalElements ?? invoiceRows.length;
+  const pendingTotalElements = historyFilters.status === "COMPLETED"
+    ? 0
+    : (pendingHistoryQuery.data?.totalElements ?? pendingRows.length);
+
+  const [onsitePage, setOnsitePage] = useState(0);
+  const [onsiteContext, setOnsiteContext] = useState<"invoice" | "history">("invoice");
+  const onsitePageSize = historyPageSize;
+  const onsiteCandidatesQuery = useQuery<PageResult<PaymentHistoryRow>>({
+    queryKey: [
+      "payments",
+      "onsite-candidates",
+      onsiteContext,
+      onsiteContext === "invoice" ? invoiceSearch : historyFilters.q,
+      onsiteContext === "invoice" ? invoiceDateRange.from : historyFilters.from,
+      onsiteContext === "invoice" ? invoiceDateRange.to : historyFilters.to,
+      onsiteContext === "invoice" ? invoiceStudentStatus : historyFilters.status,
+      onsitePage,
+      onsitePageSize,
+    ],
+    queryFn: () => {
+      if (onsiteContext === "history") {
+        const statusParam = historyFilters.status === "COMPLETED" ? "PENDING" : historyFilters.status;
+        return listPendingHistory({
+          from: historyFilters.from,
+          to: historyFilters.to,
+          q: historyFilters.q,
+          status: statusParam,
+          page: onsitePage,
+          size: onsitePageSize,
+        });
+      }
+      return listPaymentInvoices({
+        status: "UNPAID",
+        q: invoiceSearch,
+        page: onsitePage,
+        size: onsitePageSize,
+        from: invoiceDateRange.from,
+        to: invoiceDateRange.to,
+        studentStatus: invoiceStudentStatus === "ALL" ? undefined : invoiceStudentStatus,
+      });
+    },
+    enabled:
+      onsiteSelectorOpen &&
+      (onsiteContext === "invoice" || (onsiteContext === "history" && historyFilters.status !== "COMPLETED")),
+    placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
+    keepPreviousData: true,
+  });
+  const onsiteCandidates = onsiteCandidatesQuery.data?.content ?? [];
+  const onsiteTotalPages = onsiteCandidatesQuery.data?.totalPages ?? 0;
 
   const summaryStats = useMemo(
     () => extractSummary(summary, invoiceRows.length),
@@ -271,7 +399,7 @@ export default function Payments() {
       return;
     }
     const idsParam = selectedInvoiceIds.join(",");
-    navigate(paths.payments.kakaoConfirm(idsParam));
+    navigate(paths.payments.kakaoConfirm({ ids: idsParam }));
   };
 
   const handleInvoiceSelectAll = () => {
@@ -293,8 +421,8 @@ export default function Payments() {
     loadDetail(row.id, "history");
   };
 
-  const handleHistoryStatusChange = (value: string) => {
-    setHistoryFilters((prev) => ({ ...prev, status: value }));
+  const handleHistoryResend = (row: PaymentHistoryRow) => {
+    navigate(paths.payments.kakaoConfirm({ ids: String(row.id), template: "RETRY" }));
   };
 
   const handleHistoryDateChange = (key: "from" | "to", value: string) => {
@@ -307,11 +435,26 @@ export default function Payments() {
 
   const handleApplyInvoiceSearch = () => {
     setInvoiceSearch(invoiceSearchInput.trim());
+    setInvoicePage(0);
   };
 
   const handleResetInvoiceSearch = () => {
     setInvoiceSearch("");
     setInvoiceSearchInput("");
+    setInvoiceStudentStatus("ALL");
+    setInvoiceDateRange(createDefaultDateRange());
+    setInvoicePage(0);
+  };
+
+  const handleApplyHistoryFilters = () => {
+    setHistoryCompletedPage(0);
+    setHistoryPendingPage(0);
+    setOnsitePage(0);
+  };
+
+  const handleResetHistoryFilters = () => {
+    setHistoryFilters(createDefaultHistoryFilters());
+    setOnsitePage(0);
   };
 
   const handleSaveInvoice = async (form: PaymentInvoiceUpdatePayload) => {
@@ -325,6 +468,8 @@ export default function Payments() {
     };
     updateMutation.mutate({ id: detailState.id, payload });
   };
+
+  const [activeSection, setActiveSection] = useState<"invoice" | "history">("invoice");
 
   const handleOnsiteSubmit = async (payload: PaymentOnsitePayload) => {
     if (!onsiteTarget) return;
@@ -351,9 +496,11 @@ export default function Payments() {
     [onsiteDetail?.info.id, toastError],
   );
 
-  const handleOnsiteButtonClick = () => {
+  const handleOnsiteButtonClick = (context: "invoice" | "history") => {
+    setOnsiteContext(context);
     setOnsiteTarget(null);
     setOnsiteDetail(null);
+    setOnsitePage(0);
     setOnsiteSelectorOpen(true);
   };
 
@@ -362,6 +509,12 @@ export default function Payments() {
     openOnsiteModalForRow(row);
   };
 
+  const sectionTitle = activeSection === "invoice" ? "청구서" : "결제 내역";
+  const sectionDescription =
+    activeSection === "invoice"
+      ? "청구서를 선택해 한 번에 발송하거나 검색해 관리하세요."
+      : "결제 내역을 필터링하고 상세 정보를 확인하세요.";
+
   return (
     <Page>
       <PageHeader>
@@ -369,9 +522,6 @@ export default function Payments() {
           <h2>결제 관리</h2>
           <p>학원의 결제 업무를 한눈에 관리하세요.</p>
         </div>
-        <PrimaryButton type="button" onClick={() => navigate(routes.paymentsCreate)}>
-          + 청구서 생성
-        </PrimaryButton>
       </PageHeader>
 
       <StatsRow>
@@ -391,118 +541,246 @@ export default function Payments() {
       <Panels>
         <SectionCard>
           <SectionHeader>
-            <div>
-              <TitleH3>청구서 발송</TitleH3>
-              <SmallText>결제 예정일이 임박한 학생 순으로 정렬됩니다.</SmallText>
-            </div>
-            <InvoiceButtonRow>
-              <GhostButton type="button" onClick={handleInvoiceSelectAll} disabled={!invoiceRows.length}>
-                전체 선택
-              </GhostButton>
-              <PrimaryButton
+            <ToggleGroup role="tablist" aria-label="결제 관리">
+              <ToggleButton
                 type="button"
-                onClick={handleSendSelected}
-                disabled={!selectedInvoiceIds.length}
+                $active={activeSection === "invoice"}
+                aria-pressed={activeSection === "invoice"}
+                onClick={() => setActiveSection("invoice")}
               >
-                청구서 발송
+                청구서
+              </ToggleButton>
+              <ToggleButton
+                type="button"
+                $active={activeSection === "history"}
+                aria-pressed={activeSection === "history"}
+                onClick={() => setActiveSection("history")}
+              >
+                결제 내역
+              </ToggleButton>
+            </ToggleGroup>
+            <PanelControls>
+              <PrimaryButton type="button" onClick={() => navigate(routes.paymentsCreate)}>
+                청구서 생성
               </PrimaryButton>
-            </InvoiceButtonRow>
+            </PanelControls>
           </SectionHeader>
-          <SearchRow>
-            <Input
-              type="text"
-              value={invoiceSearchInput}
-              placeholder="학생명을 입력해 주세요."
-              onChange={(event) => handleInvoiceSearchChange(event.target.value)}
-            />
-            <PrimaryButton type="button" onClick={handleApplyInvoiceSearch}>
-              검색
-            </PrimaryButton>
-            <GhostButton type="button" onClick={handleResetInvoiceSearch}>
-              초기화
-            </GhostButton>
-          </SearchRow>
-          <InvoicesTable
-            rows={invoiceRows}
-            loading={invoiceQuery.isLoading}
-            page={invoicePage}
-            size={invoicePageSize}
-            totalPages={invoiceTotalPages}
-            showPager={showInvoicePager}
-            onChangePage={setInvoicePage}
-            selected={selectedInvoiceIds}
-            onToggleSelect={(id) =>
-              setSelectedInvoiceIds((prev) =>
-                prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
-              )
-            }
-            onRowClick={handleInvoiceRowClick}
-          />
-        </SectionCard>
+          <SectionInfo>
+            <InfoText>
+              <TitleH3>{sectionTitle}</TitleH3>
+              <SmallText>{sectionDescription}</SmallText>
+            </InfoText>
+            {activeSection === "invoice" ? (
+              <SectionActions>
+                <GhostButton
+                  type="button"
+                  onClick={handleInvoiceSelectAll}
+                  disabled={!invoiceRows.length}
+                >
+                  전체 선택
+                </GhostButton>
+                <GhostButton
+                  type="button"
+                  onClick={() => handleOnsiteButtonClick("invoice")}
+                  disabled={!invoiceTotalElements}
+                >
+                  현장 결제
+                </GhostButton>
+                <KakaoButton
+                  type="button"
+                  onClick={handleSendSelected}
+                  disabled={!selectedInvoiceIds.length}
+                >
+                  <img src="/logo/kakaotalk_sharing_btn_small.png" alt="카카오톡" width="20" height="20" />
+                  청구서 발송
+                </KakaoButton>
+              </SectionActions>
+            ) : (
+              <SectionActions>
+                <GhostButton
+                  type="button"
+                  onClick={() => handleOnsiteButtonClick("history")}
+                  disabled={historyFilters.status === "COMPLETED" || pendingTotalElements === 0}
+                >
+                  현장 결제
+                </GhostButton>
+              </SectionActions>
+            )}
+          </SectionInfo>
 
-        <SectionCard>
-          <SectionHeader>
-            <div>
-              <TitleH3>결제 내역</TitleH3>
-              <SmallText>발송 완료된 청구서부터 최근 결제 순으로 확인하세요.</SmallText>
-            </div>
-            <PrimaryButton type="button" onClick={handleOnsiteButtonClick}>
-              현장 결제
-            </PrimaryButton>
-          </SectionHeader>
-          <HistoryFilters>
-            <PeriodFilter>
-              <span>기간</span>
-              <div>
-                <Input
-                  type="date"
-                  value={historyFilters.from}
-                  onChange={(event) => handleHistoryDateChange("from", event.target.value)}
-                />
-                <span>~</span>
-                <Input
-                  type="date"
-                  value={historyFilters.to}
-                  onChange={(event) => handleHistoryDateChange("to", event.target.value)}
-                />
-              </div>
-            </PeriodFilter>
-            <FilterField>
-              <span>상태</span>
-              <Select
-                value={historyFilters.status}
-                onChange={(event) => handleHistoryStatusChange(event.target.value)}
-              >
-                <option value="CURRENT">진행중(대기/완료)</option>
-                <option value="ALL">전체</option>
-                <option value="UNPAID">미납</option>
-                <option value="PENDING">대기</option>
-                <option value="COMPLETED">완료</option>
-                <option value="FAILED">실패</option>
-              </Select>
-            </FilterField>
-            <FilterField>
-              <span>검색</span>
-              <Input
-                type="text"
-                value={historyFilters.q}
-                placeholder="이름 검색"
-                onChange={(event) =>
-                  setHistoryFilters((prev) => ({ ...prev, q: event.target.value }))
+          {activeSection === "invoice" ? (
+            <>
+              <HistoryFilters>
+                <PeriodFilter>
+                  <span>결제 예정일</span>
+                  <div>
+                    <Input
+                      type="date"
+                      value={invoiceDateRange.from}
+                      onChange={(event) =>
+                        setInvoiceDateRange((prev) => ({ ...prev, from: event.target.value }))
+                      }
+                    />
+                    <span>~</span>
+                    <Input
+                      type="date"
+                      value={invoiceDateRange.to}
+                      onChange={(event) =>
+                        setInvoiceDateRange((prev) => ({ ...prev, to: event.target.value }))
+                      }
+                    />
+                  </div>
+                </PeriodFilter>
+                <FilterFieldWide>
+                  <span>검색</span>
+                  <Input
+                    type="text"
+                    value={invoiceSearchInput}
+                    placeholder="학생명을 입력해 주세요."
+                    onChange={(event) => handleInvoiceSearchChange(event.target.value)}
+                  />
+                </FilterFieldWide>
+                <FilterFieldCompact>
+                  <span>학생 상태</span>
+                  <Select
+                    ariaLabel="학생 상태"
+                    placeholder="전체"
+                    value={invoiceStudentStatus}
+                    onChange={(value) => setInvoiceStudentStatus((value || "ALL") as StudentStatusFilter)}
+                    options={[
+                      { label: "전체", value: "ALL" },
+                      { label: "수강중", value: "ENROLLED" },
+                      { label: "휴학", value: "ON_LEAVE" },
+                      { label: "대기중", value: "PENDING" },
+                      { label: "퇴원", value: "STOPPED" },
+                    ]}
+                  />
+                </FilterFieldCompact>
+                <FilterActions>
+                  <PrimaryButton type="button" onClick={handleApplyInvoiceSearch}>
+                    검색
+                  </PrimaryButton>
+                  <GhostButton type="button" onClick={handleResetInvoiceSearch}>
+                    초기화
+                  </GhostButton>
+                </FilterActions>
+              </HistoryFilters>
+              <InvoicesTable
+                rows={invoiceRows}
+                loading={invoiceQuery.isLoading}
+                page={invoicePage}
+                size={invoicePageSize}
+                totalPages={invoiceTotalPages}
+                showPager={showInvoicePager}
+                onChangePage={setInvoicePage}
+                selected={selectedInvoiceIds}
+                onToggleSelect={(id) =>
+                  setSelectedInvoiceIds((prev) =>
+                    prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
+                  )
                 }
+                onRowClick={handleInvoiceRowClick}
               />
-            </FilterField>
-          </HistoryFilters>
-          <HistoryTable
-            rows={historyRows}
-            loading={historyQuery.isLoading}
-            page={historyPage}
-            size={historyPageSize}
-            totalPages={history?.totalPages ?? 0}
-            onChangePage={setHistoryPage}
-            onRowClick={handleHistoryRowClick}
-            activeId={activeHistoryId}
-          />
+            </>
+          ) : (
+            <>
+              <HistoryFilters>
+                <PeriodFilter>
+                  <span>결제 예정일</span>
+                  <div>
+                    <Input
+                      type="date"
+                      value={historyFilters.from}
+                      onChange={(event) => handleHistoryDateChange("from", event.target.value)}
+                    />
+                    <span>~</span>
+                    <Input
+                      type="date"
+                      value={historyFilters.to}
+                      onChange={(event) => handleHistoryDateChange("to", event.target.value)}
+                    />
+                  </div>
+                </PeriodFilter>
+                <FilterFieldWide>
+                  <span>검색</span>
+                  <Input
+                    type="text"
+                    value={historyFilters.q}
+                    placeholder="이름 검색"
+                    onChange={(event) =>
+                      setHistoryFilters((prev) => ({ ...prev, q: event.target.value }))
+                    }
+                  />
+                </FilterFieldWide>
+                <FilterFieldCompact>
+                  <span>상태</span>
+                  <Select
+                    ariaLabel="결제 상태"
+                    placeholder="전체"
+                    value={historyFilters.status}
+                    onChange={(value) =>
+                      setHistoryFilters((prev) => ({
+                        ...prev,
+                        status: (value || "ALL") as HistoryStatusFilter,
+                      }))
+                    }
+                    options={[
+                      { label: "전체", value: "ALL" },
+                      { label: "대기(청구서 발송 완료)", value: "PENDING" },
+                      { label: "미납", value: "UNPAID" },
+                      { label: "완료", value: "COMPLETED" },
+                    ]}
+                  />
+                </FilterFieldCompact>
+                <FilterActions>
+                  <PrimaryButton type="button" onClick={handleApplyHistoryFilters}>
+                    검색
+                  </PrimaryButton>
+                  <GhostButton type="button" onClick={handleResetHistoryFilters}>
+                    초기화
+                  </GhostButton>
+                </FilterActions>
+              </HistoryFilters>
+              <HistorySplit>
+                <HistoryColumn>
+                  <HistoryColumnHeader>
+                    <ColumnTitle>{pendingTitle}</ColumnTitle>
+                    <small>{pendingDescription}</small>
+                  </HistoryColumnHeader>
+                  <HistoryTable
+                    rows={pendingRows}
+                    loading={historyFilters.status === "COMPLETED" ? false : pendingHistoryQuery.isLoading}
+                    page={historyFilters.status === "COMPLETED" ? 0 : historyPendingPage}
+                    size={historyPageSize}
+                    totalPages={pendingTotalPages}
+                    last={pendingIsLast}
+                    onChangePage={historyFilters.status === "COMPLETED" ? () => {} : setHistoryPendingPage}
+                    onRowClick={historyFilters.status === "COMPLETED" ? () => {} : handleHistoryRowClick}
+                    activeId={activeHistoryId}
+                    variant="pending"
+                    onResendClick={handleHistoryResend}
+                  />
+                </HistoryColumn>
+                <HistoryColumnSticky>
+                  <HistoryColumnHeader>
+                    <ColumnTitle>완료 내역</ColumnTitle>
+                    <small>결제가 완료된 청구서</small>
+                  </HistoryColumnHeader>
+                  <HistoryTable
+                    rows={completedRows}
+                    loading={completedHistoryQuery.isLoading}
+                    page={historyCompletedPage}
+                    size={historyPageSize}
+                    totalPages={completedTotalPages}
+                    last={completedIsLast}
+                    onChangePage={setHistoryCompletedPage}
+                    onRowClick={handleHistoryRowClick}
+                    activeId={activeHistoryId}
+                  />
+                </HistoryColumnSticky>
+              </HistorySplit>
+            </>
+          )}
         </SectionCard>
       </Panels>
 
@@ -515,9 +793,15 @@ export default function Payments() {
 
       <OnsiteCandidateModal
         open={onsiteSelectorOpen}
-        onClose={() => setOnsiteSelectorOpen(false)}
+        onClose={() => {
+          setOnsiteSelectorOpen(false);
+          setOnsitePage(0);
+        }}
         rows={onsiteCandidates}
-        loading={invoiceQuery.isLoading || invoiceQuery.isFetching}
+        loading={onsiteCandidatesQuery.isLoading || onsiteCandidatesQuery.isFetching}
+        page={onsitePage}
+        totalPages={onsiteTotalPages}
+        onChangePage={setOnsitePage}
         onSelect={handleSelectOnsiteCandidate}
       />
       <OnsitePaymentModal
@@ -562,36 +846,58 @@ function InvoicesTable(props: {
     onRowClick,
   } = props;
   const lastPage = Math.max(totalPages - 1, 0);
+  const resolveCourseInfo = (row: PaymentHistoryRow) => {
+    const anyRow = row as PaymentHistoryRow & {
+      courseTitle?: string | null;
+      courseCode?: string | null;
+      courses?: PaymentCourseBrief[] | null;
+    };
+    const fallbackCourse =
+      Array.isArray(anyRow.courses) && anyRow.courses.length ? anyRow.courses[0] : undefined;
+    const title =
+      row.course?.title?.trim() ||
+      anyRow.courseTitle?.trim() ||
+      fallbackCourse?.title?.trim() ||
+      undefined;
+    const code =
+      row.course?.code?.trim() ||
+      anyRow.courseCode?.trim() ||
+      fallbackCourse?.code?.trim() ||
+      undefined;
+    return { title, code };
+  };
+
+  const renderStudentStatus = (status?: string | null) => {
+    const value = status ?? "";
+    if (!value) return "미정";
+    return studentStatusLabel[value] ?? "미정";
+  };
+
   const renderDueDate = (value?: string | null) => {
     if (!value) return "-";
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "-";
-    const year = parsed.getFullYear();
-    const month = String(parsed.getMonth() + 1).padStart(2, "0");
-    const day = String(parsed.getDate()).padStart(2, "0");
-    return (
-      <div className="due-date-cell">
-        <span className="year">{year}</span>
-        <span className="day">{`${month}.${day}`}</span>
-      </div>
-    );
+    const formatted = formatKoreanDate(value, { includeWeekday: false });
+    return <span className="due-date-text">{formatted}</span>;
   };
   return (
     <TableWrapper>
       <CenteredTable>
         <colgroup>
-          <col style={{ width: "52px" }} />
-          <col style={{ width: "80px" }} />
-          <col style={{ width: "26%" }} />
-          <col style={{ width: "16%" }} />
+          <col style={{ width: "32px" }} />
+          <col style={{ width: "68px" }} />
           <col style={{ width: "18%" }} />
-          <col />
+          <col style={{ width: "22%" }} />
+          <col style={{ width: "11%" }} />
+          <col style={{ width: "10%" }} />
+          <col style={{ width: "15%" }} />
+          <col style={{ width: "20%" }} />
         </colgroup>
         <thead>
           <tr>
             <th />
-            <th>번호</th>
+            <th className="number-cell">번호</th>
             <th>학생</th>
+            <th>수강과목</th>
+            <th>학생 상태</th>
             <th>상태</th>
             <th>총 결제금액</th>
             <th>결제 예정일</th>
@@ -600,19 +906,21 @@ function InvoicesTable(props: {
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={6}>
+              <td colSpan={8}>
                 <Skeleton h={32} />
               </td>
             </tr>
           ) : rows.length === 0 ? (
             <tr>
-              <td colSpan={6}>
+              <td colSpan={8}>
                 <EmptyState>발송 대기 중인 청구서가 없습니다.</EmptyState>
               </td>
             </tr>
           ) : (
-            rows.map((row, index) => (
-              <tr key={row.id} onClick={() => onRowClick(row)}>
+            rows.map((row, index) => {
+              const courseInfo = resolveCourseInfo(row);
+              return (
+                <tr key={row.id} onClick={() => onRowClick(row)}>
                 <td onClick={(event) => event.stopPropagation()}>
                   <input
                     type="checkbox"
@@ -620,18 +928,34 @@ function InvoicesTable(props: {
                     onChange={() => onToggleSelect(row.id)}
                   />
                 </td>
-                <td>{page * size + index + 1}</td>
+                <td className="number-cell">{page * size + index + 1}</td>
                 <td>
                   <strong>{row.student.name}</strong>
                   <MetaText>{row.student.code}</MetaText>
                 </td>
-              <td>
-                <StatusBadge status={row.status}>{statusLabel[row.status] ?? row.status}</StatusBadge>
-              </td>
-              <td>{formatMoney(row.finalAmount)}</td>
-              <td>{renderDueDate(row.dueDate)}</td>
-            </tr>
-          ))
+                <td>
+                  {courseInfo.title ? (
+                    <>
+                      <strong>{courseInfo.title}</strong>
+                      {courseInfo.code ? <MetaText>{courseInfo.code}</MetaText> : null}
+                    </>
+                  ) : (
+                    <MetaText>-</MetaText>
+                  )}
+                </td>
+                <td>
+                  <StudentStatusBadge data-status={row.student.status ?? undefined}>
+                    {renderStudentStatus(row.student.status)}
+                  </StudentStatusBadge>
+                </td>
+                <td>
+                  <StatusBadge status={row.status}>{statusLabel[row.status] ?? row.status}</StatusBadge>
+                </td>
+                <td>{formatMoney(row.finalAmount)}</td>
+                <td>{renderDueDate(row.dueDate)}</td>
+              </tr>
+              );
+            })
         )}
         </tbody>
       </CenteredTable>
@@ -666,27 +990,44 @@ function HistoryTable(props: {
   page: number;
   size: number;
   totalPages: number;
+  last?: boolean;
   onChangePage: (page: number) => void;
   onRowClick: (row: PaymentHistoryRow) => void;
   activeId: number | null;
+  variant?: "pending" | "completed";
+  onResendClick?: (row: PaymentHistoryRow) => void;
 }) {
-  const { rows, loading, page, totalPages, onChangePage, onRowClick, activeId } = props;
-  const lastPage = Math.max(totalPages - 1, 0);
+  const {
+    rows,
+    loading,
+    page,
+    totalPages,
+    last,
+    onChangePage,
+    onRowClick,
+    activeId,
+    variant = "completed",
+    onResendClick,
+  } = props;
+  const isLastPage = last ?? (totalPages === 0 || page >= totalPages - 1);
+  const isPendingVariant = variant === "pending";
   return (
     <TableWrapper>
       <CenteredTable>
         <colgroup>
-          <col style={{ width: "30%" }} />
-          <col style={{ width: "20%" }} />
-          <col style={{ width: "25%" }} />
-          <col />
+          <col style={{ width: "28%" }} />
+          <col style={{ width: "16%" }} />
+          <col style={{ width: "22%" }} />
+          <col style={{ width: "22%" }} />
+          {isPendingVariant ? <col style={{ width: "12%" }} /> : null}
         </colgroup>
         <thead>
           <tr>
             <th>학생</th>
             <th>상태</th>
-            <th>결제 완료일</th>
+            <th>{isPendingVariant ? "최근 발송일" : "결제 완료일"}</th>
             <th>결제 수단</th>
+            {isPendingVariant ? <th>재발송</th> : null}
           </tr>
         </thead>
         <tbody>
@@ -704,11 +1045,11 @@ function HistoryTable(props: {
             </tr>
           ) : (
             rows.map((row) => (
-              <tr
-                key={row.id}
-                data-active={activeId === row.id}
-                onClick={() => onRowClick(row)}
-              >
+            <tr
+              key={row.id}
+              data-active={activeId === row.id}
+              onClick={() => onRowClick(row)}
+            >
                 <td>
                   <strong>{row.student.name}</strong>
                   <MetaText>{row.student.code}</MetaText>
@@ -716,17 +1057,35 @@ function HistoryTable(props: {
                 <td>
                   <StatusBadge status={row.status}>{statusLabel[row.status] ?? row.status}</StatusBadge>
                 </td>
-                <td>
-                  {row.completedAt
+              <td>
+                {isPendingVariant
+                  ? row.invoiceRequestedAt
+                    ? formatKoreanDate(row.invoiceRequestedAt, { includeWeekday: false })
+                    : "-"
+                  : row.completedAt
                     ? formatKoreanDate(row.completedAt, { includeWeekday: false })
                     : "-"}
-                </td>
+              </td>
+              <td>
+                {getPaymentMethodDisplay(row.paymentMethod, row.paymentType)}
+              </td>
+              {isPendingVariant ? (
                 <td>
-                  {getPaymentMethodDisplay(row.paymentMethod, row.paymentType)}
+                  <ResendButton
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onResendClick?.(row);
+                    }}
+                    disabled={row.status !== "UNPAID"}
+                  >
+                    재발송
+                  </ResendButton>
                 </td>
-              </tr>
-            ))
-          )}
+              ) : null}
+            </tr>
+          ))
+        )}
         </tbody>
       </CenteredTable>
       <PagerBar>
@@ -742,8 +1101,8 @@ function HistoryTable(props: {
         </span>
         <GhostButton
           type="button"
-          onClick={() => onChangePage(Math.min(lastPage, page + 1))}
-          disabled={totalPages === 0 || page >= totalPages - 1}
+          onClick={() => onChangePage(page + 1)}
+          disabled={isLastPage}
         >
           다음
         </GhostButton>
@@ -1237,27 +1596,29 @@ type OnsiteCandidateModalProps = {
   onClose: () => void;
   rows: PaymentHistoryRow[];
   loading: boolean;
+  page: number;
+  totalPages: number;
+  onChangePage: (page: number) => void;
   onSelect: (row: PaymentHistoryRow) => void;
 };
 
-function OnsiteCandidateModal({ open, onClose, rows, loading, onSelect }: OnsiteCandidateModalProps) {
-  const pageSize = 10;
-  const [page, setPage] = useState(0);
-  useEffect(() => {
-    if (open) {
-      setPage(0);
-    }
-  }, [open, rows.length]);
-  const totalPagesRaw = Math.ceil(rows.length / pageSize);
-  const totalPages = totalPagesRaw > 0 ? totalPagesRaw : 1;
+function OnsiteCandidateModal({
+  open,
+  onClose,
+  rows,
+  loading,
+  page,
+  totalPages,
+  onChangePage,
+  onSelect,
+}: OnsiteCandidateModalProps) {
   const lastPage = Math.max(totalPages - 1, 0);
-  const pagedRows = rows.slice(page * pageSize, page * pageSize + pageSize);
   return (
     <Modal open={open} onClose={onClose} title="현장 결제 대상 선택" maxWidth={760}>
       {loading ? (
         <Skeleton h={160} />
       ) : rows.length === 0 ? (
-        <EmptyState>미납/대기 상태의 청구서가 없습니다.</EmptyState>
+        <EmptyState>발송 완료 상태의 청구서가 없습니다.</EmptyState>
       ) : (
         <>
           <TableWrapper>
@@ -1273,7 +1634,7 @@ function OnsiteCandidateModal({ open, onClose, rows, loading, onSelect }: Onsite
                 </tr>
               </thead>
               <tbody>
-                {pagedRows.map((row) => (
+                {rows.map((row) => (
                   <tr key={row.id}>
                     <td>
                       <strong>{row.student.name}</strong>
@@ -1301,21 +1662,23 @@ function OnsiteCandidateModal({ open, onClose, rows, loading, onSelect }: Onsite
               </tbody>
             </CandidateTable>
           </TableWrapper>
-          <PagerBar>
-            <GhostButton type="button" onClick={() => setPage((prev) => Math.max(0, prev - 1))} disabled={page <= 0}>
-              이전
-            </GhostButton>
-            <span>
-              {Math.min(page + 1, totalPages)} / {totalPages}
-            </span>
-            <GhostButton
-              type="button"
-              onClick={() => setPage((prev) => Math.min(lastPage, prev + 1))}
-              disabled={page >= lastPage}
-            >
-              다음
-            </GhostButton>
-          </PagerBar>
+          {totalPages > 1 ? (
+            <PagerBar>
+              <GhostButton type="button" onClick={() => onChangePage(Math.max(0, page - 1))} disabled={page <= 0}>
+                이전
+              </GhostButton>
+              <span>
+                {Math.min(page + 1, totalPages)} / {totalPages}
+              </span>
+              <GhostButton
+                type="button"
+                onClick={() => onChangePage(Math.min(lastPage, page + 1))}
+                disabled={page >= lastPage}
+              >
+                다음
+              </GhostButton>
+            </PagerBar>
+          ) : null}
         </>
       )}
     </Modal>
@@ -1544,20 +1907,6 @@ function OnsitePaymentModal({
   );
 }
 
-function filterInvoiceQueue(rows: PaymentHistoryRow[], reminderDays?: number | null): PaymentHistoryRow[] {
-  const now = new Date();
-  const threshold = new Date(now);
-  const days = typeof reminderDays === "number" && reminderDays > 0 ? reminderDays : 5;
-  threshold.setDate(threshold.getDate() + days);
-  return rows.filter((row) => {
-    if (!row.dueDate) return true;
-    const due = new Date(row.dueDate);
-    if (Number.isNaN(due.getTime())) return true;
-    if (due <= threshold) return true;
-    return false;
-  });
-}
-
 type SummaryStat = {
   label: string;
   value: string;
@@ -1569,16 +1918,16 @@ function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number
   if (!summary) {
     return [
       { label: "이번달 총 결제액", value: "—", icon: paidIcon, tone: "muted" },
-      { label: "이번달 총 미납액", value: "—", icon: unpaidIcon, tone: "muted" },
-      { label: "이번달 미납 인원", value: "—", icon: peopleIcon, tone: "muted" },
+      { label: "이번달 대기 금액", value: "—", icon: unpaidIcon, tone: "muted" },
+      { label: "이번달 대기 인원", value: "—", icon: peopleIcon, tone: "muted" },
       { label: "청구서 미발송 인원", value: "—", icon: paperIcon, tone: "muted" },
     ];
   }
   const unsent = typeof unsentOverride === "number" ? unsentOverride : summary.unsentCount;
   return [
     { label: "이번달 총 결제액", value: formatMoney(summary.paidAmount), icon: paidIcon, tone: "primary" },
-    { label: "이번달 총 미납액", value: formatMoney(summary.unpaidAmount), icon: unpaidIcon, tone: "danger" },
-    { label: "이번달 미납 인원", value: `${summary.unpaidCount}명`, icon: peopleIcon, tone: "warning" },
+    { label: "이번달 대기 금액", value: formatMoney(summary.unpaidAmount), icon: unpaidIcon, tone: "danger" },
+    { label: "이번달 대기 인원", value: `${summary.unpaidCount}명`, icon: peopleIcon, tone: "warning" },
     { label: "청구서 미발송 인원", value: `${unsent}명`, icon: paperIcon, tone: "success" },
   ];
 }
@@ -1685,13 +2034,63 @@ const Panels = styled.div`
   gap: 24px;
 `;
 
+const PanelControls = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+`;
+
+const ToggleGroup = styled.div`
+  display: inline-flex;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.xl};
+  overflow: hidden;
+`;
+
+const ToggleButton = styled.button<{ $active?: boolean }>`
+  border: none;
+  background: ${({ $active, theme }) => ($active ? theme.colors.primarySurface : "transparent")};
+  color: ${({ $active, theme }) => ($active ? theme.colors.primary : theme.colors.text)};
+  font-weight: 600;
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
+`;
+
 const SectionHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
   flex-wrap: wrap;
+`;
+
+const SectionInfo = styled.div`
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-start;
+`;
+
+const InfoText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 200px;
+`;
+
+const SectionActions = styled.div`
+  display: inline-flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 `;
 
 const SectionHeading = styled.h4`
@@ -1712,23 +2111,67 @@ const HistoryFilters = styled.div`
   gap: 16px;
   align-items: flex-end;
   margin-bottom: 16px;
+  width: 100%;
 `;
 
-const InvoiceButtonRow = styled.div`
-  display: flex;
-  align-items: center;
+const HistorySplit = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+`;
+
+const HistoryColumn = styled.div`
+  display: grid;
   gap: 12px;
-  flex-wrap: wrap;
 `;
 
-const SearchRow = styled.div`
+const HistoryColumnSticky = styled(HistoryColumn)`
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+`;
+
+const HistoryColumnHeader = styled.div`
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
+  small {
+    color: ${(p) => p.theme.colors.textMuted};
+    font-size: 12px;
+  }
+`;
+
+const ColumnTitle = styled.h4`
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: ${(p) => p.theme.colors.text};
+`;
+
+const KakaoButton = styled.button`
+  border: 1px solid #f4d000;
+  background: #fee500;
+  color: #1e1200;
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: 0 18px;
+  height: 40px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   gap: 8px;
-  margin-bottom: 16px;
-  input {
-    flex: 1;
-    min-width: 220px;
+  transition: transform 0.15s ease;
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 `;
 
@@ -1736,6 +2179,7 @@ const PeriodFilter = styled.div`
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1 1 280px;
   span {
     font-size: 13px;
     color: ${(p) => p.theme.colors.text};
@@ -1746,7 +2190,8 @@ const PeriodFilter = styled.div`
     align-items: center;
     gap: 8px;
     input {
-      width: 140px;
+      flex: 1 1 0;
+      min-width: 0;
     }
   }
 `;
@@ -1755,6 +2200,7 @@ const FilterField = styled.div`
   display: flex;
   flex-direction: column;
   gap: 6px;
+  flex: 1 1 240px;
   span {
     font-size: 13px;
     color: ${(p) => p.theme.colors.text};
@@ -1762,8 +2208,17 @@ const FilterField = styled.div`
   }
   input,
   select {
-    min-width: 160px;
+    min-width: 0;
+    width: 100%;
   }
+`;
+
+const FilterFieldWide = styled(FilterField)`
+  flex: 2 1 360px;
+`;
+
+const FilterFieldCompact = styled(FilterField)`
+  flex: 0 0 180px;
 `;
 
 const Input = styled.input`
@@ -1775,14 +2230,8 @@ const Input = styled.input`
   box-sizing: border-box;
 `;
 
-const Select = styled.select`
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 14px;
+const Select = styled(SelectBox)`
   width: 100%;
-  box-sizing: border-box;
-  background: #fff;
 `;
 
 const Textarea = styled.textarea`
@@ -1822,6 +2271,12 @@ const SelectButton = styled(PrimaryButton)`
   height: 32px;
   padding: 0 12px;
   font-size: 13px;
+`;
+
+const ResendButton = styled(PrimaryButton)`
+  height: 30px;
+  padding: 0 12px;
+  font-size: 12px;
 `;
 
 const OnsiteSection = styled.div`
@@ -1970,20 +2425,13 @@ const StyledTable = styled(TableBase)`
   tbody tr td:first-child input {
     cursor: pointer;
   }
-  .due-date-cell {
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    line-height: 1.2;
+  .due-date-text {
+    display: inline-block;
+    min-width: 140px;
+    white-space: nowrap;
   }
-  .due-date-cell .year {
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-  .due-date-cell .day {
-    font-weight: 600;
-    font-size: 15px;
-    color: ${(p) => p.theme.colors.text};
+  .number-cell {
+    white-space: nowrap;
   }
 `;
 
@@ -2018,6 +2466,18 @@ const StatusBadge = styled.span<{ status: string }>`
   font-weight: 600;
   background: ${({ status }) => (statusColor[status] ?? "#d1d5db")}1A;
   color: ${({ status }) => statusColor[status] ?? "#52525b"};
+`;
+
+const StudentStatusBadge = styled.span<{ "data-status"?: string }>`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: ${({ "data-status": status }) =>
+    (studentStatusColor[status ?? ""] ?? "#94a3b8")}1A;
+  color: ${({ "data-status": status }) => studentStatusColor[status ?? ""] ?? "#475569"};
 `;
 
 const MetaText = styled.span`
@@ -2115,4 +2575,11 @@ const CourseList = styled(DetailList)`
     font-size: 14px;
     color: ${(p) => p.theme.colors.text};
   }
+`;
+const FilterActions = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+  align-items: flex-end;
+  flex-wrap: wrap;
 `;

@@ -6,14 +6,18 @@ import {
   type FormEvent,
 } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/components/common/Toast";
 import {
   apiChangePassword,
   apiGetMyAcademy,
+  apiGetMySeller,
+  apiRegisterSeller,
   apiUpdateMyAcademy,
   apiUpdateMyProfile,
   type AcademyDetail,
+  type SellerDetail,
 } from "@/api/account";
 import { apiRequestPhoneCode, apiVerifyPhoneCode } from "@/api/auth";
 import {
@@ -29,7 +33,7 @@ import {
   unmaskBiz,
 } from "@/features/myAcademy/utils";
 import { createTeacher, listTeachers, type TeacherListItem } from "@/api/teachers";
-import { paths, routes } from "@/routes";
+import { paths } from "@/routes";
 
 // Teacher menus are fixed on the backend; no per-user selection needed.
 
@@ -139,6 +143,37 @@ export type AcademyModalState = {
   submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
 };
 
+type SellerFormState = {
+  businessType: "INDIVIDUAL" | "INDIVIDUAL_BUSINESS" | "CORPORATE";
+  refSellerId: string;
+  companyName: string;
+  representativeName: string;
+  businessRegistrationNumber: string;
+  companyEmail: string;
+  companyPhone: string;
+  accountBankCode: string;
+  accountNumber: string;
+  accountHolderName: string;
+};
+
+export type SellerModalState = {
+  open: boolean;
+  creating: boolean;
+  submitting: boolean;
+  error: string | null;
+  form: SellerFormState;
+  updateField: <K extends keyof SellerFormState>(field: K, value: SellerFormState[K]) => void;
+  submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+  closeModal: () => void;
+};
+
+type SellerViewState = {
+  loading: boolean;
+  data: SellerDetail | null;
+  canRegister: boolean;
+  onOpenRegister: () => void;
+};
+
 type TeacherCreateFormState = {
   username: string;
   name: string;
@@ -174,6 +209,7 @@ export type UseMyAcademyPageResult = {
   account: AccountViewState;
   academy: AcademyViewState;
   billing: BillingViewState;
+  seller: SellerViewState;
   teachers: {
     loading: boolean;
     error: string | null;
@@ -186,6 +222,7 @@ export type UseMyAcademyPageResult = {
   phoneModal: PhoneModalState;
   passwordModal: PasswordModalState;
   academyModal: AcademyModalState;
+  sellerModal: SellerModalState;
   teacherCreateModal: TeacherCreateModalState;
   handleLogout: () => void;
   clearError: () => void;
@@ -202,6 +239,36 @@ function createAcademyForm(detail: AcademyDetail | null): AcademyFormState {
     phone: detail?.phone ?? "",
     billingEmail: detail?.billingEmail ?? "",
     bizNo: maskBiz(detail?.bizNo ?? ""),
+  };
+}
+
+function buildRefSellerId(detail: AcademyDetail | null) {
+  if (detail?.id) {
+    const padded = detail.id.toString().padStart(4, "0");
+    return `seller-${padded}`;
+  }
+  const random = Math.random().toString(36).slice(2, 8);
+  return `seller-temp-${random}`;
+}
+
+function createSellerForm(academy: AcademyDetail | null, seller: SellerDetail | null): SellerFormState {
+  const company = seller?.company;
+  const account = seller?.account;
+  return {
+    businessType: seller?.businessType ?? "INDIVIDUAL_BUSINESS",
+    refSellerId: seller?.refSellerId ?? buildRefSellerId(academy),
+    companyName: company?.name ?? academy?.name ?? "",
+    representativeName: company?.representativeName ?? academy?.representativeName ?? "",
+    businessRegistrationNumber: company?.businessRegistrationNumber ?? academy?.bizNo ?? "",
+    companyEmail: company?.email ?? academy?.billingEmail ?? "",
+    companyPhone: company?.phone ?? academy?.phone ?? "",
+    accountBankCode: account?.bankCode ?? "",
+    accountNumber: account?.accountNumber ?? "",
+    accountHolderName:
+      account?.holderName ??
+      company?.representativeName ??
+      academy?.representativeName ??
+      "",
   };
 }
 
@@ -247,6 +314,25 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [academyModalError, setAcademyModalError] = useState<string | null>(null);
   const [academyModalSubmitting, setAcademyModalSubmitting] = useState(false);
+  const queryClient = useQueryClient();
+  const sellerQueryKey = useMemo(() => ["seller"] as const, []);
+  const sellerQuery = useQuery({
+    queryKey: sellerQueryKey,
+    queryFn: apiGetMySeller,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+  });
+  const seller = sellerQuery.data ?? null;
+  const sellerLoading = sellerQuery.isLoading;
+  const [sellerModalOpen, setSellerModalOpen] = useState(false);
+  const [sellerModalForm, setSellerModalForm] = useState<SellerFormState>(() =>
+    createSellerForm(null, null),
+  );
+  const [sellerModalSubmitting, setSellerModalSubmitting] = useState(false);
+  const [sellerModalError, setSellerModalError] = useState<string | null>(null);
   const [teacherList, setTeacherList] = useState<TeacherListItem[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(true);
   const [teachersError, setTeachersError] = useState<string | null>(null);
@@ -456,12 +542,17 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   }, []);
 
   useEffect(() => {
+    if (sellerModalOpen) return;
+    setSellerModalForm(createSellerForm(academy, seller));
+  }, [academy, seller, sellerModalOpen]);
+
+  useEffect(() => {
     let alive = true;
     (async () => {
       try {
         const sub = await apiGetSubscription();
         if (!alive) return;
-        if (sub && (sub as any).id) setSubscription(sub);
+        if (sub?.id) setSubscription(sub);
       } catch {
         // ignore subscription load errors
       } finally {
@@ -763,6 +854,88 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     setAcademyModalError(null);
   }, []);
 
+  const openSellerModal = useCallback(() => {
+    if (!academy?.id) {
+      toast.warning("학원 정보를 먼저 등록해 주세요.");
+      return;
+    }
+    setSellerModalForm(createSellerForm(academy, seller));
+    setSellerModalError(null);
+    setSellerModalSubmitting(false);
+    setSellerModalOpen(true);
+  }, [academy, seller, toast]);
+
+  const closeSellerModal = useCallback(() => {
+    setSellerModalOpen(false);
+    setSellerModalSubmitting(false);
+    setSellerModalError(null);
+  }, []);
+
+  const updateSellerModalField = useCallback(
+    <K extends keyof SellerFormState>(field: K, value: SellerFormState[K]) => {
+      setSellerModalForm((prev) => ({ ...prev, [field]: value }));
+      setSellerModalError(null);
+    },
+    [],
+  );
+
+  const submitSellerModal = useCallback(
+    async (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      if (!academy?.id) {
+        setSellerModalError("학원 정보를 먼저 등록해 주세요.");
+        return;
+      }
+      if (seller?.tossSellerId) {
+        setSellerModalError("이미 등록된 셀러가 있습니다.");
+        return;
+      }
+      const refSellerId = sellerModalForm.refSellerId.trim();
+      if (!refSellerId) {
+        setSellerModalError("셀러 ID가 올바르지 않습니다.");
+        return;
+      }
+      const bankCode = sellerModalForm.accountBankCode.trim();
+      const accountNumber = sellerModalForm.accountNumber.trim();
+      if (!bankCode || !accountNumber) {
+        setSellerModalError("정산 받을 은행과 계좌번호를 입력해 주세요.");
+        return;
+      }
+      const holderName =
+        sellerModalForm.accountHolderName.trim() ||
+        sellerModalForm.representativeName.trim() ||
+        sellerModalForm.companyName.trim();
+      if (!holderName) {
+        setSellerModalError("예금주명을 입력해 주세요.");
+        return;
+      }
+      const bizNumberDigits = sellerModalForm.businessRegistrationNumber.replace(/\D/g, "");
+      setSellerModalSubmitting(true);
+      try {
+        const registered = await apiRegisterSeller({
+          refSellerId,
+          businessType: sellerModalForm.businessType,
+          companyName: sellerModalForm.companyName.trim() || undefined,
+          representativeName: sellerModalForm.representativeName.trim() || undefined,
+          businessRegistrationNumber: bizNumberDigits || undefined,
+          companyEmail: sellerModalForm.companyEmail.trim() || undefined,
+          companyPhone: sellerModalForm.companyPhone.trim() || undefined,
+          bankCode,
+          accountNumber,
+          accountHolderName: holderName,
+        });
+        queryClient.setQueryData(sellerQueryKey, registered);
+        toast.success("토스 셀러가 등록되었습니다.");
+        closeSellerModal();
+      } catch (err) {
+        setSellerModalError(toErrorMessage(err, "셀러 등록에 실패했습니다."));
+      } finally {
+        setSellerModalSubmitting(false);
+      }
+    },
+    [academy?.id, closeSellerModal, queryClient, seller, sellerModalForm, sellerQueryKey, toast],
+  );
+
   const submitAcademyModal = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -854,6 +1027,13 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     },
   };
 
+  const sellerView: SellerViewState = {
+    loading: sellerLoading,
+    data: seller,
+    canRegister: Boolean(academy?.id) && (!seller || !seller.tossSellerId),
+    onOpenRegister: openSellerModal,
+  };
+
   const profileModal: ProfileModalState = {
     open: profileModalOpen,
     name: profileModalName,
@@ -913,6 +1093,17 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     submit: submitAcademyModal,
   };
 
+  const sellerModalState: SellerModalState = {
+    open: sellerModalOpen,
+    creating: !seller || !seller.tossSellerId,
+    submitting: sellerModalSubmitting,
+    error: sellerModalError,
+    form: sellerModalForm,
+    updateField: updateSellerModalField,
+    submit: submitSellerModal,
+    closeModal: closeSellerModal,
+  };
+
   const teachersView = {
     loading: teachersLoading,
     error: teachersError,
@@ -928,24 +1119,26 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     account,
     academy: academyView,
     billing: billingView,
+    seller: sellerView,
     teachers: teachersView,
     profileModal,
     phoneModal,
     passwordModal,
     academyModal,
-      teacherCreateModal: {
-        open: teacherModalOpen,
-        form: teacherModalForm,
-        submitting: teacherModalSubmitting,
-        error: teacherModalError,
-        fieldErrors: teacherModalFieldErrors,
-        focusField: teacherModalFocusField,
-        openModal: openTeacherModal,
-        closeModal: closeTeacherModal,
-        updateField: updateTeacherField,
-        submit: submitTeacherModal,
-        clearFocusField: clearTeacherFocusField,
-      },
+    sellerModal: sellerModalState,
+    teacherCreateModal: {
+      open: teacherModalOpen,
+      form: teacherModalForm,
+      submitting: teacherModalSubmitting,
+      error: teacherModalError,
+      fieldErrors: teacherModalFieldErrors,
+      focusField: teacherModalFocusField,
+      openModal: openTeacherModal,
+      closeModal: closeTeacherModal,
+      updateField: updateTeacherField,
+      submit: submitTeacherModal,
+      clearFocusField: clearTeacherFocusField,
+    },
     handleLogout,
     clearError,
   };

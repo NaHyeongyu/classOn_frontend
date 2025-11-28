@@ -2,78 +2,70 @@ import styled from "styled-components";
 import { SmallBtn as UISmallBtn } from "@/components/common/UI";
 
 export const Card = styled.section`
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 14px;
-  padding: 16px;
+  background: ${(p) => p.theme.colors.surface};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.lg};
+  padding: ${(p) => p.theme.spacing.lg};
   min-width: 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.md};
+  box-shadow: ${(p) => p.theme.shadow.low};
+  height: 100%;
 `;
 
 export const SectionTitle = styled.h3`
   margin: 0;
-  font-size: 16px;
-  color: #0f172a;
+  font-size: ${(p) => p.theme.font.size.lg};
+  color: ${(p) => p.theme.colors.text};
 `;
 
 export const CardHead = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 
 export const CardActions = styled.div`
   display: inline-flex;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.xs};
 `;
 
 export const Divider = styled.div`
   height: 1px;
-  background: #e5e7eb;
-  margin: 6px 0 10px;
+  background: ${(p) => p.theme.colors.borderMuted};
 `;
 
 export const InfoList = styled.div`
   display: grid;
-  gap: 14px;
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 
 export const Row = styled.div`
-  display: grid;
-  grid-template-columns: 44px 1fr auto;
-  gap: 12px;
+  display: flex;
   align-items: center;
-  margin-bottom: 6px;
-`;
-
-export const Avatar = styled.div`
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: #eef2ff;
-  color: #4f46e5;
-  display: grid;
-  place-items: center;
-  font-weight: 800;
+  justify-content: space-between;
+  gap: ${(p) => p.theme.spacing.sm};
+  flex-wrap: wrap;
 `;
 
 export const Name = styled.div`
-  font-size: 19px;
-  font-weight: 900;
-  color: #0f172a;
+  font-size: 20px;
+  font-weight: ${(p) => p.theme.font.weight.extraBold ?? 800};
+  color: ${(p) => p.theme.colors.text};
   letter-spacing: -0.01em;
 `;
 
 export const SmallMuted = styled.div`
-  color: #6b7280;
-  font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
 `;
 
 export const KPI = styled.div`
   font-size: 28px;
-  font-weight: 900;
-  color: #111827;
+  font-weight: ${(p) => p.theme.font.weight.extraBold ?? 800};
+  color: ${(p) => p.theme.colors.text};
   line-height: 1.2;
 `;
 
@@ -82,6 +74,7 @@ export const StatusChip = styled.span`
   border-radius: 9999px;
   font-size: 12px;
   font-weight: 800;
+  white-space: nowrap;
   &[data-type="ENROLLED"] {
     background: #dcfce7;
     color: #16a34a;
@@ -98,29 +91,29 @@ export const StatusChip = styled.span`
 
 export const Field = styled.div`
   display: grid;
-  grid-template-columns: 100px 1fr;
-  gap: 8px;
+  grid-template-columns: 110px 1fr;
+  gap: ${(p) => p.theme.spacing.xs};
+  align-items: center;
 `;
 
 export const Label = styled.div`
-  color: #6b7280;
-  font-size: 13px;
-  align-self: center;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
 `;
 
 export const Value = styled.div`
-  color: #111827;
-  font-size: 15px;
+  color: ${(p) => p.theme.colors.text};
+  font-size: ${(p) => p.theme.font.size.md};
 `;
 
 export const Muted = styled.div`
-  color: #6b7280;
-  font-size: 13px;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
 `;
 
 export const Tabs = styled.div`
   display: inline-flex;
-  gap: 6px;
+  gap: ${(p) => p.theme.spacing.xs};
   flex-wrap: wrap;
 `;
 
@@ -129,9 +122,9 @@ export const TabButton = styled(UISmallBtn)`
   padding: 0 16px;
   font-size: 14px;
   &[data-active="true"] {
-    background: #f3f4f6;
-    color: #111827;
-    border-color: #e5e7eb;
+    background: ${(p) => p.theme.colors.surfaceMuted};
+    color: ${(p) => p.theme.colors.text};
+    border-color: ${(p) => p.theme.colors.border};
   }
 `;
 

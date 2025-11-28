@@ -11,32 +11,8 @@ import {
   ModalSelect,
 } from "@/components/myAcademy/MyAcademyModalStyles";
 import { BANK_OPTIONS } from "@/features/myAcademy/banks";
-import type { FormEvent } from "react";
+import type { SellerModalState } from "@/features/myAcademy/hooks/useMyAcademyPage";
 import styled from "styled-components";
-
-type SellerFormState = {
-  businessType: "INDIVIDUAL" | "INDIVIDUAL_BUSINESS" | "CORPORATE";
-  refSellerId: string;
-  companyName: string;
-  representativeName: string;
-  businessRegistrationNumber: string;
-  companyEmail: string;
-  companyPhone: string;
-  accountBankCode: string;
-  accountNumber: string;
-  accountHolderName: string;
-};
-
-export type SellerModalState = {
-  open: boolean;
-  creating: boolean;
-  submitting: boolean;
-  error: string | null;
-  form: SellerFormState;
-  updateField: <K extends keyof SellerFormState>(field: K, value: SellerFormState[K]) => void;
-  submit: (event: FormEvent<HTMLFormElement>) => void | Promise<void>;
-  closeModal: () => void;
-};
 
 type Props = {
   modal: SellerModalState;
@@ -57,7 +33,7 @@ export function MyAcademySellerModal({ modal }: Props) {
     <Modal
       open={modal.open}
       onClose={modal.closeModal}
-      title={modal.creating ? "결제 관리 등록" : "결제 관리 수정"}
+      title={modal.creating ? "셀러 등록" : "셀러 정보"}
     >
       <ModalForm onSubmit={modal.submit}>
         <ModalLabel htmlFor="seller-ref-id">셀러 ID (자동 생성)</ModalLabel>
@@ -66,7 +42,7 @@ export function MyAcademySellerModal({ modal }: Props) {
           value={modal.form.refSellerId}
           readOnly
           disabled
-          placeholder="예: academy_seller_1"
+          placeholder="예: seller-0001"
         />
         <ModalHint>플랫폼에서 자동 발급해 사용하는 고유 ID입니다.</ModalHint>
 

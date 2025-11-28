@@ -2,10 +2,11 @@ import { MarketingPageView } from "@/views/marketing/MarketingPageView";
 import { useMarketingPage } from "@/features/marketing/hooks/useMarketingPage";
 
 export default function MarketingPage() {
-  const { filterProps, resultsProps } = useMarketingPage();
+  const { classSelectorProps, periodSelectorProps, resultsProps } = useMarketingPage();
   return (
     <MarketingPageView
-      filterProps={filterProps}
+      classSelectorProps={classSelectorProps}
+      periodSelectorProps={periodSelectorProps}
       resultsProps={resultsProps}
     />
   );

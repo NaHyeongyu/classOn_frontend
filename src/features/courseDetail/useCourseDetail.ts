@@ -15,6 +15,7 @@ import {
   buildFilterRange,
   formatCourseTime,
   formatDateKey,
+  hhmm,
   sanitizeFilename,
   saveBlobAsFile,
 } from "./utils";
@@ -415,7 +416,7 @@ export function useCourseDetail({
       dateLabel: `${record.recordDate} (${
         "일월화수목금토"[new Date(record.recordDate).getDay()]
       })`,
-      time: formatCourseTime(course),
+      time: formatRecordTime(record, course),
       type: new Date(record.recordDate) < new Date() ? "지난 수업" : "예정",
       notes: record.notes || record.content || null,
     }));
@@ -516,4 +517,13 @@ export function useCourseDetail({
     avgAttendance,
     getAttendanceMap,
   };
+}
+
+function formatRecordTime(record: CourseRecord, course: Course): string {
+  const start = record.startTime ? hhmm(record.startTime) : "";
+  const end = record.endTime ? hhmm(record.endTime) : "";
+  if (start && end) return `${start} ~ ${end}`;
+  if (start) return start;
+  if (end) return end;
+  return formatCourseTime(course);
 }

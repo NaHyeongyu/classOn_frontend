@@ -56,7 +56,7 @@ const ContentHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 6px;
+  margin-bottom: 12px;
 `;
 
 const ContentActions = styled.div`
@@ -70,7 +70,7 @@ const ContentTextArea = styled.textarea`
   width: 100%;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
-  padding: 8px 10px;
+  padding: 12px;
   font-size: 14px;
   resize: vertical;
   min-height: 160px;

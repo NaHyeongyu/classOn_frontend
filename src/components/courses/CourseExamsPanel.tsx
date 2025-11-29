@@ -168,15 +168,59 @@ const TableWrap = styled.div`
 `;
 const Table = styled(UITable)`
   width: 100%;
-  thead th, tbody td { vertical-align: middle; }
-  thead th:first-child, tbody td:first-child { text-align: left; width: 40%; }
-  thead th:nth-child(2), tbody td:nth-child(2), thead th:nth-child(3), tbody td:nth-child(3) { width: 20%; text-align: center; }
-  thead th.manage, tbody td.manage { width: 160px; text-align: right; white-space: nowrap; }
-  thead th.manage { position: relative; }
-  thead th.manage .sr-only { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
-  thead th.manage .manage-header { display:inline-flex; align-items:center; justify-content:flex-end; gap:6px; width:100%; font-size:12px; color:#94a3b8; }
-  thead th.manage .manage-label { color:#1f2937; font-weight:600; }
-  tbody td.manage .actions { display:inline-flex; gap:6px; justify-content:flex-end; flex-wrap:nowrap; }
+  thead th,
+  tbody td {
+    vertical-align: middle;
+    text-align: center;
+  }
+  thead th:first-child,
+  tbody td:first-child {
+    width: 40%;
+  }
+  thead th:nth-child(2),
+  tbody td:nth-child(2),
+  thead th:nth-child(3),
+  tbody td:nth-child(3) {
+    width: 20%;
+  }
+  thead th.manage,
+  tbody td.manage {
+    width: 160px;
+    white-space: nowrap;
+  }
+  thead th.manage {
+    position: relative;
+  }
+  thead th.manage .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  thead th.manage .manage-header {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    font-size: 12px;
+    color: #94a3b8;
+  }
+  thead th.manage .manage-label {
+    color: #1f2937;
+    font-weight: 600;
+  }
+  tbody td.manage .actions {
+    display: inline-flex;
+    gap: 6px;
+    justify-content: center;
+    flex-wrap: nowrap;
+  }
 `;
 const Empty = styled.div`
   display: grid;
@@ -194,8 +238,15 @@ const Empty = styled.div`
   }
 `;
 const NameCell = styled.div`
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  .name { font-weight: 700; color: #1f2937; }
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  .name {
+    font-weight: 700;
+    color: #1f2937;
+  }
 `;
 const Form = styled.div`
   display: grid;

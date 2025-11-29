@@ -15,6 +15,7 @@ import {
 import Modal from "@/components/common/Modal";
 import { useToast } from "@/components/common/Toast";
 import {
+  cancelPayment,
   getPaymentDetail,
   getPaymentSummary,
   listPaymentHistory,
@@ -73,6 +74,7 @@ const statusLabel: Record<string, string> = {
   PENDING: "미납",
   COMPLETED: "완료",
   FAILED: "실패",
+  CANCELED: "취소",
 };
 
 const statusColor: Record<string, string> = {
@@ -80,6 +82,7 @@ const statusColor: Record<string, string> = {
   PENDING: "#2563EB",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
+  CANCELED: "#dc2626",
 };
 
 const studentStatusColor: Record<string, string> = {
@@ -101,7 +104,7 @@ const paymentTypeLabel: Record<string, string> = {
 };
 
 type StudentStatusFilter = "ALL" | "ENROLLED" | "ON_LEAVE" | "PENDING" | "STOPPED";
-type HistoryStatusFilter = "ALL" | "UNPAID" | "PENDING" | "COMPLETED";
+type HistoryStatusFilter = "ALL" | "UNPAID" | "PENDING" | "COMPLETED" | "FAILED";
 
 const studentStatusLabel: Record<string, string> = {
   ENROLLED: "수강중",
@@ -142,6 +145,17 @@ export default function Payments() {
   const [onsiteDetail, setOnsiteDetail] = useState<PaymentDetail | null>(null);
   const [onsiteDetailLoading, setOnsiteDetailLoading] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState<number | null>(null);
+  const [cancelPrompt, setCancelPrompt] = useState<{
+    open: boolean;
+    detail: PaymentDetail | null;
+    reason: string;
+  }>({ open: false, detail: null, reason: "" });
+  const [resendPrompt, setResendPrompt] = useState<{
+    open: boolean;
+    row: PaymentHistoryRow | null;
+    reason: string | null;
+    loading: boolean;
+  }>({ open: false, row: null, reason: null, loading: false });
 
   const summaryQuery = useQuery<PaymentSummary>({
     queryKey: ["payments", "summary", defaultMonth],
@@ -188,7 +202,7 @@ export default function Payments() {
       listPaymentHistory({
         from: historyFilters.from,
         to: historyFilters.to,
-        status: "COMPLETED",
+        status: "COMPLETED,CANCELED",
         q: historyFilters.q,
         page: historyCompletedPage,
         size: historyPageSize,
@@ -266,6 +280,20 @@ export default function Payments() {
     onError: (err: unknown) => toastError(readableError(err, "현장 결제 처리에 실패했습니다.")),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
+      cancelPayment(id, reason ? { reason } : undefined),
+    onSuccess: (detail: PaymentDetail) => {
+      success("결제를 취소했습니다.");
+      setDetailState((prev) =>
+        prev.open && prev.id === detail.info.id ? { ...prev, data: detail, loading: false } : prev,
+      );
+      invalidatePaymentsQueries(queryClient);
+      setCancelPrompt({ open: false, detail: null, reason: "" });
+    },
+    onError: (err: unknown) => toastError(readableError(err, "결제 취소에 실패했습니다.")),
+  });
+
   const loadDetail = useCallback(async (id: number, variant: "invoice" | "history") => {
     setDetailState({ open: true, id, variant, loading: true, data: null });
     try {
@@ -276,6 +304,11 @@ export default function Payments() {
       toastError(readableError(err, "결제 상세를 불러오지 못했습니다."));
     }
   }, [toastError]);
+
+  const handleCancelPayment = useCallback((detail: PaymentDetail) => {
+    if (!detail?.info?.id) return;
+    setCancelPrompt({ open: true, detail, reason: "" });
+  }, []);
 
   const summary = summaryQuery.data;
   const invoices = invoiceQuery.data;
@@ -292,12 +325,19 @@ export default function Payments() {
   const pendingTotalPages = pendingHistoryQuery.data?.totalPages ?? 0;
   const completedIsLast = completedHistoryQuery.data?.last ?? true;
   const pendingIsLast = pendingHistoryQuery.data?.last ?? true;
-  const pendingTitle = historyFilters.status === "UNPAID" ? "미납 내역" : "발송 완료 내역";
+  const pendingTitle =
+    historyFilters.status === "UNPAID"
+      ? "미납 내역"
+      : historyFilters.status === "FAILED"
+        ? "발송 실패 내역"
+        : "발송 완료 내역";
   const pendingDescription = historyFilters.status === "COMPLETED"
-    ? "선택한 상태는 오른쪽 결제 완료 내역에서 확인하세요."
+    ? "선택한 상태는 오른쪽 완료·취소 내역에서 확인하세요."
     : historyFilters.status === "UNPAID"
       ? "청구서 발송 전 미납 청구서"
-      : "발송 후 결제 대기 중인 청구서 (발송 5일 후 재발송 버튼이 노출됩니다.)";
+      : historyFilters.status === "FAILED"
+        ? "솔라피 발송이 실패한 청구서입니다. 원인을 확인하고 재발송하세요."
+        : "발송 후 결제 대기 중인 청구서 (발송 5일 후 재발송 버튼이 노출됩니다.)";
 
   useEffect(() => {
     const completedRows = completedHistoryQuery.data?.content ?? [];
@@ -421,7 +461,39 @@ export default function Payments() {
   };
 
   const handleHistoryResend = (row: PaymentHistoryRow) => {
+    if (row.status === "FAILED") {
+      setResendPrompt({ open: true, row, reason: null, loading: true });
+      getPaymentDetail(row.id)
+        .then((detail) => {
+          const reason =
+            detail.latestAlert?.errorMessage ||
+            detail.alerts?.find((alert) => alert.status === "FAILED")?.errorMessage ||
+            "실패 사유를 확인할 수 없습니다.";
+          setResendPrompt((prev) => ({ ...prev, loading: false, reason }));
+        })
+        .catch(() => {
+          setResendPrompt((prev) => ({
+            ...prev,
+            loading: false,
+            reason: "실패 사유를 불러오지 못했습니다.",
+          }));
+        });
+      return;
+    }
     navigate(paths.payments.kakaoConfirm({ ids: String(row.id), template: "RETRY" }));
+  };
+
+  const closeResendPrompt = () => {
+    setResendPrompt({ open: false, row: null, reason: null, loading: false });
+  };
+
+  const handleConfirmResend = () => {
+    if (!resendPrompt.row) {
+      closeResendPrompt();
+      return;
+    }
+    navigate(paths.payments.kakaoConfirm({ ids: String(resendPrompt.row.id), template: "RETRY" }));
+    closeResendPrompt();
   };
 
   const handleHistoryDateChange = (key: "from" | "to", value: string) => {
@@ -728,6 +800,7 @@ export default function Payments() {
                       { label: "대기(청구서 발송 완료)", value: "PENDING" },
                       { label: "미납", value: "UNPAID" },
                       { label: "완료", value: "COMPLETED" },
+                      { label: "실패", value: "FAILED" },
                     ]}
                   />
                 </FilterFieldCompact>
@@ -741,11 +814,28 @@ export default function Payments() {
                 </FilterActions>
               </HistoryFilters>
               <HistorySplit>
-                <HistoryColumn>
+                <HistoryColumnSticky>
                   <HistoryColumnHeader>
-                    <ColumnTitle>{pendingTitle}</ColumnTitle>
-                    <small>{pendingDescription}</small>
+                    <ColumnTitle>완료·취소 내역</ColumnTitle>
+                    <small>결제가 완료되었거나 취소된 청구서</small>
                   </HistoryColumnHeader>
+                  <HistoryTable
+                    rows={completedRows}
+                    loading={completedHistoryQuery.isLoading}
+                    page={historyCompletedPage}
+                    size={historyPageSize}
+                    totalPages={completedTotalPages}
+                    last={completedIsLast}
+                    onChangePage={setHistoryCompletedPage}
+                    onRowClick={handleHistoryRowClick}
+                    activeId={activeHistoryId}
+                  />
+                </HistoryColumnSticky>
+              <HistoryColumn>
+                <HistoryColumnHeader>
+                  <ColumnTitle>{pendingTitle}</ColumnTitle>
+                  <small>{pendingDescription}</small>
+                </HistoryColumnHeader>
                   <HistoryTable
                     rows={pendingRows}
                     loading={historyFilters.status === "COMPLETED" ? false : pendingHistoryQuery.isLoading}
@@ -760,23 +850,6 @@ export default function Payments() {
                     onResendClick={handleHistoryResend}
                   />
                 </HistoryColumn>
-                <HistoryColumnSticky>
-                  <HistoryColumnHeader>
-                    <ColumnTitle>완료 내역</ColumnTitle>
-                    <small>결제가 완료된 청구서</small>
-                  </HistoryColumnHeader>
-                  <HistoryTable
-                    rows={completedRows}
-                    loading={completedHistoryQuery.isLoading}
-                    page={historyCompletedPage}
-                    size={historyPageSize}
-                    totalPages={completedTotalPages}
-                    last={completedIsLast}
-                    onChangePage={setHistoryCompletedPage}
-                    onRowClick={handleHistoryRowClick}
-                    activeId={activeHistoryId}
-                  />
-                </HistoryColumnSticky>
               </HistorySplit>
             </>
           )}
@@ -788,7 +861,62 @@ export default function Payments() {
         onClose={() => setDetailState({ open: false })}
         onSave={handleSaveInvoice}
         saving={updateMutation.isPending}
+        onCancelPayment={handleCancelPayment}
+        canceling={cancelMutation.isPending}
       />
+      <Modal
+        open={resendPrompt.open}
+        onClose={closeResendPrompt}
+        title="재발송 안내"
+        maxWidth={480}
+      >
+        {resendPrompt.loading ? (
+          <Skeleton h={60} />
+        ) : (
+          <>
+            <p style={{ margin: "0 0 8px", color: "#374151", fontWeight: 600 }}>
+              최근 카카오 발송이 실패했습니다.
+            </p>
+            <ReasonBox>
+              {resendPrompt.reason || "실패 사유를 확인할 수 없습니다."}
+            </ReasonBox>
+            <HintTitle>주요 실패 원인</HintTitle>
+            <HintList>
+              <li>템플릿 검수가 완료되지 않았거나 삭제되었습니다.</li>
+              <li>발신 프로필(카카오 채널)이 미등록 또는 연동 해제되었습니다.</li>
+              <li>발신 번호가 템플릿/프로필에 매핑되지 않았습니다.</li>
+              <li>수신자 전화번호 형식이 잘못되었거나 수신 차단 상태입니다.</li>
+              <li>Solapi 이용 한도/잔액이 부족하거나 API 키가 변경되었습니다.</li>
+            </HintList>
+            <HintFooter>
+              <strong>위 항목을 반드시 확인·수정한 뒤 다시 재발송을 진행해 주세요.</strong>
+            </HintFooter>
+            <HintFooter>
+              문제가 지속될 경우{" "}
+              <HintLink
+                href="https://help.solapi.com/ko/articles/10294122"
+                target="_blank"
+                rel="noreferrer"
+              >
+                오류/요청 페이지
+              </HintLink>
+              를 통해 문의해 주세요.
+            </HintFooter>
+          </>
+        )}
+        <ModalActions>
+          <GhostButton type="button" onClick={closeResendPrompt}>
+            확인
+          </GhostButton>
+          <PrimaryButton
+            type="button"
+            onClick={handleConfirmResend}
+            disabled={resendPrompt.loading || !resendPrompt.row}
+          >
+            카카오톡 재발송
+          </PrimaryButton>
+        </ModalActions>
+      </Modal>
 
       <OnsiteCandidateModal
         open={onsiteSelectorOpen}
@@ -816,6 +944,61 @@ export default function Payments() {
         detail={onsiteDetail}
         detailLoading={onsiteDetailLoading}
       />
+      <Modal
+        open={cancelPrompt.open}
+        onClose={() => (!cancelMutation.isPending ? setCancelPrompt({ open: false, detail: null, reason: "" }) : undefined)}
+        title="결제 취소"
+        maxWidth={480}
+      >
+        {cancelPrompt.detail ? (
+          <>
+            <ConfirmIntro>
+              <p>
+                <strong>{cancelPrompt.detail.student.name}</strong> 학생의{" "}
+                <strong>
+                  {formatMoney(
+                    cancelPrompt.detail.info.finalAmount ?? cancelPrompt.detail.info.originalAmount ?? 0,
+                  )}
+                </strong>{" "}
+                결제를 취소합니다.
+              </p>
+              <p>결제가 취소되면 되돌릴 수 없습니다.</p>
+            </ConfirmIntro>
+            <label style={{ display: "block", textAlign: "left", fontSize: 14, marginBottom: 6 }}>
+              취소 사유 (선택)
+            </label>
+            <Textarea
+              value={cancelPrompt.reason}
+              placeholder="예: 학부모 요청으로 환불"
+              onChange={(event) =>
+                setCancelPrompt((prev) => ({ ...prev, reason: event.target.value.slice(0, 80) }))
+              }
+            />
+            <ModalActions>
+              <GhostButton
+                type="button"
+                onClick={() => setCancelPrompt({ open: false, detail: null, reason: "" })}
+                disabled={cancelMutation.isPending}
+              >
+                닫기
+              </GhostButton>
+              <PrimaryButton
+                type="button"
+                onClick={() => {
+                  if (!cancelPrompt.detail?.info.id) return;
+                  cancelMutation.mutate({
+                    id: cancelPrompt.detail.info.id,
+                    reason: cancelPrompt.reason.trim() || undefined,
+                  });
+                }}
+                disabled={cancelMutation.isPending}
+              >
+                {cancelMutation.isPending ? "취소 중..." : "결제 취소"}
+              </PrimaryButton>
+            </ModalActions>
+          </>
+        ) : null}
+      </Modal>
     </Page>
   );
 }
@@ -1043,7 +1226,17 @@ function HistoryTable(props: {
               </td>
             </tr>
           ) : (
-            rows.map((row) => (
+            (isPendingVariant
+              ? [...rows].sort((a, b) => {
+                  const failA = a.status === "FAILED";
+                  const failB = b.status === "FAILED";
+                  if (failA === failB) return 0;
+                  return failA ? -1 : 1;
+                })
+              : rows
+            ).map((row) => {
+              const canResend = row.status === "UNPAID" || row.status === "FAILED";
+              return (
             <tr
               key={row.id}
               data-active={activeId === row.id}
@@ -1076,14 +1269,15 @@ function HistoryTable(props: {
                       event.stopPropagation();
                       onResendClick?.(row);
                     }}
-                    disabled={row.status !== "UNPAID"}
+                    disabled={!canResend}
                   >
                     재발송
                   </ResendButton>
                 </td>
               ) : null}
             </tr>
-          ))
+          );
+            })
         )}
         </tbody>
       </CenteredTable>
@@ -1115,9 +1309,11 @@ type DetailModalProps = {
   onClose: () => void;
   onSave: (payload: PaymentInvoiceUpdatePayload) => void;
   saving: boolean;
+  onCancelPayment?: (detail: PaymentDetail) => void;
+  canceling?: boolean;
 };
 
-function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
+function DetailModal({ state, onClose, onSave, saving, onCancelPayment, canceling }: DetailModalProps) {
   const isOpen = state.open;
   const detail = state.open ? state.data : null;
   const variant = state.open ? state.variant : "invoice";
@@ -1172,6 +1368,9 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
   if (!isOpen) return null;
 
   const isInvoiceVariant = variant === "invoice";
+  const canCancelPayment =
+    !isInvoiceVariant &&
+    detail?.info.status === "COMPLETED";
   const courseEntries: PaymentCourseBrief[] =
     detail?.courses && detail.courses.length
       ? detail.courses
@@ -1415,6 +1614,12 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
                       showSeconds: true,
                     })
                   : "-";
+                const canceledText = detail.info.canceledAt
+                  ? formatKoreanDateTimeKST(detail.info.canceledAt, {
+                      includeWeekday: true,
+                      showSeconds: true,
+                    })
+                  : "-";
                 const approvalNumber =
                   detail.info.approvalNumber && detail.info.approvalNumber.trim()
                     ? detail.info.approvalNumber
@@ -1451,6 +1656,12 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
                           <span>결제 시간</span>
                           <strong>{completedText}</strong>
                         </li>
+                        {detail.info.status === "CANCELED" ? (
+                          <li>
+                            <span>취소 시간</span>
+                            <strong>{canceledText}</strong>
+                          </li>
+                        ) : null}
                         <li>
                           <span>승인 번호</span>
                           <strong>{approvalNumber}</strong>
@@ -1473,6 +1684,16 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
                       <PrimaryButton type="button" onClick={onClose}>
                         확인
                       </PrimaryButton>
+                      {canCancelPayment && detail ? (
+                        <GhostButton
+                          type="button"
+                          data-variant="danger"
+                          onClick={() => onCancelPayment?.(detail)}
+                          disabled={canceling}
+                        >
+                          {canceling ? "취소 중..." : "결제 취소"}
+                        </GhostButton>
+                      ) : null}
                     </ModalActions>
                   </div>
                 );
@@ -2115,18 +2336,30 @@ const HistoryFilters = styled.div`
 
 const HistorySplit = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 18px;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "completed"
+    "pending";
+  @media (min-width: 960px) {
+    grid-template-columns: minmax(320px, 1.1fr) minmax(320px, 0.9fr);
+    grid-template-areas: "pending completed";
+    align-items: flex-start;
+  }
 `;
 
 const HistoryColumn = styled.div`
   display: grid;
   gap: 12px;
+  grid-area: pending;
 `;
 
-const HistoryColumnSticky = styled(HistoryColumn)`
+const HistoryColumnSticky = styled.div`
+  display: grid;
+  gap: 12px;
+  grid-area: completed;
   position: sticky;
-  top: 0;
+  top: var(--sticky-top, 0px);
   align-self: flex-start;
 `;
 
@@ -2276,6 +2509,44 @@ const ResendButton = styled(PrimaryButton)`
   height: 30px;
   padding: 0 12px;
   font-size: 12px;
+`;
+
+const ReasonBox = styled.div`
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: ${(p) => p.theme.spacing.sm};
+  background: ${(p) => p.theme.colors.surfaceMuted};
+  color: ${(p) => p.theme.colors.text};
+  min-height: 48px;
+  white-space: pre-wrap;
+  font-size: ${(p) => p.theme.font.size.sm};
+`;
+
+const HintTitle = styled.p`
+  margin: ${(p) => p.theme.spacing.md} 0 ${(p) => p.theme.spacing.xs};
+  font-weight: 600;
+  color: ${(p) => p.theme.colors.text};
+  font-size: ${(p) => p.theme.font.size.sm};
+`;
+
+const HintList = styled.ul`
+  margin: 0;
+  padding-left: 18px;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.xs};
+  display: grid;
+  gap: 4px;
+`;
+
+const HintFooter = styled.p`
+  margin: ${(p) => p.theme.spacing.sm} 0 0;
+  font-size: ${(p) => p.theme.font.size.xs};
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const HintLink = styled.a`
+  color: ${(p) => p.theme.colors.primary};
+  text-decoration: underline;
 `;
 
 const OnsiteSection = styled.div`
@@ -2540,6 +2811,17 @@ const ModalActions = styled.div`
   gap: 12px;
 `;
 
+const ConfirmIntro = styled.div`
+  text-align: center;
+  margin-bottom: 18px;
+  p {
+    margin: 6px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
+  }
+`;
+
 const Paragraph = styled.p`
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
@@ -2570,7 +2852,7 @@ const CourseList = styled(DetailList)`
     color: ${(p) => p.theme.colors.textMuted};
   }
   .fee {
-    font-weight: 600;
+    font-weight: 700;
     font-size: 14px;
     color: ${(p) => p.theme.colors.text};
   }

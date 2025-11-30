@@ -70,6 +70,8 @@ export default function TodoList({ inProgress, done, onAdd, onToggle, onDelete, 
 
 const Section = styled.section`
   border: 1px solid #e5e7eb; border-radius: 16px; padding: 12px; background: #fff; display: flex; flex-direction: column;
+  height: 100%;
+  min-height: 0;
 `;
 const SectionHeader = styled.div`
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
@@ -90,24 +92,34 @@ const List = styled.div`
   display: grid;
   gap: 8px;
   padding: 4px 2px;
-  /* 상세 페이지는 내부 스크롤 없이 전체 표시 */
+  /* 상세 페이지는 내부 스크롤 없이 전체 표시 -> 내부 스크롤 추가 */
+  overflow: auto;
+  align-content: start;
+  grid-auto-rows: max-content;
+  flex: 1;
+  min-height: 0;
 `;
 const TaskCard = styled.div<{ $dim?: boolean }>`
   display: grid; grid-template-columns: 1fr auto; align-items: flex-start; gap: 10px;
-  border: 1px solid #e5e7eb; border-radius: 10px; padding: 10px 12px; background: #fff;
-  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-  &:hover { background: #fafafa; border-color: #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+  padding: 12px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fff;
+  opacity: ${(p) => (p.$dim ? 0.5 : 1)};
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  &:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
 `;
 const Left = styled.div`
   display: grid; grid-template-columns: 10px 1fr; gap: 10px; align-items: flex-start; min-width: 0;
 `;
 const TaskTitle = styled.div`
-  font-weight: 800; margin-bottom: 2px; font-size: 14px; letter-spacing: -0.01em; color: #0f172a;
+  font-weight: ${(p) => p.theme.font.weight.semiBold}; 
+  margin-bottom: 2px; 
+  font-size: ${(p) => p.theme.font.size.md}; /* 14px */
+  letter-spacing: -0.01em; 
+  color: ${(p) => p.theme.colors.text};
   display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden;
 `;
 const TaskContent = styled.div`
-  color: #64748b;
-  font-size: 12.5px;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm}; /* 13px */
   line-height: 1.5;
   white-space: pre-line;
   display: -webkit-box;

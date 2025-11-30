@@ -52,14 +52,14 @@ export const SuccessBadge = styled.span`
 
 export const List = styled.div`
   display: grid;
-  gap: 6px;
+  gap: 12px;
 `;
 
 export const Item = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 10px;
+  padding: 12px;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   background: #fff;

@@ -65,6 +65,7 @@ function getPlanById(id: string | null | undefined): BillingPlanConfig | null {
 }
 
 const CUSTOMER_KEY_PREFIX = "billing:customerKey:";
+type PlanPageLocationState = { reason?: string } | null;
 function getOrCreateCustomerKey(academyId?: number | null) {
   if (typeof window === "undefined") return "";
   const key = `${CUSTOMER_KEY_PREFIX}${academyId ?? "anon"}`;
@@ -77,6 +78,7 @@ function getOrCreateCustomerKey(academyId?: number | null) {
 
 export default function MyAcademyPlanPage() {
   const location = useLocation();
+  const locationState = (location.state as PlanPageLocationState) ?? null;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionDto | null>(null);
@@ -85,7 +87,7 @@ export default function MyAcademyPlanPage() {
   const { success, error } = useToast();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const billingBlocked = Boolean((location.state as any)?.reason === "billing-block");
+  const billingBlocked = locationState?.reason === "billing-block";
   const [clientKey, setClientKey] = useState<string | null>(null);
   const [academyId, setAcademyId] = useState<number | null>(null);
   const [isTrialing, setIsTrialing] = useState(false);
@@ -117,7 +119,7 @@ export default function MyAcademyPlanPage() {
             status === "TRIALING" && end !== null && new Date() <= end;
           setIsTrialing(trialActive);
         }
-        if (sub && (sub as any)?.id) {
+        if (sub?.id) {
           setSubscription(sub);
           setSelectedPlanId(sub.planId);
           const mappingEntries = Object.entries(PLAN_MAPPING) as Array<[StudentScaleOption, string[]]>;
@@ -194,8 +196,8 @@ export default function MyAcademyPlanPage() {
         successUrl,
         failUrl,
       });
-    } catch (e: any) {
-      error(e?.message || "카드 등록 창을 열지 못했습니다.");
+    } catch (err) {
+      error(err instanceof Error ? err.message : "카드 등록 창을 열지 못했습니다.");
     }
   };
 
@@ -229,8 +231,8 @@ export default function MyAcademyPlanPage() {
       }
       success("요금제가 변경되었습니다.");
       navigate(routes.myAcademy, { replace: true });
-    } catch (e: any) {
-      error(e?.message || "요금제 변경에 실패했습니다.");
+    } catch (err) {
+      error(err instanceof Error ? err.message : "요금제 변경에 실패했습니다.");
     } finally {
       setSaving(false);
     }

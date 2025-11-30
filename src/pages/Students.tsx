@@ -1,4 +1,4 @@
-import { Page } from "@/components/students/StudentsLayout";
+import { Page as BasePage, PageHeader, PrimaryBtn, GhostButton } from "@/components/common/UI";
 import StudentsStats from "@/components/students/StudentsStats";
 import StudentsFilters from "@/components/students/StudentsFilters";
 import StudentsTable from "@/components/students/StudentsTable";
@@ -6,7 +6,6 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import styled from "styled-components";
 import { SectionCard as Section } from "@/components/common/UI";
 import { useSearchParams } from "react-router-dom";
-import { PageHeader, PrimaryBtn, GhostButton } from "@/components/common/UI";
 import { useAuth } from "@/hooks/useAuth";
 import {
   downloadStudentsExcel,
@@ -459,14 +458,14 @@ const Hint = styled.div`
 const ActionsRow = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.md};
   flex-wrap: wrap;
 `;
 
 const AddWrap = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.xs};
   flex-wrap: wrap;
 `;
 
@@ -486,7 +485,7 @@ const QuotaBadge = styled.span<{ "data-variant"?: "ai" | "billing" }>`
 const ExcelActions = styled.div`
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.sm};
   @media (max-width: 768px) {
     display: none;
   }
@@ -496,19 +495,18 @@ const ExcelActions = styled.div`
 const StickyWrap = styled.div`
   position: sticky;
   top: 0;
-  z-index: 35; /* above table headers */
+  z-index: 35;
   background: ${({ theme }) => theme.colors.surface};
-  /* remove bottom divider under sticky filter area */
-  border-bottom: 0;
 `;
 const StickyInner = styled.div`
-  display: grid;
-  gap: 12px;
-  padding: 8px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.md};
+  padding: ${(p) => p.theme.spacing.lg} 0 0;
 `;
 const StickyHeader = styled(PageHeader)`
   position: static;
-  margin-bottom: 0;
+  margin: 0;
   box-shadow: none;
 `;
 
@@ -517,6 +515,7 @@ const FiltersCard = styled(Section)`
   overflow: visible;
   position: relative;
   z-index: 36;
+  padding: ${(p) => p.theme.spacing.md};
 `;
 
 const GuideList = styled.ul`
@@ -529,4 +528,8 @@ const GuideList = styled.ul`
   li {
     list-style: disc;
   }
+`;
+
+const Page = styled(BasePage)`
+  gap: ${(p) => p.theme.spacing.md};
 `;

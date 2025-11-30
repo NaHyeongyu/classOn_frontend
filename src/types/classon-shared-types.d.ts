@@ -110,7 +110,7 @@ declare module "@classon/shared-types" {
   export type BillingCycleUnit = "MONTHS" | "WEEKS" | "DAYS" | string;
   export type PaymentMethod = "CARD" | "BANK_TRANSFER" | "CASH" | string;
   export type PaymentType = "ONLINE" | "OFFLINE" | string;
-  export type PaymentStatus = "UNPAID" | "PENDING" | "COMPLETED" | "FAILED" | string;
+  export type PaymentStatus = "UNPAID" | "PENDING" | "COMPLETED" | "FAILED" | "CANCELED" | string;
 
   export interface PaymentSummary {
     paidAmount: number;
@@ -127,6 +127,7 @@ declare module "@classon/shared-types" {
     phoneNumber?: string | null;
     guardianPhone?: string | null;
     joinedDate?: string | null;
+    status?: string | null;
     [key: string]: unknown;
   }
 
@@ -145,8 +146,10 @@ declare module "@classon/shared-types" {
     finalAmount?: number | null;
     dueDate?: string | null;
     completedAt?: string | null;
+    canceledAt?: string | null;
     paymentMethod?: PaymentMethod | null;
     paymentType?: PaymentType | null;
+    invoiceRequestedAt?: string | null;
     student: PaymentStudentRef;
     course?: PaymentCourseBrief | null;
     [key: string]: unknown;
@@ -170,6 +173,7 @@ declare module "@classon/shared-types" {
     memo?: string | null;
     managerMemo?: string | null;
     completedAt?: string | null;
+    canceledAt?: string | null;
     discountType?: DiscountType | null;
     discountValue?: number | null;
     paymentMethod?: PaymentMethod | null;
@@ -180,12 +184,28 @@ declare module "@classon/shared-types" {
     [key: string]: unknown;
   }
 
+  export interface PaymentAlertLog {
+    id: number;
+    type?: string | null;
+    status?: PaymentStatus | null;
+    scheduledAt?: string | null;
+    sentAt?: string | null;
+    retryCount?: number | null;
+    errorMessage?: string | null;
+  }
+
   export interface PaymentDetail {
     info: PaymentInfo;
     student: PaymentStudentRef;
     course?: PaymentCourseBrief | null;
     courses?: PaymentCourseBrief[] | null;
     schedule?: PaymentScheduleInfo | null;
+    alerts?: PaymentAlertLog[] | null;
+    latestAlert?: PaymentAlertLog | null;
     [key: string]: unknown;
+  }
+
+  export interface PaymentCancelPayload {
+    reason?: string | null;
   }
 }

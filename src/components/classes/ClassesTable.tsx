@@ -251,12 +251,31 @@ export default function ClassesTable({ filters, refreshKey }: { filters: Filters
 }
 
 // Card provided by common UI
-const Head = styled.div` display:flex; align-items:center; justify-content:flex-start; `;
-const Muted = styled.div` color:#6b7280; font-size:12px; margin-top:4px; `;
-const Err = styled.div` color:#b91c1c; font-size:12px; `;
+const Head = styled.div`
+  display: flex;
+  flex-direction: column;
+  margin-bottom: ${(p) => p.theme.spacing.xs};
+  strong {
+    font-size: ${(p) => p.theme.font.size.sm};
+  }
+`;
+const Muted = styled.div`
+  color: #6b7280;
+  font-size: 12px;
+  margin-top: 4px;
+`;
+const Err = styled.div`
+  color: #b91c1c;
+  font-size: 12px;
+`;
 // Table provided by common UI
 /* Row is clickable; title uses normal text */
-const Pager = styled.div` display:flex; gap:6px; justify-content:center; padding-top:4px; `;
+const Pager = styled.div`
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  margin-top: ${(p) => p.theme.spacing.md};
+`;
 const Btn = styled.button<{disabled?:boolean}>`
   min-width:28px; height:28px; padding:0 8px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; font-size:12px; color:#111827;
   &[data-active='true'] { background:#111827; color:#fff; border-color:#111827; }
@@ -264,7 +283,11 @@ const Btn = styled.button<{disabled?:boolean}>`
 `;
 const PageSize = styled.div` display:inline-flex; align-items:center; gap:6px; margin-left:12px; color:#6b7280; font-size:12px; select{ height:28px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; padding:0 8px; }`;
 // Buttons from common UI
-const CardInner = styled.div` position: relative; `;
+const CardInner = styled.div`
+  position: relative;
+  display: flex;
+  flex-direction: column;
+`;
 const StyledTable = styled(Table)`
   table-layout: fixed;
   width: 100%;
@@ -274,17 +297,15 @@ const StyledTable = styled(Table)`
     font-weight: 800;
     text-align: center;
   }
-  thead th, tbody td {
+  thead th,
+  tbody td {
     vertical-align: middle;
     padding: 12px;
     text-align: center;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    /* vertical separators between columns */
-    border-right: 1px solid #f1f5f9;
   }
-  thead th:last-child, tbody td:last-child { border-right: none; }
   tbody td { font-size: 13.5px; color: #0f172a; }
   tbody td.empty {
     text-align: center;

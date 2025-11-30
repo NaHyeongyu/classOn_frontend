@@ -26,6 +26,7 @@ type Props = {
   todayYmd: string;
   onSummarize: () => void;
   canSummarize: boolean;
+  quotaText?: string | null;
 };
 
 export function MarketingResultsPanel({
@@ -43,6 +44,7 @@ export function MarketingResultsPanel({
   todayYmd,
   onSummarize,
   canSummarize,
+  quotaText,
 }: Props) {
   const renderEmptyState = () => {
     if (loading) {
@@ -162,6 +164,11 @@ export function MarketingResultsPanel({
           <PrimaryButton type="button" onClick={onSummarize} disabled={!canSummarize}>
             AI요약
           </PrimaryButton>
+          {quotaText && (
+            <AiQuotaBadge title="요금제별 마케팅/AI 사용 한도">
+              {quotaText}
+            </AiQuotaBadge>
+          )}
         </ResultActionRow>
       </ResultStickyActions>
     </ResultCard>
@@ -241,7 +248,7 @@ const ResultCard = styled(SectionCard)`
 
 const PanelHeader = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xs};
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 
 const PanelTitle = styled.h3`
@@ -264,7 +271,7 @@ const ResultBody = styled.div`
 
 const ResultContent = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.lg};
+  gap: ${(p) => p.theme.spacing.xl};
 `;
 
 const ResultMeta = styled.div`
@@ -276,7 +283,7 @@ const ResultMeta = styled.div`
 
 const SectionStack = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.lg};
+  gap: ${(p) => p.theme.spacing.xl};
 `;
 
 const ResultError = styled.span`
@@ -286,7 +293,7 @@ const ResultError = styled.span`
 
 const ResultSection = styled.section`
   display: grid;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: ${(p) => p.theme.spacing.md};
 `;
 
 const ResultSectionHeader = styled.header`
@@ -387,6 +394,19 @@ const ResultActionRow = styled.div`
   display: inline-flex;
   align-items: center;
   gap: ${(p) => p.theme.spacing.sm};
+`;
+
+const AiQuotaBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #ecfdf3;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+  border: 1px solid #bbf7d0;
 `;
 
 const SentinelWrap = styled.div`

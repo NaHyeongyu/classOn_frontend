@@ -1,7 +1,7 @@
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import type { ClassItem } from "../../../types/calendarDetail";
-import { SmallBtn as UISmallBtn, PrimaryButtonSm } from "../../common/UI";
+import { PrimaryButtonSm } from "../../common/UI";
 import { EmptyPlaceholder } from "../../common/EmptyPlaceholder";
 import { formatKoreanDate } from "@/lib/format";
 import { DashboardMoreButton } from "@/components/dashboard/DashboardButtons";
@@ -13,6 +13,7 @@ type Props = {
   titleMode?: "subject" | "date"; // default: subject for dashboard/day
   showNotes?: boolean; // default: false (hide in dashboard/day)
   embedded?: boolean;
+  maxHeight?: string;
 };
 
 export default function ClassList({
@@ -22,12 +23,13 @@ export default function ClassList({
   titleMode = "subject",
   showNotes = true,
   embedded = false,
+  maxHeight,
 }: Props) {
   const navigate = useNavigate();
   const records = Array.isArray(items) ? items : [];
   const canAdd = typeof onAdd === "function";
   return (
-    <Section $embedded={embedded}>
+    <Section $embedded={embedded} $maxHeight={maxHeight}>
       <SectionHeader data-embedded={embedded || undefined}>
         <HeaderLeft>
           <SectionIcon aria-hidden>{bookIcon}</SectionIcon>
@@ -47,7 +49,7 @@ export default function ClassList({
           </Actions>
         )}
       </SectionHeader>
-      <Grid $embedded={embedded}>
+      <Grid $embedded={embedded} $maxHeight={maxHeight}>
         {records.length === 0 ? (
           <EmptyPlaceholder
             title="등록된 수업 내역이 없습니다."
@@ -60,8 +62,20 @@ export default function ClassList({
           records.map((c, i) => {
             const statusLabel = typeLabel(c.date, c.time);
             const statusTone = statusVariant(statusLabel);
+            const hasLink = c.courseId && (c.recordId || c.date);
+            
             return (
-              <RecordCard key={`cls-${i}`}>
+              <RecordCard 
+                key={`cls-${i}`}
+                $clickable={!!hasLink}
+                onClick={() => {
+                  if (!hasLink) return;
+                  if (c.recordId)
+                    navigate(`/classes/${c.courseId}/history/${c.recordId}`);
+                  else
+                    navigate(`/classes/${c.courseId}/history/date/${c.date}`);
+                }}
+              >
                 <RecordHead>
                   <div>
                     <strong>
@@ -86,23 +100,6 @@ export default function ClassList({
                       <DateBadge aria-label="수업 일자">
                         {formatDateBadge(c.date)}
                       </DateBadge>
-                    )}
-                    {c.courseId && (c.recordId || c.date) && (
-                      <DetailBtn
-                        type="button"
-                        onClick={() => {
-                          if (c.recordId)
-                            navigate(
-                              `/classes/${c.courseId}/history/${c.recordId}`
-                            );
-                          else
-                            navigate(
-                              `/classes/${c.courseId}/history/date/${c.date}`
-                            );
-                        }}
-                      >
-                        상세
-                      </DetailBtn>
                     )}
                   </HeadRight>
                 </RecordHead>
@@ -187,9 +184,9 @@ function statusIcon(tone: StatusVariant) {
   }
 }
 
-const Section = styled.section<{ $embedded?: boolean }>`
+const Section = styled.section<{ $embedded?: boolean; $maxHeight?: string }>`
   border: ${({ $embedded, theme }) =>
-    $embedded ? "none" : `1px solid ${theme.colors.border}`};
+    $embedded ? "0" : `1px solid ${theme.colors.border}`};
   border-radius: ${({ $embedded, theme }) =>
     $embedded ? "0" : theme.radii.lg};
   padding: ${({ $embedded }) => ($embedded ? "0" : "12px")};
@@ -197,9 +194,11 @@ const Section = styled.section<{ $embedded?: boolean }>`
     $embedded ? "transparent" : theme.colors.surface};
   display: flex;
   flex-direction: column;
-  max-height: ${({ $embedded }) => ($embedded ? "auto" : "480px")};
+  height: ${({ $embedded, $maxHeight }) =>
+    $maxHeight ?? ($embedded ? "auto" : "100%")};
   min-height: 0;
-  overflow: ${({ $embedded }) => ($embedded ? "visible" : "hidden")};
+  overflow: ${({ $embedded, $maxHeight }) =>
+    $embedded && !$maxHeight ? "visible" : "hidden"};
 `;
 const SectionHeader = styled.div`
   display: flex;
@@ -209,7 +208,7 @@ const SectionHeader = styled.div`
   h4 {
     margin: 0;
     font-size: 15px;
-    color: ${(p) => p.theme.colors.text};
+    color: #111827;
   }
   &[data-embedded] {
     margin-bottom: 12px;
@@ -233,27 +232,46 @@ const Actions = styled.div``;
 const AddBtn = styled(PrimaryButtonSm)`
   white-space: nowrap;
 `;
-const Grid = styled.div<{ $embedded?: boolean }>`
+const Grid = styled.div<{ $embedded?: boolean; $maxHeight?: string }>`
   display: grid;
   grid-template-columns: 1fr;
   gap: 12px;
-  padding: ${({ $embedded }) => ($embedded ? "0" : "4px 2px")};
+  padding: ${({ $embedded }) => ($embedded ? "4px 2px" : "4px 2px")};
   flex: 1 1 auto;
   min-height: 0;
-  max-height: ${({ $embedded }) => ($embedded ? "none" : "100%")};
+  max-height: ${({ $embedded, $maxHeight }) =>
+    $maxHeight ?? ($embedded ? "none" : "100%")};
   align-content: start;
   align-items: start;
   grid-auto-rows: max-content;
-  overflow: ${({ $embedded }) => ($embedded ? "visible" : "auto")};
+  overflow: ${({ $embedded, $maxHeight }) =>
+    $embedded && !$maxHeight ? "visible" : "auto"};
 `;
-// Unified "수업 내역" look
-const RecordCard = styled.div`
+const RecordCard = styled.div<{ $clickable?: boolean }>`
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
   padding: 12px;
   background: ${(p) => p.theme.colors.surface};
   display: grid;
   gap: 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  
+  strong {
+    font-size: ${(p) => p.theme.font.size.md}; /* 14px */
+    font-weight: ${(p) => p.theme.font.weight.semiBold};
+    color: ${(p) => p.theme.colors.text};
+    letter-spacing: -0.01em;
+  }
+  
+  ${({ $clickable }) =>
+    $clickable &&
+    `
+    cursor: pointer;
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+  `}
 `;
 const RecordHead = styled.div`
   display: flex;
@@ -262,7 +280,7 @@ const RecordHead = styled.div`
 `;
 const SmallMuted = styled.span`
   color: ${(p) => p.theme.colors.textMuted};
-  font-size: 12px;
+  font-size: ${(p) => p.theme.font.size.sm}; /* 13px */
 `;
 const MetaRow = styled.div`
   display: flex;
@@ -355,11 +373,6 @@ const CountPill = styled.span`
     color: ${(p) => p.theme.colors.textMuted};
     border-color: ${(p) => p.theme.colors.border};
   }
-`;
-const DetailBtn = styled(UISmallBtn)`
-  height: 40px;
-  padding: 0 16px;
-  font-size: 14px;
 `;
 
 const bookIcon = (

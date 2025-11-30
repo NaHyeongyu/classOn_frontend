@@ -23,6 +23,7 @@ import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
 import { useAuth } from "@/hooks/useAuth";
 import Modal from "@/components/common/Modal";
 import InvoicePreview from "@/components/payments/InvoicePreview";
+import SelectBox from "@/components/common/SelectBox";
 
 type TemplateKey = PaymentTemplateKey;
 
@@ -44,13 +45,13 @@ const TEMPLATE_DEFINITIONS: Record<
     resend: false,
     body: [
       "[#{academyName}]",
-      "안녕하세요. #{studentName} 학부모님 😊",
       "",
-      "#{courseName} 수업의 수강료를 안내드립니다.",
-      "총 금액은 #{finalAmount}원이며,",
-      "납부 기한은 #{dueDate}까지 입니다.",
+      "안녕하세요 😊",
       "",
-      "아래 버튼을 눌러 청구서 상세 내역을 확인해 주세요.",
+      "#{studentName} 학생의",
+      "#{courseName} 수업과 관련된 비용 안내가 있어 알려드립니다.",
+      "",
+      "자세한 내용은 아래에서 확인하실 수 있습니다.",
     ].join("\n"),
   },
   RETRY: {
@@ -93,10 +94,11 @@ const TEMPLATE_DEFINITIONS: Record<
 };
 
 const statusLabelMap: Record<string, string> = {
-  UNPAID: "미납",
-  PENDING: "대기",
+  UNPAID: "대기",
+  PENDING: "미납",
   COMPLETED: "완료",
   FAILED: "실패",
+  CANCELED: "취소",
 };
 
 const statusColor: Record<string, string> = {
@@ -104,9 +106,25 @@ const statusColor: Record<string, string> = {
   PENDING: "#2563EB",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
+  CANCELED: "#dc2626",
 };
 
-export default function PaymentsKakaoConfirm() {
+function normalizeTemplateKey(raw: string | null): TemplateKey | null {
+  if (!raw) return null;
+  const key = raw.trim().toUpperCase();
+  return Object.prototype.hasOwnProperty.call(TEMPLATE_DEFINITIONS, key)
+    ? (key as TemplateKey)
+    : null;
+}
+
+type SendMode = "send" | "schedule";
+
+function KakaoSendPage({ mode }: { mode: SendMode }) {
+  const isScheduleMode = mode === "schedule";
+  const pageTitle = isScheduleMode ? "카카오톡 알림 예약 발송" : "카카오톡 알림 전송 확인";
+  const pageDescription = isScheduleMode
+    ? "예약 발송 시각과 메시지를 확인하세요."
+    : "선택된 학생들에게 전송할 메시지를 확인하세요.";
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const ids = useMemo(
@@ -137,9 +155,51 @@ export default function PaymentsKakaoConfirm() {
   });
 
   const [academyName, setAcademyName] = useState("OO학원");
-  const [templateKey, setTemplateKey] = useState<TemplateKey>("GUIDE");
-  const [message, setMessage] = useState(TEMPLATE_DEFINITIONS.GUIDE.body);
+  const queryTemplate = normalizeTemplateKey(searchParams.get("template"));
+  const initialTemplateKey = queryTemplate ?? "GUIDE";
+  const [templateKey, setTemplateKey] = useState<TemplateKey>(initialTemplateKey);
+  const [message, setMessage] = useState(TEMPLATE_DEFINITIONS[initialTemplateKey].body);
   const [previewDetail, setPreviewDetail] = useState<PaymentDetail | null>(null);
+  const [scheduleDate, setScheduleDate] = useState(() =>
+    isScheduleMode ? buildDefaultScheduleParts().date : "",
+  );
+  const [scheduleHour, setScheduleHour] = useState(() =>
+    isScheduleMode ? buildDefaultScheduleParts().hour : "10",
+  );
+  const [scheduleMinute, setScheduleMinute] = useState(() =>
+    isScheduleMode ? buildDefaultScheduleParts().minute : "00",
+  );
+  const minScheduleValue = useMemo(
+    () => (isScheduleMode ? buildMinScheduleValue() : ""),
+    [isScheduleMode],
+  );
+  const minScheduleDate = useMemo(
+    () => (minScheduleValue ? minScheduleValue.slice(0, 10) : undefined),
+    [minScheduleValue],
+  );
+  const schedulePayload = useMemo(
+    () =>
+      isScheduleMode
+        ? combineScheduleParts(scheduleDate, scheduleHour, scheduleMinute)
+        : undefined,
+    [isScheduleMode, scheduleDate, scheduleHour, scheduleMinute],
+  );
+  const hours24 = useMemo(
+    () =>
+      Array.from({ length: 24 }, (_, index) => {
+        const value = String(index).padStart(2, "0");
+        return { label: value, value };
+      }),
+    [],
+  );
+  const mins5 = useMemo(
+    () =>
+      ["00", "05", "10", "15", "20", "25", "30", "35", "40", "45", "50", "55"].map((value) => ({
+        label: value,
+        value,
+      })),
+    [],
+  );
 
   useEffect(() => {
     const nextName = user?.academy?.name?.trim();
@@ -173,13 +233,24 @@ export default function PaymentsKakaoConfirm() {
         ids,
         templateKey,
         resend: TEMPLATE_DEFINITIONS[templateKey].resend,
+        scheduledAt: schedulePayload ? normalizeSchedulePayload(schedulePayload) : undefined,
       }),
     onSuccess: () => {
-      success("카카오톡 알림 전송을 요청했습니다.");
+      success(
+        isScheduleMode
+          ? "카카오톡 알림 예약을 등록했습니다."
+          : "카카오톡 알림 전송을 요청했습니다.",
+      );
       invalidatePaymentsQueries(queryClient);
       navigate(routes.payments);
     },
-    onError: (err: unknown) => toastError(readableError(err, "카카오톡 발송에 실패했습니다.")),
+    onError: (err: unknown) =>
+      toastError(
+        readableError(
+          err,
+          isScheduleMode ? "카카오톡 예약 발송에 실패했습니다." : "카카오톡 발송에 실패했습니다.",
+        ),
+      ),
   });
 
   if (ids.length === 0) {
@@ -187,7 +258,7 @@ export default function PaymentsKakaoConfirm() {
       <Page>
         <PageHeader>
           <div>
-            <h2>카카오톡 알림 전송</h2>
+            <h2>{pageTitle}</h2>
             <p>선택된 청구서가 없습니다. 결제 관리 페이지에서 다시 시도해 주세요.</p>
           </div>
           <GhostButton type="button" onClick={() => navigate(routes.payments)}>
@@ -203,8 +274,8 @@ export default function PaymentsKakaoConfirm() {
     <Page>
       <PageHeader>
         <div>
-          <h2>카카오톡 알림 전송 확인</h2>
-          <p>선택된 학생들에게 전송할 메시지를 확인하세요.</p>
+          <h2>{pageTitle}</h2>
+          <p>{pageDescription}</p>
         </div>
         <GhostButton type="button" onClick={() => navigate(routes.payments)}>
           목록으로
@@ -272,6 +343,37 @@ export default function PaymentsKakaoConfirm() {
         <SectionCard>
           <h3>전송 메시지 내용</h3>
           <FormStack>
+            {isScheduleMode ? (
+              <ScheduleField>
+                <label>예약 발송 일정</label>
+                <ScheduleRow>
+                  <Input
+                    type="date"
+                    value={scheduleDate}
+                    min={minScheduleDate}
+                    onChange={(event) => setScheduleDate(event.target.value)}
+                  />
+                  <TimeGroup>
+                    <SelectBox
+                      ariaLabel="시"
+                      placeholder="시"
+                      value={scheduleHour}
+                      onChange={(value) => setScheduleHour(value ?? "")}
+                      options={hours24}
+                    />
+                    <span>:</span>
+                    <SelectBox
+                      ariaLabel="분"
+                      placeholder="분"
+                      value={scheduleMinute}
+                      onChange={(value) => setScheduleMinute(value ?? "")}
+                      options={mins5}
+                    />
+                  </TimeGroup>
+                </ScheduleRow>
+                <HelperText>지정한 시각에 Solapi가 자동 발송합니다.</HelperText>
+              </ScheduleField>
+            ) : null}
             <label>
               템플릿 선택
               <Select
@@ -337,10 +439,34 @@ export default function PaymentsKakaoConfirm() {
             </GhostButton>
             <PrimaryButton
               type="button"
-              disabled={sendMutation.isPending || details.length === 0}
-              onClick={() => sendMutation.mutate()}
+              disabled={
+                sendMutation.isPending ||
+                details.length === 0 ||
+                (isScheduleMode && !schedulePayload)
+              }
+              onClick={() => {
+                if (isScheduleMode && !schedulePayload) {
+                  toastError("예약 발송 시각을 선택해 주세요.");
+                  return;
+                }
+                if (isScheduleMode && minScheduleValue && schedulePayload) {
+                  const scheduledDate = new Date(`${schedulePayload}:00`);
+                  const minDate = new Date(`${minScheduleValue}:00`);
+                  if (!(scheduledDate > minDate)) {
+                    toastError("현재보다 이후 시각으로 선택해 주세요.");
+                    return;
+                  }
+                }
+                sendMutation.mutate();
+              }}
             >
-              {sendMutation.isPending ? "전송 중..." : "전송"}
+              {sendMutation.isPending
+                ? isScheduleMode
+                  ? "예약 중..."
+                  : "전송 중..."
+                : isScheduleMode
+                  ? "예약 발송"
+                  : "전송"}
             </PrimaryButton>
           </Actions>
         </SectionCard>
@@ -360,6 +486,55 @@ export default function PaymentsKakaoConfirm() {
       </Modal>
     </Page>
   );
+}
+
+export default function PaymentsKakaoConfirm() {
+  return <KakaoSendPage mode="send" />;
+}
+
+export function PaymentsKakaoSchedulePage() {
+  return <KakaoSendPage mode="schedule" />;
+}
+
+function buildDefaultScheduleParts(): ScheduleParts {
+  const base = new Date();
+  base.setDate(base.getDate() + 1);
+  base.setHours(10, 0, 0, 0);
+  return {
+    date: formatDateInput(base),
+    hour: String(base.getHours()).padStart(2, "0"),
+    minute: String(base.getMinutes()).padStart(2, "0"),
+  };
+}
+
+function buildMinScheduleValue(): string {
+  const base = new Date();
+  base.setMinutes(base.getMinutes() + 5);
+  base.setSeconds(0, 0);
+  return `${formatDateInput(base)}T${String(base.getHours()).padStart(2, "0")}:${String(base.getMinutes()).padStart(2, "0")}`;
+}
+
+function formatDateInput(date: Date): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+type ScheduleParts = {
+  date: string;
+  hour: string;
+  minute: string;
+};
+
+function combineScheduleParts(date?: string, hour?: string, minute?: string): string | undefined {
+  if (!date || !hour || !minute) return undefined;
+  return `${date}T${hour}:${minute}`;
+}
+
+function normalizeSchedulePayload(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  return trimmed.length === 16 ? `${trimmed}:00` : trimmed;
 }
 
 function renderTemplate(template: string, detail: PaymentDetail, academyName: string) {
@@ -451,6 +626,45 @@ const Input = styled.input`
   border-radius: 10px;
   padding: 8px 12px;
   font-size: 14px;
+`;
+
+const HelperText = styled.span`
+  font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
+  display: block;
+  margin-top: 2px;
+`;
+
+const ScheduleField = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  label {
+    font-size: 13px;
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+`;
+
+const ScheduleRow = styled.div`
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  input {
+    min-width: 180px;
+  }
+`;
+
+const TimeGroup = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  span {
+    font-weight: 600;
+  }
+  > div {
+    min-width: 80px;
+  }
 `;
 
 const MessageTextarea = styled.textarea`

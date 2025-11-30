@@ -7,8 +7,7 @@ import {
 import {
   listStudents,
   type Student,
-  updateStudent,
-  type StudentPayload,
+  updateStudentCourses,
 } from "@/api/students";
 import { invalidateCacheByPrefix } from "@/lib/fetcher";
 import { getErrorMessage } from "@/lib/errors";
@@ -192,9 +191,7 @@ export function useCourseStudents(courseId: number | null) {
         const nextCourseIds = Array.from(
           new Set<number>([...existing, courseId])
         );
-        await updateStudent(student.id, {
-          courseIds: nextCourseIds,
-        } as Partial<StudentPayload>);
+        await updateStudentCourses(student.id, nextCourseIds);
         invalidateCacheByPrefix([
           `/api/courses/${courseId}`,
           `/api/courses/${courseId}/students`,
@@ -277,9 +274,7 @@ export function useCourseStudents(courseId: number | null) {
           ? student.courses.map((course: NonNullable<Student["courses"]>[number]) => course.id)
           : [];
         const nextCourseIds = existing.filter((id: number) => id !== courseId);
-        await updateStudent(student.id, {
-          courseIds: nextCourseIds,
-        } as Partial<StudentPayload>);
+        await updateStudentCourses(student.id, nextCourseIds);
         invalidateCacheByPrefix([
           `/api/courses/${courseId}`,
           `/api/courses/${courseId}/students`,

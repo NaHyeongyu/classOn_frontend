@@ -1,12 +1,16 @@
 import { type FormEvent } from "react";
-import { Card } from "./Attendance.styles";
 import {
   ApplyButton,
+  ButtonRow,
   ErrorText,
   Field,
   Filters,
   QuickButton,
   QuickButtons,
+  ResetButton,
+  SearchField,
+  SearchInput,
+  FiltersForm,
 } from "./Attendance.styles";
 
 type AttendanceFiltersCardProps = {
@@ -14,6 +18,9 @@ type AttendanceFiltersCardProps = {
   onChangeDate: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onQuickSelect: (offset: number) => void;
+  courseSearch: string;
+  onChangeCourseSearch: (value: string) => void;
+  onResetFilters: () => void;
   error?: string | null;
 };
 
@@ -22,13 +29,16 @@ export function AttendanceFiltersCard({
   onChangeDate,
   onSubmit,
   onQuickSelect,
+  courseSearch,
+  onChangeCourseSearch,
+  onResetFilters,
   error,
 }: AttendanceFiltersCardProps) {
   return (
-    <Card as="form" onSubmit={onSubmit}>
+    <FiltersForm onSubmit={onSubmit}>
       <Filters>
         <Field>
-          <label htmlFor="attendance-date">조회일</label>
+          <label htmlFor="attendance-date">날짜</label>
           <input
             id="attendance-date"
             type="date"
@@ -47,9 +57,24 @@ export function AttendanceFiltersCard({
             이틀 전
           </QuickButton>
         </QuickButtons>
-        <ApplyButton type="submit">조회</ApplyButton>
+        <SearchField>
+          <label htmlFor="attendance-course-search">수업 이름</label>
+          <SearchInput
+            id="attendance-course-search"
+            type="text"
+            placeholder="수업명을 입력하세요."
+            value={courseSearch}
+            onChange={(event) => onChangeCourseSearch(event.target.value)}
+          />
+        </SearchField>
+        <ButtonRow>
+          <ApplyButton type="submit">조회</ApplyButton>
+          <ResetButton type="button" onClick={onResetFilters}>
+            초기화
+          </ResetButton>
+        </ButtonRow>
       </Filters>
       {error ? <ErrorText>{error}</ErrorText> : null}
-    </Card>
+    </FiltersForm>
   );
 }

@@ -52,7 +52,6 @@ export type CourseRecordsProps = Pick<
   | "onToggleCollapsed"
   | "todayHref"
   | "detailHrefFor"
-  | "getAttendanceMap"
 >;
 
 export type CourseDetailPageViewProps = {
@@ -166,14 +165,13 @@ export function CourseDetailPageView({
                 onChangeYear={records.onChangeYear}
                 onChangeMonth={records.onChangeMonth}
                 onResetFilters={records.onResetFilters}
-                exporting={records.exporting}
-                onExport={records.onExport}
-                collapsed={records.collapsed}
-                onToggleCollapsed={records.onToggleCollapsed}
-                todayHref={records.todayHref}
-                detailHrefFor={records.detailHrefFor}
-                getAttendanceMap={records.getAttendanceMap}
-              />
+              exporting={records.exporting}
+              onExport={records.onExport}
+              collapsed={records.collapsed}
+              onToggleCollapsed={records.onToggleCollapsed}
+              todayHref={records.todayHref}
+              detailHrefFor={records.detailHrefFor}
+            />
             </Right>
           </Columns>
         ) : null}

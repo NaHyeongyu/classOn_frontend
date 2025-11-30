@@ -8,7 +8,7 @@ type Options = {
 };
 
 export function usePaymentEvents(options?: Options) {
-  const paymentQuery = useCalendarPaymentInvoices(Boolean(options?.enabled));
+  const paymentQuery = useCalendarPaymentInvoices(options?.enabled ?? true);
 
   const counts = useMemo(() => {
     const map: Record<string, number> = {};

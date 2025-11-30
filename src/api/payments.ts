@@ -12,6 +12,7 @@ import type {
   PaymentType,
   BillingCycleUnit,
   PaymentStatus,
+  PaymentCancelPayload,
 } from "@classon/shared-types";
 
 export type PaymentTemplateKey = "GUIDE" | "RETRY" | "SUCCESS" | "FAIL";
@@ -70,12 +71,18 @@ export async function listPaymentInvoices(params?: {
   q?: string;
   page?: number;
   size?: number;
+  from?: string;
+  to?: string;
+  studentStatus?: string;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
   sp.set("status", params?.status ?? "UNPAID");
   if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
+  if (params?.from) sp.set("from", params.from);
+  if (params?.to) sp.set("to", params.to);
+  if (params?.studentStatus && params.studentStatus !== "ALL") sp.set("studentStatus", params.studentStatus);
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/invoices${q}`);
 }
@@ -97,6 +104,25 @@ export async function listPaymentHistory(params?: {
   if (typeof params?.size === "number") sp.set("size", String(params.size));
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/history${q}`);
+}
+
+export async function listPendingHistory(params?: {
+  from?: string;
+  to?: string;
+  q?: string;
+  page?: number;
+  size?: number;
+  status?: string;
+}): Promise<PageResult<PaymentHistoryRow>> {
+  const sp = new URLSearchParams();
+  if (params?.from) sp.set("from", params.from);
+  if (params?.to) sp.set("to", params.to);
+  if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
+  if (typeof params?.page === "number") sp.set("page", String(params.page));
+  if (typeof params?.size === "number") sp.set("size", String(params.size));
+  if (params?.status && params.status.trim()) sp.set("status", params.status.trim());
+  const q = sp.toString() ? `?${sp.toString()}` : "";
+  return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/history/pending${q}`);
 }
 
 export async function getPaymentDetail(id: number): Promise<PaymentDetail> {
@@ -130,13 +156,19 @@ export async function updatePaymentInvoice(id: number, payload: PaymentInvoiceUp
   return res;
 }
 
-export async function sendPaymentInvoices(payload: { ids: number[]; templateKey: PaymentTemplateKey; resend?: boolean }): Promise<PaymentHistoryRow[]> {
+export async function sendPaymentInvoices(payload: {
+  ids: number[];
+  templateKey: PaymentTemplateKey;
+  resend?: boolean;
+  scheduledAt?: string;
+}): Promise<PaymentHistoryRow[]> {
   const res = await fetchJSON<PaymentHistoryRow[]>(`/api/payments/send`, {
     method: "POST",
     body: JSON.stringify({
       ids: payload.ids,
       resend: Boolean(payload.resend),
       templateKey: payload.templateKey,
+      scheduledAt: payload.scheduledAt,
     }),
   });
   invalidateCacheByPrefix([
@@ -157,6 +189,52 @@ export async function markOnsitePayment(id: number, payload: PaymentOnsitePayloa
     "/api/payments/invoices",
     "/api/payments/history",
     `/api/payments/${id}`,
+  ]);
+  return res;
+}
+
+export async function cancelPayment(id: number, payload?: PaymentCancelPayload): Promise<PaymentDetail> {
+  const res = await fetchJSON<PaymentDetail>(`/api/payments/${id}/cancel`, {
+    method: "POST",
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    `/api/payments/${id}`,
+  ]);
+  return res;
+}
+
+export async function cancelScheduledAlert(paymentId: number, alertId: number): Promise<PaymentDetail> {
+  const res = await fetchJSON<PaymentDetail>(
+    `/api/payments/${paymentId}/alerts/${alertId}/schedule/cancel`,
+    {
+      method: "POST",
+    },
+  );
+  invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    `/api/payments/${paymentId}`,
+  ]);
+  return res;
+}
+
+export async function sendScheduledAlertNow(paymentId: number, alertId: number): Promise<PaymentDetail> {
+  const res = await fetchJSON<PaymentDetail>(
+    `/api/payments/${paymentId}/alerts/${alertId}/schedule/send-now`,
+    {
+      method: "POST",
+    },
+  );
+  invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    `/api/payments/${paymentId}`,
   ]);
   return res;
 }
@@ -223,6 +301,8 @@ export type PublicPaymentCheckoutInit = {
   studentName?: string;
   successUrl?: string;
   failUrl?: string;
+  sellerRefId?: string | null;
+  tossSellerId?: string | null;
 };
 
 export async function preparePublicPaymentCheckout(token: string): Promise<PublicPaymentCheckoutInit> {

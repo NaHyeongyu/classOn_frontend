@@ -18,9 +18,6 @@ export default function CourseForm() {
       onBack={() => navigate(routes.classes)}
       isTeacher={state.isTeacher}
       steps={state.steps}
-      step={state.step}
-      setStep={state.setStep}
-      isLastStep={state.isLastStep}
       form={state.form}
       setForm={state.setForm}
       toggleDay={state.accordionToggle}
@@ -42,8 +39,6 @@ export default function CourseForm() {
       saving={state.saving}
       error={state.error}
       success={state.success}
-      goNext={state.goNext}
-      goPrev={state.goPrev}
       onSubmit={state.submit}
       onSelectStudent={state.onSelectStudent}
       navigateEditStudents={state.navigateEditStudents}

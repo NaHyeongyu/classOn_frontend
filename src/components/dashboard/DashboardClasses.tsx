@@ -5,7 +5,7 @@ import { DashboardPanel } from "./DashboardLayout";
 import { getClassesOn, type TodayClass } from "../../api/calendar";
 import { formatYMD } from "../../features/calendar/dateUtils";
 import { formatTimeRangeLabel } from "../../lib/format";
-import ClassList from "../calendar/detail/ClassList";
+import ClassTimetable from "../calendar/detail/ClassTimetable";
 import type { ClassItem } from "../../types/calendarDetail";
 
 export default function DashboardClasses() {
@@ -68,18 +68,15 @@ export default function DashboardClasses() {
   });
 
   return (
-    <DashboardPanel span={6}>
-      <Scrollable>
-        <ClassList
-          items={items}
-          actionLabel="더보기"
-          onAdd={() => navigate(`/calendar/${formatYMD(new Date())}`)}
-          titleMode="subject"
-          showNotes={true}
-          embedded
-        />
-        {error && <Err>{error}</Err>}
-      </Scrollable>
+    <DashboardPanel height="100%">
+      <ClassTimetable
+        items={items}
+        actionLabel="더보기"
+        onAdd={() => navigate(`/calendar/${formatYMD(new Date())}`)}
+        embedded
+        maxHeight="100%"
+      />
+      {error && <Err>{error}</Err>}
     </DashboardPanel>
   );
 }
@@ -89,15 +86,6 @@ const Err = styled.div`
   font-size: ${(p) => p.theme.font.size.sm};
   font-weight: ${(p) => p.theme.font.weight.semiBold};
 `;
-const Scrollable = styled.div`
-  flex: 1;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: ${(p) => p.theme.spacing.sm};
-`;
-
 type TodayClassRow = TodayClass & Record<string, unknown>;
 
 function pickFirstString(obj: Record<string, unknown>, keys: string[]): string | null {

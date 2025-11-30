@@ -2,6 +2,7 @@ import styled from "styled-components";
 import {
   SectionCard as SectionCardBase,
   TitleH3 as SectionTitleBase,
+  ToggleSwitch,
 } from "@/components/common/UI";
 import type { Student } from "@/api/students";
 
@@ -63,18 +64,26 @@ export const Form = styled.form`
   gap: 16px;
 `;
 
-export const Section = SectionCardBase;
+export const Section = styled(SectionCardBase)`
+  display: grid;
+  gap: 18px;
+`;
 export const SectionTitle = SectionTitleBase;
 
+export const SectionHeader = styled.div`
+  display: grid;
+  gap: 6px;
+`;
+
 export const SectionLead = styled.p`
-  margin: 4px 0 14px;
+  margin: 0;
   color: #6b7280;
   font-size: 13px;
 `;
 
 export const Grid = styled.div`
   display: grid;
-  gap: 12px;
+  gap: 16px;
   grid-template-columns: minmax(0, 1fr);
   @media (min-width: 720px) {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -92,12 +101,18 @@ export const Label = styled.div`
   font-size: 13px;
   font-weight: 800;
   display: inline-flex;
-  gap: 4px;
-  align-items: center;
+  gap: 8px;
+  align-items: baseline;
   text-align: left;
   span {
     color: #ef4444;
   }
+`;
+
+export const LabelHint = styled.span`
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
 `;
 
 export const Input = styled.input`
@@ -147,7 +162,11 @@ export const Select = styled.select`
 export const TripleGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 12px;
+  min-width: 0;
+  @media (max-width: 480px) {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
 `;
 
 export const AlertError = styled.div`
@@ -198,7 +217,11 @@ export const SideColumn = styled.aside`
   gap: 16px;
 `;
 
-export const StickyCard = styled(SectionCardBase)`
+export const StatusToggle = styled(ToggleSwitch)`
+  margin-top: ${(p) => p.theme.spacing.xs};
+`;
+
+export const StickyCard = styled.div`
   display: grid;
   gap: 14px;
   position: sticky;
@@ -212,23 +235,57 @@ export const SummaryTitle = styled.h4`
   font-weight: 800;
 `;
 
-export const SummaryList = styled.ul`
+export const PreviewSection = styled(SectionCardBase)`
+  display: grid;
+  gap: 12px;
+`;
+
+export const PreviewSectionTitle = styled.h5`
   margin: 0;
-  padding: 0;
-  list-style: none;
+  font-size: 15px;
+  color: #0f172a;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+`;
+
+export const PreviewHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+`;
+
+export const PreviewName = styled.div`
+  font-size: 18px;
+  font-weight: 800;
+  color: #0f172a;
+  letter-spacing: -0.015em;
+`;
+
+export const PreviewFields = styled.div`
   display: grid;
   gap: 10px;
-  li {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    font-size: 13px;
-    color: #475569;
-    strong {
-      font-weight: 700;
-      color: #111827;
-    }
-  }
+`;
+
+export const PreviewField = styled.div`
+  display: grid;
+  grid-template-columns: 110px 1fr;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+`;
+
+export const PreviewLabel = styled.div`
+  color: #94a3b8;
+  font-weight: 700;
+`;
+
+export const PreviewValue = styled.div`
+  color: #111827;
+  font-weight: 600;
+  line-height: 1.4;
+  word-break: break-word;
 `;
 
 export const StatusBadge = styled.span<{ $variant: Student["status"] }>`

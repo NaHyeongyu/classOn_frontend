@@ -1,6 +1,6 @@
 import styled from "styled-components";
 import type { CounselItem } from "../../../types/calendarDetail";
-import { buttonVariants, PrimaryButtonSm } from "../../common/UI";
+import { PrimaryButtonSm } from "../../common/UI";
 
 type Props = {
   items: CounselItem[];
@@ -24,16 +24,21 @@ export default function CounselList({ items, onAdd, onDetail }: Props) {
       </SectionHeader>
       <Grid>
         {items.map((c, i) => (
-          <ItemCard key={`cs-${i}`}>
+          <ItemCard 
+            key={`cs-${i}`}
+            onClick={() => {
+              if (onDetail && c.studentId) {
+                onDetail(c.studentId, c.id);
+              }
+            }}
+            style={{ cursor: onDetail && c.studentId ? 'pointer' : 'default' }}
+          >
             <ItemHeader>
               <div className="left">
                 <strong>{c.with || '학생'}</strong>
               </div>
               <div className="right">
                 <Time>{c.time}</Time>
-                {onDetail && c.studentId ? (
-                  <SecondaryBtn type="button" onClick={() => onDetail(c.studentId!, c.id)}>상세</SecondaryBtn>
-                ) : null}
               </div>
             </ItemHeader>
             <ContentSmall>{(c.title || '').trim() || '내용 없음'}</ContentSmall>
@@ -45,14 +50,9 @@ export default function CounselList({ items, onAdd, onDetail }: Props) {
 }
 
 const Section = styled.section`
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 12px;
-  background: #fff;
-  display: flex;
-  flex-direction: column;
-  height: 100%; /* fill half container */
-  min-height: 0; /* allow Grid to scroll */
+  border: 1px solid #e5e7eb; border-radius: 16px; padding: 12px; background: #fff; display: flex; flex-direction: column;
+  height: 100%;
+  min-height: 0;
 `;
 const SectionHeader = styled.div`
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;
@@ -66,13 +66,6 @@ const SectionIcon = styled.span`
 `;
 const Actions = styled.div``;
 const AddBtn = styled(PrimaryButtonSm)``;
-const SecondaryBtn = styled.button`
-  ${buttonVariants.outline};
-  height: 40px;
-  padding: 0 16px;
-  font-size: 14px;
-  font-weight: 600;
-`;
 const Grid = styled.div`
   display: grid;
   grid-template-columns: 1fr;
@@ -83,9 +76,27 @@ const Grid = styled.div`
   align-content: start; /* avoid vertical stretching when few items */
   align-items: start;
   grid-auto-rows: max-content;
+  overflow: auto;
 `;
 const ItemCard = styled.div`
   border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; background: #fff;
+  display: flex; flex-direction: column; gap: 4px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  &:hover { 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+  }
+
+  strong {
+    font-size: ${(p) => p.theme.font.size.md}; /* 14px */
+    font-weight: ${(p) => p.theme.font.weight.semiBold};
+    color: ${(p) => p.theme.colors.text};
+    letter-spacing: -0.01em;
+  }
+  span {
+    font-size: ${(p) => p.theme.font.size.sm}; /* 13px */
+    color: ${(p) => p.theme.colors.textMuted};
+  }
 `;
 const ItemHeader = styled.div`
   display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;

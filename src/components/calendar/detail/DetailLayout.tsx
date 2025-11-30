@@ -13,6 +13,10 @@ export function DetailLeft({ children }: { children: ReactNode }) {
   return <Left>{children}</Left>;
 }
 
+export function DetailCenter({ children }: { children: ReactNode }) {
+  return <Center>{children}</Center>;
+}
+
 export function DetailRight({ children }: { children: ReactNode }) {
   return <Right>{children}</Right>;
 }
@@ -21,32 +25,40 @@ const Page = styled.div`
   display: flex;
   flex-direction: column;
   gap: 14px;
-  height: calc(100vh - 48px); /* account for main content padding */
-  overflow: hidden; /* prevent page scroll; use internal scrolls */
+  min-height: calc(100vh - 48px);
+  overflow: auto;
+  padding-bottom: 16px;
 `;
 const Columns = styled.div`
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
-  align-items: stretch;
   flex: 1 1 auto;
-  min-height: 0; /* allow children to compute internal scroll */
+  min-height: 0;
+  height: 800px; /* Fixed height to fit on screen */
   overflow: hidden;
-  @media (max-width: 960px) { flex-direction: column; height: auto; overflow: visible; }
+  @media (max-width: 960px) { 
+    grid-template-columns: 1fr;
+    height: auto; 
+    overflow: visible; 
+  }
 `;
 const Left = styled.div`
-  flex: 1 1 0;
   display: grid;
-  grid-template-rows: 1fr 1fr; /* 5:5 (1:1) vertical split */
+  grid-template-rows: 1fr 1fr; /* 1:1 ratio including gap */
   gap: 12px;
-  height: 100%;
-  min-height: 0; /* enable internal scrolls in children */
+  min-height: 0;
+  overflow: hidden;
+`;
+const Center = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
 `;
 const Right = styled.div`
-  flex: 1 1 0;
-  display: grid;
-  gap: 12px;
-  align-content: flex-start;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
-  overflow: auto; /* right column can scroll if long */
+  overflow: hidden;
 `;

@@ -29,7 +29,6 @@ export default function Attendance() {
     <AttendancePageView
       {...state}
       isTeacher={isTeacher}
-      onNavigateCalendar={() => navigate("/calendar")}
       onOpenCourseRecord={handleOpenCourseRecord}
       onOpenRecord={handleOpenRecord}
     />

@@ -1,5 +1,4 @@
 import { type FormEvent } from "react";
-import { Card } from "./Attendance.styles";
 import {
   ApplyButton,
   ButtonRow,
@@ -11,6 +10,7 @@ import {
   ResetButton,
   SearchField,
   SearchInput,
+  FiltersForm,
 } from "./Attendance.styles";
 
 type AttendanceFiltersCardProps = {
@@ -35,7 +35,7 @@ export function AttendanceFiltersCard({
   error,
 }: AttendanceFiltersCardProps) {
   return (
-    <Card as="form" onSubmit={onSubmit}>
+    <FiltersForm onSubmit={onSubmit}>
       <Filters>
         <Field>
           <label htmlFor="attendance-date">날짜</label>
@@ -75,6 +75,6 @@ export function AttendanceFiltersCard({
         </ButtonRow>
       </Filters>
       {error ? <ErrorText>{error}</ErrorText> : null}
-    </Card>
+    </FiltersForm>
   );
 }

@@ -1,6 +1,7 @@
-import React from 'react';
-import styled from 'styled-components';
-import { buttonVariants } from './UI';
+import React from "react";
+import { createPortal } from "react-dom";
+import styled from "styled-components";
+import { buttonVariants } from "./UI";
 
 type Props = {
   open: boolean;
@@ -16,11 +17,30 @@ type Props = {
   maxWidth?: number; // px, default 480
 };
 
-export default function ConfirmDialog({ open, title, message, confirmLabel = '확인', cancelLabel = '취소', tone = 'default', onConfirm, onCancel, busy = false, hideCancel = false, maxWidth = 480 }: Props) {
+export default function ConfirmDialog({
+  open,
+  title,
+  message,
+  confirmLabel = "확인",
+  cancelLabel = "취소",
+  tone = "default",
+  onConfirm,
+  onCancel,
+  busy = false,
+  hideCancel = false,
+  maxWidth = 480,
+}: Props) {
   if (!open) return null;
-  return (
+  const content = (
     <Backdrop onClick={busy ? undefined : onCancel}>
-      <Card role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-desc" onClick={(e) => e.stopPropagation()} $maxWidth={maxWidth}>
+      <Card
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="confirm-title"
+        aria-describedby="confirm-desc"
+        onClick={(e) => e.stopPropagation()}
+        $maxWidth={maxWidth}
+      >
         <Content>
           <Title id="confirm-title">{title}</Title>
           {message ? <Msg id="confirm-desc">{message}</Msg> : null}
@@ -31,19 +51,15 @@ export default function ConfirmDialog({ open, title, message, confirmLabel = '�
               {cancelLabel}
             </Action>
           )}
-          <Action
-            type="button"
-            data-role="confirm"
-            data-tone={tone}
-            onClick={onConfirm}
-            disabled={busy}
-          >
-            {busy ? '진행 중…' : confirmLabel}
+          <Action type="button" data-role="confirm" data-tone={tone} onClick={onConfirm} disabled={busy}>
+            {busy ? "진행 중…" : confirmLabel}
           </Action>
         </Btns>
       </Card>
     </Backdrop>
   );
+  if (typeof document === "undefined") return content;
+  return createPortal(content, document.body);
 }
 
 const Backdrop = styled.div`
@@ -52,7 +68,7 @@ const Backdrop = styled.div`
   background: rgba(15, 23, 42, 0.28);
   display: grid;
   place-items: center;
-  z-index: 1200;
+  z-index: 1400;
 `;
 
 const Card = styled.div<{ $maxWidth?: number }>`

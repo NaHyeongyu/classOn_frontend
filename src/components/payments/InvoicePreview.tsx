@@ -58,6 +58,7 @@ const statusLabel: Record<string, string> = {
   PENDING: "미납",
   COMPLETED: "완료",
   FAILED: "실패",
+  CANCELED: "취소",
 };
 
 export default function InvoicePreview({

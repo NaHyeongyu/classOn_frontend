@@ -97,6 +97,7 @@ const statusLabelMap: Record<string, string> = {
   PENDING: "미납",
   COMPLETED: "완료",
   FAILED: "실패",
+  CANCELED: "취소",
 };
 
 const statusColor: Record<string, string> = {
@@ -104,6 +105,7 @@ const statusColor: Record<string, string> = {
   PENDING: "#2563EB",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
+  CANCELED: "#dc2626",
 };
 
 function normalizeTemplateKey(raw: string | null): TemplateKey | null {

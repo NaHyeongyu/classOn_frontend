@@ -176,6 +176,7 @@ const Empty = styled.div`
 `;
 const NameCell = styled.div`
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  text-align: left;
   .name { font-weight: 700; color: #1f2937; }
 `;
 const Form = styled.div`

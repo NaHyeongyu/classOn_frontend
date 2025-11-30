@@ -40,6 +40,20 @@ import { paths } from "@/routes";
 import { useAuth } from "@/hooks/useAuth";
 import Modal from "@/components/common/Modal";
 import { toHHMM, toHHMMSS } from "@/features/courseRecord/utils";
+import SelectBox from "@/components/common/SelectBox";
+import {
+  HOUR_OPTIONS,
+  MINUTE_OPTIONS,
+} from "@/components/courseForm/courseFormHelpers";
+
+const HOUR_SELECT_OPTIONS = HOUR_OPTIONS.map((value) => ({
+  label: value,
+  value,
+}));
+const MINUTE_SELECT_OPTIONS = MINUTE_OPTIONS.map((value) => ({
+  label: value,
+  value,
+}));
 
 function pad2(n: number) {
   return String(n).padStart(2, "0");
@@ -933,7 +947,6 @@ export default function CourseDetail() {
               onToggleCollapsed={() => setCollapsedList(v => !v)}
               todayHref={`/classes/${numericId || ''}/history/date/${fmt(new Date())}`}
               detailHrefFor={(id, date) => id ? `/classes/${numericId}/history/${id}` : `/classes/${numericId}/history/date/${fmt(date!)}`}
-              getAttendanceMap={(recordId) => (attByRec[recordId] || localAttendanceMap(recordId))}
               onCreateRecord={openCreateModal}
             />
           </Right>
@@ -961,22 +974,60 @@ export default function CourseDetail() {
             />
           </ModalRow>
           <ModalRow>
-            <ModalLabel htmlFor="create-record-start">시작 시간</ModalLabel>
-            <ModalInput
-              id="create-record-start"
-              type="time"
-              value={createStart}
-              onChange={(e) => setCreateStart(e.currentTarget.value)}
-            />
+            <ModalLabel>시작 시간</ModalLabel>
+            <TimePicker>
+              <TimeSelect
+                ariaLabel="시작 시간 시"
+                placeholder="시"
+                value={getHourPart(createStart)}
+                onChange={(value) => {
+                  setCreateStart(
+                    mergeTimeParts(value, getMinutePart(createStart))
+                  );
+                }}
+                options={HOUR_SELECT_OPTIONS}
+              />
+              <TimeSeparator>:</TimeSeparator>
+              <TimeSelect
+                ariaLabel="시작 시간 분"
+                placeholder="분"
+                value={getMinutePart(createStart)}
+                onChange={(value) => {
+                  setCreateStart(
+                    mergeTimeParts(getHourPart(createStart), value)
+                  );
+                }}
+                options={MINUTE_SELECT_OPTIONS}
+              />
+            </TimePicker>
           </ModalRow>
           <ModalRow>
-            <ModalLabel htmlFor="create-record-end">종료 시간</ModalLabel>
-            <ModalInput
-              id="create-record-end"
-              type="time"
-              value={createEnd}
-              onChange={(e) => setCreateEnd(e.currentTarget.value)}
-            />
+            <ModalLabel>종료 시간</ModalLabel>
+            <TimePicker>
+              <TimeSelect
+                ariaLabel="종료 시간 시"
+                placeholder="시"
+                value={getHourPart(createEnd)}
+                onChange={(value) => {
+                  setCreateEnd(
+                    mergeTimeParts(value, getMinutePart(createEnd))
+                  );
+                }}
+                options={HOUR_SELECT_OPTIONS}
+              />
+              <TimeSeparator>:</TimeSeparator>
+              <TimeSelect
+                ariaLabel="종료 시간 분"
+                placeholder="분"
+                value={getMinutePart(createEnd)}
+                onChange={(value) => {
+                  setCreateEnd(
+                    mergeTimeParts(getHourPart(createEnd), value)
+                  );
+                }}
+                options={MINUTE_SELECT_OPTIONS}
+              />
+            </TimePicker>
           </ModalRow>
           {createError ? <ModalError role="alert">{createError}</ModalError> : null}
         </div>
@@ -996,6 +1047,20 @@ function hhmm(t?: string) {
   if (!t) return "";
   const [h, m] = t.split(":");
   return `${h}:${m}`;
+}
+function getHourPart(value?: string) {
+  if (!value) return "";
+  return value.slice(0, 2) || "";
+}
+function getMinutePart(value?: string) {
+  if (!value) return "";
+  return value.slice(3, 5) || "";
+}
+function mergeTimeParts(hour: string, minute: string) {
+  if (!hour && !minute) return "";
+  const hh = hour || "00";
+  const mm = minute || "00";
+  return `${hh}:${mm}`;
 }
 function dayLabel(code: string) {
   const map: Record<string, string> = {
@@ -1041,6 +1106,18 @@ const ModalLabel = styled.label`
 `;
 const ModalInput = styled.input`
   height: 36px; padding: 0 10px; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 14px;
+`;
+const TimePicker = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+`;
+const TimeSeparator = styled.span`
+  color: #6b7280;
+  font-weight: 600;
+`;
+const TimeSelect = styled(SelectBox)`
+  min-width: 90px;
 `;
 const ModalError = styled.div`
   color: #b91c1c; font-size: 13px; margin-top: 4px;

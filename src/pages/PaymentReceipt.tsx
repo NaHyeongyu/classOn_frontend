@@ -33,11 +33,11 @@ export default function PaymentReceipt() {
       <Card>
         <Header>
           <div>
-            <h1>결제 영수증</h1>
-            <p>{data?.academyName ?? "클래스온"}</p>
-          </div>
-          <span className="badge">TOKEN: {token}</span>
-        </Header>
+          <h1>결제 영수증</h1>
+          <p>{data?.academyName ?? "클래스온"}</p>
+        </div>
+        {receiptQuery.isFetching ? <span className="badge">갱신 중...</span> : null}
+      </Header>
         {receiptQuery.isLoading && <Placeholder>영수증 정보를 불러오는 중입니다...</Placeholder>}
         {receiptQuery.isError && !receiptQuery.isLoading ? (
           <Placeholder>영수증 정보를 확인할 수 없습니다. 담당자에게 문의해 주세요.</Placeholder>
@@ -57,7 +57,14 @@ function ReceiptLayout({ data, receiptToken }: { data: PublicPaymentReceipt; rec
   const completedText = info.completedAt
     ? formatKoreanDateTimeKST(info.completedAt, { includeWeekday: true, showSeconds: true })
     : "-";
-  const statusLabel = info.status === "COMPLETED" ? "결제 완료" : info.status === "FAILED" ? "결제 실패" : "결제 대기";
+  const statusLabel =
+    info.status === "COMPLETED"
+      ? "결제 완료"
+      : info.status === "FAILED"
+        ? "결제 실패"
+        : info.status === "CANCELED"
+          ? "결제 취소"
+          : "결제 대기";
   const nextDueText = computeNextDueDateLabel(data);
   const memo = info.memo?.trim() || info.managerMemo?.trim() || "";
 

@@ -40,33 +40,48 @@ export const TabButton = styled.button`
 
 export const StatusFilterBar = styled.div`
   display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.xl};
+  overflow: hidden;
 `;
 
-export const FilterButton = styled.button`
-  ${buttonVariants.outline};
-  height: 32px;
-  padding: 0 14px;
-  font-size: 12px;
-  &[data-active] {
-    background: #1f2937;
-    color: #fff;
-    border-color: #1f2937;
+export const FilterButton = styled.button<{ $active?: boolean }>`
+  border: none;
+  background: ${({ $active, theme }) =>
+    $active ? theme.colors.primarySurface : "transparent"};
+  color: ${({ $active, theme }) =>
+    $active ? theme.colors.primary : theme.colors.text};
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+  &:hover {
+    background: ${({ theme }) => theme.colors.surfaceMuted};
   }
+  &:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
+`;
+
+export const FiltersForm = styled.form`
+  width: 100%;
 `;
 
 export const Filters = styled.div`
   display: flex;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: ${(p) => p.theme.spacing.sm};
   align-items: flex-end;
 `;
 
 export const Field = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: ${(p) => p.theme.spacing.xs};
   label {
     font-size: 13px;
     color: #4b5563;
@@ -127,7 +142,7 @@ export const ApplyButton = styled(PrimaryButton)`
 
 export const ButtonRow = styled.div`
   display: inline-flex;
-  gap: 4px;
+  gap: ${(p) => p.theme.spacing.xs};
   align-items: center;
 `;
 

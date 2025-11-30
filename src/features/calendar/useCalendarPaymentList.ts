@@ -65,6 +65,8 @@ function statusLabel(status?: string | null): string {
       return "미납";
     case "COMPLETED":
       return "완료";
+    case "CANCELED":
+      return "취소";
     default:
       return status ?? "-";
   }

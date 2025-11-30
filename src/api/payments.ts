@@ -12,6 +12,7 @@ import type {
   PaymentType,
   BillingCycleUnit,
   PaymentStatus,
+  PaymentCancelPayload,
 } from "@classon/shared-types";
 
 export type PaymentTemplateKey = "GUIDE" | "RETRY" | "SUCCESS" | "FAIL";
@@ -176,6 +177,20 @@ export async function markOnsitePayment(id: number, payload: PaymentOnsitePayloa
   const res = await fetchJSON<PaymentDetail>(`/api/payments/${id}/onsite`, {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+  invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    `/api/payments/${id}`,
+  ]);
+  return res;
+}
+
+export async function cancelPayment(id: number, payload?: PaymentCancelPayload): Promise<PaymentDetail> {
+  const res = await fetchJSON<PaymentDetail>(`/api/payments/${id}/cancel`, {
+    method: "POST",
+    body: payload ? JSON.stringify(payload) : undefined,
   });
   invalidateCacheByPrefix([
     "/api/payments/summary",

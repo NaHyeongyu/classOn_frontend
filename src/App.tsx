@@ -4,7 +4,7 @@
  */
 import Sidebar from "@/components/common/Sidebar";
 import { ToastProvider } from "@/components/common/Toast";
-import styled, { keyframes } from "styled-components";
+import styled from "styled-components";
 import { Routes, Route, Outlet, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { useOutletContext } from "react-router";
@@ -276,7 +276,16 @@ function ProtectedLayout() {
     }
   }, [loading, user]);
 
-  if (loading || !billingChecked) return <Centered><LoadingSpinner /><span style={{marginTop: 8, color:'#6b7280'}}>로딩 중…</span></Centered>;
+  if (loading || !billingChecked) {
+    return (
+      <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", color: "#6b7280" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+          <LoadingSpinner />
+          <span>로딩 중…</span>
+        </div>
+      </div>
+    );
+  }
   if (!user) return <Navigate to={routes.login} replace state={{ from: location.pathname }} />;
   return <Outlet context={{ billingBlocked }} />;
 }
@@ -361,50 +370,10 @@ function AdminProtectedLayout() {
 
 function AuthLayout() {
   const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <AuthContainer>
-        <Centered>
-          <LoadingSpinner />
-          <span style={{ marginTop: 8, color: "#6b7280" }}>로딩 중…</span>
-        </Centered>
-      </AuthContainer>
-    );
-  }
+  if (loading) return <PageLoading />;
   if (user) return <Navigate to={routes.home} replace />;
-  return (
-    <AuthContainer>
-      <AuthCard>
-        <Outlet />
-      </AuthCard>
-    </AuthContainer>
-  );
+  return <Outlet />;
 }
 
-const Centered = styled.div`
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  color: #6b7280;
-`;
-
-const AuthContainer = styled.div`
-  min-height: 100vh;
-  display: grid;
-  place-items: center;
-  background: radial-gradient(1200px 600px at 10% 0%, #eef2ff 0%, #f9fafb 40%, #f9fafb 100%);
-  padding: 32px;
-`;
-
-const fadeUp = keyframes`
-  0% { opacity: 0; transform: translateY(8px) scale(0.995); }
-  100% { opacity: 1; transform: translateY(0) scale(1); }
-`;
-
-const AuthCard = styled.div`
-  width: 100%;
-  background: transparent; /* 경계 없는 스타일 */
-  border-radius: 18px;
-  padding: 20px;
-  animation: ${fadeUp} 260ms ease-out;
-`;
+// AuthLayout intentionally has no additional full-page background or card wrapper
+// so that each auth page (login/register) can define its own layout.

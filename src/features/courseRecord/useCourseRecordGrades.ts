@@ -13,8 +13,8 @@ import {
   updateExam,
   upsertExamResults,
   type Exam,
+  type ExamPayload,
 } from "@/api/exams";
-import { listExamTemplates, type ExamTemplate } from "@/features/exams/templates";
 import { invalidateCacheByPrefix } from "@/lib/fetcher";
 import { readableError } from "@/lib/errors";
 import type { CourseRecord } from "@/api/courses";
@@ -74,24 +74,8 @@ export function useCourseRecordGrades({
   const gradeAutoSaveTimerRef = useRef<number | null>(null);
   const lastGradeEditAtRef = useRef<number>(0);
 
-  const examTemplates = useMemo(() => listExamTemplates(), []);
-  const [examFormTemplateId, setExamFormTemplateId] = useState<string>(
-    () => examTemplates[0]?.id ?? ""
-  );
-  const selectedExamTemplate = useMemo<ExamTemplate | null>(
-    () => examTemplates.find((tpl) => tpl.id === examFormTemplateId) ?? null,
-    [examTemplates, examFormTemplateId],
-  );
-
-  useEffect(() => {
-    if (!examTemplates.length) {
-      if (examFormTemplateId !== "") setExamFormTemplateId("");
-      return;
-    }
-    if (!examTemplates.some((tpl) => tpl.id === examFormTemplateId)) {
-      setExamFormTemplateId(examTemplates[0]?.id ?? "");
-    }
-  }, [examTemplates, examFormTemplateId]);
+  // 시험 템플릿은 수업 상세 페이지에서만 관리하고,
+  // 수업 내역 화면에서는 기존에 생성된 시험만 선택해서 사용합니다.
 
   useEffect(() => {
     selectedExamIdRef.current = selectedExamId;
@@ -115,10 +99,34 @@ export function useCourseRecordGrades({
     [exams, selectedExamId]
   );
 
+  // 템플릿 목록: 동일한 templateId(또는 id)를 기준으로 한 번씩만 노출
   const filteredExams = useMemo(() => {
+    const byKey = new Map<string, Exam>();
+    for (const exam of exams) {
+      const key = exam.templateId ?? String(exam.id);
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, exam);
+        continue;
+      }
+      // examDate가 없는 쪽(순수 템플릿)에 우선순위를 줍니다.
+      if (existing.examDate && !exam.examDate) {
+        byKey.set(key, exam);
+        continue;
+      }
+      if (!!existing.examDate === !!exam.examDate) {
+        // 둘 다 날짜가 있거나 둘 다 없으면 createdAt이 더 이른 쪽을 선택
+        if (exam.createdAt && existing.createdAt && exam.createdAt < existing.createdAt) {
+          byKey.set(key, exam);
+        }
+      }
+    }
+    let list = Array.from(byKey.values());
     const query = examQuery.trim().toLowerCase();
-    if (!query) return exams;
-    return exams.filter((exam) => (exam.title || "").toLowerCase().includes(query));
+    if (query) {
+      list = list.filter((exam) => (exam.title || "").toLowerCase().includes(query));
+    }
+    return list;
   }, [exams, examQuery]);
 
   const hasGradeChanges = useMemo(
@@ -174,13 +182,16 @@ export function useCourseRecordGrades({
   }, [refreshExams]);
 
   useEffect(() => {
-    if (!courseId || !selectedExamId) {
-      setExamResultsMap({});
-      return;
-    }
     let cancelled = false;
     (async () => {
       try {
+        if (!courseId || !selectedExamId) {
+          setExamResultsMap({});
+          return;
+        }
+        // 시험을 바꿀 때 이전 시험의 성적이 잠깐이라도 섞여 보이지 않도록
+        // 먼저 로컬 맵을 비워둔 뒤 새 시험 결과를 로드합니다.
+        setExamResultsMap({});
         try {
           invalidateCacheByPrefix(
             `/api/courses/${courseId}/exams/${selectedExamId}/results`
@@ -211,11 +222,64 @@ export function useCourseRecordGrades({
     };
   }, [courseId, selectedExamId]);
 
-  const handleConfirmExamSelection = useCallback(() => {
-    if (!selectedExamId) return false;
-    setExamModalOpen(false);
-    return true;
-  }, [selectedExamId]);
+  // 시험을 바꾸거나 새 시험을 생성했을 때는 기존 입력값(gradeMap)을 초기화해서
+  // 이전 시험의 미저장 점수가 새 시험 폼에 섞여 보이지 않도록 합니다.
+  useEffect(() => {
+    setGradeMap({});
+    setGradeFeedback("idle");
+    lastGradeEditAtRef.current = 0;
+  }, [selectedExamId, setGradeMap, setGradeFeedback]);
+
+  const handleConfirmExamSelection = useCallback(async (): Promise<number | null> => {
+    if (!courseId || !selectedExamId) return null;
+    const dateKey = record?.recordDate || ymd || "";
+    if (!dateKey) {
+      setExamFormError("수업 일자를 먼저 선택해 주세요.");
+      return null;
+    }
+    const base = exams.find((exam) => String(exam.id) === selectedExamId) || null;
+    if (!base) return null;
+
+    // 1) 이미 이 날짜용으로 만들어진 시험이면 그대로 사용
+    if (base.examDate === dateKey) {
+      setExamModalOpen(false);
+      return base.id;
+    }
+
+    // 2) 같은 템플릿 + 같은 날짜로 생성된 Exam 이 있는지 확인
+    const templateKey = base.templateId ?? String(base.id);
+    const instance = exams.find(
+      (exam) =>
+        exam.id !== base.id &&
+        (exam.templateId ?? String(exam.id)) === templateKey &&
+        exam.examDate === dateKey,
+    );
+    if (instance) {
+      setSelectedExamId(String(instance.id));
+      setExamModalOpen(false);
+      return instance.id;
+    }
+
+    // 3) 없으면 새로운 Exam 을 생성 (같은 템플릿 기반, 날짜만 다른 시험)
+    const payload: ExamPayload = {
+      title: base.title,
+      inputMode: base.inputMode,
+      kind: base.kind ?? "TEST",
+      examDate: dateKey,
+      templateId: templateKey,
+    };
+    try {
+      setExamFormError(null);
+      const created = await createExam(courseId, payload);
+      await refreshExams({ selectId: created.id });
+      setSelectedExamId(String(created.id));
+      setExamModalOpen(false);
+      return created.id;
+    } catch (error) {
+      setExamFormError(readableError(error, "시험을 생성하지 못했습니다."));
+      return null;
+    }
+  }, [courseId, selectedExamId, record?.recordDate, ymd, exams, refreshExams, setExamFormError]);
 
   const handleDeleteSelectedExam = useCallback(async () => {
     if (!courseId || !selectedExamId) return false;
@@ -229,65 +293,6 @@ export function useCourseRecordGrades({
       return false;
     }
   }, [courseId, selectedExamId, refreshExams]);
-
-  const handleCreateExamInline = useCallback(async () => {
-    if (!courseId || examFormSaving) return false;
-    const template =
-      examTemplates.find((tpl) => tpl.id === examFormTemplateId) ?? null;
-    const baseDate = record?.recordDate || ymd || "";
-    const trimmedTitle = examFormTitle.trim();
-    const hasExisting = exams.length > 0;
-    if (!hasExisting && !trimmedTitle) {
-      setExamFormError("시험 제목을 입력해 주세요.");
-      return false;
-    }
-    const title = (() => {
-      if (!hasExisting && trimmedTitle) return trimmedTitle;
-      if (template && baseDate) return `${template.name} (${baseDate})`;
-      if (template) return template.name;
-      if (trimmedTitle) return trimmedTitle;
-      if (baseDate) return `${baseDate} 시험`;
-      return "시험";
-    })();
-    setExamFormError(null);
-    setExamFormSaving(true);
-    try {
-      const payload = {
-        title,
-        inputMode: template?.inputMode ?? examFormMode,
-        kind: "TEST" as const,
-        examDate: record?.recordDate || ymd || undefined,
-        templateId: template?.id,
-      };
-      const created = await createExam(courseId, payload);
-      await refreshExams({ selectId: created.id });
-      setSelectedExamId(String(created.id));
-      setExamFormTitle("");
-      setExamFormMode("percent");
-      setExamFormTemplateId(examTemplates[0]?.id ?? "");
-      setExamFormError(null);
-      setExamModalView("list");
-      setExamCreateOk(true);
-      window.setTimeout(() => setExamCreateOk(false), 2000);
-      return created.id;
-    } catch (error) {
-      setExamFormError(readableError(error, "시험 생성에 실패했습니다."));
-      return null;
-    } finally {
-      setExamFormSaving(false);
-    }
-  }, [
-    courseId,
-    exams.length,
-    examFormSaving,
-    record?.recordDate,
-    ymd,
-    refreshExams,
-    examFormTemplateId,
-    examTemplates,
-    examFormTitle,
-    examFormMode,
-  ]);
 
   const saveScoresForPresent = useCallback(async () => {
     if (!courseId) return;
@@ -420,11 +425,7 @@ export function useCourseRecordGrades({
     examCreateOk,
     setExamCreateOk,
     selectedExam,
-    filteredExams,
-    examTemplates,
-    examFormTemplateId,
-    setExamFormTemplateId,
-    selectedExamTemplate,
+	    filteredExams,
     examResultsMap,
     setExamResultsMap,
     gradeMap,
@@ -440,7 +441,6 @@ export function useCourseRecordGrades({
     refreshExams,
     handleConfirmExamSelection,
     handleDeleteSelectedExam,
-    handleCreateExamInline,
     saveScoresForPresent,
   };
 }

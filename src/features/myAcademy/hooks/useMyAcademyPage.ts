@@ -1007,7 +1007,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const billingView: BillingViewState = {
     loading: subscriptionLoading,
     data: subscription,
-    createOrUpdate: async (payload) => {
+    createOrUpdate: async (payload): Promise<void> => {
       setSubscriptionLoading(true);
       try {
         const sub = await apiUpsertSubscription(payload);
@@ -1016,11 +1016,19 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         setSubscriptionLoading(false);
       }
     },
-    cancel: async () => {
+    cancel: async (): Promise<void> => {
       setSubscriptionLoading(true);
       try {
         await apiCancelSubscription();
-        setSubscription(null);
+        // 서버에서 구독을 CANCELED 상태로 표시하고, 다음 결제부터 자동결제를 중단합니다.
+        // 현재 결제 주기 종료일까지는 academy.billingCurrentPeriodEnd 기준으로 이용이 유지됩니다.
+        let next: SubscriptionDto | null = null;
+        try {
+          next = await apiGetSubscription();
+        } catch {
+          next = null;
+        }
+        setSubscription(next);
       } finally {
         setSubscriptionLoading(false);
       }

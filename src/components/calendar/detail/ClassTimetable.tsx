@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import type { ClassItem } from "../../../types/calendarDetail";
 import { DashboardMoreButton } from "@/components/dashboard/DashboardButtons";
@@ -26,6 +26,9 @@ export default function ClassTimetable({
   maxHeight,
 }: Props) {
   const [selectedItem, setSelectedItem] = useState<ClassItem | null>(null);
+  const [now, setNow] = useState(new Date());
+  const containerRef = useRef<HTMLDivElement>(null);
+
   const records = Array.isArray(items) ? items : [];
   const canAdd = typeof onAdd === "function";
 
@@ -33,6 +36,38 @@ export default function ClassTimetable({
     { length: END_HOUR - START_HOUR + 1 },
     (_, i) => START_HOUR + i
   );
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentMinutesFromStart = (currentHour - START_HOUR) * 60 + currentMinute;
+  const currentTop = (currentMinutesFromStart / 60) * HOUR_HEIGHT;
+  const showCurrentTime = currentHour >= START_HOUR && currentHour <= END_HOUR;
+
+  // Auto-scroll to current time on mount or when data loads
+  const hasScrolledRef = useRef(false);
+
+  useEffect(() => {
+    if (containerRef.current && showCurrentTime && records.length > 0 && !hasScrolledRef.current) {
+      // Use setTimeout to ensure DOM is updated and layout is stable
+      setTimeout(() => {
+        if (containerRef.current) {
+          // Scroll to show current time with some context above (e.g. 100px)
+          // Using 'smooth' behavior for better UX
+          containerRef.current.scrollTo({
+            top: Math.max(0, currentTop - 100),
+            behavior: 'smooth'
+          });
+          hasScrolledRef.current = true;
+        }
+      }, 100);
+    }
+  }, [records.length, showCurrentTime]); // Run when records load
 
   return (
     <Section $embedded={embedded} $maxHeight={maxHeight}>
@@ -70,7 +105,11 @@ export default function ClassTimetable({
         )}
       </SectionHeader>
 
-      <TimetableContainer $embedded={embedded} $maxHeight={maxHeight}>
+      <TimetableContainer
+        ref={containerRef}
+        $embedded={embedded}
+        $maxHeight={maxHeight}
+      >
         {records.length === 0 ? (
           <EmptyPlaceholder
             title="등록된 수업 내역이 없습니다."
@@ -92,6 +131,9 @@ export default function ClassTimetable({
               {hours.map((h) => (
                 <GridLine key={h} style={{ top: (h - START_HOUR) * HOUR_HEIGHT }} />
               ))}
+              {showCurrentTime && (
+                <CurrentTimeLine style={{ top: currentTop }} />
+              )}
               {records.map((item, i) => {
                 const pos = calculatePosition(item.time);
                 if (!pos) return null;
@@ -274,4 +316,24 @@ const TimeText = styled.span`
   font-weight: 400;
   font-size: 0.9em;
   margin-left: 6px;
+`;
+
+const CurrentTimeLine = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px solid #ef4444;
+  z-index: 20;
+  pointer-events: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: -5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ef4444;
+  }
 `;

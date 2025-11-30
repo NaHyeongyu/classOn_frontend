@@ -41,6 +41,7 @@ import { useNavigate } from "react-router-dom";
 import { routes, paths } from "@/routes";
 import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
 import { DiscountFields } from "@/components/payments/DiscountFields";
+import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 
 type DetailState =
   | {
@@ -120,6 +121,8 @@ type HistoryFilters = {
 export default function Payments() {
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
+  const academyState = useMyAcademyPage();
+  const paymentEnabled = academyState.academy.paymentEnabled;
   const queryClient = useQueryClient();
 
   const [invoiceSearch, setInvoiceSearch] = useState("");
@@ -147,6 +150,7 @@ export default function Payments() {
     queryKey: ["payments", "summary", defaultMonth],
     queryFn: () => getPaymentSummary({ month: defaultMonth }),
     staleTime: 30_000,
+    enabled: paymentEnabled,
   });
 
   const invoiceQuery = useQuery<PageResult<PaymentHistoryRow>>({
@@ -171,6 +175,7 @@ export default function Payments() {
         studentStatus: invoiceStudentStatus === "ALL" ? undefined : invoiceStudentStatus,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
+    enabled: paymentEnabled,
   });
 
   const completedHistoryQuery = useQuery<PageResult<PaymentHistoryRow>>({
@@ -194,6 +199,7 @@ export default function Payments() {
         size: historyPageSize,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
+    enabled: paymentEnabled,
   });
 
   const pendingHistoryQuery = useQuery<PageResult<PaymentHistoryRow>>({
@@ -218,6 +224,7 @@ export default function Payments() {
         size: historyPageSize,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
+    enabled: paymentEnabled,
   });
 
   useEffect(() => {
@@ -380,6 +387,7 @@ export default function Payments() {
       });
     },
     enabled:
+      paymentEnabled &&
       onsiteSelectorOpen &&
       (onsiteContext === "invoice" || (onsiteContext === "history" && historyFilters.status !== "COMPLETED")),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
@@ -514,6 +522,27 @@ export default function Payments() {
       ? "청구서를 선택해 한 번에 발송하거나 검색해 관리하세요."
       : "결제 내역을 필터링하고 상세 정보를 확인하세요.";
 
+  if (!paymentEnabled) {
+    return (
+      <Page>
+        <PageHeader>
+          <div>
+            <h2>결제 관리</h2>
+            <p>현재 요금제로 이용할 수 없습니다.</p>
+          </div>
+        </PageHeader>
+        <SectionCard>
+          <EmptyState>
+            <div>결제 관리 기능은 결제 기능이 포함된 요금제에서 이용할 수 있습니다.</div>
+            <PrimaryButton type="button" onClick={() => navigate(routes.myAcademyPlan)}>
+              요금제 변경하기
+            </PrimaryButton>
+          </EmptyState>
+        </SectionCard>
+      </Page>
+    );
+  }
+
   return (
     <Page>
       <PageHeader>
@@ -537,33 +566,34 @@ export default function Payments() {
         ))}
       </StatsRow>
 
+      <TabRow>
+        <ToggleGroup role="tablist" aria-label="결제 관리">
+          <ToggleButton
+            type="button"
+            $active={activeSection === "invoice"}
+            aria-pressed={activeSection === "invoice"}
+            onClick={() => setActiveSection("invoice")}
+          >
+            청구서
+          </ToggleButton>
+          <ToggleButton
+            type="button"
+            $active={activeSection === "history"}
+            aria-pressed={activeSection === "history"}
+            onClick={() => setActiveSection("history")}
+          >
+            결제 내역
+          </ToggleButton>
+        </ToggleGroup>
+        <PanelControls>
+          <PrimaryButton type="button" onClick={() => navigate(routes.paymentsCreate)}>
+            청구서 생성
+          </PrimaryButton>
+        </PanelControls>
+      </TabRow>
+
       <Panels>
         <SectionCard>
-          <SectionHeader>
-            <ToggleGroup role="tablist" aria-label="결제 관리">
-              <ToggleButton
-                type="button"
-                $active={activeSection === "invoice"}
-                aria-pressed={activeSection === "invoice"}
-                onClick={() => setActiveSection("invoice")}
-              >
-                청구서
-              </ToggleButton>
-              <ToggleButton
-                type="button"
-                $active={activeSection === "history"}
-                aria-pressed={activeSection === "history"}
-                onClick={() => setActiveSection("history")}
-              >
-                결제 내역
-              </ToggleButton>
-            </ToggleGroup>
-            <PanelControls>
-              <PrimaryButton type="button" onClick={() => navigate(routes.paymentsCreate)}>
-                청구서 생성
-              </PrimaryButton>
-            </PanelControls>
-          </SectionHeader>
           <SectionInfo>
             <InfoText>
               <TitleH3>{sectionTitle}</TitleH3>
@@ -595,15 +625,7 @@ export default function Payments() {
                 </KakaoButton>
               </SectionActions>
             ) : (
-              <SectionActions>
-                <GhostButton
-                  type="button"
-                  onClick={() => handleOnsiteButtonClick("history")}
-                  disabled={historyFilters.status === "COMPLETED" || pendingTotalElements === 0}
-                >
-                  현장 결제
-                </GhostButton>
-              </SectionActions>
+              <SectionActions />
             )}
           </SectionInfo>
 
@@ -2027,6 +2049,15 @@ const paperIcon = (
   </svg>
 );
 
+const TabRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 16px;
+`;
+
 const Panels = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
@@ -2041,22 +2072,29 @@ const PanelControls = styled.div`
 
 const ToggleGroup = styled.div`
   display: inline-flex;
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.xl};
-  overflow: hidden;
+  gap: 8px;
 `;
 
 const ToggleButton = styled.button<{ $active?: boolean }>`
   border: none;
-  background: ${({ $active, theme }) => ($active ? theme.colors.primarySurface : "transparent")};
-  color: ${({ $active, theme }) => ($active ? theme.colors.primary : theme.colors.text)};
+  background: ${({ $active, theme }) => ($active ? theme.colors.text : "transparent")};
+  color: ${({ $active, theme }) => ($active ? theme.colors.textInverted : theme.colors.textMuted)};
   font-weight: 600;
-  padding: 6px 14px;
+  padding: 8px 20px;
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 15px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: ${({ $active, theme }) => ($active ? theme.colors.textInverted : theme.colors.text)};
+    background: ${({ $active, theme }) => ($active ? theme.colors.text : theme.colors.surfaceAlt)};
+  }
+
   &:focus-visible {
     outline: 2px solid ${({ theme }) => theme.colors.primary};
     outline-offset: 2px;
+    z-index: 1;
   }
 `;
 

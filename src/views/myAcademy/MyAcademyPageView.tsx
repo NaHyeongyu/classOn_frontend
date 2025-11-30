@@ -174,10 +174,6 @@ export function MyAcademyPageView({
       warning("학원 정보가 아직 로드되지 않았습니다. 잠시 후 다시 시도해 주세요.");
       return;
     }
-    if (isTrialing && !isBillingBlockForced) {
-      warning("무료 체험 기간에는 카드 등록이 불가능합니다. 체험 기간 종료 후 등록해 주세요.");
-      return;
-    }
     if (!clientKey) {
       showError("결제 연동 키를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
       return;
@@ -205,7 +201,7 @@ export function MyAcademyPageView({
   const handleCancel = async () => {
     try {
       await billing.cancel();
-      success("자동결제가 해지되었습니다.");
+      success("자동결제가 해지되었습니다. 현재 결제 주기 종료일까지는 이용이 유지됩니다.");
     } catch (err) {
       showError(err instanceof Error ? err.message : "자동결제 해지에 실패했습니다.");
     }
@@ -445,21 +441,19 @@ export function MyAcademyPageView({
             {!isTrialing && (
               <InfoRow>
                 <Label>등록 카드</Label>
-                <Value>{cardLabel || "카드 미등록"}</Value>
+                <ValueRow>
+                  <span>{cardLabel || "카드 미등록"}</span>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <InlineButton type="button" onClick={handleRegisterOrChangeCard} disabled={billing.loading}>
+                      카드 {billing.data ? "변경" : "등록"}
+                    </InlineButton>
+                    <DangerInlineButton type="button" onClick={handleCancel} disabled={billing.loading}>
+                      해지
+                    </DangerInlineButton>
+                  </div>
+                </ValueRow>
               </InfoRow>
             )}
-            <ActionsRow>
-              {!isTrialing && (
-                <>
-                  <InlineButton type="button" onClick={handleRegisterOrChangeCard} disabled={billing.loading}>
-                    카드 {billing.data ? "변경" : "등록하고 시작하기"}
-                  </InlineButton>
-                  <DangerInlineButton type="button" onClick={handleCancel} disabled={billing.loading}>
-                    자동결제 해지
-                  </DangerInlineButton>
-                </>
-              )}
-            </ActionsRow>
           </>
         ) : (
           <>
@@ -561,15 +555,19 @@ const Header = styled.header`
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 32px;
+  
   h1 {
     margin: 0;
-    font-size: 24px;
+    font-size: 28px;
+    font-weight: 700;
     color: #111827;
+    letter-spacing: -0.01em;
   }
   p {
     margin: 6px 0 0;
     color: #6b7280;
-    font-size: 14px;
+    font-size: 15px;
   }
 `;
 
@@ -584,26 +582,30 @@ const OutlineButton = styled.button`
   background: #ffffff;
   color: #374151;
   font-weight: 600;
-  border-radius: 10px;
-  padding: 8px 16px;
+  border-radius: 12px;
+  padding: 10px 18px;
   cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
   &:hover:not(:disabled) {
-    background: #f8fafc;
+    background: #f9fafb;
+    border-color: #d1d5db;
   }
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.65;
+    opacity: 0.6;
   }
 `;
 
 const Card = styled.section`
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 100%);
-  padding: 18px;
-  display: grid;
-  gap: 12px;
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.05);
+  border: 1px solid #f1f5f9;
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
 `;
 
 const SectionHeader = styled.div`
@@ -611,29 +613,43 @@ const SectionHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f8fafc;
 `;
 
 const SectionTitle = styled.h2`
   margin: 0;
-  font-size: 16px;
-  color: #1f2937;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
 `;
 
 const InfoRow = styled.div`
   display: grid;
-  grid-template-columns: 140px 1fr;
-  gap: 14px;
-  align-items: flex-start;
+  grid-template-columns: 160px 1fr;
+  gap: 16px;
+  align-items: center;
+  padding: 16px 0;
+  border-bottom: 1px solid #f8fafc;
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
   @media (max-width: 640px) {
     grid-template-columns: 1fr;
-    gap: 8px;
+    gap: 6px;
+    align-items: flex-start;
+    padding: 12px 0;
   }
 `;
 
 const Label = styled.span`
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   color: #6b7280;
-  letter-spacing: 0.03em;
 `;
 
 const Value = styled.span`
@@ -641,6 +657,7 @@ const Value = styled.span`
   color: #111827;
   font-weight: 600;
   display: block;
+  line-height: 1.5;
 `;
 
 const ValueRow = styled.div`
@@ -655,11 +672,14 @@ const InlineButton = styled.button`
   border: none;
   background: transparent;
   color: #4f46e5;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   padding: 0;
+  transition: color 0.2s;
+  
   &:hover {
+    color: #4338ca;
     text-decoration: underline;
   }
 `;
@@ -676,19 +696,21 @@ const SellerRegisterButton = styled.button`
   border: none;
   background: #4f46e5;
   color: #ffffff;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  border-radius: 10px;
-  padding: 8px 14px;
+  border-radius: 12px;
+  padding: 10px 18px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: background 0.2s;
+  
   &:hover:not(:disabled) {
     background: #4338ca;
   }
   &:disabled {
-    opacity: 0.4;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 `;
@@ -757,13 +779,19 @@ const ActionsRow = styled.div`
 
 const DangerInlineButton = styled.button`
   border: 1px solid #fecaca;
-  background: #fef2f2;
-  color: #b91c1c;
-  font-size: 12px;
+  background: #fff1f2;
+  color: #e11d48;
+  font-size: 13px;
   font-weight: 600;
-  border-radius: 999px;
-  padding: 6px 12px;
+  border-radius: 12px;
+  padding: 8px 16px;
   cursor: pointer;
+  transition: all 0.2s;
+  
+  &:hover:not(:disabled) {
+    background: #ffe4e6;
+    border-color: #fda4af;
+  }
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;

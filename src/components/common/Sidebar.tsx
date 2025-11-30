@@ -51,7 +51,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
         { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
         { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
         { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
-        { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
+        { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
       ];
       return teacherItems.filter((item) => {
         if (!allowedMenus || !item.menuKey) return true;
@@ -67,7 +67,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments, menuKey: "PAYMENTS" },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing, menuKey: "MARKETING" },
-      { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
+      { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
     ];
     if (isOwnerOrAdmin) {
       const reportsEntry: NavItem = { key: "reports", label: "보고서", sub: "Reports", to: routes.reports };

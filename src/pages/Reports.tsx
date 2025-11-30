@@ -1,4 +1,4 @@
-import { PageHeader, SectionCard, PrimaryButton, GhostButtonSmall } from "@/components/common/UI";
+import { PageHeader, SectionCard, PrimaryButton, GhostButtonSmall, EmptyState } from "@/components/common/UI";
 import { listCourses, type Course, listCourseStudents, listCourseRecords, type CourseRecord } from "@/api/courses";
 import { getDailyAttendance, type AttendanceDailySummary } from "@/api/attendance";
 import { listExams, listExamResults, type Exam, type ExamResult } from "@/api/exams";
@@ -6,7 +6,10 @@ import type { Student } from "@/api/students";
 import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
+import { routes } from "@/routes";
 
 type CourseListItem = {
   id: number;
@@ -29,6 +32,9 @@ const EMPTY_DRAFT: ReportDraft = {
 };
 
 export default function Reports() {
+  const academyState = useMyAcademyPage();
+  const navigate = useNavigate();
+  const reportsEnabled = academyState.academy.paymentEnabled;
   const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [coursesError, setCoursesError] = useState<string | null>(null);
@@ -51,6 +57,7 @@ export default function Reports() {
   const [autoDetails, setAutoDetails] = useState<Record<number, AutoDetails>>({});
 
   useEffect(() => {
+    if (!reportsEnabled) return;
     let cancelled = false;
     async function loadCourses() {
       setCoursesLoading(true);
@@ -77,9 +84,16 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCourseId]);
+  }, [selectedCourseId, reportsEnabled]);
 
   useEffect(() => {
+    if (!reportsEnabled) {
+      setStudents([]);
+      setSelectedStudentIds([]);
+      setSelectAll(false);
+      setStudentsError(null);
+      return;
+    }
     if (!selectedCourseId) {
       setStudents([]);
       setSelectedStudentIds([]);
@@ -107,7 +121,7 @@ export default function Reports() {
     return () => {
       cancelled = true;
     };
-  }, [selectedCourseId]);
+  }, [selectedCourseId, reportsEnabled]);
 
   const filteredCourses = useMemo(() => {
     const q = courseQuery.trim();
@@ -211,6 +225,29 @@ export default function Reports() {
     });
   };
 
+  if (!reportsEnabled) {
+    return (
+      <Viewport>
+        <HeaderWrap>
+          <PageHeader>
+            <div>
+              <h2>보고서</h2>
+              <p>현재 요금제로 이용할 수 없습니다.</p>
+            </div>
+          </PageHeader>
+        </HeaderWrap>
+        <SectionCard>
+          <EmptyState>
+            <div>보고서 기능은 결제 기능이 포함된 요금제에서 이용할 수 있습니다.</div>
+            <PrimaryButton type="button" onClick={() => navigate(routes.myAcademyPlan)}>
+              요금제 변경하기
+            </PrimaryButton>
+          </EmptyState>
+        </SectionCard>
+      </Viewport>
+    );
+  }
+
   return (
     <Viewport>
       <HeaderWrap>
@@ -236,7 +273,7 @@ export default function Reports() {
       {mode === "select" ? (
         <ContentGrid>
           <LeftColumn>
-            <SectionCard data-animated="true">
+            <SectionCard>
               <LeftHeader>
                 <div>
                   <LeftTitle>수업 목록</LeftTitle>
@@ -278,7 +315,7 @@ export default function Reports() {
           </LeftColumn>
 
           <RightColumn>
-            <SectionCard data-animated="true">
+            <SectionCard>
               <RightHeader>
                 <div>
                   <RightTitle>학생 선택</RightTitle>
@@ -358,7 +395,7 @@ export default function Reports() {
       ) : (
         <ContentGrid>
           <LeftColumn>
-            <SectionCard data-animated="true">
+            <SectionCard>
               <LeftHeader>
                 <div>
                   <LeftTitle>선택한 학생</LeftTitle>
@@ -396,23 +433,67 @@ export default function Reports() {
           </LeftColumn>
 
           <RightColumn>
-            <SectionCard data-animated="true">
+            <SectionCard>
               <RightHeader>
                 <div>
                   <RightTitle>보고서 미리보기 / 수정</RightTitle>
                   <RightSubtitle>
                     {activeStudent && selectedCourse
-                      ? `${selectedCourse.title} · ${activeStudent.name} 학생의 보고서 초안을 작성합니다.`
-                      : "좌측에서 학생을 선택하면 해당 학생의 보고서 초안을 작성할 수 있습니다."}
+                      ? `${selectedCourse.title} · ${activeStudent.name} 학생의 보고서 초안입니다.`
+                      : "학생을 선택하면 보고서를 미리보고 수정할 수 있습니다."}
                   </RightSubtitle>
                 </div>
+                <RightActions>
+                  <OutlineButton
+                    type="button"
+                    onClick={() => {
+                      window.print();
+                    }}
+                    data-print-hide="true"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{ marginRight: 6 }}
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="7 10 12 15 17 10" />
+                      <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    PDF로 저장
+                  </OutlineButton>
+                  <KakaoButton
+                    type="button"
+                    onClick={() => {
+                      alert("알림톡 발송 기능은 준비 중입니다.");
+                    }}
+                    data-print-hide="true"
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      style={{ marginRight: 6 }}
+                    >
+                      <path d="M12 3C5.373 3 0 7.373 0 12.765c0 3.468 2.268 6.51 5.688 8.25C5.37 22.374 4.14 24.36 4.08 24.462c-.12.21.108.432.312.288 2.508-1.752 5.256-3.072 5.256-3.072.768.108 1.56.168 2.352.168 6.627 0 12-4.373 12-9.765S18.627 3 12 3z" />
+                    </svg>
+                    알림톡 발송
+                  </KakaoButton>
+                </RightActions>
               </RightHeader>
               {autoLoading && <HintText>출석/성적/수업 내용을 불러오는 중입니다…</HintText>}
               {autoError && <ErrorText>{autoError}</ErrorText>}
 
               {activeStudent ? (
                 <ReportPaper>
-                  <ReportPaperInner>
+                  <ReportPaperInner id="report-print-root">
                     <ReportPaperHeader>
                       <div>
                         <PaperTitle>학습 보고서</PaperTitle>
@@ -424,7 +505,14 @@ export default function Reports() {
                         <dl>
                           <div>
                             <dt>학생</dt>
-                            <dd>{activeStudent.name}</dd>
+                            <dd>
+                              {activeStudent.name}
+                              {activeStudent.birthDate && (
+                                <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 4 }}>
+                                  ({activeStudent.birthDate})
+                                </span>
+                              )}
+                            </dd>
                           </div>
                           {from && to && (
                             <div>
@@ -439,27 +527,7 @@ export default function Reports() {
                     </ReportPaperHeader>
 
                     <ReportLayout>
-                      <ReportSection>
-                        <ReportLabel>학생 정보</ReportLabel>
-                        <ReportBox>
-                          <ReportRow>
-                            <span className="key">이름</span>
-                            <span className="value">{activeStudent.name}</span>
-                          </ReportRow>
-                          {activeStudent.birthDate && (
-                            <ReportRow>
-                              <span className="key">생년월일</span>
-                              <span className="value">{activeStudent.birthDate}</span>
-                            </ReportRow>
-                          )}
-                          {selectedCourse && (
-                            <ReportRow>
-                              <span className="key">수강 수업</span>
-                              <span className="value">{selectedCourse.title}</span>
-                            </ReportRow>
-                          )}
-                        </ReportBox>
-                      </ReportSection>
+                      {/* Student Info Section Removed for brevity */}
 
                       <ReportSection>
                         <ReportLabel>출석 내역</ReportLabel>
@@ -467,10 +535,15 @@ export default function Reports() {
                           <AttendanceList>
                             {activeDetail.attendance.slice(0, 30).map((row) => (
                               <li key={`${row.date}-${row.present ? "P" : "A"}`}>
-                                <span className="date">{row.date}</span>
-                                <span className={`status ${row.present ? "present" : "absent"}`}>
-                                  {row.present ? "출석" : "결석"}
-                                </span>
+                                <div className="top">
+                                  <span className="date">{row.date}</span>
+                                  <span className={`status ${row.present ? "present" : "absent"}`}>
+                                    {row.present ? "출석" : "결석"}
+                                  </span>
+                                </div>
+                                {!row.present && row.reason && (
+                                  <span className="reason">{row.reason}</span>
+                                )}
                               </li>
                             ))}
                             {activeDetail.attendance.length > 30 && (
@@ -487,23 +560,110 @@ export default function Reports() {
                       <ReportSection>
                         <ReportLabel>성적 내역</ReportLabel>
                         {activeDetail?.grades && activeDetail.grades.length > 0 ? (
-                          <GradesChart>
-                            {activeDetail.grades.map((item) => {
-                              const pct = Math.max(0, Math.min(100, Math.round(item.percent)));
-                              return (
-                                <div key={item.examId} className="row">
-                                  <div className="label">
-                                    <span className="title">{item.title}</span>
-                                    {item.date && <span className="date">{item.date}</span>}
-                                  </div>
-                                  <div className="bar">
-                                    <div className="fill" style={{ width: `${pct}%` }} />
-                                  </div>
-                                  <div className="value">{pct}점</div>
-                                </div>
+                          <GradesChartContainer>
+                            {(() => {
+                              const sortedGrades = [...activeDetail.grades].sort((a, b) =>
+                                (a.date || "").localeCompare(b.date || "")
                               );
-                            })}
-                          </GradesChart>
+                              
+                              if (sortedGrades.length === 0) return null;
+
+                              // SVG ViewBox dimensions
+                              const width = 600;
+                              const height = 200;
+                              const padding = { top: 30, right: 30, bottom: 40, left: 40 };
+                              const graphWidth = width - padding.left - padding.right;
+                              const graphHeight = height - padding.top - padding.bottom;
+
+                              // Calculate coordinates
+                              const points = sortedGrades.map((item, index) => {
+                                const x =
+                                  sortedGrades.length === 1
+                                    ? graphWidth / 2
+                                    : (index / (sortedGrades.length - 1)) * graphWidth;
+                                const y = graphHeight - (item.percent / 100) * graphHeight;
+                                return { x: x + padding.left, y: y + padding.top, item };
+                              });
+
+                              const pathData = points
+                                .map((p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `L ${p.x} ${p.y}`))
+                                .join(" ");
+
+                              return (
+                                <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto", overflow: "visible" }}>
+                                  {/* Grid lines */}
+                                  {[0, 25, 50, 75, 100].map((tick) => {
+                                    const y = padding.top + graphHeight - (tick / 100) * graphHeight;
+                                    return (
+                                      <g key={tick}>
+                                        <line
+                                          x1={padding.left}
+                                          y1={y}
+                                          x2={width - padding.right}
+                                          y2={y}
+                                          stroke="#e5e7eb"
+                                          strokeWidth="1"
+                                          strokeDasharray="4 4"
+                                        />
+                                        <text
+                                          x={padding.left - 10}
+                                          y={y + 4}
+                                          textAnchor="end"
+                                          fontSize="11"
+                                          fill="#9ca3af"
+                                        >
+                                          {tick}
+                                        </text>
+                                      </g>
+                                    );
+                                  })}
+
+                                  {/* Line path */}
+                                  {sortedGrades.length > 1 && (
+                                    <path d={pathData} fill="none" stroke="#4f46e5" strokeWidth="2" />
+                                  )}
+
+                                  {/* Data points */}
+                                  {points.map((p, i) => (
+                                    <g key={i}>
+                                      <circle cx={p.x} cy={p.y} r="4" fill="#ffffff" stroke="#4f46e5" strokeWidth="2" />
+                                      {/* Score label */}
+                                      <text
+                                        x={p.x}
+                                        y={p.y - 12}
+                                        textAnchor="middle"
+                                        fontSize="12"
+                                        fontWeight="bold"
+                                        fill="#111827"
+                                      >
+                                        {Math.round(p.item.percent)}점
+                                      </text>
+                                      {/* Date/Title label */}
+                                      <text
+                                        x={p.x}
+                                        y={height - 10}
+                                        textAnchor="middle"
+                                        fontSize="11"
+                                        fill="#4b5563"
+                                      >
+                                        {p.item.date ? p.item.date.slice(5) : "-"}
+                                      </text>
+                                      <text
+                                        x={p.x}
+                                        y={height + 5}
+                                        textAnchor="middle"
+                                        fontSize="10"
+                                        fill="#9ca3af"
+                                        style={{ display: "none" }}
+                                      >
+                                        {p.item.title}
+                                      </text>
+                                    </g>
+                                  ))}
+                                </svg>
+                              );
+                            })()}
+                          </GradesChartContainer>
                         ) : (
                           <EmptyHint>선택한 기간에 등록된 성적 데이터가 없습니다.</EmptyHint>
                         )}
@@ -570,6 +730,11 @@ const Viewport = styled.div`
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+  @media print {
+    height: auto;
+    overflow: visible;
+  }
 `;
 
 const HeaderWrap = styled.div`
@@ -595,18 +760,31 @@ const ContentGrid = styled.div`
   @media (min-width: 1120px) {
     grid-template-columns: 360px 1fr;
   }
+
+  @media print {
+    display: block;
+    overflow: visible;
+  }
 `;
 
 const LeftColumn = styled.div`
   display: flex;
   min-height: 0;
   overflow: hidden;
+
+  @media print {
+    display: none;
+  }
 `;
 
 const RightColumn = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.xl};
   min-height: 0;
+
+  @media print {
+    display: block;
+  }
 `;
 
 const LeftHeader = styled.div`
@@ -739,6 +917,10 @@ const RightActions = styled.div`
   gap: ${(p) => p.theme.spacing.sm};
   flex-wrap: wrap;
   justify-content: flex-end;
+
+  @media print {
+    display: none;
+  }
 `;
 
 const StudentsListWrap = styled.div`
@@ -825,60 +1007,66 @@ const ReportPaper = styled.div`
   width: 100%;
   display: flex;
   justify-content: center;
-  padding: ${(p) => p.theme.spacing.lg};
-  background: #f1f5f9;
-  border-radius: ${(p) => p.theme.radii.lg};
-  overflow: hidden;
+  padding: ${(p) => p.theme.spacing.xl};
+  background: #e2e8f0;
+  border-radius: ${(p) => p.theme.radii.xl};
+  overflow: visible;
+  @media print {
+    padding: 0;
+    background: transparent;
+    border-radius: 0;
+  }
 `;
 
 const ReportPaperInner = styled.div`
   width: 100%;
   max-width: 794px; /* A4 width approx */
-  aspect-ratio: 1 / 1.4142;
-  max-height: calc(100vh - 200px);
+  max-height: calc(100vh - 180px);
   background: #ffffff;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 12px 30px -8px rgba(15, 23, 42, 0.28);
+  border: 1px solid #e2e8f0;
   padding: 48px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-
-  /* Scrollbar styling for cleaner look */
-  &::-webkit-scrollbar {
-    width: 8px;
+  gap: 20px;
+  @media (max-width: 640px) {
+    padding: 24px;
   }
-  &::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  &::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.1);
-    border-radius: 4px;
+  @media print {
+    box-shadow: none;
+    border: none;
+    max-height: none;
+    height: auto;
+    overflow: visible;
+    page-break-after: always;
   }
 `;
 
-const ReportPaperHeader = styled.header`
+const ReportPaperHeader = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: flex-end;
-  padding-bottom: 24px;
-  border-bottom: 2px solid ${({ theme }) => theme.colors.text};
-  margin-bottom: 32px;
+  align-items: flex-start;
+  border-bottom: 2px solid #111827;
+  padding-bottom: 20px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+  gap: 20px;
 `;
 
-const PaperTitle = styled.h3`
+const PaperTitle = styled.h1`
   margin: 0;
-  font-size: 28px;
-  font-weight: 900;
+  font-size: 26px;
+  font-weight: 800;
+  color: #0f172a;
   letter-spacing: -0.02em;
-  color: ${({ theme }) => theme.colors.text};
-  line-height: 1.2;
 `;
 
-const PaperSubtitle = styled.p`
-  margin: 4px 0 0;
+const PaperSubtitle = styled.div`
+  margin-top: 8px;
   font-size: 15px;
-  color: ${({ theme }) => theme.colors.textMuted};
+  color: #4b5563;
   font-weight: 500;
 `;
 
@@ -886,116 +1074,114 @@ const PaperMeta = styled.div`
   text-align: right;
   dl {
     margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 13px;
-    color: ${({ theme }) => theme.colors.textMuted};
+    display: grid;
+    gap: 8px;
+    justify-items: end;
   }
   div {
     display: flex;
-    justify-content: flex-end;
-    gap: 8px;
+    gap: 10px;
+    align-items: center;
   }
   dt {
-    font-weight: 600;
-    color: ${({ theme }) => theme.colors.text};
+    font-size: 13px;
+    color: #6b7280;
+    font-weight: 500;
   }
   dd {
     margin: 0;
+    font-size: 14px;
+    color: #0f172a;
+    font-weight: 700;
   }
 `;
 
 const ReportLayout = styled.div`
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 32px;
 `;
 
 const ReportSection = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  display: grid;
+  gap: 14px;
 `;
 
 const ReportLabel = styled.h4`
   margin: 0;
-  font-size: 13px;
+  font-size: 18px;
   font-weight: 700;
-  color: ${({ theme }) => theme.colors.primary};
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  color: #111827;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f1f5f9;
   
-  &::after {
+  &::before {
     content: "";
-    flex: 1;
-    height: 1px;
-    background: ${({ theme }) => theme.colors.border};
-    opacity: 0.6;
+    display: block;
+    width: 6px;
+    height: 24px;
+    background: #4f46e5;
+    border-radius: 3px;
   }
 `;
 
 const ReportBox = styled.div`
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 18px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  padding: 16px;
-  background: ${({ theme }) => theme.colors.surface};
-  border-radius: 8px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
+  gap: 12px;
 `;
 
 const ReportRow = styled.div`
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
   
   .key {
-    font-size: 12px;
-    font-weight: 600;
-    color: ${({ theme }) => theme.colors.textMuted};
+    color: #6b7280;
+    font-weight: 500;
   }
   .value {
-    font-size: 15px;
-    font-weight: 500;
-    color: ${({ theme }) => theme.colors.text};
+    color: #111827;
+    font-weight: 600;
   }
 `;
 
 const ReportTextarea = styled.textarea`
-  min-height: 120px;
-  border-radius: 8px;
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 16px;
-  font-size: 14px;
-  line-height: 1.6;
-  color: ${({ theme }) => theme.colors.text};
-  background: #fff;
-  resize: vertical;
   width: 100%;
-  box-sizing: border-box;
+  min-height: 140px;
+  padding: 20px;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.7;
+  resize: vertical;
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   transition: all 0.2s;
 
   &:focus {
     outline: none;
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 3px ${({ theme }) => theme.colors.primary}1a;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1);
   }
   &::placeholder {
-    color: ${({ theme }) => theme.colors.textMuted};
+    color: #94a3b8;
   }
 `;
 
 const EmptyHint = styled.div`
-  padding: 16px;
-  font-size: 13px;
-  color: ${({ theme }) => theme.colors.textMuted};
-  background: ${({ theme }) => theme.colors.surface};
-  border-radius: 6px;
+  padding: 24px;
   text-align: center;
+  background: #f9fafb;
+  border-radius: 12px;
+  color: #6b7280;
+  font-size: 14px;
 `;
 
 const AttendanceList = styled.ul`
@@ -1003,104 +1189,85 @@ const AttendanceList = styled.ul`
   margin: 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 8px;
-  
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
+  width: 100%;
+
   li {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px;
+    transition: all 0.2s ease;
+    
+    &:hover {
+      border-color: #cbd5e1;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    }
+  }
+  li.more {
+    justify-content: center;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px dashed #cbd5e1;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: default;
+    &:hover {
+      transform: none;
+      box-shadow: none;
+      border-color: #94a3b8;
+    }
+  }
+  .top {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 8px 12px;
-    border-radius: 6px;
-    background: ${({ theme }) => theme.colors.surface};
-    border: 1px solid ${({ theme }) => theme.colors.border};
-    font-size: 13px;
+    gap: 8px;
+    width: 100%;
   }
-  
   .date {
-    color: ${({ theme }) => theme.colors.textMuted};
-    font-feature-settings: "tnum";
-  }
-  
-  .status {
+    font-size: 13px;
+    color: #64748b;
     font-weight: 600;
-    font-size: 12px;
-    padding: 2px 6px;
-    border-radius: 4px;
   }
-  
+  .status {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    letter-spacing: -0.01em;
+  }
   .status.present {
     color: #15803d;
     background: #dcfce7;
   }
-  
   .status.absent {
     color: #b91c1c;
     background: #fee2e2;
   }
-  
-  .more {
-    justify-content: center;
-    color: ${({ theme }) => theme.colors.textMuted};
-    background: transparent;
-    border: 1px dashed ${({ theme }) => theme.colors.border};
+  .reason {
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.4;
+    background: #f1f5f9;
+    padding: 8px;
+    border-radius: 6px;
+    margin-top: 4px;
   }
 `;
 
-const GradesChart = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  
-  .row {
-    display: grid;
-    grid-template-columns: 140px 1fr 48px;
-    align-items: center;
-    gap: 16px;
-  }
-  
-  .label {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  
-  .title {
-    font-size: 13px;
-    font-weight: 600;
-    color: ${({ theme }) => theme.colors.text};
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  
-  .date {
-    font-size: 11px;
-    color: ${({ theme }) => theme.colors.textMuted};
-  }
-  
-  .bar {
-    height: 8px;
-    background: ${({ theme }) => theme.colors.surface};
-    border-radius: 4px;
-    overflow: hidden;
-    border: 1px solid ${({ theme }) => theme.colors.border};
-  }
-  
-  .fill {
-    height: 100%;
-    background: ${({ theme }) => theme.colors.primary};
-    border-radius: 4px;
-    transition: width 0.5s ease-out;
-  }
-  
-  .value {
-    font-size: 13px;
-    font-weight: 600;
-    color: ${({ theme }) => theme.colors.text};
-    text-align: right;
-    font-feature-settings: "tnum";
-  }
+const GradesChartContainer = styled.div`
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 20px;
+  overflow-x: auto;
 `;
 
 const LessonList = styled.ul`
@@ -1109,42 +1276,114 @@ const LessonList = styled.ul`
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  
+  position: relative;
+
+  /* Vertical line */
+  &::before {
+    content: "";
+    position: absolute;
+    top: 24px;
+    bottom: 24px;
+    left: 110px;
+    width: 2px;
+    background: #e2e8f0;
+  }
+
   li {
     display: flex;
-    gap: 16px;
-    padding: 10px 12px;
-    border-radius: 6px;
-    background: ${({ theme }) => theme.colors.surface};
-    border: 1px solid ${({ theme }) => theme.colors.border};
-    font-size: 13px;
+    gap: 40px;
+    padding: 12px 0;
+    position: relative;
     align-items: flex-start;
   }
-  
-  .date {
-    color: ${({ theme }) => theme.colors.textMuted};
-    font-weight: 500;
-    font-feature-settings: "tnum";
-    white-space: nowrap;
-    min-width: 80px;
+
+  /* Timeline Dot */
+  li::after {
+    content: "";
+    position: absolute;
+    left: 104px; /* 110 - 6 */
+    top: 20px; /* Align with text top approx */
+    width: 14px;
+    height: 14px;
+    background: #fff;
+    border: 3px solid #4f46e5;
+    border-radius: 50%;
+    z-index: 1;
+    box-sizing: border-box;
   }
-  
-  .topic {
-    color: ${({ theme }) => theme.colors.text};
-    line-height: 1.4;
-  }
-  
-  .more {
+
+  li.more {
     justify-content: center;
-    color: ${({ theme }) => theme.colors.textMuted};
-    background: transparent;
-    border: 1px dashed ${({ theme }) => theme.colors.border};
-    padding: 8px;
+    padding: 12px;
+    font-size: 13px;
+    color: #6b7280;
+    background: #f8fafc;
+    border-radius: 12px;
+    margin-top: 12px;
+    border: 1px dashed #cbd5e1;
+    z-index: 2; /* Cover line */
+  }
+  li.more::after {
+    display: none;
+  }
+
+  .date {
+    width: 90px;
+    text-align: right;
+    font-size: 14px;
+    color: #64748b;
+    font-weight: 600;
+    flex-shrink: 0;
+    padding-top: 4px;
+  }
+  .topic {
+    flex: 1;
+    font-size: 15px;
+    color: #1e293b;
+    line-height: 1.6;
+    background: #f8fafc;
+    padding: 16px 20px;
+    border-radius: 16px;
+    border: 1px solid #f1f5f9;
   }
 `;
 
-type AttendancePoint = { date: string; present: boolean };
+const OutlineButton = styled.button`
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #374151;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s;
+  &:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+`;
+
+const KakaoButton = styled.button`
+  border: none;
+  background: #fee500;
+  color: #191919;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  transition: all 0.2s;
+  &:hover {
+    background: #fdd835;
+  }
+`;
+
+type AttendancePoint = { date: string; present: boolean; reason?: string | null };
 type GradePoint = { examId: number; title: string; date?: string; percent: number };
 type LessonPoint = { date: string; topic?: string | null };
 
@@ -1313,7 +1552,7 @@ async function buildAutoDetails(
         if (row.studentId != null && studentSet.has(row.studentId)) {
           const key = row.studentId;
           if (!byStudent[key]) byStudent[key] = [];
-          byStudent[key].push({ date: day.date, present: row.present });
+          byStudent[key].push({ date: day.date, present: row.present, reason: row.reason });
         }
       }
     }

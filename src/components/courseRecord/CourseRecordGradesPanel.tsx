@@ -22,17 +22,15 @@ type GradeView = "intro" | "list" | "scores";
 type Props = {
   gradeView: GradeView;
   setGradeView: Dispatch<SetStateAction<GradeView>>;
-  avgSummary: string | null;
   scoreStudents: { id: number; name: string }[];
   grades: UseCourseRecordGradesReturn;
-  openExamModal: (view: "list" | "create") => void;
+  openExamModal: () => void;
   closeExamModal: () => void;
 };
 
 export function CourseRecordGradesPanel({
   gradeView,
   setGradeView,
-  avgSummary,
   scoreStudents,
   grades,
   openExamModal,
@@ -52,16 +50,10 @@ export function CourseRecordGradesPanel({
     examFormError,
     setExamFormError,
     examModalOpen,
-    examModalView,
-    setExamModalView,
     examQuery,
     setExamQuery,
     selectedExam,
     filteredExams,
-    examTemplates,
-    examFormTemplateId,
-    setExamFormTemplateId,
-    selectedExamTemplate,
     examResultsMap,
     gradeMap,
     setGradeMap,
@@ -70,7 +62,6 @@ export function CourseRecordGradesPanel({
     setGradeFeedback,
     lastGradeEditAtRef,
     handleConfirmExamSelection,
-    handleCreateExamInline,
   } = grades;
 
   const hasExistingExams = exams.length > 0;
@@ -99,23 +90,25 @@ export function CourseRecordGradesPanel({
                 <SmallMuted>이 수업과 연결된 시험입니다.</SmallMuted>
               </div>
               <div className="actions">
-                <UIPrimaryButtonSm
-                  type="button"
-                  onClick={() =>
-                    openExamModal(hasExistingExams ? "list" : "create")
-                  }
-                  disabled={examLoading}
-                >
-                  시험 추가
-                </UIPrimaryButtonSm>
+                {hasExistingExams && (
+                  <UIPrimaryButtonSm
+                    type="button"
+                    onClick={openExamModal}
+                    disabled={examLoading}
+                  >
+                    시험 선택
+                  </UIPrimaryButtonSm>
+                )}
               </div>
             </GradesListHead>
             {examLoading ? (
               <Muted>시험을 불러오는 중입니다...</Muted>
             ) : examError ? (
               <AlertError>{examError}</AlertError>
+            ) : hasExistingExams ? (
+              <EmptyHint>시험 선택 버튼을 눌러 성적을 입력할 시험을 선택하세요.</EmptyHint>
             ) : (
-              <EmptyHint>시험을 추가하거나 선택해 점수를 입력하세요.</EmptyHint>
+              <EmptyHint>등록된 시험이 없습니다. 수업 상세 페이지에서 시험을 먼저 생성해 주세요.</EmptyHint>
             )}
           </GradesList>
         )}
@@ -133,11 +126,6 @@ export function CourseRecordGradesPanel({
                   >
                     {selectedExam.inputMode === "percent" ? "백분율" : "등급"}
                   </ModeBadge>
-                  {avgSummary && (
-                    <SmallMuted style={{ marginLeft: 8 }}>
-                      평균 {avgSummary}
-                    </SmallMuted>
-                  )}
                   {gradeFeedback === "success" && (
                     <SuccessBadge role="status">저장 완료!</SuccessBadge>
                   )}
@@ -280,191 +268,68 @@ export function CourseRecordGradesPanel({
 
       <Modal
         open={examModalOpen}
-        title={examModalView === "create" ? "시험/테스트 생성" : "시험/테스트 선택"}
+        title="시험/테스트 선택"
         onClose={closeExamModal}
         blockOutsideClose
         footer={
-          examModalView === "create" ? (
-            <>
-              <UIGhostButton
-                type="button"
-                onClick={() => {
-                  if (examFormSaving) return;
-                  setExamModalView("list");
-                  setExamFormError(null);
-                }}
-                disabled={examFormSaving}
-              >
-                목록으로
-              </UIGhostButton>
-              <UIPrimaryButton
-                type="button"
-                onClick={() => {
-                  void (async () => {
-                    const createdId = await handleCreateExamInline();
-                    if (createdId != null) {
-                      setGradeView("scores");
-                      closeExamModal();
-                    }
-                  })();
-                }}
-                disabled={examFormSaving}
-              >
-                {examFormSaving ? "생성 중…" : "생성"}
-              </UIPrimaryButton>
-            </>
-          ) : (
-            <>
-              <UIGhostButton type="button" onClick={closeExamModal}>
-                닫기
-              </UIGhostButton>
-              <UIPrimaryButton
-                type="button"
-                onClick={() => {
-                  if (handleConfirmExamSelection()) {
+          <>
+            <UIGhostButton type="button" onClick={closeExamModal}>
+              닫기
+            </UIGhostButton>
+            <UIPrimaryButton
+              type="button"
+              onClick={() => {
+                void (async () => {
+                  const instanceId = await handleConfirmExamSelection();
+                  if (instanceId != null) {
                     setGradeView("scores");
+                    closeExamModal();
                   }
-                }}
-                disabled={!selectedExamId || examLoading}
-              >
-                선택
-              </UIPrimaryButton>
-            </>
-          )
+                })();
+              }}
+              disabled={!selectedExamId || examLoading}
+            >
+              선택
+            </UIPrimaryButton>
+          </>
         }
       >
-        {examModalView === "create" ? (
-          <CreateForm>
-            {hasExistingExams ? (
-              <>
-                <label htmlFor="exam-template">시험 템플릿</label>
-                {examTemplates.length > 0 ? (
-                  <TemplateSelect
-                    id="exam-template"
-                    value={examFormTemplateId}
-                    onChange={(e) => setExamFormTemplateId(e.currentTarget.value)}
-                    disabled={examFormSaving}
-                  >
-                    {examTemplates.map((tpl) => (
-                      <option key={tpl.id} value={tpl.id}>
-                        {tpl.name}
-                      </option>
-                    ))}
-                  </TemplateSelect>
-                ) : (
-                  <SmallMuted>사용 가능한 템플릿이 없습니다.</SmallMuted>
-                )}
-                {selectedExamTemplate?.defaultNote && (
-                  <TemplateHint>{selectedExamTemplate.defaultNote}</TemplateHint>
-                )}
-                <SmallMuted>
-                  템플릿을 선택하고 생성하면 학생별 점수 입력 화면으로 이동합니다.
-                </SmallMuted>
-              </>
-            ) : (
-              <>
-                <label htmlFor="exam-title">시험 제목</label>
-                <TitleInput
-                  id="exam-title"
-                  value={examFormTitle}
-                  onChange={(e) => setExamFormTitle(e.currentTarget.value)}
-                  placeholder="예: 중간고사 수학"
-                  disabled={examFormSaving}
-                />
-                <label>입력 방식</label>
-                <RadioRow>
-                  <RadioLabel>
-                    <input
-                      type="radio"
-                      checked={examFormMode === "percent"}
-                      onChange={() => setExamFormMode("percent")}
-                      disabled={examFormSaving}
-                    />
-                    <span>백분율</span>
-                  </RadioLabel>
-                  <RadioLabel>
-                    <input
-                      type="radio"
-                      checked={examFormMode === "letter"}
-                      onChange={() => setExamFormMode("letter")}
-                      disabled={examFormSaving}
-                    />
-                    <span>등급</span>
-                  </RadioLabel>
-                </RadioRow>
-                <SmallMuted>시험 제목과 입력 방식은 이후에도 수정할 수 있습니다.</SmallMuted>
-              </>
-            )}
-            {examFormError && <AlertError>{examFormError}</AlertError>}
-          </CreateForm>
-        ) : (
-          <ModalListBody>
-            {examLoading ? (
-              <Muted>시험을 불러오는 중입니다...</Muted>
-            ) : examError ? (
-              <AlertError>{examError}</AlertError>
-            ) : exams.length === 0 ? (
-              <div style={{ display: "grid", gap: 12 }}>
-                <EmptyHint>등록된 시험이 없습니다.</EmptyHint>
-                <UIPrimaryButtonSm
-                  type="button"
-                  onClick={() => setExamModalView("create")}
-                  disabled={examLoading}
-                  style={{ justifySelf: "flex-end" }}
-                >
-                  새 시험 생성
-                </UIPrimaryButtonSm>
-              </div>
-            ) : (
-              <ModalListScroller>
-                <ModalToolbar>
-                  <SearchInput
-                    placeholder="시험 검색"
-                    value={examQuery}
-                    onChange={(e) => setExamQuery(e.currentTarget.value)}
-                  />
-                  <UIPrimaryButtonSm
-                    type="button"
-                    onClick={() => setExamModalView("create")}
-                    disabled={examLoading}
-                  >
-                    새 시험 생성
-                  </UIPrimaryButtonSm>
-                </ModalToolbar>
-                <ExamList>
-                  {filteredExams.map((exam) => {
-                    const examIdStr = String(exam.id);
-                    const selected = selectedExamId === examIdStr;
-                    return (
-                      <ExamListItem
-                        key={`modal-exam-${exam.id}`}
-                        type="button"
-                        data-selected={String(selected)}
-                        onClick={() => setSelectedExamId(examIdStr)}
-                        onDoubleClick={() => {
-                          if (handleConfirmExamSelection()) {
-                            setGradeView("scores");
-                            closeExamModal();
-                          }
-                        }}
-                        disabled={examLoading}
-                      >
-                        <div className="meta">
-                          <strong>{exam.title || "시험"}</strong>
-                          <span>{formatExamMeta(exam)}</span>
-                        </div>
-                        {selected && <span className="indicator">선택됨</span>}
-                      </ExamListItem>
-                    );
-                  })}
-                </ExamList>
-                {filteredExams.length === 0 && (
-                  <SmallMuted>조건에 맞는 시험이 없습니다.</SmallMuted>
-                )}
-              </ModalListScroller>
-            )}
-          </ModalListBody>
-        )}
+        <ModalListBody>
+          {examLoading ? (
+            <Muted>시험을 불러오는 중입니다...</Muted>
+          ) : examError ? (
+            <AlertError>{examError}</AlertError>
+          ) : exams.length === 0 ? (
+            <EmptyHint>등록된 시험이 없습니다. 수업 상세 페이지에서 시험을 먼저 생성해 주세요.</EmptyHint>
+          ) : (
+            <ModalListScroller>
+              <ExamList>
+                {filteredExams.map((exam) => {
+                  const examIdStr = String(exam.id);
+                  const selected = selectedExamId === examIdStr;
+                  return (
+                    <ExamListItem
+                      key={`modal-exam-${exam.id}`}
+                      type="button"
+                      data-selected={String(selected)}
+                      onClick={() => setSelectedExamId(examIdStr)}
+                      disabled={examLoading}
+                    >
+                      <div className="meta">
+                        <strong>{exam.title || "시험"}</strong>
+                        <span>{formatExamMeta(exam)}</span>
+                      </div>
+                      {selected && <span className="indicator">선택됨</span>}
+                    </ExamListItem>
+                  );
+                })}
+              </ExamList>
+              {filteredExams.length === 0 && (
+                <SmallMuted>조건에 맞는 시험이 없습니다.</SmallMuted>
+              )}
+            </ModalListScroller>
+          )}
+        </ModalListBody>
       </Modal>
     </Fragment>
   );
@@ -475,9 +340,6 @@ function formatExamMeta(exam: Exam): string {
   if (exam.examDate) parts.push(exam.examDate);
   if (exam.inputMode === "percent") parts.push("백분율 입력");
   else if (exam.inputMode === "letter") parts.push("등급 입력");
-  if (typeof exam.averageScore === "number") {
-    parts.push(`평균 ${exam.averageScore.toFixed(1)}`);
-  }
   return parts.length > 0 ? parts.join(" · ") : "등록된 정보 없음";
 }
 

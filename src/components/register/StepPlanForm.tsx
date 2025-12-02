@@ -29,6 +29,7 @@ import {
   PlanFeatureText,
   PlanLabel,
   PlanOriginalPrice,
+  PlanFeatureSectionTitle,
 } from "./RegisterForm.styles";
 import { TERMS_TEXT, PRIVACY_TEXT } from "./registerTermsContent";
 
@@ -102,7 +103,7 @@ const PAYMENT_POLICY_TEXT = `제1조 (결제 방식)
 type PlanFeature = {
   title: string;
   desc?: string;
-  icon?: "sparkle" | "check" | "infinity";
+  icon?: "sparkle" | "check" | "infinity" | "x";
 };
 
 const PLANS: Record<
@@ -122,117 +123,133 @@ const PLANS: Record<
 > = {
   free: {
     name: "Free",
-    label: "무료 체험용",
-    desc: "소규모 개인/체험 학원을 위한 기본 플랜",
+    label: "무료 플랜",
+    desc: "소규모 개인/체험 학원을 위한 입문 플랜",
     price: "무료",
     period: "/월",
     btnLabel: "무료로 시작하기",
     paymentIncluded: false,
     features: [
-      { title: "원생 50명 이하 기본 관리" },
-      { title: "강사 계정 관리 없음" },
-      { title: "결제 기능 미제공" },
-      { title: "월 AI 호출 30회" },
-      { title: "파일 첨부 기능 사용 불가" },
+      { title: "원생관리", desc: "최대 50명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "파일 첨부 불가 · 수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 30회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { icon: "x", title: "결제관리", desc: "포함되지 않음 · 결제 요청·미납 관리는 상위 플랜에서 이용 가능" },
+      { icon: "x", title: "보고서", desc: "포함되지 않음 · 월간 보고서 생성 기능은 상위 플랜에서 제공" },
+      { icon: "x", title: "강사관리", desc: "포함되지 않음 · 강사별 관리 기능 미제공" },
     ],
   },
   "plan-100-basic": {
     name: "Small Basic",
-    label: "100명 · 결제 기능 없음",
-    desc: "원생 총원 100명 이하, 결제 없이 운영하는 유료 플랜",
+    label: "120명 · 결제 기능 없음",
+    desc: "원생 120명 이하, 결제 없이 운영하는 기본 유료 플랜",
     price: "무료",
+    originalPrice: "9,000원",
     period: "/월",
     btnLabel: "Small Basic 선택",
     highlight: true,
     paymentIncluded: false,
     features: [
-      { title: "원생 총원 100명까지 관리" },
-      { title: "강사 계정 최대 3명" },
-      { title: "결제 기능 미포함 (무료 플랜과 중복 사용 불가)" },
-      { title: "마케팅 AI 호출 월 200회 제한" },
-      { title: "출결·수업·공지 기본 제공" },
+      { title: "원생관리", desc: "최대 120명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 3명 · 강사별 수업·원생 관리" },
+      { icon: "x", title: "결제관리", desc: "포함되지 않음 · 결제 요청·미납 관리 기능 없음" },
+      { icon: "x", title: "보고서", desc: "포함되지 않음 · 월간 보고서 생성 기능 없음" },
     ],
   },
   "plan-100-pay": {
     name: "Small Plus",
-    label: "100명 · 결제 기능 포함",
-    desc: "원생 총원 100명 이하, 온라인 수강료 결제·미납 관리를 포함한 플랜",
+    label: "120명 · 결제 기능 포함",
+    desc: "원생 120명 이하, 결제 및 보고서를 포함한 플랜",
     price: "무료",
+    originalPrice: "19,900원",
     period: "/월",
     btnLabel: "Small Plus 선택",
     paymentIncluded: true,
     features: [
-      { title: "원생 총원 100명까지 관리" },
-      { title: "강사 계정 최대 3명" },
-      { title: "수강료 결제/미납 관리 포함" },
-      { title: "마케팅 AI 호출 월 200회 제한" },
-      { title: "결제 내역·정산 리포트 제공" },
+      { title: "원생관리", desc: "최대 120명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 3명 · 강사별 수업·원생 관리" },
+      { title: "결제관리", desc: "결제 요청부터 미납 관리까지 한 화면에서 처리" },
+      { title: "보고서", desc: "입력된 데이터를 바탕으로 월간 학습 보고서 자동 생성" },
     ],
   },
   "plan-300-basic": {
     name: "Midium Basic",
     label: "300명 · 결제 기능 없음",
-    desc: "중형 학원이 오프라인 결제로만 운영할 때 적합한 플랜",
-    price: "무료",
+    desc: "중형 학원(최대 300명)을 위한 기본 플랜",
+    price: "18,000원",
     period: "/월",
     btnLabel: "Midium Basic 선택",
     paymentIncluded: false,
     features: [
-      { title: "원생 300명 이하 관리" },
-      { title: "강사 계정 최대 7명" },
-      { title: "결제 기능 미포함" },
-      { title: "마케팅 AI 호출 월 600회 제한" },
-      { title: "수업·반·원생 관리 고급 기능" },
+      { title: "원생관리", desc: "최대 300명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 7명 · 강사별 수업·원생 관리" },
+      { icon: "x", title: "결제관리", desc: "포함되지 않음 · 결제 요청·미납 관리 기능 없음" },
+      { icon: "x", title: "보고서", desc: "포함되지 않음 · 월간 보고서 생성 기능 없음" },
     ],
   },
   "plan-300-pay": {
     name: "Midium Plus",
     label: "300명 · 결제 기능 포함",
-    desc: "중형 학원의 자동 결제·미납 관리를 포함한 플랜",
-    price: "무료",
+    desc: "중형 학원의 결제·보고서까지 포함한 플랜",
+    price: "36,900원",
     period: "/월",
     btnLabel: "Midium Plus 선택",
     highlight: true,
     paymentIncluded: true,
     features: [
-      { title: "원생 300명 이하 관리" },
-      { title: "강사 계정 최대 7명" },
-      { title: "수강료 결제·미납 자동 관리" },
-      { title: "마케팅 AI 호출 월 600회 제한" },
-      { title: "정산 리포트 및 청구 자동화" },
+      { title: "원생관리", desc: "최대 300명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 7명 · 강사별 수업·원생 관리" },
+      { title: "결제관리", desc: "결제 요청부터 미납 관리까지 한 화면에서 처리" },
+      { title: "보고서", desc: "입력된 데이터를 바탕으로 월간 학습 보고서 자동 생성" },
     ],
   },
   "plan-500-basic": {
     name: "Large Basic",
     label: "500명 · 결제 기능 없음",
-    desc: "대형 학원의 운영·관리를 위한 기본 플랜",
-    price: "무료",
+    desc: "대형 학원(최대 500명)을 위한 기본 플랜",
+    price: "27,000원",
     period: "/월",
     btnLabel: "Large Basic 선택",
     paymentIncluded: false,
     features: [
-      { title: "원생 500명 이하 관리" },
-      { title: "강사 계정 최대 10명" },
-      { title: "결제 기능 미포함" },
-      { title: "마케팅 AI 호출 월 1,000회 제한" },
-      { title: "복수 지점·반 구성 대응" },
+      { title: "원생관리", desc: "최대 500명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 10명 · 강사별 수업·원생 관리" },
+      { icon: "x", title: "결제관리", desc: "포함되지 않음 · 결제 요청·미납 관리 기능 없음" },
+      { icon: "x", title: "보고서", desc: "포함되지 않음 · 월간 보고서 생성 기능 없음" },
     ],
   },
   "plan-500-pay": {
     name: "Large Plus",
     label: "500명 · 결제 기능 포함",
-    desc: "대형 학원의 결제·정산·운영까지 포함한 풀 패키지",
-    price: "무료",
+    desc: "대형 학원의 결제·보고서까지 포함한 풀 패키지",
+    price: "54,900원",
     period: "/월",
     btnLabel: "Large Plus 선택",
     highlight: true,
     paymentIncluded: true,
     features: [
-      { title: "원생 500명 이하 관리" },
-      { title: "강사 계정 최대 10명" },
-      { title: "수강료 결제·미납·정산 관리 풀세트" },
-      { title: "마케팅 AI 호출 월 1,000회 제한" },
-      { title: "다수 지점 및 고급 리포트 제공" },
+      { title: "원생관리", desc: "최대 500명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 10명 · 강사별 수업·원생 관리" },
+      { title: "결제관리", desc: "결제 요청부터 미납 관리까지 한 화면에서 처리" },
+      { title: "보고서", desc: "입력된 데이터를 바탕으로 월간 학습 보고서 자동 생성" },
     ],
   },
   enterprise: {
@@ -265,6 +282,12 @@ const Icons = {
   infinity: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M18.83 16a5.5 5.5 0 0 0 0-7.78l-6.9 8a5.5 5.5 0 0 1-7.78 0 5.5 5.5 0 0 1 0-7.78l6.9 8a5.5 5.5 0 0 0 7.78 0Z" />
+    </svg>
+  ),
+  x: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   ),
 };
@@ -302,6 +325,8 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
   return (
     <>
       <Sub>원생 규모와 요금제를 선택해 주세요.</Sub>
+      <Hint>지금 가입 시 Small 요금제는 2월 1일까지 무료 혜택을 누려보세요.</Hint>
+      <Hint>300명 플랜은 1개월, 500명 플랜은 14일 무료 체험 후 도입을 고려해보세요.</Hint>
       <Form onSubmit={onSubmit} style={{ maxWidth: '100%' }}>
         <PlanLabel>
           원생 규모<span>*</span>
@@ -331,6 +356,8 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
               const active = selectedPlan === planId;
               const badgeVariant = plan.paymentIncluded ? "muted" : "warning";
               const badgeLabel = plan.paymentIncluded ? "결제 기능 포함" : "결제 기능 미포함";
+              const availableFeatures = plan.features.filter((feat) => feat.icon !== "x");
+              const unavailableFeatures = plan.features.filter((feat) => feat.icon === "x");
               return (
                 <PlanCard
                   key={planId}
@@ -355,15 +382,36 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
                   <PlanButton>{plan.btnLabel}</PlanButton>
                   
                   <PlanFeatures>
-                    {plan.features.map((feat, idx) => (
-                      <PlanFeatureItem key={idx}>
-                        <PlanFeatureIcon>{Icons[feat.icon || "check"]}</PlanFeatureIcon>
-                        <PlanFeatureText>
-                          <b>{feat.title}</b>
-                          {feat.desc && <span>{feat.desc}</span>}
-                        </PlanFeatureText>
-                      </PlanFeatureItem>
-                    ))}
+                    {availableFeatures.length > 0 && (
+                      <>
+                        <PlanFeatureSectionTitle>포함 기능</PlanFeatureSectionTitle>
+                        {availableFeatures.map((feat, idx) => (
+                          <PlanFeatureItem key={`a-${idx}`}>
+                            <PlanFeatureIcon>{Icons[feat.icon || "check"]}</PlanFeatureIcon>
+                            <PlanFeatureText>
+                              <b>{feat.title}</b>
+                              {feat.desc && <span>{feat.desc}</span>}
+                            </PlanFeatureText>
+                          </PlanFeatureItem>
+                        ))}
+                      </>
+                    )}
+                    {unavailableFeatures.length > 0 && (
+                      <>
+                        <PlanFeatureSectionTitle data-variant="negative">
+                          미포함 / 제한
+                        </PlanFeatureSectionTitle>
+                        {unavailableFeatures.map((feat, idx) => (
+                          <PlanFeatureItem key={`u-${idx}`} data-unavailable="true">
+                            <PlanFeatureIcon>{Icons[feat.icon || "x"]}</PlanFeatureIcon>
+                            <PlanFeatureText>
+                              <b>{feat.title}</b>
+                              {feat.desc && <span>{feat.desc}</span>}
+                            </PlanFeatureText>
+                          </PlanFeatureItem>
+                        ))}
+                      </>
+                    )}
                   </PlanFeatures>
                 </PlanCard>
               );

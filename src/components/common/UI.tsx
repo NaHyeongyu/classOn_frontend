@@ -274,23 +274,21 @@ export const PrimaryButton = styled.button`
 `;
 
 export const PrimaryButtonLg = styled(PrimaryButton)`
-  height: 48px;
-  padding: 0 24px;
-  border-radius: 4px;
-  font-size: 16px;
-  font-weight: 500;
-  background: #1a73e8;
-  border: none;
-  box-shadow: none;
+  height: 56px;
+  padding: 0 32px;
+  border-radius: ${(p) => p.theme.radii.lg};
+  font-size: 18px;
+  font-weight: 700;
+  /* Inherit styles from PrimaryButton (which uses theme) */
+  box-shadow: ${(p) => p.theme.shadow.medium};
+  
   &:hover:not(:disabled) {
-    background: #1765cc;
-    box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
-    transform: none;
+    transform: translateY(-1px);
+    box-shadow: ${(p) => p.theme.shadow.high};
   }
   &:active:not(:disabled) {
-    background: #185abc;
-    box-shadow: none;
-    transform: none;
+    transform: translateY(1px);
+    box-shadow: ${(p) => p.theme.shadow.low};
   }
 `;
 

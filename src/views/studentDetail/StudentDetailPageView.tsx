@@ -16,6 +16,7 @@ import { StudentGradesTab } from "@/components/studentDetail/StudentGradesTab";
 import { StudentCounselTab } from "@/components/studentDetail/StudentCounselTab";
 import { StudentCounselAddModal } from "@/components/studentDetail/StudentCounselAddModal";
 import { StudentPaymentsSection } from "@/components/studentDetail/StudentPaymentsSection";
+import { StudentReportsTab } from "@/components/studentDetail/StudentReportsTab";
 import {
   courseStatusLabel,
   formatStudentMemoDate,
@@ -42,6 +43,7 @@ type StudentDetailPageViewProps = {
   grades: StudentDetailPageState["grades"];
   counsels: StudentDetailPageState["counsels"];
   payments: StudentDetailPageState["payments"];
+  reports: StudentDetailPageState["reports"];
   deleteConfirmDialog?: React.ReactNode;
   onOpenCourse: (courseId: number) => void;
 };
@@ -63,6 +65,7 @@ export function StudentDetailPageView({
   grades,
   counsels,
   payments,
+  reports,
   deleteConfirmDialog,
   onOpenCourse,
 }: StudentDetailPageViewProps) {
@@ -127,6 +130,12 @@ export function StudentDetailPageView({
                     성적
                   </TabButton>
                   <TabButton
+                    data-active={activeTab === "reports"}
+                    onClick={() => onSelectTab("reports")}
+                  >
+                    보고서
+                  </TabButton>
+                  <TabButton
                     data-active={activeTab === "counsels"}
                     onClick={() => onSelectTab("counsels")}
                   >
@@ -176,6 +185,18 @@ export function StudentDetailPageView({
                     courses={student?.courses}
                     loading={grades.loading}
                     error={grades.error}
+                  />
+                </SectionBody>
+              ) : null}
+
+              {activeTab === "reports" ? (
+                <SectionBody>
+                  <StudentReportsTab
+                    reports={reports.reports}
+                    loading={reports.loading}
+                    error={reports.error}
+                    onRefresh={reports.refresh}
+                    studentId={student?.id ?? null}
                   />
                 </SectionBody>
               ) : null}

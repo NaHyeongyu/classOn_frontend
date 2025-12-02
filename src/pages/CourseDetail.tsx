@@ -295,7 +295,9 @@ export default function CourseDetail() {
     setExamError(null);
     try {
       const list = await listExams(numericId);
-      setExams(list);
+      // 수업 상세에서는 템플릿(시험 일자 미지정)만 노출합니다.
+      const templates = list.filter((exam) => !exam.examDate);
+      setExams(templates);
     } catch (e) {
       setExamError(readableError(e, "시험 목록을 불러오지 못했습니다."));
     } finally {
@@ -1392,4 +1394,3 @@ const classIcon = (
     <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
   </svg>
 );
-

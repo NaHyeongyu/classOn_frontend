@@ -126,6 +126,7 @@ declare module "@classon/shared-types" {
     code: string;
     phoneNumber?: string | null;
     guardianPhone?: string | null;
+    recipientPhone?: string | null;
     joinedDate?: string | null;
     status?: string | null;
     [key: string]: unknown;

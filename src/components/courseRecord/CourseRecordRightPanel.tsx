@@ -31,10 +31,9 @@ export type CourseRecordAttendanceProps = React.ComponentProps<typeof CourseReco
 export type CourseRecordGradesPanelProps = {
   gradeView: "intro" | "list" | "scores";
   setGradeView: Dispatch<SetStateAction<"intro" | "list" | "scores">>;
-  avgSummary: string | null;
   scoreStudents: { id: number; name: string }[];
   grades: UseCourseRecordGradesReturn;
-  openExamModal: (view: "list" | "create") => void;
+  openExamModal: () => void;
   closeExamModal: () => void;
 };
 
@@ -104,7 +103,7 @@ export function CourseRecordRightPanel({
               {tab === "attendance" ? (
                 <Muted>학생별 출석 상태를 수동으로 처리하세요. 변경 시 확인 창이 표시됩니다.</Muted>
               ) : (
-                <Muted>시험 추가 버튼을 눌러 시험을 선택하거나 생성하세요.</Muted>
+                <Muted>시험 선택 버튼을 눌러 기존 시험을 선택하세요.</Muted>
               )}
             </HeaderText>
             {tab === "attendance" ? (
@@ -140,10 +139,10 @@ export function CourseRecordRightPanel({
                 {examCreateOk ? <SuccessBadge role="status">시험 생성됨</SuccessBadge> : null}
                 <UIPrimaryButtonSm
                   type="button"
-                  onClick={onOpenExamModal}
+                  onClick={() => onOpenExamModal()}
                   disabled={examLoading}
                 >
-                  시험 추가
+                  시험 선택
                 </UIPrimaryButtonSm>
                 {selectedExamId ? (
                   <UIGhostButton

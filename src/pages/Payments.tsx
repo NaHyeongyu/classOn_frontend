@@ -44,6 +44,7 @@ import { useNavigate } from "react-router-dom";
 import { routes, paths } from "@/routes";
 import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
 import { DiscountFields } from "@/components/payments/DiscountFields";
+import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 
 type DetailState =
   | {
@@ -65,8 +66,14 @@ const createDefaultDateRange = () => {
     to: rangeEnd.toISOString().slice(0, 10),
   };
 };
+
+const createEmptyInvoiceDateRange = () => ({
+  from: "",
+  to: "",
+});
 const createDefaultHistoryFilters = (): HistoryFilters => ({
-  ...createDefaultDateRange(),
+  from: "",
+  to: "",
   q: "",
   status: "ALL",
 });
@@ -133,12 +140,14 @@ const resolvePendingStatusParam = (status: HistoryStatusFilter | "ALL"): string 
 export default function Payments() {
   const { success, error: toastError } = useToast();
   const navigate = useNavigate();
+  const academyState = useMyAcademyPage();
+  const paymentEnabled = academyState.academy.paymentEnabled;
   const queryClient = useQueryClient();
 
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoiceSearchInput, setInvoiceSearchInput] = useState("");
   const [invoiceStudentStatus, setInvoiceStudentStatus] = useState<StudentStatusFilter>("ALL");
-  const [invoiceDateRange, setInvoiceDateRange] = useState(createDefaultDateRange);
+  const [invoiceDateRange, setInvoiceDateRange] = useState(createEmptyInvoiceDateRange);
   const [invoicePage, setInvoicePage] = useState(0);
   const invoicePageSize = 10;
 
@@ -171,6 +180,7 @@ export default function Payments() {
     queryKey: ["payments", "summary", defaultMonth],
     queryFn: () => getPaymentSummary({ month: defaultMonth }),
     staleTime: 30_000,
+    enabled: paymentEnabled,
   });
 
   const invoiceQuery = useQuery<PageResult<PaymentHistoryRow>>({
@@ -195,6 +205,7 @@ export default function Payments() {
         studentStatus: invoiceStudentStatus === "ALL" ? undefined : invoiceStudentStatus,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
+    enabled: paymentEnabled,
   });
 
   const completedHistoryQuery = useQuery<PageResult<PaymentHistoryRow>>({
@@ -218,6 +229,7 @@ export default function Payments() {
         size: historyPageSize,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
+    enabled: paymentEnabled,
   });
 
   const pendingHistoryQuery = useQuery<PageResult<PaymentHistoryRow>>({
@@ -242,6 +254,7 @@ export default function Payments() {
         size: historyPageSize,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
+    enabled: paymentEnabled,
   });
 
   useEffect(() => {
@@ -475,6 +488,7 @@ export default function Payments() {
       });
     },
     enabled:
+      paymentEnabled &&
       onsiteSelectorOpen &&
       (onsiteContext === "invoice" || (onsiteContext === "history" && historyFilters.status !== "COMPLETED")),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
@@ -577,7 +591,7 @@ export default function Payments() {
     setInvoiceSearch("");
     setInvoiceSearchInput("");
     setInvoiceStudentStatus("ALL");
-    setInvoiceDateRange(createDefaultDateRange());
+    setInvoiceDateRange(createEmptyInvoiceDateRange());
     setInvoicePage(0);
   };
 
@@ -650,6 +664,27 @@ export default function Payments() {
       ? "청구서를 선택해 한 번에 발송하거나 검색해 관리하세요."
       : "결제 내역을 필터링하고 상세 정보를 확인하세요.";
 
+  if (!paymentEnabled) {
+    return (
+      <Page>
+        <PageHeader>
+          <div>
+            <h2>결제 관리</h2>
+            <p>현재 요금제로 이용할 수 없습니다.</p>
+          </div>
+        </PageHeader>
+        <SectionCard>
+          <EmptyState>
+            <div>결제 관리 기능은 결제 기능이 포함된 요금제에서 이용할 수 있습니다.</div>
+            <PrimaryButton type="button" onClick={() => navigate(routes.myAcademyPlan)}>
+              요금제 변경하기
+            </PrimaryButton>
+          </EmptyState>
+        </SectionCard>
+      </Page>
+    );
+  }
+
   return (
     <Page>
       <PageHeader>
@@ -673,33 +708,34 @@ export default function Payments() {
         ))}
       </StatsRow>
 
+      <TabRow>
+        <ToggleGroup role="tablist" aria-label="결제 관리">
+          <ToggleButton
+            type="button"
+            $active={activeSection === "invoice"}
+            aria-pressed={activeSection === "invoice"}
+            onClick={() => setActiveSection("invoice")}
+          >
+            청구서
+          </ToggleButton>
+          <ToggleButton
+            type="button"
+            $active={activeSection === "history"}
+            aria-pressed={activeSection === "history"}
+            onClick={() => setActiveSection("history")}
+          >
+            결제 내역
+          </ToggleButton>
+        </ToggleGroup>
+        <PanelControls>
+          <PrimaryButton type="button" onClick={() => navigate(routes.paymentsCreate)}>
+            청구서 생성
+          </PrimaryButton>
+        </PanelControls>
+      </TabRow>
+
       <Panels>
         <SectionCard>
-          <SectionHeader>
-            <ToggleGroup role="tablist" aria-label="결제 관리">
-              <ToggleButton
-                type="button"
-                $active={activeSection === "invoice"}
-                aria-pressed={activeSection === "invoice"}
-                onClick={() => setActiveSection("invoice")}
-              >
-                청구서
-              </ToggleButton>
-              <ToggleButton
-                type="button"
-                $active={activeSection === "history"}
-                aria-pressed={activeSection === "history"}
-                onClick={() => setActiveSection("history")}
-              >
-                결제 내역
-              </ToggleButton>
-            </ToggleGroup>
-            <PanelControls>
-              <PrimaryButton type="button" onClick={() => navigate(routes.paymentsCreate)}>
-                청구서 생성
-              </PrimaryButton>
-            </PanelControls>
-          </SectionHeader>
           <SectionInfo>
             <InfoText>
               <TitleH3>{sectionTitle}</TitleH3>
@@ -738,15 +774,7 @@ export default function Payments() {
                 </KakaoButton>
               </SectionActions>
             ) : (
-              <SectionActions>
-                <GhostButton
-                  type="button"
-                  onClick={() => handleOnsiteButtonClick("history")}
-                  disabled={historyFilters.status === "COMPLETED" || pendingTotalElements === 0}
-                >
-                  현장 결제
-                </GhostButton>
-              </SectionActions>
+              <SectionActions />
             )}
           </SectionInfo>
 
@@ -1553,8 +1581,12 @@ function DetailModal({
                   <strong>{detail.student.phoneNumber ?? "-"}</strong>
                 </li>
                 <li>
-                  <span>보호자</span>
+                  <span>보호자 연락처</span>
                   <strong>{detail.student.guardianPhone ?? "-"}</strong>
+                </li>
+                <li>
+                  <span>발송 번호</span>
+                  <strong>{detail.student.recipientPhone ?? "-"}</strong>
                 </li>
               </DetailList>
             ) : (
@@ -1582,6 +1614,10 @@ function DetailModal({
                 <InfoRow>
                   <span>학부모 연락처</span>
                   <strong>{detail.student.guardianPhone ?? "-"}</strong>
+                </InfoRow>
+                <InfoRow>
+                  <span>발송 번호</span>
+                  <strong>{detail.student.recipientPhone ?? "-"}</strong>
                 </InfoRow>
               </InfoCard>
             )}
@@ -2449,6 +2485,15 @@ const paperIcon = (
   </svg>
 );
 
+const TabRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 16px;
+`;
+
 const Panels = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
@@ -2463,23 +2508,33 @@ const PanelControls = styled.div`
 
 const ToggleGroup = styled.div`
   display: inline-flex;
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.xl};
-  overflow: hidden;
+  gap: 8px;
 `;
 
 const ToggleButton = styled.button<{ $active?: boolean }>`
-  border: none;
-  background: ${({ $active, theme }) => ($active ? theme.colors.primarySurface : "transparent")};
-  color: ${({ $active, theme }) => ($active ? theme.colors.primary : theme.colors.text)};
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
   font-weight: 600;
-  padding: 6px 14px;
+  border-radius: 10px;
+  transition: all 0.2s ease;
   cursor: pointer;
-  font-size: 13px;
-  &:focus-visible {
-    outline: 2px solid ${({ theme }) => theme.colors.primary};
-    outline-offset: 2px;
-  }
+
+  /* Active State */
+  background: ${({ $active, theme }) => ($active ? theme.colors.primary : "#ffffff")};
+  color: ${({ $active }) => ($active ? "#ffffff" : "inherit")};
+  border: 1px solid ${({ $active, theme }) => ($active ? theme.colors.primary : theme.colors.border)};
+  box-shadow: ${({ $active }) => ($active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none")};
+
+  ${({ $active, theme }) =>
+    !$active &&
+    `
+    color: ${theme.colors.text};
+    &:hover {
+      background: ${theme.colors.surfaceMuted};
+      border-color: ${theme.colors.borderMuted};
+    }
+  `}
 `;
 
 const SectionHeader = styled.div`

@@ -141,8 +141,6 @@ export default function PaymentsCreate() {
   const filteredStudents: Student[] = useMemo(() => {
     const base = students.filter(
       (student: Student) =>
-        Array.isArray(student.courses) &&
-        student.courses.length > 0 &&
         typeof student.id === "number" &&
         !reservedStudentIds.has(student.id),
     );
@@ -271,6 +269,26 @@ export default function PaymentsCreate() {
     const start = studentPage * pageSize;
     return filteredStudents.slice(start, start + pageSize);
   }, [filteredStudents, pageSize, studentPage]);
+
+  const selectedStudents: Student[] = useMemo(
+    () =>
+      selectedIds
+        .map((id) => students.find((student: Student) => student.id === id))
+        .filter((student): student is Student => Boolean(student)),
+    [selectedIds, students],
+  );
+
+  const primaryStudent: Student | null = selectedStudents.length ? selectedStudents[0] : null;
+
+  const primaryRecipientPhone = useMemo(() => {
+    if (!primaryStudent) return "";
+    const raw =
+      (primaryStudent.guardianPhone && primaryStudent.guardianPhone.trim()) ||
+      (primaryStudent.phoneNumber && primaryStudent.phoneNumber.trim()) ||
+      "";
+    const digits = raw.replace(/[^0-9]/g, "");
+    return digits || raw || "";
+  }, [primaryStudent]);
 
   const totalPagesRaw = Math.ceil(filteredStudents.length / pageSize);
   const totalPages = totalPagesRaw > 0 ? totalPagesRaw : 1;
@@ -422,6 +440,18 @@ export default function PaymentsCreate() {
               {selectedIds.length ? `청구서 생성 (${selectedIds.length}명)` : "학생을 선택하세요"}
             </PrimaryButton>
           </LeftHeader>
+          {primaryStudent && (
+            <InfoList>
+              <li>
+                <span>대표 학생</span>
+                <strong>{primaryStudent.name}</strong>
+              </li>
+              <li>
+                <span>발송 번호</span>
+                <strong>{primaryRecipientPhone || "-"}</strong>
+              </li>
+            </InfoList>
+          )}
           <FormGrid>
             <label>
               결제 예정일
@@ -772,6 +802,28 @@ const Meta = styled.span`
   display: block;
   font-size: 12px;
   color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const InfoList = styled.ul`
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 8px 10px;
+  border-radius: ${(p) => p.theme.radii.md};
+  background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
+  display: grid;
+  gap: 4px;
+  li {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    span {
+      color: ${(p) => p.theme.colors.textMuted};
+    }
+    strong {
+      font-weight: 600;
+      color: ${(p) => p.theme.colors.text};
+    }
+  }
 `;
 
 const ModalActions = styled.div`

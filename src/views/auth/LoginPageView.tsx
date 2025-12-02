@@ -4,42 +4,67 @@ import { LoginResetPasswordModal } from "@/components/auth/LoginResetPasswordMod
 import type { UseLoginPageResult } from "@/features/auth/hooks/useLoginPage";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
+import { PrimaryButtonLg } from "@/components/common/UI";
+import { Input as BaseInput, Label } from "@/components/common/Input";
 
 export function LoginPageView({ form, dialog, findIdModal, resetModal }: UseLoginPageResult) {
   return (
-    <Container>
-      <LogoHead>
-        <img src="/logo/logo.svg" alt="Academy Manager 로고" />
-      </LogoHead>
-      <Title>로그인</Title>
-      <Sub>계정에 접속하여 서비스를 이용하세요.</Sub>
-      <Form onSubmit={form.onSubmit}>
-        <Label>
-          아이디<span>*</span>
-        </Label>
-        <Input
-          type="text"
-          value={form.username}
-          onChange={(event) => form.setUsername(event.target.value)}
-          placeholder="아이디를 입력하세요"
-          required
-          aria-invalid={form.submitted && !form.username.trim()}
-        />
-        <Label>
-          비밀번호<span>*</span>
-        </Label>
-        <Input
-          type="password"
-          value={form.password}
-          onChange={(event) => form.setPassword(event.target.value)}
-          placeholder="••••••••"
-          required
-          aria-invalid={form.submitted && !form.password.trim()}
-        />
-        <PrimaryButton type="submit" disabled={form.loading}>
-          {form.loading ? "로그인 중..." : "로그인"}
-        </PrimaryButton>
-      </Form>
+    <PageWrapper>
+      <LoginCard>
+        <LogoHead>
+          <img src="/logo/logo.svg" alt="Academy Manager 로고" />
+        </LogoHead>
+        <Header>
+          <Title>로그인</Title>
+          <Sub>계정에 접속하여 서비스를 이용하세요.</Sub>
+        </Header>
+        <Form onSubmit={form.onSubmit}>
+          <Field>
+            <Label>
+              아이디<span>*</span>
+            </Label>
+            <LoginInput
+              type="text"
+              value={form.username}
+              onChange={(event) => form.setUsername(event.target.value)}
+              placeholder="아이디를 입력하세요"
+              required
+              aria-invalid={form.submitted && !form.username.trim()}
+            />
+          </Field>
+          <Field>
+            <Label>
+              비밀번호<span>*</span>
+            </Label>
+            <LoginInput
+              type="password"
+              value={form.password}
+              onChange={(event) => form.setPassword(event.target.value)}
+              placeholder="••••••••"
+              required
+              aria-invalid={form.submitted && !form.password.trim()}
+            />
+          </Field>
+          <LoginButton type="submit" disabled={form.loading}>
+            {form.loading ? "로그인 중..." : "로그인"}
+          </LoginButton>
+        </Form>
+        <Footer>
+          <FooterLeft>
+            계정이 없으신가요? <Link to="/register">회원가입</Link>
+          </FooterLeft>
+          <FooterActions>
+            <button type="button" onClick={findIdModal.openModal}>
+              아이디 찾기
+            </button>
+            <LinkDivider />
+            <button type="button" onClick={() => resetModal.openModal()}>
+              비밀번호 찾기
+            </button>
+          </FooterActions>
+        </Footer>
+      </LoginCard>
+
       <ConfirmDialog
         open={dialog.open}
         title="로그인 실패"
@@ -48,136 +73,123 @@ export function LoginPageView({ form, dialog, findIdModal, resetModal }: UseLogi
         onCancel={dialog.close}
         onConfirm={dialog.close}
       />
-      <Footer>
-        <FooterLeft>
-          계정이 없으신가요? <Link to="/register">회원가입</Link>
-        </FooterLeft>
-        <FooterActions>
-          <button type="button" onClick={findIdModal.openModal}>
-            아이디 찾기
-          </button>
-          <LinkDivider />
-          <button type="button" onClick={() => resetModal.openModal()}>
-            비밀번호 찾기
-          </button>
-        </FooterActions>
-      </Footer>
-
       <LoginFindIdModal
         modal={findIdModal}
         onSelectReset={resetModal.openFromFind}
         ref={findIdModal.phoneRef}
       />
       <LoginResetPasswordModal modal={resetModal} ref={resetModal.phoneRef} />
-    </Container>
+    </PageWrapper>
   );
 }
 
-const Container = styled.div`
-  padding: 48px 16px 64px;
-  max-width: 480px;
-  margin: 0 auto;
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${(p) => p.theme.colors.surface};
+  padding: ${(p) => p.theme.spacing.md};
+`;
+
+const LoginCard = styled.div`
+  width: 100%;
+  max-width: 520px;
+  background: transparent;
+  padding: 48px 40px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
+
+  @media (max-width: 480px) {
+    padding: 32px 24px;
+  }
 `;
 
 const LogoHead = styled.div`
-  display: grid;
-  place-items: center;
-  margin: 20px 0 8px;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 32px;
   img {
-    height: 48px;
+    height: 40px;
     width: auto;
   }
 `;
 
+const Header = styled.div`
+  text-align: center;
+  margin-bottom: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+`;
+
 const Title = styled.h1`
-  margin: 0 0 12px;
-  font-size: 30px;
-  color: #111827;
+  margin: 0 0 8px;
+  font-size: 32px;
+  font-weight: 800;
+  color: ${(p) => p.theme.colors.text};
+  letter-spacing: -0.02em;
 `;
 
 const Sub = styled.p`
-  margin: 0 0 24px;
-  color: #6b7280;
-  font-size: 15px;
+  margin: 0;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.lg};
 `;
 
 const Form = styled.form`
   display: flex;
   flex-direction: column;
   gap: 16px;
+  margin-top: 8px;
 `;
 
-const Label = styled.label`
-  font-size: 13px;
-  color: #6b7280;
-  span {
-    color: #ef4444;
-    margin-left: 4px;
-  }
+const Field = styled.div`
+  display: flex;
+  flex-direction: column;
 `;
 
-const Input = styled.input`
-  height: 54px;
-  border: none;
-  border-radius: 14px;
-  padding: 0 16px;
-  font-size: 15px;
-  background: #f3f4f6;
-  outline: none;
-  transition: box-shadow 0.15s ease, background 0.15s ease;
-  &::placeholder {
-    color: #9ca3af;
-  }
+const LoginInput = styled(BaseInput)`
+  height: 52px;
+  border-radius: ${(p) => p.theme.radii.lg};
+  border: 1px solid ${(p) => p.theme.colors.borderMuted};
+  padding: 0 ${(p) => p.theme.spacing.md};
+  background: ${(p) => p.theme.colors.surface};
   &:focus {
-    background: #eef2ff;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.18);
-  }
-  &[aria-invalid="true"] {
-    background: #fee2e2;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18);
+    border-color: ${(p) => p.theme.colors.primary};
+    background: ${(p) => p.theme.colors.surface};
   }
 `;
 
-const PrimaryButton = styled.button`
-  border: none;
-  height: 48px;
-  border-radius: 4px;
-  background: #1a73e8;
-  color: #fff;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s ease;
-  &:hover {
-    background: #1765cc;
-    box-shadow: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
-  }
-  &:disabled {
-    background: #e8eaed;
-    color: #9aa0a6;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
+const LoginButton = styled(PrimaryButtonLg)`
+  width: 100%;
+  margin-top: 12px;
+  border-radius: ${(p) => p.theme.radii.lg};
 `;
-
 
 const Footer = styled.div`
-  margin-top: 18px;
+  margin-top: 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 13px;
-  color: #6b7280;
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.textMuted};
   a {
-    color: #4f46e5;
-    font-weight: 700;
+    color: ${(p) => p.theme.colors.primary};
+    font-weight: 600;
+    margin-left: 4px;
+    text-decoration: none;
+    &:hover {
+      text-decoration: underline;
+    }
   }
 `;
 
-const FooterLeft = styled.span``;
+const FooterLeft = styled.div`
+  display: flex;
+  align-items: center;
+`;
 
 const FooterActions = styled.div`
   display: inline-flex;
@@ -186,19 +198,21 @@ const FooterActions = styled.div`
   button {
     border: none;
     background: transparent;
-    color: #4f46e5;
-    font-weight: 600;
+    color: ${(p) => p.theme.colors.textMuted};
+    font-size: ${(p) => p.theme.font.size.sm};
     cursor: pointer;
     padding: 0;
-  }
-  button:hover {
-    text-decoration: underline;
+    transition: color 0.2s;
+    &:hover {
+      color: ${(p) => p.theme.colors.text};
+      text-decoration: underline;
+    }
   }
 `;
 
 const LinkDivider = styled.span`
   width: 1px;
-  height: 12px;
-  background: #cbd5f5;
+  height: 10px;
+  background: ${(p) => p.theme.colors.border};
   display: inline-block;
 `;

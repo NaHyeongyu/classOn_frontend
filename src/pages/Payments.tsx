@@ -15,12 +15,15 @@ import {
 import Modal from "@/components/common/Modal";
 import { useToast } from "@/components/common/Toast";
 import {
+  cancelPayment,
+  cancelScheduledAlert,
   getPaymentDetail,
   getPaymentSummary,
   listPaymentHistory,
   listPendingHistory,
   listPaymentInvoices,
   markOnsitePayment,
+  sendScheduledAlertNow,
   updatePaymentInvoice,
   type PaymentInvoiceUpdatePayload,
   type PaymentOnsitePayload,
@@ -55,11 +58,11 @@ type DetailState =
 const today = new Date();
 const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
 const createDefaultDateRange = () => {
-  const start = new Date(today.getFullYear(), today.getMonth(), 1);
-  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  const rangeStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const rangeEnd = new Date(today.getFullYear(), today.getMonth() + 1, 0);
   return {
-    from: start.toISOString().slice(0, 10),
-    to: end.toISOString().slice(0, 10),
+    from: rangeStart.toISOString().slice(0, 10),
+    to: rangeEnd.toISOString().slice(0, 10),
   };
 };
 const createDefaultHistoryFilters = (): HistoryFilters => ({
@@ -70,16 +73,20 @@ const createDefaultHistoryFilters = (): HistoryFilters => ({
 
 const statusLabel: Record<string, string> = {
   UNPAID: "대기",
+  SCHEDULED: "예약",
   PENDING: "미납",
   COMPLETED: "완료",
   FAILED: "실패",
+  CANCELED: "취소",
 };
 
 const statusColor: Record<string, string> = {
   UNPAID: "#4b5563",
+  SCHEDULED: "#f59e0b",
   PENDING: "#2563EB",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
+  CANCELED: "#dc2626",
 };
 
 const studentStatusColor: Record<string, string> = {
@@ -101,7 +108,7 @@ const paymentTypeLabel: Record<string, string> = {
 };
 
 type StudentStatusFilter = "ALL" | "ENROLLED" | "ON_LEAVE" | "PENDING" | "STOPPED";
-type HistoryStatusFilter = "ALL" | "UNPAID" | "PENDING" | "COMPLETED";
+type HistoryStatusFilter = "ALL" | "UNPAID" | "PENDING" | "COMPLETED" | "FAILED";
 
 const studentStatusLabel: Record<string, string> = {
   ENROLLED: "수강중",
@@ -115,6 +122,12 @@ type HistoryFilters = {
   to: string;
   q: string;
   status: HistoryStatusFilter;
+};
+
+const resolvePendingStatusParam = (status: HistoryStatusFilter | "ALL"): string => {
+  if (status === "ALL") return "ALL";
+  if (status === "PENDING") return "PENDING,SCHEDULED";
+  return status;
 };
 
 export default function Payments() {
@@ -142,6 +155,17 @@ export default function Payments() {
   const [onsiteDetail, setOnsiteDetail] = useState<PaymentDetail | null>(null);
   const [onsiteDetailLoading, setOnsiteDetailLoading] = useState(false);
   const [activeHistoryId, setActiveHistoryId] = useState<number | null>(null);
+  const [cancelPrompt, setCancelPrompt] = useState<{
+    open: boolean;
+    detail: PaymentDetail | null;
+    reason: string;
+  }>({ open: false, detail: null, reason: "" });
+  const [resendPrompt, setResendPrompt] = useState<{
+    open: boolean;
+    row: PaymentHistoryRow | null;
+    reason: string | null;
+    loading: boolean;
+  }>({ open: false, row: null, reason: null, loading: false });
 
   const summaryQuery = useQuery<PaymentSummary>({
     queryKey: ["payments", "summary", defaultMonth],
@@ -166,8 +190,8 @@ export default function Payments() {
         page: invoicePage,
         size: invoicePageSize,
         status: "UNPAID",
-        from: invoiceDateRange.from,
-        to: invoiceDateRange.to,
+        from: invoiceDateRange.from || undefined,
+        to: invoiceDateRange.to || undefined,
         studentStatus: invoiceStudentStatus === "ALL" ? undefined : invoiceStudentStatus,
       }),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
@@ -186,9 +210,9 @@ export default function Payments() {
     ],
     queryFn: () =>
       listPaymentHistory({
-        from: historyFilters.from,
-        to: historyFilters.to,
-        status: "COMPLETED",
+        from: historyFilters.from || undefined,
+        to: historyFilters.to || undefined,
+        status: "COMPLETED,CANCELED",
         q: historyFilters.q,
         page: historyCompletedPage,
         size: historyPageSize,
@@ -210,10 +234,10 @@ export default function Payments() {
     ],
     queryFn: () =>
       listPendingHistory({
-        from: historyFilters.from,
-        to: historyFilters.to,
+        from: historyFilters.from || undefined,
+        to: historyFilters.to || undefined,
         q: historyFilters.q,
-        status: historyFilters.status === "ALL" ? undefined : historyFilters.status,
+        status: resolvePendingStatusParam(historyFilters.status),
         page: historyPendingPage,
         size: historyPageSize,
       }),
@@ -266,6 +290,46 @@ export default function Payments() {
     onError: (err: unknown) => toastError(readableError(err, "현장 결제 처리에 실패했습니다.")),
   });
 
+  const cancelMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
+      cancelPayment(id, reason ? { reason } : undefined),
+    onSuccess: (detail: PaymentDetail) => {
+      success("결제를 취소했습니다.");
+      setDetailState((prev) =>
+        prev.open && prev.id === detail.info.id ? { ...prev, data: detail, loading: false } : prev,
+      );
+      invalidatePaymentsQueries(queryClient);
+      setCancelPrompt({ open: false, detail: null, reason: "" });
+    },
+    onError: (err: unknown) => toastError(readableError(err, "결제 취소에 실패했습니다.")),
+  });
+
+  const cancelScheduleMutation = useMutation({
+    mutationFn: ({ paymentId, alertId }: { paymentId: number; alertId: number }) =>
+      cancelScheduledAlert(paymentId, alertId),
+    onSuccess: (detail: PaymentDetail) => {
+      success("예약 발송을 취소했습니다.");
+      setDetailState((prev) =>
+        prev.open && prev.id === detail.info.id ? { ...prev, data: detail, loading: false } : prev,
+      );
+      invalidatePaymentsQueries(queryClient);
+    },
+    onError: (err: unknown) => toastError(readableError(err, "예약 취소에 실패했습니다.")),
+  });
+
+  const sendScheduleNowMutation = useMutation({
+    mutationFn: ({ paymentId, alertId }: { paymentId: number; alertId: number }) =>
+      sendScheduledAlertNow(paymentId, alertId),
+    onSuccess: (detail: PaymentDetail) => {
+      success("예약을 즉시 발송으로 전환했습니다.");
+      setDetailState((prev) =>
+        prev.open && prev.id === detail.info.id ? { ...prev, data: detail, loading: false } : prev,
+      );
+      invalidatePaymentsQueries(queryClient);
+    },
+    onError: (err: unknown) => toastError(readableError(err, "즉시 발송 전환에 실패했습니다.")),
+  });
+
   const loadDetail = useCallback(async (id: number, variant: "invoice" | "history") => {
     setDetailState({ open: true, id, variant, loading: true, data: null });
     try {
@@ -276,6 +340,27 @@ export default function Payments() {
       toastError(readableError(err, "결제 상세를 불러오지 못했습니다."));
     }
   }, [toastError]);
+
+  const handleCancelPayment = useCallback((detail: PaymentDetail) => {
+    if (!detail?.info?.id) return;
+    setCancelPrompt({ open: true, detail, reason: "" });
+  }, []);
+
+  const handleCancelSchedule = useCallback(
+    (detail: PaymentDetail, alertId: number) => {
+      if (!detail?.info?.id || !alertId) return;
+      cancelScheduleMutation.mutate({ paymentId: detail.info.id, alertId });
+    },
+    [cancelScheduleMutation],
+  );
+
+  const handleSendScheduleNow = useCallback(
+    (detail: PaymentDetail, alertId: number) => {
+      if (!detail?.info?.id || !alertId) return;
+      sendScheduleNowMutation.mutate({ paymentId: detail.info.id, alertId });
+    },
+    [sendScheduleNowMutation],
+  );
 
   const summary = summaryQuery.data;
   const invoices = invoiceQuery.data;
@@ -292,12 +377,19 @@ export default function Payments() {
   const pendingTotalPages = pendingHistoryQuery.data?.totalPages ?? 0;
   const completedIsLast = completedHistoryQuery.data?.last ?? true;
   const pendingIsLast = pendingHistoryQuery.data?.last ?? true;
-  const pendingTitle = historyFilters.status === "UNPAID" ? "미납 내역" : "발송 완료 내역";
+  const pendingTitle =
+    historyFilters.status === "UNPAID"
+      ? "미납 내역"
+      : historyFilters.status === "FAILED"
+        ? "발송 실패 내역"
+        : "발송 내역";
   const pendingDescription = historyFilters.status === "COMPLETED"
-    ? "선택한 상태는 오른쪽 결제 완료 내역에서 확인하세요."
+    ? "선택한 상태는 오른쪽 완료·취소 내역에서 확인하세요."
     : historyFilters.status === "UNPAID"
       ? "청구서 발송 전 미납 청구서"
-      : "발송 후 결제 대기 중인 청구서 (발송 5일 후 재발송 버튼이 노출됩니다.)";
+      : historyFilters.status === "FAILED"
+        ? "솔라피 발송이 실패한 청구서입니다. 원인을 확인하고 재발송하세요."
+        : "발송 후 결제 대기 중인 청구서 (발송 5일 후 재발송 버튼이 노출됩니다.)";
 
   useEffect(() => {
     const completedRows = completedHistoryQuery.data?.content ?? [];
@@ -359,10 +451,13 @@ export default function Payments() {
     ],
     queryFn: () => {
       if (onsiteContext === "history") {
-        const statusParam = historyFilters.status === "COMPLETED" ? "PENDING" : historyFilters.status;
+        const statusParam =
+          historyFilters.status === "COMPLETED"
+            ? "PENDING,SCHEDULED"
+            : resolvePendingStatusParam(historyFilters.status);
         return listPendingHistory({
-          from: historyFilters.from,
-          to: historyFilters.to,
+          from: historyFilters.from || undefined,
+          to: historyFilters.to || undefined,
           q: historyFilters.q,
           status: statusParam,
           page: onsitePage,
@@ -374,8 +469,8 @@ export default function Payments() {
         q: invoiceSearch,
         page: onsitePage,
         size: onsitePageSize,
-        from: invoiceDateRange.from,
-        to: invoiceDateRange.to,
+        from: invoiceDateRange.from || undefined,
+        to: invoiceDateRange.to || undefined,
         studentStatus: invoiceStudentStatus === "ALL" ? undefined : invoiceStudentStatus,
       });
     },
@@ -401,6 +496,15 @@ export default function Payments() {
     navigate(paths.payments.kakaoConfirm({ ids: idsParam }));
   };
 
+  const handleScheduleSend = () => {
+    if (!selectedInvoiceIds.length) {
+      toastError("예약 발송할 청구서를 선택해 주세요.");
+      return;
+    }
+    const idsParam = selectedInvoiceIds.join(",");
+    navigate(paths.payments.kakaoSchedule({ ids: idsParam }));
+  };
+
   const handleInvoiceSelectAll = () => {
     const ids = invoiceRows.map((row) => row.id);
     const allSelected = ids.every((id) => selectedInvoiceIds.includes(id));
@@ -421,7 +525,39 @@ export default function Payments() {
   };
 
   const handleHistoryResend = (row: PaymentHistoryRow) => {
+    if (row.status === "FAILED") {
+      setResendPrompt({ open: true, row, reason: null, loading: true });
+      getPaymentDetail(row.id)
+        .then((detail) => {
+          const reason =
+            detail.latestAlert?.errorMessage ||
+            detail.alerts?.find((alert) => alert.status === "FAILED")?.errorMessage ||
+            "실패 사유를 확인할 수 없습니다.";
+          setResendPrompt((prev) => ({ ...prev, loading: false, reason }));
+        })
+        .catch(() => {
+          setResendPrompt((prev) => ({
+            ...prev,
+            loading: false,
+            reason: "실패 사유를 불러오지 못했습니다.",
+          }));
+        });
+      return;
+    }
     navigate(paths.payments.kakaoConfirm({ ids: String(row.id), template: "RETRY" }));
+  };
+
+  const closeResendPrompt = () => {
+    setResendPrompt({ open: false, row: null, reason: null, loading: false });
+  };
+
+  const handleConfirmResend = () => {
+    if (!resendPrompt.row) {
+      closeResendPrompt();
+      return;
+    }
+    navigate(paths.payments.kakaoConfirm({ ids: String(resendPrompt.row.id), template: "RETRY" }));
+    closeResendPrompt();
   };
 
   const handleHistoryDateChange = (key: "from" | "to", value: string) => {
@@ -585,6 +721,13 @@ export default function Payments() {
                 >
                   현장 결제
                 </GhostButton>
+                <GhostButton
+                  type="button"
+                  onClick={handleScheduleSend}
+                  disabled={!selectedInvoiceIds.length}
+                >
+                  예약 발송
+                </GhostButton>
                 <KakaoButton
                   type="button"
                   onClick={handleSendSelected}
@@ -725,9 +868,10 @@ export default function Payments() {
                     }
                     options={[
                       { label: "전체", value: "ALL" },
-                      { label: "대기(청구서 발송 완료)", value: "PENDING" },
+                      { label: "발송 내역", value: "PENDING" },
                       { label: "미납", value: "UNPAID" },
                       { label: "완료", value: "COMPLETED" },
+                      { label: "실패", value: "FAILED" },
                     ]}
                   />
                 </FilterFieldCompact>
@@ -741,11 +885,28 @@ export default function Payments() {
                 </FilterActions>
               </HistoryFilters>
               <HistorySplit>
-                <HistoryColumn>
+                <HistoryColumnSticky>
                   <HistoryColumnHeader>
-                    <ColumnTitle>{pendingTitle}</ColumnTitle>
-                    <small>{pendingDescription}</small>
+                    <ColumnTitle>완료·취소 내역</ColumnTitle>
+                    <small>결제가 완료되었거나 취소된 청구서</small>
                   </HistoryColumnHeader>
+                  <HistoryTable
+                    rows={completedRows}
+                    loading={completedHistoryQuery.isLoading}
+                    page={historyCompletedPage}
+                    size={historyPageSize}
+                    totalPages={completedTotalPages}
+                    last={completedIsLast}
+                    onChangePage={setHistoryCompletedPage}
+                    onRowClick={handleHistoryRowClick}
+                    activeId={activeHistoryId}
+                  />
+                </HistoryColumnSticky>
+              <HistoryColumn>
+                <HistoryColumnHeader>
+                  <ColumnTitle>{pendingTitle}</ColumnTitle>
+                  <small>{pendingDescription}</small>
+                </HistoryColumnHeader>
                   <HistoryTable
                     rows={pendingRows}
                     loading={historyFilters.status === "COMPLETED" ? false : pendingHistoryQuery.isLoading}
@@ -760,23 +921,6 @@ export default function Payments() {
                     onResendClick={handleHistoryResend}
                   />
                 </HistoryColumn>
-                <HistoryColumnSticky>
-                  <HistoryColumnHeader>
-                    <ColumnTitle>완료 내역</ColumnTitle>
-                    <small>결제가 완료된 청구서</small>
-                  </HistoryColumnHeader>
-                  <HistoryTable
-                    rows={completedRows}
-                    loading={completedHistoryQuery.isLoading}
-                    page={historyCompletedPage}
-                    size={historyPageSize}
-                    totalPages={completedTotalPages}
-                    last={completedIsLast}
-                    onChangePage={setHistoryCompletedPage}
-                    onRowClick={handleHistoryRowClick}
-                    activeId={activeHistoryId}
-                  />
-                </HistoryColumnSticky>
               </HistorySplit>
             </>
           )}
@@ -788,7 +932,66 @@ export default function Payments() {
         onClose={() => setDetailState({ open: false })}
         onSave={handleSaveInvoice}
         saving={updateMutation.isPending}
+        onCancelPayment={handleCancelPayment}
+        canceling={cancelMutation.isPending}
+        onCancelSchedule={handleCancelSchedule}
+        onSendScheduleNow={handleSendScheduleNow}
+        scheduleCancelling={cancelScheduleMutation.isPending}
+        scheduleSending={sendScheduleNowMutation.isPending}
       />
+      <Modal
+        open={resendPrompt.open}
+        onClose={closeResendPrompt}
+        title="재발송 안내"
+        maxWidth={480}
+      >
+        {resendPrompt.loading ? (
+          <Skeleton h={60} />
+        ) : (
+          <>
+            <p style={{ margin: "0 0 8px", color: "#374151", fontWeight: 600 }}>
+              최근 카카오 발송이 실패했습니다.
+            </p>
+            <ReasonBox>
+              {resendPrompt.reason || "실패 사유를 확인할 수 없습니다."}
+            </ReasonBox>
+            <HintTitle>주요 실패 원인</HintTitle>
+            <HintList>
+              <li>템플릿 검수가 완료되지 않았거나 삭제되었습니다.</li>
+              <li>발신 프로필(카카오 채널)이 미등록 또는 연동 해제되었습니다.</li>
+              <li>발신 번호가 템플릿/프로필에 매핑되지 않았습니다.</li>
+              <li>수신자 전화번호 형식이 잘못되었거나 수신 차단 상태입니다.</li>
+              <li>Solapi 이용 한도/잔액이 부족하거나 API 키가 변경되었습니다.</li>
+            </HintList>
+            <HintFooter>
+              <strong>위 항목을 반드시 확인·수정한 뒤 다시 재발송을 진행해 주세요.</strong>
+            </HintFooter>
+            <HintFooter>
+              문제가 지속될 경우{" "}
+              <HintLink
+                href="https://help.solapi.com/ko/articles/10294122"
+                target="_blank"
+                rel="noreferrer"
+              >
+                오류/요청 페이지
+              </HintLink>
+              를 통해 문의해 주세요.
+            </HintFooter>
+          </>
+        )}
+        <ModalActions>
+          <GhostButton type="button" onClick={closeResendPrompt}>
+            확인
+          </GhostButton>
+          <PrimaryButton
+            type="button"
+            onClick={handleConfirmResend}
+            disabled={resendPrompt.loading || !resendPrompt.row}
+          >
+            카카오톡 재발송
+          </PrimaryButton>
+        </ModalActions>
+      </Modal>
 
       <OnsiteCandidateModal
         open={onsiteSelectorOpen}
@@ -816,6 +1019,61 @@ export default function Payments() {
         detail={onsiteDetail}
         detailLoading={onsiteDetailLoading}
       />
+      <Modal
+        open={cancelPrompt.open}
+        onClose={() => (!cancelMutation.isPending ? setCancelPrompt({ open: false, detail: null, reason: "" }) : undefined)}
+        title="결제 취소"
+        maxWidth={480}
+      >
+        {cancelPrompt.detail ? (
+          <>
+            <ConfirmIntro>
+              <p>
+                <strong>{cancelPrompt.detail.student.name}</strong> 학생의{" "}
+                <strong>
+                  {formatMoney(
+                    cancelPrompt.detail.info.finalAmount ?? cancelPrompt.detail.info.originalAmount ?? 0,
+                  )}
+                </strong>{" "}
+                결제를 취소합니다.
+              </p>
+              <p>결제가 취소되면 되돌릴 수 없습니다.</p>
+            </ConfirmIntro>
+            <label style={{ display: "block", textAlign: "left", fontSize: 14, marginBottom: 6 }}>
+              취소 사유 (선택)
+            </label>
+            <Textarea
+              value={cancelPrompt.reason}
+              placeholder="예: 학부모 요청으로 환불"
+              onChange={(event) =>
+                setCancelPrompt((prev) => ({ ...prev, reason: event.target.value.slice(0, 80) }))
+              }
+            />
+            <ModalActions>
+              <GhostButton
+                type="button"
+                onClick={() => setCancelPrompt({ open: false, detail: null, reason: "" })}
+                disabled={cancelMutation.isPending}
+              >
+                닫기
+              </GhostButton>
+              <PrimaryButton
+                type="button"
+                onClick={() => {
+                  if (!cancelPrompt.detail?.info.id) return;
+                  cancelMutation.mutate({
+                    id: cancelPrompt.detail.info.id,
+                    reason: cancelPrompt.reason.trim() || undefined,
+                  });
+                }}
+                disabled={cancelMutation.isPending}
+              >
+                {cancelMutation.isPending ? "취소 중..." : "결제 취소"}
+              </PrimaryButton>
+            </ModalActions>
+          </>
+        ) : null}
+      </Modal>
     </Page>
   );
 }
@@ -1010,6 +1268,36 @@ function HistoryTable(props: {
   } = props;
   const isLastPage = last ?? (totalPages === 0 || page >= totalPages - 1);
   const isPendingVariant = variant === "pending";
+  const mapPendingStatus = (status: string) => {
+    if (status === "UNPAID") return "PENDING";
+    return status;
+  };
+  const resolvePendingSentDate = (row: PaymentHistoryRow) => {
+    if (row.status === "SCHEDULED" || row.status === "FAILED") {
+      return "-";
+    }
+    if (!row.invoiceRequestedAt) return "-";
+    return formatKoreanDate(row.invoiceRequestedAt, { includeWeekday: false });
+  };
+  const normalizeStatus = (status?: string) => (status ?? "").trim().toUpperCase();
+  const getPendingWeight = (status?: string) => {
+    const normalized = normalizeStatus(status);
+    if (normalized === "SCHEDULED") return 0;
+    if (normalized === "FAILED") return 1;
+    return 2;
+  };
+  const parseTimestamp = (value?: string | null) => {
+    if (!value) return Number.MAX_SAFE_INTEGER;
+    const time = Date.parse(value);
+    return Number.isNaN(time) ? Number.MAX_SAFE_INTEGER : time;
+  };
+  const getPendingSortTimestamp = (row: PaymentHistoryRow) => {
+    const anyRow = row as PaymentHistoryRow & { createdAt?: string | null };
+    const requested = parseTimestamp(row.invoiceRequestedAt);
+    const due = parseTimestamp(row.dueDate);
+    const created = parseTimestamp(anyRow.createdAt);
+    return Math.min(requested, due, created);
+  };
   return (
     <TableWrapper>
       <CenteredTable>
@@ -1043,7 +1331,19 @@ function HistoryTable(props: {
               </td>
             </tr>
           ) : (
-            rows.map((row) => (
+            (isPendingVariant
+              ? [...rows].sort((a, b) => {
+                  const weightDiff = getPendingWeight(a.status) - getPendingWeight(b.status);
+                  if (weightDiff !== 0) return weightDiff;
+                  const timeDiff = getPendingSortTimestamp(a) - getPendingSortTimestamp(b);
+                  if (timeDiff !== 0) return timeDiff;
+                  return (a.id ?? 0) - (b.id ?? 0);
+                })
+              : rows
+            ).map((row) => {
+              const canResend = row.status === "UNPAID" || row.status === "FAILED";
+              const displayStatus = isPendingVariant ? mapPendingStatus(row.status) : row.status;
+              return (
             <tr
               key={row.id}
               data-active={activeId === row.id}
@@ -1054,13 +1354,11 @@ function HistoryTable(props: {
                   <MetaText>{row.student.code}</MetaText>
                 </td>
                 <td>
-                  <StatusBadge status={row.status}>{statusLabel[row.status] ?? row.status}</StatusBadge>
+                  <StatusBadge status={displayStatus}>{statusLabel[displayStatus] ?? displayStatus}</StatusBadge>
                 </td>
               <td>
                 {isPendingVariant
-                  ? row.invoiceRequestedAt
-                    ? formatKoreanDate(row.invoiceRequestedAt, { includeWeekday: false })
-                    : "-"
+                  ? resolvePendingSentDate(row)
                   : row.completedAt
                     ? formatKoreanDate(row.completedAt, { includeWeekday: false })
                     : "-"}
@@ -1076,14 +1374,15 @@ function HistoryTable(props: {
                       event.stopPropagation();
                       onResendClick?.(row);
                     }}
-                    disabled={row.status !== "UNPAID"}
+                    disabled={!canResend}
                   >
                     재발송
                   </ResendButton>
                 </td>
               ) : null}
             </tr>
-          ))
+          );
+            })
         )}
         </tbody>
       </CenteredTable>
@@ -1115,9 +1414,26 @@ type DetailModalProps = {
   onClose: () => void;
   onSave: (payload: PaymentInvoiceUpdatePayload) => void;
   saving: boolean;
+  onCancelPayment?: (detail: PaymentDetail) => void;
+  canceling?: boolean;
+  onCancelSchedule?: (detail: PaymentDetail, alertId: number) => void;
+  onSendScheduleNow?: (detail: PaymentDetail, alertId: number) => void;
+  scheduleCancelling?: boolean;
+  scheduleSending?: boolean;
 };
 
-function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
+function DetailModal({
+  state,
+  onClose,
+  onSave,
+  saving,
+  onCancelPayment,
+  canceling,
+  onCancelSchedule,
+  onSendScheduleNow,
+  scheduleCancelling,
+  scheduleSending,
+}: DetailModalProps) {
   const isOpen = state.open;
   const detail = state.open ? state.data : null;
   const variant = state.open ? state.variant : "invoice";
@@ -1172,6 +1488,16 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
   if (!isOpen) return null;
 
   const isInvoiceVariant = variant === "invoice";
+  const isScheduledPayment = detail?.info.status === "SCHEDULED";
+  const scheduledAlertId =
+    isScheduledPayment && detail?.latestAlert?.status === "PENDING"
+      ? detail.latestAlert?.id ?? undefined
+      : isScheduledPayment
+        ? detail?.alerts?.find((alert) => alert.status === "PENDING")?.id ?? undefined
+        : undefined;
+  const canCancelPayment =
+    !isInvoiceVariant &&
+    detail?.info.status === "COMPLETED";
   const courseEntries: PaymentCourseBrief[] =
     detail?.courses && detail.courses.length
       ? detail.courses
@@ -1276,6 +1602,19 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
             {isInvoiceVariant ? (
               <form onSubmit={handleSubmit}>
                 <SectionTitle>청구 정보</SectionTitle>
+                {isScheduledPayment ? (
+                  <ScheduleNotice>
+                    <strong>예약 발송 예정</strong>
+                    <span>
+                      {detail?.latestAlert?.scheduledAt
+                        ? formatKoreanDateTimeKST(detail.latestAlert.scheduledAt, {
+                            includeWeekday: true,
+                            showSeconds: true,
+                          })
+                        : "예약 시각 정보가 없습니다."}
+                    </span>
+                  </ScheduleNotice>
+                ) : null}
                 <label>
                   결제 예정일
                   <Input
@@ -1370,6 +1709,33 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
                     }}
                   />
                 </label>
+                {isScheduledPayment && scheduledAlertId ? (
+                  <ScheduleActions>
+                    <GhostButton
+                      type="button"
+                      data-variant="warning"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        if (!detail) return;
+                        onCancelSchedule?.(detail, scheduledAlertId);
+                      }}
+                      disabled={scheduleCancelling}
+                    >
+                      {scheduleCancelling ? "예약 취소 중..." : "예약 취소"}
+                    </GhostButton>
+                    <PrimaryButton
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        if (!detail) return;
+                        onSendScheduleNow?.(detail, scheduledAlertId);
+                      }}
+                      disabled={scheduleSending}
+                    >
+                      {scheduleSending ? "즉시 발송 중..." : "즉시 발송"}
+                    </PrimaryButton>
+                  </ScheduleActions>
+                ) : null}
                 <ModalActions>
                   {isEditing ? (
                     <>
@@ -1398,11 +1764,11 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
                   )}
                 </ModalActions>
               </form>
-            ) : (
-              (() => {
-                const discountAmount = Math.max(
-                  0,
-                  (detail.info.originalAmount ?? 0) - (detail.info.finalAmount ?? 0),
+          ) : (
+            (() => {
+              const discountAmount = Math.max(
+                0,
+                (detail.info.originalAmount ?? 0) - (detail.info.finalAmount ?? 0),
                 );
                 const discountDisplay = discountAmount ? formatMoney(discountAmount) : "—";
                 const methodDisplay = getPaymentMethodDisplay(
@@ -1411,6 +1777,12 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
                 );
                 const completedText = detail.info.completedAt
                   ? formatKoreanDateTimeKST(detail.info.completedAt, {
+                      includeWeekday: true,
+                      showSeconds: true,
+                    })
+                  : "-";
+                const canceledText = detail.info.canceledAt
+                  ? formatKoreanDateTimeKST(detail.info.canceledAt, {
                       includeWeekday: true,
                       showSeconds: true,
                     })
@@ -1424,6 +1796,40 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
 
                 return (
                   <div>
+                    {isScheduledPayment ? (
+                      <>
+                        <ScheduleNotice>
+                          <strong>예약 발송 예정</strong>
+                          <span>
+                            {detail?.latestAlert?.scheduledAt
+                              ? formatKoreanDateTimeKST(detail.latestAlert.scheduledAt, {
+                                  includeWeekday: true,
+                                  showSeconds: true,
+                                })
+                              : "예약 시각 정보가 없습니다."}
+                          </span>
+                        </ScheduleNotice>
+                        {scheduledAlertId ? (
+                          <ScheduleActions>
+                            <GhostButton
+                              type="button"
+                              data-variant="warning"
+                              onClick={() => detail && onCancelSchedule?.(detail, scheduledAlertId)}
+                              disabled={scheduleCancelling}
+                            >
+                              {scheduleCancelling ? "예약 취소 중..." : "예약 취소"}
+                            </GhostButton>
+                            <PrimaryButton
+                              type="button"
+                              onClick={() => detail && onSendScheduleNow?.(detail, scheduledAlertId)}
+                              disabled={scheduleSending}
+                            >
+                              {scheduleSending ? "즉시 발송 중..." : "즉시 발송"}
+                            </PrimaryButton>
+                          </ScheduleActions>
+                        ) : null}
+                      </>
+                    ) : null}
                     <SectionTitle>상세 정보</SectionTitle>
                     <DetailInfoCard>
                       <DetailInfoRows>
@@ -1451,6 +1857,12 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
                           <span>결제 시간</span>
                           <strong>{completedText}</strong>
                         </li>
+                        {detail.info.status === "CANCELED" ? (
+                          <li>
+                            <span>취소 시간</span>
+                            <strong>{canceledText}</strong>
+                          </li>
+                        ) : null}
                         <li>
                           <span>승인 번호</span>
                           <strong>{approvalNumber}</strong>
@@ -1473,6 +1885,16 @@ function DetailModal({ state, onClose, onSave, saving }: DetailModalProps) {
                       <PrimaryButton type="button" onClick={onClose}>
                         확인
                       </PrimaryButton>
+                      {canCancelPayment && detail ? (
+                        <GhostButton
+                          type="button"
+                          data-variant="danger"
+                          onClick={() => onCancelPayment?.(detail)}
+                          disabled={canceling}
+                        >
+                          {canceling ? "취소 중..." : "결제 취소"}
+                        </GhostButton>
+                      ) : null}
                     </ModalActions>
                   </div>
                 );
@@ -1617,7 +2039,7 @@ function OnsiteCandidateModal({
       {loading ? (
         <Skeleton h={160} />
       ) : rows.length === 0 ? (
-        <EmptyState>발송 완료 상태의 청구서가 없습니다.</EmptyState>
+        <EmptyState>발송 가능한 청구서가 없습니다.</EmptyState>
       ) : (
         <>
           <TableWrapper>
@@ -2115,18 +2537,30 @@ const HistoryFilters = styled.div`
 
 const HistorySplit = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: 18px;
+  grid-template-columns: 1fr;
+  grid-template-areas:
+    "completed"
+    "pending";
+  @media (min-width: 960px) {
+    grid-template-columns: minmax(320px, 1.1fr) minmax(320px, 0.9fr);
+    grid-template-areas: "pending completed";
+    align-items: flex-start;
+  }
 `;
 
 const HistoryColumn = styled.div`
   display: grid;
   gap: 12px;
+  grid-area: pending;
 `;
 
-const HistoryColumnSticky = styled(HistoryColumn)`
+const HistoryColumnSticky = styled.div`
+  display: grid;
+  gap: 12px;
+  grid-area: completed;
   position: sticky;
-  top: 0;
+  top: var(--sticky-top, 0px);
   align-self: flex-start;
 `;
 
@@ -2276,6 +2710,44 @@ const ResendButton = styled(PrimaryButton)`
   height: 30px;
   padding: 0 12px;
   font-size: 12px;
+`;
+
+const ReasonBox = styled.div`
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: ${(p) => p.theme.spacing.sm};
+  background: ${(p) => p.theme.colors.surfaceMuted};
+  color: ${(p) => p.theme.colors.text};
+  min-height: 48px;
+  white-space: pre-wrap;
+  font-size: ${(p) => p.theme.font.size.sm};
+`;
+
+const HintTitle = styled.p`
+  margin: ${(p) => p.theme.spacing.md} 0 ${(p) => p.theme.spacing.xs};
+  font-weight: 600;
+  color: ${(p) => p.theme.colors.text};
+  font-size: ${(p) => p.theme.font.size.sm};
+`;
+
+const HintList = styled.ul`
+  margin: 0;
+  padding-left: 18px;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.xs};
+  display: grid;
+  gap: 4px;
+`;
+
+const HintFooter = styled.p`
+  margin: ${(p) => p.theme.spacing.sm} 0 0;
+  font-size: ${(p) => p.theme.font.size.xs};
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const HintLink = styled.a`
+  color: ${(p) => p.theme.colors.primary};
+  text-decoration: underline;
 `;
 
 const OnsiteSection = styled.div`
@@ -2540,6 +3012,17 @@ const ModalActions = styled.div`
   gap: 12px;
 `;
 
+const ConfirmIntro = styled.div`
+  text-align: center;
+  margin-bottom: 18px;
+  p {
+    margin: 6px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
+  }
+`;
+
 const Paragraph = styled.p`
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
@@ -2556,6 +3039,36 @@ const DiscountBox = styled.div`
   background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
 `;
 
+const ScheduleNotice = styled.div`
+  margin: 12px 0;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid #fed7aa;
+  background: #fff7ed;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  strong {
+    color: #c2410c;
+  }
+  span {
+    color: #7c2d12;
+    font-weight: 600;
+  }
+`;
+
+const ScheduleActions = styled.div`
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 8px;
+  flex-wrap: wrap;
+  button[data-variant="warning"] {
+    border-color: #f97316;
+    color: #b45309;
+  }
+`;
+
 const CourseList = styled(DetailList)`
   li {
     align-items: center;
@@ -2570,7 +3083,7 @@ const CourseList = styled(DetailList)`
     color: ${(p) => p.theme.colors.textMuted};
   }
   .fee {
-    font-weight: 600;
+    font-weight: 700;
     font-size: 14px;
     color: ${(p) => p.theme.colors.text};
   }

@@ -32,6 +32,7 @@ const Marketing = lazy(() => import("@/pages/Marketing"));
 const Payments = lazy(() => import("@/pages/Payments"));
 const PaymentsCreate = lazy(() => import("@/pages/PaymentsCreate"));
 const PaymentsKakaoConfirm = lazy(() => import("@/pages/PaymentsKakaoConfirm"));
+const PaymentsKakaoSchedule = lazy(() => import("@/pages/PaymentsKakaoSchedule"));
 const MarketingSummary = lazy(() => import("@/pages/MarketingSummary"));
 const MarketingPreview = lazy(() => import("@/pages/MarketingPreview"));
 const MarketingGenerating = lazy(() => import("@/pages/MarketingGenerating"));
@@ -154,6 +155,7 @@ export default function App() {
           <Route path={routes.payments} element={<Payments />} />
           <Route path={routes.paymentsCreate} element={<PaymentsCreate />} />
           <Route path={routes.paymentsKakaoConfirm} element={<PaymentsKakaoConfirm />} />
+          <Route path={routes.paymentsKakaoSchedule} element={<PaymentsKakaoSchedule />} />
           {enableDev && <Route path={routes.devTools} element={<DevTools />} />}
           <Route path={routes.marketing} element={<Marketing />} />
           { /* Marketing guide removed */ }

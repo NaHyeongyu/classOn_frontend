@@ -120,7 +120,7 @@ export default function PaymentsCreate() {
     queryFn: async () => {
       const pageSize = 500;
       const [unpaid, pending] = await Promise.all([
-        listPaymentInvoices({ status: "UNPAID", page: 0, size: pageSize }),
+        listPaymentInvoices({ status: "UNPAID,SCHEDULED", page: 0, size: pageSize }),
         listPaymentInvoices({ status: "PENDING", page: 0, size: pageSize }),
       ]);
       return [...(unpaid.content ?? []), ...(pending.content ?? [])];

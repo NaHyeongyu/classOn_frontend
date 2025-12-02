@@ -1,7 +1,19 @@
-import React from 'react';
-import styled from 'styled-components';
-import { GhostButton as UIGhostButton, GhostBtnSmall as UIGhostBtnSmall, PrimaryBtn as UIPrimaryBtn, PrimaryButton as UIPrimaryButton, buttonVariants } from "@/components/common/UI";
-import { Section, Title, SectionHead } from "@/components/courseDetail/CourseDetail.styles";
+import { useMemo } from "react";
+import styled from "styled-components";
+import { useNavigate } from "react-router-dom";
+import {
+  GhostButton as UIGhostButton,
+  GhostBtnSmall as UIGhostBtnSmall,
+  PrimaryBtn as UIPrimaryBtn,
+  PrimaryButton as UIPrimaryButton,
+  buttonVariants,
+} from "@/components/common/UI";
+import SelectBox from "@/components/common/SelectBox";
+import {
+  Section,
+  Title,
+  SectionHead,
+} from "@/components/courseDetail/CourseDetail.styles";
 
 type HistoryItem = {
   id?: number;
@@ -26,7 +38,6 @@ type Props = {
   onToggleCollapsed: () => void;
   todayHref: string;
   detailHrefFor: (id?: number, date?: Date) => string;
-  getAttendanceMap: (recordId: number) => Record<number, boolean>;
   onCreateRecord?: () => void;
 };
 
@@ -44,9 +55,39 @@ export default function CourseRecordsPanel({
   onToggleCollapsed,
   todayHref,
   detailHrefFor,
-  getAttendanceMap,
   onCreateRecord,
 }: Props) {
+  const navigate = useNavigate();
+  const todayKey = useMemo(() => formatYmd(new Date()), []);
+  const recordsByDate = useMemo(() => {
+    const map: Record<string, HistoryItem[]> = {};
+    history.forEach((item) => {
+      const key = formatYmd(item.date);
+      if (!map[key]) map[key] = [];
+      map[key].push(item);
+    });
+    return map;
+  }, [history]);
+  const monthViews = useMemo(
+    () => buildMonthViews(history, filterYear, filterMonth),
+    [history, filterYear, filterMonth],
+  );
+  
+  const yearOptions = useMemo(() => {
+    return buildYears().map(y => ({ label: `${y}년`, value: String(y) }));
+  }, []);
+
+  const monthOptions = useMemo(
+    () =>
+      [{ value: "0", label: "전체" }].concat(
+        Array.from({ length: 12 }, (_, i) => ({
+          value: String(i + 1),
+          label: `${i + 1}월`,
+        })),
+      ),
+    [],
+  );
+
   return (
     <Section>
       <SectionHead>
@@ -69,34 +110,32 @@ export default function CourseRecordsPanel({
       <FilterRow>
         <FilterItem>
           <SmallLabel>연도</SmallLabel>
-          <SmallSelect
-            value={filterYear ?? ''}
-            onChange={(e) => onChangeYear(Number(e.currentTarget.value) || new Date().getFullYear())}
-          >
-            {buildYears().map((y) => (
-              <option key={y} value={y}>{y}년</option>
-            ))}
-          </SmallSelect>
+          <SelectBox
+            value={filterYear ? String(filterYear) : ""}
+            onChange={(val) => onChangeYear(val ? Number(val) : null)}
+            options={yearOptions}
+            width="100px"
+          />
         </FilterItem>
         <FilterItem>
           <SmallLabel>월</SmallLabel>
-          <SmallSelect value={filterMonth} onChange={(e) => onChangeMonth(Number(e.currentTarget.value))}>
-            <option value={0}>전체</option>
-            {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-              <option key={m} value={m}>{m}월</option>
-            ))}
-          </SmallSelect>
+          <SelectBox
+            value={String(filterMonth)}
+            onChange={(val) => onChangeMonth(Number(val))}
+            options={monthOptions}
+            width="100px"
+          />
         </FilterItem>
         <div style={{ flex: 1 }} />
         <SmallLink type="button" onClick={onResetFilters}>초기화</SmallLink>
       </FilterRow>
 
-      {history.length === 0 ? (
-        <Muted>표시할 일정이 없습니다.</Muted>
-      ) : (
-        <RecordsList>
-          {history.map((h) =>
-            collapsed ? (
+      {collapsed ? (
+        history.length === 0 ? (
+          <Muted>표시할 일정이 없습니다.</Muted>
+        ) : (
+          <RecordsList>
+            {history.map((h) => (
               <CollapsedRow key={h.id || h.dateLabel}>
                 <div className="left">
                   <strong>{h.dateLabel}</strong>
@@ -104,41 +143,72 @@ export default function CourseRecordsPanel({
                   <SmallMuted>{h.type}</SmallMuted>
                 </div>
                 <div className="right">
-                  <UIGhostBtnSmall to={detailHrefFor(h.id, h.date)}>상세</UIGhostBtnSmall>
+                  <UIGhostBtnSmall to={detailHrefFor(h.id, h.date)}>
+                    상세
+                  </UIGhostBtnSmall>
                 </div>
               </CollapsedRow>
-            ) : (
-              <RecordCard key={h.id || h.dateLabel}>
-                <RecordHead>
-                  <RecordMeta>
-                    <strong>{h.dateLabel}</strong>
-                    <SmallMuted>{h.time}</SmallMuted>
-                    <SmallMuted>{h.type}</SmallMuted>
-                    {h.id && (() => {
-                      const map = getAttendanceMap(h.id!);
-                      const present = Object.values(map).filter(v => v === true).length;
-                      const absent = Object.values(map).filter(v => v === false).length;
-                      const processed = present + absent;
-                      return processed > 0 ? (
-                        <SmallMuted>
-                          출석 {present} · 결석 {absent} · 처리 {processed}
-                        </SmallMuted>
-                      ) : null;
-                    })()}
-                  </RecordMeta>
-                  <div>
-                    <UIGhostBtnSmall to={detailHrefFor(h.id, h.date)}>상세</UIGhostBtnSmall>
-                  </div>
-                </RecordHead>
-                {h.notes && (
-                  <RecordBody>
-                    <p>{h.notes}</p>
-                  </RecordBody>
-                )}
-              </RecordCard>
-            )
-          )}
-        </RecordsList>
+            ))}
+          </RecordsList>
+        )
+      ) : monthViews.length === 0 ? (
+        <Muted>표시할 일정이 없습니다.</Muted>
+      ) : (
+        <CalendarWrap>
+          {monthViews.map((view) => {
+            const cells = buildMonthCells(view.year, view.month, recordsByDate, todayKey);
+            return (
+              <MonthSection key={`${view.year}-${pad2(view.month)}`}>
+                <MonthTitle>
+                  {view.year}년 {view.month}월
+                </MonthTitle>
+                <WeekdayHeader>
+                  {WEEKDAY_LABELS.map((label) => (
+                    <WeekdayCell key={label}>{label}</WeekdayCell>
+                  ))}
+                </WeekdayHeader>
+                <MonthGrid>
+                  {cells.map((cell) => {
+                    const href =
+                      cell.records.length === 1
+                        ? detailHrefFor(cell.records[0].id, cell.records[0].date)
+                        : cell.records.length > 1
+                          ? detailHrefFor(undefined, cell.date)
+                          : null;
+                    return (
+                      <DayCell
+                        key={cell.key}
+                        data-other={!cell.inMonth || undefined}
+                        data-today={cell.isToday || undefined}
+                        $clickable={cell.records.length > 0}
+                        $dim={!cell.inMonth}
+                        $today={cell.isToday}
+                        onClick={() => { if (href) navigate(href); }}
+                      >
+                        <DayNumber data-other={!cell.inMonth || undefined}>
+                          {cell.date.getDate()}
+                        </DayNumber>
+                        <TimesList>
+                          {cell.records.map((record) => (
+                            <TimeBadge
+                              key={`${record.id || `${record.dateLabel}-${record.time}`}`}
+                              data-variant={record.type === "지난 수업" ? "past" : "upcoming"}
+                            >
+                              {record.time || "시간 미정"}
+                            </TimeBadge>
+                          ))}
+                        </TimesList>
+                      </DayCell>
+                    );
+                  })}
+                </MonthGrid>
+                {view.records.length === 0 ? (
+                  <MonthEmpty>등록된 수업 내역이 없습니다.</MonthEmpty>
+                ) : null}
+              </MonthSection>
+            );
+          })}
+        </CalendarWrap>
       )}
     </Section>
   );
@@ -180,17 +250,9 @@ const SmallLabel = styled.span`
   color: ${(p) => p.theme.colors.textMuted};
   font-size: ${(p) => p.theme.font.size.xs};
 `;
-const SmallSelect = styled.select`
-  height: 32px;
-  padding: 0 ${(p) => p.theme.spacing.sm};
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.md};
-  font-size: ${(p) => p.theme.font.size.sm};
-  background: ${(p) => p.theme.colors.surface};
-  min-width: 110px;
-`;
+
 const SmallLink = styled.button`
-  ${buttonVariants.outline}; height:32px; padding:0 ${(p) => p.theme.spacing.sm}; font-size:${(p) => p.theme.font.size.xs};
+  ${buttonVariants.outline}; height:40px; padding:0 ${(p) => p.theme.spacing.md}; font-size:${(p) => p.theme.font.size.sm};
 `;
 const RecordsList = styled.div`
   display: grid;
@@ -200,28 +262,165 @@ const CollapsedRow = styled.div`
   display:flex; align-items:center; justify-content:space-between; padding:${(p) => p.theme.spacing.sm}; border:1px solid ${(p) => p.theme.colors.borderMuted}; border-radius:${(p) => p.theme.radii.md}; background:${(p) => p.theme.colors.surface};
   .left{ display:flex; align-items:center; gap:${(p) => p.theme.spacing.xs}; flex-wrap:wrap; }
 `;
-const RecordCard = styled.div`
-  border:1px solid ${(p) => p.theme.colors.borderMuted};
-  border-radius:${(p) => p.theme.radii.lg};
-  overflow:hidden;
-  background:${(p) => p.theme.colors.surface};
+const CalendarWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.lg};
 `;
-const RecordHead = styled.div`
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  padding:${(p) => p.theme.spacing.sm};
-  background:${(p) => p.theme.colors.surfaceMuted};
-  gap:${(p) => p.theme.spacing.sm};
-  flex-wrap:wrap;
+const MonthSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.sm};
 `;
-const RecordMeta = styled.div`
-  display:flex;
-  align-items:center;
-  gap:${(p) => p.theme.spacing.xs};
-  flex-wrap:wrap;
+const MonthTitle = styled.h4`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.lg};
 `;
-const RecordBody = styled.div`
-  padding:${(p) => p.theme.spacing.sm};
-  p{ margin:0; color:${(p) => p.theme.colors.text}; font-size:${(p) => p.theme.font.size.md}; }
+const WeekdayHeader = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: ${(p) => p.theme.spacing.xs};
 `;
+const WeekdayCell = styled.div`
+  text-align: center;
+  font-size: ${(p) => p.theme.font.size.xs};
+  color: ${(p) => p.theme.colors.textMuted};
+  font-weight: 600;
+`;
+const MonthGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: ${(p) => p.theme.spacing.xs};
+`;
+const DayCell = styled.div<{ $clickable?: boolean; $dim?: boolean; $today?: boolean }>`
+  min-height: 80px;
+  border: 1px solid ${(p) => (p.$today ? p.theme.colors.primary : p.theme.colors.borderMuted)};
+  border-radius: ${(p) => p.theme.radii.lg};
+  padding: ${(p) => p.theme.spacing.sm};
+  background: ${(p) => (p.$dim ? p.theme.colors.surfaceMuted : p.theme.colors.surface)};
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.xs};
+  cursor: ${(p) => (p.$clickable ? "pointer" : "default")};
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
+  box-shadow: ${(p) => (p.$today ? `0 0 0 2px ${p.theme.colors.primary}22` : "0 2px 6px rgba(15, 23, 42, 0.04)")};
+  &:hover {
+    border-color: ${(p) => (p.$clickable ? p.theme.colors.primary : p.theme.colors.borderMuted)};
+    box-shadow: ${(p) => (p.$clickable ? "0 12px 24px rgba(15, 23, 42, 0.08)" : "0 2px 6px rgba(15, 23, 42, 0.04)")};
+    transform: ${(p) => (p.$clickable ? "translateY(-2px)" : "none")};
+  }
+`;
+const DayNumber = styled.span`
+  font-weight: 600;
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.text};
+  &[data-other] {
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+`;
+const TimesList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: auto;
+`;
+const TimeBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: ${(p) => p.theme.font.size.xs};
+  border: 1px solid ${(p) => p.theme.colors.borderMuted};
+  background: ${(p) => p.theme.colors.surfaceMuted};
+  color: ${(p) => p.theme.colors.text};
+  &[data-variant="past"] {
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+  &[data-variant="upcoming"] {
+    border-color: ${(p) => p.theme.colors.primary};
+    color: ${(p) => p.theme.colors.primary};
+  }
+`;
+const MonthEmpty = styled.p`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.xs};
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+type CalendarCellType = {
+  key: string;
+  date: Date;
+  inMonth: boolean;
+  isToday: boolean;
+  records: HistoryItem[];
+};
+type MonthView = {
+  year: number;
+  month: number;
+  records: HistoryItem[];
+};
+const WEEKDAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
+
+function buildMonthViews(history: HistoryItem[], year: number | null, month: number): MonthView[] {
+  const fallbackYear = year ?? history[0]?.date.getFullYear() ?? new Date().getFullYear();
+  if (month >= 1) {
+    const filtered = history.filter(
+      (entry) =>
+        entry.date.getFullYear() === fallbackYear &&
+        entry.date.getMonth() + 1 === month,
+    );
+    return [{ year: fallbackYear, month, records: filtered }];
+  }
+  if (!history.length) return [];
+  const map = new Map<number, HistoryItem[]>();
+  history.forEach((entry) => {
+    if (entry.date.getFullYear() !== fallbackYear) return;
+    const entryMonth = entry.date.getMonth() + 1;
+    if (!map.has(entryMonth)) map.set(entryMonth, []);
+    map.get(entryMonth)!.push(entry);
+  });
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([entryMonth, records]) => ({
+      year: fallbackYear,
+      month: entryMonth,
+      records,
+    }));
+}
+
+function buildMonthCells(
+  year: number,
+  month: number,
+  recordsByDate: Record<string, HistoryItem[]>,
+  todayKey: string,
+): CalendarCellType[] {
+  const firstOfMonth = new Date(year, month - 1, 1);
+  const start = new Date(firstOfMonth);
+  start.setDate(start.getDate() - start.getDay());
+  const totalCells = 42;
+  const cells: CalendarCellType[] = [];
+  for (let i = 0; i < totalCells; i += 1) {
+    const current = new Date(start);
+    current.setDate(start.getDate() + i);
+    const key = formatYmd(current);
+    cells.push({
+      key: `${key}-${i}`,
+      date: current,
+      inMonth: current.getMonth() === month - 1 && current.getFullYear() === year,
+      isToday: key === todayKey,
+      records: (recordsByDate[key] || []).slice(),
+    });
+  }
+  return cells;
+}
+
+function formatYmd(date: Date): string {
+  const y = date.getFullYear();
+  const m = pad2(date.getMonth() + 1);
+  const d = pad2(date.getDate());
+  return `${y}-${m}-${d}`;
+}
+function pad2(value: number): string {
+  return String(value).padStart(2, "0");
+}

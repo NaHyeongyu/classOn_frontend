@@ -47,9 +47,8 @@ export const AttSticky = styled.div`
   top: 0;
   z-index: 20;
   background: ${({ theme }) => theme.colors.surface};
-  padding: 4px 0 0 0;
-  margin-top: -4px;
-  border-bottom: 0;
+  padding-top: 4px;
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
 `;
 
 export const BulkActions = styled.div`
@@ -89,7 +88,6 @@ export const TopTabs = styled.div`
   top: 0;
   z-index: 22;
   background: ${({ theme }) => theme.colors.surface};
-  padding: 4px 0;
-  border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 6px;
+  padding: 6px 0;
+  margin-bottom: ${({ theme }) => theme.spacing.sm};
 `;

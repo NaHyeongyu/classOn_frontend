@@ -113,6 +113,13 @@ export async function updateStudent(id: number, payload: Partial<StudentPayload>
   return res;
 }
 
+export async function updateStudentCourses(id: number, courseIds: number[]): Promise<Student> {
+  return await fetchJSON<Student>(`/api/students/${id}/courses`, {
+    method: "PUT",
+    body: JSON.stringify({ courseIds }),
+  });
+}
+
 export async function deleteStudent(id: number): Promise<void> {
   await fetchJSON<void>(`/api/students/${id}`, { method: 'DELETE' });
   // When a student is deleted, attendance rows and enrollments change.

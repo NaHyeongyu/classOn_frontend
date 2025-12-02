@@ -50,16 +50,20 @@ export function AttendanceControls({
 
       {showStatusFilter ? (
         <StatusFilterBar>
-          {statusOptions.map((option) => (
-            <FilterButton
-              key={option.value}
-              type="button"
-              data-active={statusFilter === option.value || undefined}
-              onClick={() => onSelectStatus(option.value)}
-            >
-              {option.label}
-            </FilterButton>
-          ))}
+          {statusOptions.map((option) => {
+            const active = statusFilter === option.value;
+            return (
+              <FilterButton
+                key={option.value}
+                type="button"
+                $active={active}
+                aria-pressed={active}
+                onClick={() => onSelectStatus(option.value)}
+              >
+                {option.label}
+              </FilterButton>
+            );
+          })}
         </StatusFilterBar>
       ) : null}
     </Controls>

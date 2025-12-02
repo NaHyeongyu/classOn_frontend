@@ -12,6 +12,7 @@ import type {
   PaymentType,
   BillingCycleUnit,
   PaymentStatus,
+  PaymentCancelPayload,
 } from "@classon/shared-types";
 
 export type PaymentTemplateKey = "GUIDE" | "RETRY" | "SUCCESS" | "FAIL";
@@ -155,13 +156,19 @@ export async function updatePaymentInvoice(id: number, payload: PaymentInvoiceUp
   return res;
 }
 
-export async function sendPaymentInvoices(payload: { ids: number[]; templateKey: PaymentTemplateKey; resend?: boolean }): Promise<PaymentHistoryRow[]> {
+export async function sendPaymentInvoices(payload: {
+  ids: number[];
+  templateKey: PaymentTemplateKey;
+  resend?: boolean;
+  scheduledAt?: string;
+}): Promise<PaymentHistoryRow[]> {
   const res = await fetchJSON<PaymentHistoryRow[]>(`/api/payments/send`, {
     method: "POST",
     body: JSON.stringify({
       ids: payload.ids,
       resend: Boolean(payload.resend),
       templateKey: payload.templateKey,
+      scheduledAt: payload.scheduledAt,
     }),
   });
   invalidateCacheByPrefix([
@@ -182,6 +189,52 @@ export async function markOnsitePayment(id: number, payload: PaymentOnsitePayloa
     "/api/payments/invoices",
     "/api/payments/history",
     `/api/payments/${id}`,
+  ]);
+  return res;
+}
+
+export async function cancelPayment(id: number, payload?: PaymentCancelPayload): Promise<PaymentDetail> {
+  const res = await fetchJSON<PaymentDetail>(`/api/payments/${id}/cancel`, {
+    method: "POST",
+    body: payload ? JSON.stringify(payload) : undefined,
+  });
+  invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    `/api/payments/${id}`,
+  ]);
+  return res;
+}
+
+export async function cancelScheduledAlert(paymentId: number, alertId: number): Promise<PaymentDetail> {
+  const res = await fetchJSON<PaymentDetail>(
+    `/api/payments/${paymentId}/alerts/${alertId}/schedule/cancel`,
+    {
+      method: "POST",
+    },
+  );
+  invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    `/api/payments/${paymentId}`,
+  ]);
+  return res;
+}
+
+export async function sendScheduledAlertNow(paymentId: number, alertId: number): Promise<PaymentDetail> {
+  const res = await fetchJSON<PaymentDetail>(
+    `/api/payments/${paymentId}/alerts/${alertId}/schedule/send-now`,
+    {
+      method: "POST",
+    },
+  );
+  invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    `/api/payments/${paymentId}`,
   ]);
   return res;
 }

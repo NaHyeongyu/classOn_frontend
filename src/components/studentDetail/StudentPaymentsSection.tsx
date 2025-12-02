@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import styled from "styled-components";
 import { Card, Tabs, TabButton } from "@/components/studentDetail/StudentDetailStyles";
 import {
@@ -12,6 +12,7 @@ import Modal from "@/components/common/Modal";
 import { useToast } from "@/components/common/Toast";
 import { DiscountFields } from "@/components/payments/DiscountFields";
 import {
+    cancelPayment,
     getPaymentDetail,
     updatePaymentInvoice,
     type PaymentInvoiceUpdatePayload,
@@ -70,6 +71,7 @@ const statusLabel: Record<string, string> = {
     PENDING: "대기",
     COMPLETED: "완료",
     FAILED: "실패",
+    CANCELED: "취소",
 };
 
 const statusColor: Record<string, string> = {
@@ -77,6 +79,7 @@ const statusColor: Record<string, string> = {
     PENDING: "#2563EB",
     COMPLETED: "#059669",
     FAILED: "#dc2626",
+    CANCELED: "#dc2626",
 };
 
 export function StudentPaymentsSection({
@@ -93,7 +96,9 @@ export function StudentPaymentsSection({
     const queryClient = useQueryClient();
     const invoice = payments?.invoice ?? null;
     const history = payments?.history ?? [];
-    const completedHistory = history.filter((row) => row.status === "COMPLETED");
+    const completedHistory = history.filter(
+        (row) => row.status === "COMPLETED" || row.status === "CANCELED",
+    );
     const [internalView, setInternalView] = useState<"invoice" | "history">("invoice");
     const hasInvoice = Boolean(invoice);
     const hasHistory = completedHistory.length > 0;
@@ -121,6 +126,14 @@ export function StudentPaymentsSection({
     const invoiceEditOpen = invoiceEditState.open;
     const invoiceEditLoading = invoiceEditOpen ? invoiceEditState.loading : false;
     const invoiceEditData = invoiceEditOpen ? invoiceEditState.data : null;
+    const [cancelPrompt, setCancelPrompt] = useState<{ open: boolean; detail: PaymentDetail | null; reason: string }>({
+        open: false,
+        detail: null,
+        reason: "",
+    });
+    const canCancelDetail =
+        resolvedDetailVariant === "history" &&
+        detailData?.info.status === "COMPLETED";
 
     const updateMutation = useMutation({
         mutationFn: ({ id, payload }: { id: number; payload: PaymentInvoiceUpdatePayload }) =>
@@ -138,6 +151,21 @@ export function StudentPaymentsSection({
         onError: (err: unknown) => toastError(readableError(err, "청구서 수정에 실패했습니다.")),
     });
 
+    const cancelMutation = useMutation({
+        mutationFn: ({ id, reason }: { id: number; reason?: string }) =>
+            cancelPayment(id, reason ? { reason } : undefined),
+        onSuccess: (detail: PaymentDetail) => {
+            success("결제를 취소했습니다.");
+            invalidatePaymentsQueries(queryClient);
+            setDetailState((prev) =>
+                prev.open && prev.id === detail.info.id ? { ...prev, data: detail, loading: false } : prev,
+            );
+            setCancelPrompt({ open: false, detail: null, reason: "" });
+            onRefresh();
+        },
+        onError: (err: unknown) => toastError(readableError(err, "결제 취소에 실패했습니다.")),
+    });
+
     useEffect(() => {
         if (!detailState.open || !detailState.loading) return;
         getPaymentDetail(detailState.id)
@@ -151,6 +179,11 @@ export function StudentPaymentsSection({
                 setDetailState({ open: false });
             });
     }, [detailState, toastError]);
+
+    const handleCancelPayment = useCallback((detail: PaymentDetail) => {
+        if (!detail?.info?.id) return;
+        setCancelPrompt({ open: true, detail, reason: "" });
+    }, []);
 
     useEffect(() => {
         if (!detailState.open || detailState.variant !== "invoice" || !detailState.data) return;
@@ -673,6 +706,12 @@ export function StudentPaymentsSection({
                                             showSeconds: true,
                                         })
                                         : "-";
+                                    const canceledText = detailData.info.canceledAt
+                                        ? formatKoreanDateTimeKST(detailData.info.canceledAt, {
+                                            includeWeekday: true,
+                                            showSeconds: true,
+                                        })
+                                        : "-";
                                     const approvalNumber =
                                         detailData.info.approvalNumber?.trim() || "-";
                                     const statusText =
@@ -704,10 +743,16 @@ export function StudentPaymentsSection({
                                                         <span>결제 주기</span>
                                                         <strong>{getCycleLabel(detailData, resolvedDetailVariant)}</strong>
                                                     </li>
-                                                    <li>
-                                                        <span>결제 시간</span>
-                                                        <strong>{completedText}</strong>
-                                                    </li>
+                                                   <li>
+                                                       <span>결제 시간</span>
+                                                       <strong>{completedText}</strong>
+                                                   </li>
+                                                    {detailData.info.status === "CANCELED" ? (
+                                                        <li>
+                                                            <span>취소 시간</span>
+                                                            <strong>{canceledText}</strong>
+                                                        </li>
+                                                    ) : null}
                                                     <li>
                                                         <span>승인 번호</span>
                                                         <strong>{approvalNumber}</strong>
@@ -731,6 +776,16 @@ export function StudentPaymentsSection({
                                                 <PrimaryButton type="button" onClick={closeDetail}>
                                                     확인
                                                 </PrimaryButton>
+                                                {canCancelDetail && detailData ? (
+                                                    <GhostButton
+                                                        type="button"
+                                                        data-variant="danger"
+                                                        onClick={() => handleCancelPayment(detailData)}
+                                                        disabled={cancelMutation.isPending}
+                                                    >
+                                                        {cancelMutation.isPending ? "취소 중..." : "결제 취소"}
+                                                    </GhostButton>
+                                                ) : null}
                                             </ModalActions>
                                         </div>
                                     );
@@ -919,6 +974,64 @@ export function StudentPaymentsSection({
                             </GhostButton>
                         </ModalActions>
                     </form>
+                ) : null}
+            </Modal>
+            <Modal
+                open={cancelPrompt.open}
+                onClose={() => (!cancelMutation.isPending ? setCancelPrompt({ open: false, detail: null, reason: "" }) : undefined)}
+                title="결제 취소"
+                maxWidth={480}
+            >
+                {cancelPrompt.detail ? (
+                    <>
+                        <ConfirmIntro>
+                            <p>
+                                <strong>{cancelPrompt.detail.student.name}</strong> 학생의{" "}
+                                <strong>
+                                    {formatMoney(
+                                        cancelPrompt.detail.info.finalAmount ?? cancelPrompt.detail.info.originalAmount ?? 0,
+                                    )}
+                                </strong>{" "}
+                                결제를 취소합니다.
+                            </p>
+                            <p>결제가 취소되면 되돌릴 수 없습니다.</p>
+                        </ConfirmIntro>
+                        <label style={{ display: "block", textAlign: "left", fontSize: 14, marginBottom: 6 }}>
+                            취소 사유 (선택)
+                        </label>
+                        <Textarea
+                            value={cancelPrompt.reason}
+                            placeholder="예: 학부모 요청으로 환불"
+                            onChange={(event) =>
+                                setCancelPrompt((prev) => ({
+                                    ...prev,
+                                    reason: event.target.value.slice(0, 80),
+                                }))
+                            }
+                        />
+                        <ModalActions>
+                            <GhostButton
+                                type="button"
+                                onClick={() => setCancelPrompt({ open: false, detail: null, reason: "" })}
+                                disabled={cancelMutation.isPending}
+                            >
+                                닫기
+                            </GhostButton>
+                            <PrimaryButton
+                                type="button"
+                                onClick={() => {
+                                    if (!cancelPrompt.detail?.info.id) return;
+                                    cancelMutation.mutate({
+                                        id: cancelPrompt.detail.info.id,
+                                        reason: cancelPrompt.reason.trim() || undefined,
+                                    });
+                                }}
+                                disabled={cancelMutation.isPending}
+                            >
+                                {cancelMutation.isPending ? "취소 중..." : "결제 취소"}
+                            </PrimaryButton>
+                        </ModalActions>
+                    </>
                 ) : null}
             </Modal>
         </>
@@ -1338,7 +1451,7 @@ const CourseList = styled(DetailList)`
     color: ${(p) => p.theme.colors.textMuted};
   }
   .fee {
-    font-weight: 600;
+    font-weight: 700;
     font-size: 14px;
     color: ${(p) => p.theme.colors.text};
   }
@@ -1368,6 +1481,17 @@ const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+`;
+
+const ConfirmIntro = styled.div`
+  text-align: center;
+  margin-bottom: 18px;
+  p {
+    margin: 6px 0;
+    font-size: 15px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
+  }
 `;
 function formatDiscountDisplay(type?: DiscountType | null, value?: number | null): string {
     if (!type || value == null || Number.isNaN(value)) return "-";

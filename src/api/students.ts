@@ -139,6 +139,88 @@ export async function getStudentPaymentInfo(id: number): Promise<StudentPaymentI
   return await fetchJSON<StudentPaymentInfo>(`/api/students/${id}/payments`);
 }
 
+export type StudentReport = {
+  id: number;
+  filename: string;
+  contentType: string | null;
+  size: number;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+  createdAt: string;
+  courseId?: number | null;
+  courseTitle?: string | null;
+  url?: string | null;
+};
+
+export async function listStudentReports(studentId: number, opts?: { presign?: boolean }): Promise<StudentReport[]> {
+  const sp = new URLSearchParams();
+  if (opts?.presign) sp.set("presign", "true");
+  const q = Array.from(sp.keys()).length ? `?${sp.toString()}` : "";
+  return await fetchJSON<StudentReport[]>(`/api/students/${studentId}/reports${q}`);
+}
+
+export async function downloadStudentReportBlob(studentId: number, reportId: number): Promise<Blob> {
+  const url = resolveApiUrl(`/api/students/${studentId}/reports/${reportId}/file`);
+  const token = (await import("../lib/auth")).getToken();
+  const headers = {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...getCanaryHeaders(),
+  };
+  const res = await fetch(url, {
+    headers: Object.keys(headers).length ? headers : undefined,
+    credentials: "omit",
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return await res.blob();
+}
+
+export async function deleteStudentReport(studentId: number, reportId: number): Promise<void> {
+  await fetchJSON<void>(`/api/students/${studentId}/reports/${reportId}`, { method: "DELETE" });
+}
+
+export type StudentReportNotifyResult = {
+  alertId: number;
+  status: "PENDING" | "SENT" | "FAILED";
+  message?: string | null;
+  templateCode?: string | null;
+  url?: string | null;
+  sentAt?: string | null;
+};
+
+export async function sendStudentReportAlert(
+  studentId: number,
+  reportId: number,
+  expireSec?: number,
+): Promise<StudentReportNotifyResult> {
+  const sp = new URLSearchParams();
+  if (expireSec) sp.set("expireSec", String(expireSec));
+  const q = Array.from(sp.keys()).length ? `?${sp.toString()}` : "";
+  return await fetchJSON<StudentReportNotifyResult>(
+    `/api/students/${studentId}/reports/${reportId}/notify${q}`,
+    { method: "POST" },
+  );
+}
+
+export async function renderStudentReport(
+  studentId: number,
+  payload: {
+    html: string;
+    filename?: string;
+    format?: "pdf" | "png";
+    width?: number;
+    height?: number;
+    courseId?: number | null;
+    periodFrom?: string | null;
+    periodTo?: string | null;
+  },
+): Promise<StudentReport> {
+  const body = JSON.stringify(payload);
+  return await fetchJSON<StudentReport>(`/api/students/${studentId}/reports/render`, {
+    method: "POST",
+    body,
+  });
+}
+
 // Excel helpers (download/upload)
 async function fetchBlob(path: string): Promise<Blob> {
   const url = resolveApiUrl(path);

@@ -21,28 +21,48 @@ export const Controls = styled.div`
 `;
 
 export const ViewTabs = styled.div`
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 8px;
 `;
 
 export const TabButton = styled.button`
-  ${buttonVariants.outline};
-  height: 36px;
-  padding: 0 18px;
-  font-size: 13px;
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+
+  /* Active State */
   &[data-active] {
-    background: #111827;
+    background: ${(p) => p.theme.colors.primary};
     color: #ffffff;
-    border-color: #111827;
+    border: 1px solid ${(p) => p.theme.colors.primary};
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Inactive State */
+  &:not([data-active]) {
+    background: #ffffff;
+    color: ${(p) => p.theme.colors.text};
+    border: 1px solid ${(p) => p.theme.colors.border};
+    &:hover {
+      background: ${(p) => p.theme.colors.surfaceMuted};
+      border-color: ${(p) => p.theme.colors.borderMuted};
+    }
   }
 `;
 
 export const StatusFilterBar = styled.div`
   display: inline-flex;
+  align-items: center;
+  background: #ffffff;
   border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.xl};
-  overflow: hidden;
+  border-radius: 9999px;
+  padding: 4px;
+  gap: 2px;
 `;
 
 export const FilterButton = styled.button<{ $active?: boolean }>`
@@ -50,20 +70,21 @@ export const FilterButton = styled.button<{ $active?: boolean }>`
   background: ${({ $active, theme }) =>
     $active ? theme.colors.primarySurface : "transparent"};
   color: ${({ $active, theme }) =>
-    $active ? theme.colors.primary : theme.colors.text};
-  padding: 6px 14px;
+    $active ? theme.colors.primary : theme.colors.textMuted};
+  padding: 6px 16px;
+  border-radius: 9999px;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: ${({ $active }) => ($active ? 700 : 500)};
   cursor: pointer;
   line-height: 1;
   white-space: nowrap;
-  transition: background 0.15s ease, color 0.15s ease;
+  transition: all 0.2s ease;
+
   &:hover {
-    background: ${({ theme }) => theme.colors.surfaceMuted};
-  }
-  &:focus-visible {
-    outline: 2px solid ${({ theme }) => theme.colors.primary};
-    outline-offset: 2px;
+    background: ${({ $active, theme }) =>
+      $active ? theme.colors.primarySurface : theme.colors.surfaceMuted};
+    color: ${({ $active, theme }) =>
+      $active ? theme.colors.primary : theme.colors.text};
   }
 `;
 
@@ -84,16 +105,23 @@ export const Field = styled.div`
   gap: ${(p) => p.theme.spacing.xs};
   label {
     font-size: 13px;
-    color: #4b5563;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
   }
   input[type="date"] {
     height: 40px;
-    padding: 0 12px;
-    border-radius: 10px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-    color: #111827;
+    padding: 0 14px;
+    border-radius: ${(p) => p.theme.radii.md};
+    border: 1px solid ${(p) => p.theme.colors.border};
+    background: ${(p) => p.theme.colors.surface};
+    color: ${(p) => p.theme.colors.text};
     font-size: 14px;
+    transition: all 0.2s;
+    &:focus {
+      outline: none;
+      border-color: ${(p) => p.theme.colors.primary};
+      box-shadow: ${(p) => p.theme.shadow.focusPrimary};
+    }
   }
 `;
 
@@ -131,8 +159,9 @@ export const QuickButtons = styled.div`
 export const QuickButton = styled.button`
   ${buttonVariants.outline};
   height: 40px;
-  padding: 0 14px;
+  padding: 0 16px;
   font-size: 13px;
+  font-weight: 600;
 `;
 
 export const ApplyButton = styled(PrimaryButton)`
@@ -149,8 +178,9 @@ export const ButtonRow = styled.div`
 export const ResetButton = styled.button`
   ${buttonVariants.outline};
   height: 40px;
-  padding: 0 16px;
+  padding: 0 18px;
   font-size: 13px;
+  font-weight: 600;
 `;
 
 export const ErrorText = styled.div`
@@ -175,17 +205,20 @@ export const DayHeader = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
+  gap: ${(p) => p.theme.spacing.md};
+  margin-bottom: ${(p) => p.theme.spacing.md};
+  padding: 0 4px;
   strong {
     display: block;
-    font-size: 18px;
-    color: #111827;
+    font-size: 19px;
+    font-weight: 800;
+    color: ${(p) => p.theme.colors.text};
+    letter-spacing: -0.01em;
   }
   span {
     display: block;
     font-size: 13px;
-    color: #6b7280;
+    color: ${(p) => p.theme.colors.textMuted};
     margin-top: 4px;
   }
   @media (max-width: 640px) {
@@ -443,6 +476,13 @@ export const StudentChip = styled.span`
   color: #374151;
   font-size: 12px;
   border: 1px solid #e5e7eb;
+`;
+
+export const DayWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 24px;
 `;
 
 export { Card };

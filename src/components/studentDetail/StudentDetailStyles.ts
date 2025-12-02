@@ -117,14 +117,33 @@ export const Tabs = styled.div`
   flex-wrap: wrap;
 `;
 
-export const TabButton = styled(UISmallBtn)`
+export const TabButton = styled.button`
   height: 40px;
-  padding: 0 16px;
+  padding: 0 20px;
   font-size: 14px;
-  &[data-active="true"] {
-    background: ${(p) => p.theme.colors.surfaceMuted};
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+
+  /* Active State */
+  &[data-active="true"],
+  &[data-active] {
+    background: ${(p) => p.theme.colors.primary};
+    color: #ffffff;
+    border: 1px solid ${(p) => p.theme.colors.primary};
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Inactive State */
+  &:not([data-active="true"]):not([data-active]) {
+    background: #ffffff;
     color: ${(p) => p.theme.colors.text};
-    border-color: ${(p) => p.theme.colors.border};
+    border: 1px solid ${(p) => p.theme.colors.border};
+    &:hover {
+      background: ${(p) => p.theme.colors.surfaceMuted};
+      border-color: ${(p) => p.theme.colors.borderMuted};
+    }
   }
 `;
 

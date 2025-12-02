@@ -111,7 +111,8 @@ const HeaderBar = styled.div`
 
 const Title = styled.h2`
   margin: 0;
-  font-size: 24px;
+  font-size: 28px;
+  font-weight: 800;
   color: ${(p) => p.theme.colors.text};
   letter-spacing: -0.02em;
 `;
@@ -127,7 +128,8 @@ const ControlsWrap = styled.div`
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: ${(p) => p.theme.spacing.sm};
+  gap: ${(p) => p.theme.spacing.md};
+  margin-bottom: ${(p) => p.theme.spacing.sm};
 `;
 
 const DayList = styled.div`

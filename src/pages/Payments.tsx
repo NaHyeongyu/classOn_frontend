@@ -64,8 +64,14 @@ const createDefaultDateRange = () => {
     to: end.toISOString().slice(0, 10),
   };
 };
+
+const createEmptyInvoiceDateRange = () => ({
+  from: "",
+  to: "",
+});
 const createDefaultHistoryFilters = (): HistoryFilters => ({
-  ...createDefaultDateRange(),
+  from: "",
+  to: "",
   q: "",
   status: "ALL",
 });
@@ -131,7 +137,7 @@ export default function Payments() {
   const [invoiceSearch, setInvoiceSearch] = useState("");
   const [invoiceSearchInput, setInvoiceSearchInput] = useState("");
   const [invoiceStudentStatus, setInvoiceStudentStatus] = useState<StudentStatusFilter>("ALL");
-  const [invoiceDateRange, setInvoiceDateRange] = useState(createDefaultDateRange);
+  const [invoiceDateRange, setInvoiceDateRange] = useState(createEmptyInvoiceDateRange);
   const [invoicePage, setInvoicePage] = useState(0);
   const invoicePageSize = 10;
 
@@ -521,7 +527,7 @@ export default function Payments() {
     setInvoiceSearch("");
     setInvoiceSearchInput("");
     setInvoiceStudentStatus("ALL");
-    setInvoiceDateRange(createDefaultDateRange());
+    setInvoiceDateRange(createEmptyInvoiceDateRange());
     setInvoicePage(0);
   };
 
@@ -1448,8 +1454,12 @@ function DetailModal({ state, onClose, onSave, saving, onCancelPayment, cancelin
                   <strong>{detail.student.phoneNumber ?? "-"}</strong>
                 </li>
                 <li>
-                  <span>보호자</span>
+                  <span>보호자 연락처</span>
                   <strong>{detail.student.guardianPhone ?? "-"}</strong>
+                </li>
+                <li>
+                  <span>발송 번호</span>
+                  <strong>{detail.student.recipientPhone ?? "-"}</strong>
                 </li>
               </DetailList>
             ) : (
@@ -1477,6 +1487,10 @@ function DetailModal({ state, onClose, onSave, saving, onCancelPayment, cancelin
                 <InfoRow>
                   <span>학부모 연락처</span>
                   <strong>{detail.student.guardianPhone ?? "-"}</strong>
+                </InfoRow>
+                <InfoRow>
+                  <span>발송 번호</span>
+                  <strong>{detail.student.recipientPhone ?? "-"}</strong>
                 </InfoRow>
               </InfoCard>
             )}
@@ -2297,26 +2311,29 @@ const ToggleGroup = styled.div`
 `;
 
 const ToggleButton = styled.button<{ $active?: boolean }>`
-  border: none;
-  background: ${({ $active, theme }) => ($active ? theme.colors.text : "transparent")};
-  color: ${({ $active, theme }) => ($active ? theme.colors.textInverted : theme.colors.textMuted)};
+  height: 40px;
+  padding: 0 20px;
+  font-size: 14px;
   font-weight: 600;
-  padding: 8px 20px;
-  border-radius: 999px;
-  cursor: pointer;
-  font-size: 15px;
+  border-radius: 10px;
   transition: all 0.2s ease;
+  cursor: pointer;
 
-  &:hover {
-    color: ${({ $active, theme }) => ($active ? theme.colors.textInverted : theme.colors.text)};
-    background: ${({ $active, theme }) => ($active ? theme.colors.text : theme.colors.surfaceAlt)};
-  }
+  /* Active State */
+  background: ${({ $active, theme }) => ($active ? theme.colors.primary : "#ffffff")};
+  color: ${({ $active }) => ($active ? "#ffffff" : "inherit")};
+  border: 1px solid ${({ $active, theme }) => ($active ? theme.colors.primary : theme.colors.border)};
+  box-shadow: ${({ $active }) => ($active ? "0 1px 2px rgba(0, 0, 0, 0.05)" : "none")};
 
-  &:focus-visible {
-    outline: 2px solid ${({ theme }) => theme.colors.primary};
-    outline-offset: 2px;
-    z-index: 1;
-  }
+  ${({ $active, theme }) =>
+    !$active &&
+    `
+    color: ${theme.colors.text};
+    &:hover {
+      background: ${theme.colors.surfaceMuted};
+      border-color: ${theme.colors.borderMuted};
+    }
+  `}
 `;
 
 const SectionHeader = styled.div`

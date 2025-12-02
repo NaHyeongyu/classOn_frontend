@@ -2,12 +2,15 @@ import { PageHeader, SectionCard, PrimaryButton, GhostButtonSmall, EmptyState } 
 import { listCourses, type Course, listCourseStudents, listCourseRecords, type CourseRecord } from "@/api/courses";
 import { getDailyAttendance, type AttendanceDailySummary } from "@/api/attendance";
 import { listExams, listExamResults, type Exam, type ExamResult } from "@/api/exams";
-import type { Student } from "@/api/students";
+import type { Student, StudentReport } from "@/api/students";
+import { renderStudentReport, sendStudentReportAlert } from "@/api/students";
 import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
-import { useEffect, useMemo, useState } from "react";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
+import Modal from "@/components/common/Modal";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 import { routes } from "@/routes";
 
@@ -53,8 +56,20 @@ export default function Reports() {
   const [to, setTo] = useState<string>(() => defaultTo());
   const [autoLoading, setAutoLoading] = useState(false);
   const [autoError, setAutoError] = useState<string | null>(null);
-  const { warning, error: showError } = useToast();
+  const { warning, error: showError, success: showSuccess } = useToast();
   const [autoDetails, setAutoDetails] = useState<Record<number, AutoDetails>>({});
+  const [savingReport, setSavingReport] = useState(false);
+  const [notifying, setNotifying] = useState(false);
+  const [progressMap, setProgressMap] = useState<Record<number, { saved?: boolean; notified?: boolean; reportId?: number }>>({});
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+  const hasProgress = useMemo(() => {
+    return Object.keys(drafts).length > 0 || selectedStudentIds.length > 0 || mode === "edit";
+  }, [drafts, selectedStudentIds.length, mode]);
+  const progressRef = useRef(false);
+  useEffect(() => {
+    progressRef.current = hasProgress;
+  }, [hasProgress]);
 
   useEffect(() => {
     if (!reportsEnabled) return;
@@ -122,6 +137,60 @@ export default function Reports() {
       cancelled = true;
     };
   }, [selectedCourseId, reportsEnabled]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!progressRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, []);
+
+  useEffect(() => {
+    if (!hasProgress) return;
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (!progressRef.current) return;
+      event.preventDefault?.();
+      const currentUrl = window.location.href;
+      window.history.pushState(null, "", currentUrl);
+      setShowLeaveModal(true);
+      setPendingNavigation(() => () => {
+        progressRef.current = false;
+        window.history.back();
+      });
+    };
+
+    const handleAnchorClick = (event: MouseEvent) => {
+      if (!progressRef.current) return;
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest?.("a");
+      if (!anchor) return;
+      const href = anchor.getAttribute("href");
+      if (!href || href.startsWith("#") || anchor.target === "_blank") return;
+      const isExternal = href.startsWith("http") && !href.startsWith(window.location.origin);
+      event.preventDefault();
+      setShowLeaveModal(true);
+      setPendingNavigation(() => () => {
+        progressRef.current = false;
+        if (isExternal) {
+          window.location.href = href;
+        } else {
+          navigate(href);
+        }
+      });
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    document.addEventListener("click", handleAnchorClick, true);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      document.removeEventListener("click", handleAnchorClick, true);
+    };
+  }, [hasProgress, navigate]);
 
   const filteredCourses = useMemo(() => {
     const q = courseQuery.trim();
@@ -225,6 +294,97 @@ export default function Reports() {
     });
   };
 
+  const handleSaveReport = async (): Promise<StudentReport | null> => {
+    if (!activeStudent) {
+      warning("학생을 선택한 후 저장하세요.");
+      return null;
+    }
+    const node = document.getElementById("report-print-root");
+    if (!node) {
+      showError("보고서 미리보기가 준비되지 않았습니다.");
+      return null;
+    }
+    setSavingReport(true);
+    try {
+      const html = buildReportHtmlDocument(node, selectedCourse?.title, activeStudent.name);
+      const filename = buildReportFilename(selectedCourse?.title, activeStudent.name);
+      const saved = await renderStudentReport(activeStudent.id, {
+        html,
+        filename,
+        format: "pdf",
+        courseId: selectedCourseId,
+        periodFrom: from,
+        periodTo: to,
+        width: Math.ceil(node.getBoundingClientRect().width || 900),
+        height: Math.ceil(node.scrollHeight || 1400),
+      });
+      setProgressMap((prev) => ({
+        ...prev,
+        [activeStudent.id]: {
+          ...(prev[activeStudent.id] ?? {}),
+          saved: true,
+          reportId: saved.id,
+        },
+      }));
+      showSuccess("학생 상세 > 보고서 탭에 저장했습니다.");
+      return saved;
+    } catch (error) {
+      console.error(error);
+      showError("보고서를 저장하지 못했습니다. 다시 시도해주세요.");
+      return null;
+    } finally {
+      setSavingReport(false);
+    }
+  };
+
+  const handleSaveAndNotify = async () => {
+    if (!activeStudent) {
+      warning("학생을 선택한 후 저장하세요.");
+      return;
+    }
+    setNotifying(true);
+    try {
+      const saved = await handleSaveReport();
+      if (!saved) return;
+      const res = await sendStudentReportAlert(activeStudent.id, saved.id, 86400);
+      setProgressMap((prev) => ({
+        ...prev,
+        [activeStudent.id]: {
+          ...(prev[activeStudent.id] ?? {}),
+          saved: true,
+          notified: res.status !== "FAILED",
+          reportId: saved.id,
+        },
+      }));
+      if (res.status === "FAILED") {
+        showError(res.message || "알림톡 발송에 실패했습니다.");
+      } else if (res.status === "PENDING") {
+        warning(res.message || "알림톡 발송 대기 상태입니다. 잠시 후 상태를 확인해주세요.");
+      } else {
+        showSuccess("보고서를 저장하고 알림톡을 발송했습니다.");
+      }
+    } catch (error) {
+      console.error(error);
+      showError(readableError(error, "알림톡 발송에 실패했습니다."));
+    } finally {
+      setNotifying(false);
+    }
+  };
+
+  const handleConfirmLeave = () => {
+    setShowLeaveModal(false);
+    if (pendingNavigation) {
+      progressRef.current = false;
+      pendingNavigation();
+      setPendingNavigation(null);
+    }
+  };
+
+  const handleCancelLeave = () => {
+    setShowLeaveModal(false);
+    setPendingNavigation(null);
+  };
+
   if (!reportsEnabled) {
     return (
       <Viewport>
@@ -250,6 +410,60 @@ export default function Reports() {
 
   return (
     <Viewport>
+      <style>
+        {`
+          @page {
+            size: A4;
+            margin: 0;
+          }
+          @media print {
+            html, body {
+              width: 210mm;
+              height: 297mm;
+              margin: 0 !important;
+              padding: 0 !important;
+              background: #fff;
+            }
+            body * {
+              visibility: hidden;
+            }
+            #report-print-root, #report-print-root * {
+              visibility: visible;
+            }
+            #report-print-root {
+              position: absolute;
+              left: 0;
+              top: 0;
+              width: 210mm !important;
+              min-height: 297mm !important;
+              margin: 0 !important;
+              padding: 10mm !important;
+              box-sizing: border-box !important;
+              border: none !important;
+              box-shadow: none !important;
+              overflow: visible !important;
+              background: white !important;
+            }
+            /* Allow sections to break, but keep items intact */
+            section {
+              break-inside: auto;
+              page-break-inside: auto;
+            }
+            li, .page-break-avoid, tr {
+              break-inside: avoid;
+              page-break-inside: avoid;
+            }
+            /* Prevent headers from being left alone at bottom */
+            h1, h2, h3, h4, h5, h6 {
+              break-after: avoid;
+              page-break-after: avoid;
+            }
+            ::-webkit-scrollbar {
+              display: none;
+            }
+          }
+        `}
+      </style>
       <HeaderWrap>
         <PageHeader>
           <div>
@@ -355,6 +569,44 @@ export default function Reports() {
                     value={to}
                     onChange={(event) => setTo(event.target.value)}
                   />
+                  <QuickButtonGroup>
+                    <QuickButton
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+                        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                        setFrom(formatYmd(firstDay));
+                        setTo(formatYmd(lastDay));
+                      }}
+                    >
+                      이번 달
+                    </QuickButton>
+                    <QuickButton
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const firstDay = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                        const lastDay = new Date(now.getFullYear(), now.getMonth(), 0);
+                        setFrom(formatYmd(firstDay));
+                        setTo(formatYmd(lastDay));
+                      }}
+                    >
+                      지난달
+                    </QuickButton>
+                    <QuickButton
+                      type="button"
+                      onClick={() => {
+                        const now = new Date();
+                        const start = new Date(now);
+                        start.setDate(now.getDate() - 30);
+                        setFrom(formatYmd(start));
+                        setTo(formatYmd(now));
+                      }}
+                    >
+                      최근 30일
+                    </QuickButton>
+                  </QuickButtonGroup>
                 </PeriodInputs>
               </PeriodRow>
               {studentsLoading && <HintText>학생 목록을 불러오는 중입니다…</HintText>}
@@ -363,6 +615,7 @@ export default function Reports() {
                 <StudentsList role="list" aria-label="학생 목록">
                   {students.map((student) => {
                     const checked = selectedStudentIds.includes(student.id);
+                    const progress = progressMap[student.id];
                     return (
                       <StudentRow
                         key={student.id}
@@ -379,6 +632,9 @@ export default function Reports() {
                         <div className="info">
                           <div className="name">{student.name}</div>
                           {student.code && <div className="meta">{student.code}</div>}
+                        </div>
+                        <div className="badges">
+                          {progress?.notified ? <StatusBadge data-variant="kakao">알림톡</StatusBadge> : null}
                         </div>
                       </StudentRow>
                     );
@@ -410,6 +666,7 @@ export default function Reports() {
                 <StudentsList role="list" aria-label="선택한 학생 목록">
                   {selectedStudents.map((student) => {
                     const isActive = activeStudentId === student.id;
+                    const progress = progressMap[student.id];
                     return (
                       <StudentRow
                         key={student.id}
@@ -420,6 +677,9 @@ export default function Reports() {
                         <div className="info">
                           <div className="name">{student.name}</div>
                           {student.code && <div className="meta">{student.code}</div>}
+                        </div>
+                        <div className="badges">
+                          {progress?.notified ? <StatusBadge data-variant="kakao">알림톡</StatusBadge> : null}
                         </div>
                       </StudentRow>
                     );
@@ -437,19 +697,45 @@ export default function Reports() {
               <RightHeader>
                 <div>
                   <RightTitle>보고서 미리보기 / 수정</RightTitle>
-                  <RightSubtitle>
-                    {activeStudent && selectedCourse
-                      ? `${selectedCourse.title} · ${activeStudent.name} 학생의 보고서 초안입니다.`
-                      : "학생을 선택하면 보고서를 미리보고 수정할 수 있습니다."}
-                  </RightSubtitle>
-                </div>
-                <RightActions>
+              <RightSubtitle>
+                {activeStudent && selectedCourse
+                  ? `${selectedCourse.title} · ${activeStudent.name} 학생의 보고서 초안입니다.`
+                  : "학생을 선택하면 보고서를 미리보고 수정할 수 있습니다."}
+              </RightSubtitle>
+            </div>
+            <RightActions>
+                  <PrimaryButton
+                    type="button"
+                    as="button"
+                    onClick={() => void handleSaveReport()}
+                    data-print-hide="true"
+                    disabled={!activeStudent || savingReport || notifying}
+                  >
+                    {savingReport ? "저장 중..." : "보고서 저장 (PDF)"}
+                  </PrimaryButton>
+                  <KakaoButton
+                    type="button"
+                    as="button"
+                    onClick={() => void handleSaveAndNotify()}
+                    data-print-hide="true"
+                    disabled={!activeStudent || savingReport || notifying}
+                  >
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      style={{ marginRight: 6 }}
+                    >
+                      <path d="M12 2C6.48 2 2 6.03 2 11c0 2.95 1.54 5.58 3.97 7.3l-1.42 4.24a.5.5 0 0 0 .64.64l4.24-1.42C11.23 22.46 13.56 23 16 23c5.52 0 10-4.03 10-9s-4.48-9-10-9z" />
+                    </svg>
+                    {notifying ? "발송 중..." : "저장 후 알림톡 발송"}
+                  </KakaoButton>
                   <OutlineButton
                     type="button"
-                    onClick={() => {
-                      window.print();
-                    }}
+                    onClick={() => window.print()}
                     data-print-hide="true"
+                    disabled={!activeStudent}
                   >
                     <svg
                       width="16"
@@ -466,30 +752,15 @@ export default function Reports() {
                       <polyline points="7 10 12 15 17 10" />
                       <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
-                    PDF로 저장
+                    PDF로 저장/인쇄
                   </OutlineButton>
-                  <KakaoButton
-                    type="button"
-                    onClick={() => {
-                      alert("알림톡 발송 기능은 준비 중입니다.");
-                    }}
-                    data-print-hide="true"
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      style={{ marginRight: 6 }}
-                    >
-                      <path d="M12 3C5.373 3 0 7.373 0 12.765c0 3.468 2.268 6.51 5.688 8.25C5.37 22.374 4.14 24.36 4.08 24.462c-.12.21.108.432.312.288 2.508-1.752 5.256-3.072 5.256-3.072.768.108 1.56.168 2.352.168 6.627 0 12-4.373 12-9.765S18.627 3 12 3z" />
-                    </svg>
-                    알림톡 발송
-                  </KakaoButton>
-                </RightActions>
-              </RightHeader>
-              {autoLoading && <HintText>출석/성적/수업 내용을 불러오는 중입니다…</HintText>}
-              {autoError && <ErrorText>{autoError}</ErrorText>}
+            </RightActions>
+          </RightHeader>
+          <HintText data-print-hide="true" style={{ marginTop: -8 }}>
+            보고서를 저장하면 학생 상세 &gt; 보고서 탭에서 다시 열람/다운로드할 수 있습니다.
+          </HintText>
+          {autoLoading && <HintText>출석/성적/수업 내용을 불러오는 중입니다…</HintText>}
+          {autoError && <ErrorText>{autoError}</ErrorText>}
 
               {activeStudent ? (
                 <ReportPaper>
@@ -664,6 +935,7 @@ export default function Reports() {
                               );
                             })()}
                           </GradesChartContainer>
+
                         ) : (
                           <EmptyHint>선택한 기간에 등록된 성적 데이터가 없습니다.</EmptyHint>
                         )}
@@ -708,6 +980,22 @@ export default function Reports() {
           </RightColumn>
         </ContentGrid>
       )}
+
+      <ConfirmDialog
+        open={showLeaveModal}
+        title="페이지를 나가시겠습니까?"
+        message={
+          <>
+            이 페이지를 나가면 작성 중인 보고서 내용이 사라집니다.
+            <br />
+            정말 이동하시겠습니까?
+          </>
+        }
+        onCancel={handleCancelLeave}
+        onConfirm={handleConfirmLeave}
+        confirmLabel="이동하기"
+        cancelLabel="취소"
+      />
     </Viewport>
   );
 }
@@ -888,13 +1176,16 @@ const EmptyRow = styled.div`
 
 const RightHeader = styled.div`
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
+  align-items: flex-start;
   gap: ${(p) => p.theme.spacing.md};
-  margin-bottom: ${(p) => p.theme.spacing.md};
+  margin-bottom: ${(p) => p.theme.spacing.lg};
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: stretch;
+  }
+  @media print {
+    display: none;
   }
 `;
 
@@ -966,6 +1257,28 @@ const StudentRow = styled.div`
     font-size: 12px;
     color: ${({ theme }) => theme.colors.textMuted};
   }
+  .badges {
+    margin-left: auto;
+    display: inline-flex;
+    gap: 6px;
+    align-items: center;
+  }
+`;
+
+const StatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #3c1e1e;
+  background: #fee500;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  &[data-variant="kakao"] {
+    color: #3c1e1e;
+    background: #fee500;
+  }
 `;
 
 const PeriodRow = styled.div`
@@ -1003,6 +1316,27 @@ const PeriodInput = styled.input`
   }
 `;
 
+const QuickButtonGroup = styled.div`
+  display: flex;
+  gap: 6px;
+  margin-left: 8px;
+`;
+
+const QuickButton = styled.button`
+  padding: 4px 8px;
+  font-size: 12px;
+  color: #4b5563;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  &:hover {
+    background: #e5e7eb;
+    color: #111827;
+  }
+`;
+
 const ReportPaper = styled.div`
   width: 100%;
   display: flex;
@@ -1012,9 +1346,13 @@ const ReportPaper = styled.div`
   border-radius: ${(p) => p.theme.radii.xl};
   overflow: visible;
   @media print {
+    display: block;
     padding: 0;
+    margin: 0;
     background: transparent;
     border-radius: 0;
+    width: 100%;
+    height: auto;
   }
 `;
 
@@ -1040,7 +1378,10 @@ const ReportPaperInner = styled.div`
     max-height: none;
     height: auto;
     overflow: visible;
-    page-break-after: always;
+    padding: 0;
+    margin: 0;
+    max-width: 100%;
+    width: 100%;
   }
 `;
 
@@ -1124,6 +1465,8 @@ const ReportLabel = styled.h4`
     height: 24px;
     background: #4f46e5;
     border-radius: 3px;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
 `;
 
@@ -1360,6 +1703,10 @@ const OutlineButton = styled.button`
   display: inline-flex;
   align-items: center;
   transition: all 0.2s;
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
   &:hover {
     background: #f9fafb;
     border-color: #d1d5db;
@@ -1673,4 +2020,190 @@ async function fetchAttendanceDailyRange(from: string, to: string): Promise<Atte
     cursor.setDate(cursor.getDate() + 1);
   }
   return days;
+}
+
+function collectStyleTagsHtml(): string {
+  const origin = window.location.origin;
+  return Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
+    .map((node) => {
+      if (node.tagName.toLowerCase() === "link") {
+        const href = node.getAttribute("href") || "";
+        const abs = href.startsWith("http") ? href : `${origin}${href}`;
+        return `<link rel="stylesheet" href="${abs}">`;
+      }
+      return node.outerHTML;
+    })
+    .join("\n");
+}
+
+function cloneReportNode(source: HTMLElement): HTMLElement {
+  const clone = source.cloneNode(true) as HTMLElement;
+  syncFormValues(source, clone);
+  return clone;
+}
+
+function syncFormValues(source: HTMLElement, target: HTMLElement) {
+  const sourceTextareas = Array.from(source.querySelectorAll<HTMLTextAreaElement>("textarea"));
+  const targetTextareas = Array.from(target.querySelectorAll<HTMLTextAreaElement>("textarea"));
+  targetTextareas.forEach((textarea, index) => {
+    const value = sourceTextareas[index]?.value ?? "";
+    textarea.value = value;
+    textarea.textContent = value;
+  });
+
+  const sourceInputs = Array.from(source.querySelectorAll<HTMLInputElement>("input"));
+  const targetInputs = Array.from(target.querySelectorAll<HTMLInputElement>("input"));
+  targetInputs.forEach((input, index) => {
+    const original = sourceInputs[index];
+    if (!original) return;
+    if (original.type === "checkbox" || original.type === "radio") {
+      input.checked = original.checked;
+      if (original.checked) input.setAttribute("checked", "checked");
+      else input.removeAttribute("checked");
+    } else {
+      input.value = original.value;
+      input.setAttribute("value", original.value);
+    }
+  });
+}
+
+function buildReportHtmlDocument(
+  node: HTMLElement,
+  courseTitle?: string | null,
+  studentName?: string | null,
+): string {
+  const clone = cloneReportNode(node);
+  const styles = collectStyleTagsHtml();
+  const title =
+    [courseTitle, studentName, "학습 보고서"].filter(Boolean).join(" · ") || "학습 보고서";
+  
+  // Keep original ID to match browser print styles
+  // Apply the exact same styles as browser print (without @media print wrapper)
+  const printStyles = `
+    <style>
+      @page {
+        size: A4;
+        margin: 0;
+      }
+      
+      html, body {
+        width: 210mm;
+        height: 297mm;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      
+      body * {
+        visibility: hidden;
+      }
+      
+      #report-print-root, #report-print-root * {
+        visibility: visible;
+      }
+      
+      #report-print-root {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 210mm !important;
+        min-height: 297mm !important;
+        margin: 0 !important;
+        padding: 10mm !important;
+        box-sizing: border-box !important;
+        border: none !important;
+        box-shadow: none !important;
+        overflow: visible !important;
+        background: white !important;
+      }
+      
+      section {
+        break-inside: auto;
+        page-break-inside: auto;
+      }
+      
+      li, .page-break-avoid, tr {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      
+      h1, h2, h3, h4, h5, h6 {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+      
+      ::-webkit-scrollbar {
+        display: none;
+      }
+    </style>
+  `;
+
+  // Force inline styles on the clone to override styled-components classes
+  // This ensures S3 PDF uses the same layout as browser print
+  clone.style.cssText = `
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 210mm !important;
+    min-height: 297mm !important;
+    max-height: none !important;
+    height: auto !important;
+    margin: 0 !important;
+    padding: 10mm !important;
+    box-sizing: border-box !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    background: white !important;
+  `;
+
+  return [
+    "<!doctype html>",
+    '<html lang="ko">',
+    "<head>",
+    '<meta charset="UTF-8">',
+    '<meta name="viewport" content="width=device-width, initial-scale=1.0">',
+    `<title>${escapeHtml(title)}</title>`,
+    styles,
+    printStyles,
+    "</head>",
+    "<body>",
+    clone.outerHTML,
+    "</body>",
+    "</html>",
+  ].join("");
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildReportFilename(
+  courseTitle: string | undefined | null,
+  studentName: string | undefined | null,
+): string {
+  const stamp = formatYmd(new Date()).replace(/-/g, "");
+  const parts = ["report"];
+  if (courseTitle) parts.push(sanitizeFilenamePart(courseTitle));
+  if (studentName) parts.push(sanitizeFilenamePart(studentName));
+  parts.push(stamp);
+  const base = parts.filter(Boolean).join("-");
+  return `${base}.pdf`;
+}
+
+function sanitizeFilenamePart(value: string): string {
+  return (
+    value
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[^0-9A-Za-z가-힣._-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^[-.]+|[-.]+$/g, "") || "file"
+  );
 }

@@ -53,9 +53,6 @@ export function AttendanceFiltersCard({
           <QuickButton type="button" onClick={() => onQuickSelect(-1)}>
             어제
           </QuickButton>
-          <QuickButton type="button" onClick={() => onQuickSelect(-2)}>
-            이틀 전
-          </QuickButton>
         </QuickButtons>
         <SearchField>
           <label htmlFor="attendance-course-search">수업 이름</label>

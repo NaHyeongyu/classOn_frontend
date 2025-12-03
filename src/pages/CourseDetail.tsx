@@ -241,13 +241,23 @@ export default function CourseDetail() {
 
   const handleConfirmCreate = useCallback(async () => {
     if (!numericId) return;
+    if (!createStart || !createEnd) {
+      setCreateError("시작 시간과 종료 시간을 모두 선택해 주세요.");
+      return;
+    }
+    const start = toHHMMSS(createStart);
+    const end = toHHMMSS(createEnd);
+    if (!start || !end) {
+      setCreateError("시간 형식이 올바르지 않습니다.");
+      return;
+    }
     setCreateSaving(true);
     setCreateError(null);
     try {
       await createCourseRecord(numericId, {
         recordDate: createDate,
-        startTime: toHHMMSS(createStart),
-        endTime: toHHMMSS(createEnd),
+        startTime: start,
+        endTime: end,
       });
       setCreateOpen(false);
     } catch (e) {
@@ -638,7 +648,10 @@ export default function CourseDetail() {
       dateLabel: `${r.recordDate} (${
         "일월화수목금토"[new Date(r.recordDate).getDay()]
       })`,
-      time: formatCourseTime(course),
+      time:
+        r.startTime && r.endTime
+          ? `${hhmm(r.startTime)} ~ ${hhmm(r.endTime)}`
+          : formatCourseTime(course),
       type: new Date(r.recordDate) < new Date() ? "지난 수업" : "예정",
       notes: r.notes || r.content || null,
     }));

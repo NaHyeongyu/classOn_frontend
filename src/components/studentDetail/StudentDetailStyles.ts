@@ -127,8 +127,7 @@ export const TabButton = styled.button`
   cursor: pointer;
 
   /* Active State */
-  &[data-active="true"],
-  &[data-active] {
+  &[data-active="true"] {
     background: ${(p) => p.theme.colors.primary};
     color: #ffffff;
     border: 1px solid ${(p) => p.theme.colors.primary};
@@ -136,7 +135,7 @@ export const TabButton = styled.button`
   }
 
   /* Inactive State */
-  &:not([data-active="true"]):not([data-active]) {
+  &:not([data-active="true"]) {
     background: #ffffff;
     color: ${(p) => p.theme.colors.text};
     border: 1px solid ${(p) => p.theme.colors.border};

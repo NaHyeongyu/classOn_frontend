@@ -42,16 +42,7 @@ export function CourseRecordGradesPanel({
     examError,
     selectedExamId,
     setSelectedExamId,
-    examFormTitle,
-    setExamFormTitle,
-    examFormMode,
-    setExamFormMode,
-    examFormSaving,
-    examFormError,
-    setExamFormError,
     examModalOpen,
-    examQuery,
-    setExamQuery,
     selectedExam,
     filteredExams,
     examResultsMap,
@@ -511,72 +502,6 @@ const ModalListScroller = styled.div`
   padding-right: 4px;
 `;
 
-const CreateForm = styled.div`
-  display: grid;
-  gap: 12px;
-  label {
-    font-size: 12px;
-    font-weight: 700;
-    color: #475569;
-  }
-`;
-
-const TitleInput = styled.input`
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 14px;
-`;
-
-const RadioRow = styled.div`
-  display: inline-flex;
-  gap: 16px;
-  align-items: center;
-`;
-
-const RadioLabel = styled.label`
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
-  font-size: 13px;
-  color: #374151;
-  cursor: pointer;
-  input {
-    width: 16px;
-    height: 16px;
-  }
-`;
-
-const TemplateSelect = styled.select`
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px 12px;
-  font-size: 14px;
-  background: #fff;
-`;
-
-const TemplateHint = styled.div`
-  color: #6b7280;
-  font-size: 12px;
-  line-height: 1.4;
-  margin-top: -6px;
-`;
-
-const ModalToolbar = styled.div`
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-  input {
-    flex: 1;
-    min-width: 160px;
-  }
-`;
-
 const ExamList = styled.div`
   display: grid;
   gap: 10px;
@@ -615,12 +540,4 @@ const ExamListItem = styled.button`
     border-color: #6366f1;
     background: #eef2ff;
   }
-`;
-
-const SearchInput = styled.input`
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 12px;
 `;

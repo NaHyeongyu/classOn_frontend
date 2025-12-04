@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import styled from "styled-components";
 import { Card, Tabs, TabButton } from "@/components/studentDetail/StudentDetailStyles";
 import {
@@ -11,11 +11,13 @@ import {
 import Modal from "@/components/common/Modal";
 import { useToast } from "@/components/common/Toast";
 import { DiscountFields } from "@/components/payments/DiscountFields";
+import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
 import {
     cancelPayment,
     getPaymentDetail,
     updatePaymentInvoice,
     type PaymentInvoiceUpdatePayload,
+    type PaymentAdditionalItemPayload,
 } from "@/api/payments";
 import type { StudentPaymentInfo } from "@/api/students";
 import type { PaymentDetail, DiscountType, PaymentMethod, PaymentType } from "@classon/shared-types";
@@ -62,6 +64,7 @@ const createEmptyInvoiceForm = (): PaymentInvoiceUpdatePayload => ({
     managerMemo: "",
     discountType: undefined,
     discountValue: undefined,
+    additionalItems: undefined,
     cycleValue: undefined,
     cycleUnit: undefined,
 });
@@ -99,6 +102,46 @@ export function StudentPaymentsSection({
     const completedHistory = history.filter(
         (row) => row.status === "COMPLETED" || row.status === "CANCELED",
     );
+    const normalizedCourseIds = useMemo(() => {
+        if (!invoice?.courses?.length) return [];
+        return invoice.courses
+            .map((course) => (course?.id != null ? course.id : null))
+            .filter((id): id is number => typeof id === "number")
+            .sort((a, b) => a - b);
+    }, [invoice?.courses]);
+    const recommendedAmount = useMemo(() => {
+        if (!invoice?.courses?.length) return 0;
+        return invoice.courses.reduce((total, course) => {
+            if (!course) return total;
+            const fee = typeof course.fee === "number" ? course.fee : Number(course.fee ?? 0);
+            return total + (Number.isFinite(fee) ? fee : 0);
+        }, 0);
+    }, [invoice?.courses]);
+    const normalizedRecommendedAmount = Math.max(0, Math.round(recommendedAmount ?? 0));
+    const normalizedInvoiceAmount = Math.max(0, Math.round(invoice?.info?.originalAmount ?? 0));
+    const invoiceStatus = invoice?.info?.status ?? "";
+    const invoiceEditable =
+        invoiceStatus === "UNPAID" || invoiceStatus === "PENDING" || invoiceStatus === "SCHEDULED";
+    const courseSignature = useMemo(() => {
+        if (!invoice?.courses?.length) return null;
+        return invoice.courses
+            .map((course) => {
+                const id = course?.id != null ? course.id : course?.title ?? "unknown";
+                const fee = Number.isFinite(Number(course?.fee))
+                    ? Math.round(Number(course?.fee))
+                    : 0;
+                return `${id}:${fee}`;
+            })
+            .sort()
+            .join("|");
+    }, [invoice?.courses]);
+    const autoAdjustTracker = useRef<Map<number, number>>(new Map());
+    const previousCourseIdsRef = useRef<number[] | null>(null);
+    const courseSignatureRef = useRef<string | null>(null);
+    const [autoAdjustModal, setAutoAdjustModal] = useState<{ open: boolean; message: string }>({
+        open: false,
+        message: "",
+    });
     const [internalView, setInternalView] = useState<"invoice" | "history">("invoice");
     const hasInvoice = Boolean(invoice);
     const hasHistory = completedHistory.length > 0;
@@ -118,6 +161,87 @@ export function StudentPaymentsSection({
         createEmptyInvoiceForm(),
     );
     const [invoiceDiscountEnabled, setInvoiceDiscountEnabled] = useState(false);
+    const [invoiceDiscountExpanded, setInvoiceDiscountExpanded] = useState(false);
+    const [invoiceAdditionExpanded, setInvoiceAdditionExpanded] = useState(false);
+    type AdditionalFieldState = {
+        enabled: boolean;
+        materialFee?: number;
+        textbookFee?: number;
+        startDate?: string;
+        endDate?: string;
+    };
+    const createEmptyAdditionalFields = (): AdditionalFieldState => ({
+        enabled: false,
+        materialFee: undefined,
+        textbookFee: undefined,
+        startDate: "",
+        endDate: "",
+    });
+    const [invoiceAdditionalFields, setInvoiceAdditionalFields] = useState<AdditionalFieldState>(
+        createEmptyAdditionalFields(),
+    );
+    const buildAdditionalItemsPayload = useCallback(
+        (fields: AdditionalFieldState): PaymentAdditionalItemPayload[] | undefined => {
+            if (!fields.enabled) return undefined;
+            const normalizedStart = fields.startDate && fields.startDate.trim() ? fields.startDate : undefined;
+            const normalizedEnd = fields.endDate && fields.endDate.trim() ? fields.endDate : undefined;
+            const items: PaymentAdditionalItemPayload[] = [];
+            if (fields.materialFee && fields.materialFee > 0) {
+                items.push({
+                    type: "MATERIAL",
+                    label: "재료비",
+                    quantity: 1,
+                    unitPrice: fields.materialFee,
+                    appliedStart: normalizedStart,
+                    appliedEnd: normalizedEnd,
+                });
+            }
+            if (fields.textbookFee && fields.textbookFee > 0) {
+                items.push({
+                    type: "TEXTBOOK",
+                    label: "교재비",
+                    quantity: 1,
+                    unitPrice: fields.textbookFee,
+                    appliedStart: normalizedStart,
+                    appliedEnd: normalizedEnd,
+                });
+            }
+            return items.length ? items : undefined;
+        },
+        [],
+    );
+    const mapAdditionalFieldsFromDetail = useCallback((detail: PaymentDetail): AdditionalFieldState => {
+        const materialItem = detail.additionalItems?.find((item) => item?.type === "MATERIAL");
+        const textbookItem = detail.additionalItems?.find((item) => item?.type === "TEXTBOOK");
+        const materialFeeValue =
+            typeof materialItem?.unitPrice === "number" ? materialItem.unitPrice : undefined;
+        const textbookFeeValue =
+            typeof textbookItem?.unitPrice === "number" ? textbookItem.unitPrice : undefined;
+        const startDateValue = materialItem?.appliedStart ?? textbookItem?.appliedStart ?? detail.info.dueDate ?? "";
+        const endDateValue = materialItem?.appliedEnd ?? textbookItem?.appliedEnd ?? detail.info.dueDate ?? "";
+        const enabled = Boolean(
+            (materialFeeValue && materialFeeValue > 0) || (textbookFeeValue && textbookFeeValue > 0),
+        );
+        return {
+            enabled,
+            materialFee: materialFeeValue,
+            textbookFee: textbookFeeValue,
+            startDate: startDateValue || "",
+            endDate: endDateValue || "",
+        };
+    }, []);
+    const updateInvoiceAdditionalFields = (partial: Partial<AdditionalFieldState>) => {
+        setInvoiceAdditionalFields((prev) => {
+            const next = { ...prev, ...partial };
+            setInvoiceEditForm((prevForm) => ({
+                ...prevForm,
+                additionalItems: buildAdditionalItemsPayload(next),
+            }));
+            return next;
+        });
+    };
+    const invoiceAdditionalTotal =
+        (invoiceAdditionalFields.materialFee ?? 0) + (invoiceAdditionalFields.textbookFee ?? 0);
     const isDetailOpen = detailState.open;
     const detailVariant = isDetailOpen ? detailState.variant : undefined;
     const detailLoading = isDetailOpen ? detailState.loading : false;
@@ -186,6 +310,84 @@ export function StudentPaymentsSection({
     }, []);
 
     useEffect(() => {
+        if (!invoiceEditable || !invoice?.info?.id || courseSignature == null) {
+            courseSignatureRef.current = courseSignature;
+            return;
+        }
+        if (courseSignatureRef.current === null) {
+            courseSignatureRef.current = courseSignature;
+            return;
+        }
+        if (courseSignatureRef.current === courseSignature) return;
+        courseSignatureRef.current = courseSignature;
+        const paymentId = invoice.info.id;
+        const targetAmount = normalizedRecommendedAmount;
+        if (autoAdjustTracker.current.get(paymentId) === targetAmount) return;
+        (async () => {
+            try {
+                await updatePaymentInvoice(paymentId, { amount: targetAmount });
+                autoAdjustTracker.current.set(paymentId, targetAmount);
+                invalidatePaymentsQueries(queryClient);
+                onRefresh();
+                setAutoAdjustModal({
+                    open: true,
+                    message:
+                        targetAmount > normalizedInvoiceAmount
+                            ? "새로 추가된 수업 또는 수업료 인상분을 반영해 청구 금액을 자동으로 조정했습니다. 청구서 발송 전 내용을 다시 확인해 주세요."
+                            : "수업 삭제 또는 수업료 인하를 반영해 청구 금액을 자동으로 조정했습니다. 청구서 발송 전 내용을 다시 확인해 주세요.",
+                });
+            } catch (err) {
+                autoAdjustTracker.current.delete(paymentId);
+                toastError(readableError(err, "청구 금액 자동 조정에 실패했습니다."));
+            }
+        })();
+    }, [
+        invoiceEditable,
+        invoice?.info?.id,
+        courseSignature,
+        normalizedRecommendedAmount,
+        normalizedInvoiceAmount,
+        queryClient,
+        onRefresh,
+        toastError,
+    ]);
+
+    useEffect(() => {
+        if (!invoiceEditable || !invoice?.info?.id) {
+            previousCourseIdsRef.current = normalizedCourseIds;
+            return;
+        }
+        const prev = previousCourseIdsRef.current;
+        const current = normalizedCourseIds;
+        previousCourseIdsRef.current = current;
+        if (!prev || prev.length === 0) {
+            previousCourseIdsRef.current = current;
+            return;
+        }
+        const signatureChanged =
+            prev.length !== current.length ||
+            prev.some((id, index) => id !== current[index]);
+        if (!signatureChanged) return;
+        const prevSet = new Set(prev);
+        const currentSet = new Set(current);
+        const added = current.filter((id) => !prevSet.has(id));
+        const removed = prev.filter((id) => !currentSet.has(id));
+        let message = "";
+        if (added.length && !removed.length) {
+            message = "수업에 학생이 추가되어 청구서에 자동 반영되었습니다. 발송 전 내용을 다시 확인해 주세요.";
+        } else if (!added.length && removed.length) {
+            message = "수업에서 학생을 제거하여 청구서에서 해당 수업이 제외되었습니다. 발송 전 다시 확인해 주세요.";
+        } else {
+            message = "수업 구성의 변경 내용이 청구서에 반영되었습니다. 발송 전 내용을 다시 확인해 주세요.";
+        }
+        setAutoAdjustModal({ open: true, message });
+    }, [invoiceEditable, invoice?.info?.id, normalizedCourseIds]);
+
+    const closeAutoAdjustModal = useCallback(() => {
+        setAutoAdjustModal({ open: false, message: "" });
+    }, []);
+
+    useEffect(() => {
         if (!detailState.open || detailState.variant !== "invoice" || !detailState.data) return;
         const combinedMemo = combineMemoValues(
             detailState.data.info.memo,
@@ -209,6 +411,8 @@ export function StudentPaymentsSection({
         if (!invoiceEditOpen || invoiceEditLoading || !invoiceEditData) return;
         const info = invoiceEditData.info;
         const combinedMemo = combineMemoValues(info.memo, info.managerMemo);
+        const additionalFields = mapAdditionalFieldsFromDetail(invoiceEditData);
+        setInvoiceAdditionalFields(additionalFields);
         setInvoiceEditForm({
             dueDate: info.dueDate ?? "",
             periodStart: info.periodStart ?? "",
@@ -220,9 +424,19 @@ export function StudentPaymentsSection({
             discountValue: info.discountValue ?? undefined,
             cycleValue: invoiceEditData.schedule?.cycleValue ?? undefined,
             cycleUnit: invoiceEditData.schedule?.cycleUnit ?? "MONTHS",
+            additionalItems: buildAdditionalItemsPayload(additionalFields),
         });
-        setInvoiceDiscountEnabled(Boolean(info.discountType && info.discountValue != null));
-    }, [invoiceEditOpen, invoiceEditLoading, invoiceEditData]);
+        const discountApplied = Boolean(info.discountType && info.discountValue != null);
+        setInvoiceDiscountEnabled(discountApplied);
+        setInvoiceDiscountExpanded(discountApplied);
+        setInvoiceAdditionExpanded(Boolean(additionalFields.enabled));
+    }, [
+        invoiceEditOpen,
+        invoiceEditLoading,
+        invoiceEditData,
+        mapAdditionalFieldsFromDetail,
+        buildAdditionalItemsPayload,
+    ]);
 
     useEffect(() => {
         if (!isEditing) {
@@ -274,6 +488,9 @@ export function StudentPaymentsSection({
         setInvoiceEditState({ open: false });
         setInvoiceEditForm(createEmptyInvoiceForm());
         setInvoiceDiscountEnabled(false);
+        setInvoiceDiscountExpanded(false);
+        setInvoiceAdditionExpanded(false);
+        setInvoiceAdditionalFields(createEmptyAdditionalFields());
     };
 
     const handleInvoiceEditSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -290,10 +507,21 @@ export function StudentPaymentsSection({
             discountValue: invoiceDiscountEnabled ? invoiceEditForm.discountValue : undefined,
             cycleValue: invoiceEditForm.cycleValue,
             cycleUnit: invoiceEditForm.cycleUnit ?? invoiceEditData?.schedule?.cycleUnit ?? "MONTHS",
+            additionalItems: invoiceEditForm.additionalItems,
         };
         updateMutation.mutate({ id: invoice.info.id, payload });
     };
 
+    const parseCurrencyInput = (raw: string): number | undefined => {
+        const digits = raw.replace(/[^0-9]/g, "");
+        if (!digits) return undefined;
+        const parsed = Number(digits);
+        return Number.isNaN(parsed) ? undefined : parsed;
+    };
+    const formatCurrencyInput = (value?: number | null): string => {
+        if (value == null || Number.isNaN(value)) return "";
+        return formatMoney(value);
+    };
     const invoiceEditBaseAmount =
         typeof invoiceEditForm.amount === "number"
             ? invoiceEditForm.amount
@@ -860,13 +1088,13 @@ export function StudentPaymentsSection({
                                         inputMode="numeric"
                                         value={
                                             typeof invoiceEditForm.amount === "number"
-                                                ? String(invoiceEditForm.amount)
-                                                : String(invoiceEditData.info.originalAmount ?? "")
+                                                ? formatCurrencyInput(invoiceEditForm.amount)
+                                                : formatCurrencyInput(invoiceEditData.info.originalAmount ?? 0)
                                         }
                                         onChange={(event) =>
                                             setInvoiceEditForm((prev) => ({
                                                 ...prev,
-                                                amount: parseNumericInput(event.target.value),
+                                                amount: parseCurrencyInput(event.target.value),
                                             }))
                                         }
                                     />
@@ -903,46 +1131,97 @@ export function StudentPaymentsSection({
                                 </label>
                             </div>
                         </EditFormGrid>
-                        <DiscountSection>
-                            <DiscountFields
-                                enabled={invoiceDiscountEnabled}
-                                discountType={
-                                    invoiceEditForm.discountType ??
-                                    invoiceEditData.info.discountType ??
-                                    undefined
-                                }
-                                discountValue={
-                                    typeof invoiceEditForm.discountValue === "number"
-                                        ? invoiceEditForm.discountValue
-                                        : invoiceEditData.info.discountValue
-                                }
-                                onToggleEnabled={(next) => {
-                                    setInvoiceDiscountEnabled(next);
-                                    if (!next) {
-                                        setInvoiceEditForm((prev) => ({
-                                            ...prev,
-                                            discountType: undefined,
-                                            discountValue: undefined,
-                                        }));
-                                    }
-                                }}
-                                onChangeType={(next) =>
-                                    setInvoiceEditForm((prev) => ({
-                                        ...prev,
-                                        discountType: next,
-                                    }))
-                                }
-                                onChangeValue={(value) =>
-                                    setInvoiceEditForm((prev) => ({
-                                        ...prev,
-                                        discountValue: typeof value === "number" ? value : undefined,
-                                    }))
-                                }
-                                onChangeStartDate={() => {}}
-                                onChangeEndDate={() => {}}
-                                showPeriod={false}
-                            />
-                        </DiscountSection>
+                        <CollapsibleSection>
+                            <CollapsibleHeader
+                                type="button"
+                                onClick={() => setInvoiceDiscountExpanded((prev) => !prev)}
+                            >
+                                <span>할인 설정</span>
+                                <CaretIcon $open={invoiceDiscountExpanded} />
+                            </CollapsibleHeader>
+                            {invoiceDiscountExpanded ? (
+                                <CollapsibleBody>
+                                    <DiscountFields
+                                        enabled={invoiceDiscountEnabled}
+                                        discountType={
+                                            invoiceEditForm.discountType ??
+                                            invoiceEditData.info.discountType ??
+                                            undefined
+                                        }
+                                        discountValue={
+                                            typeof invoiceEditForm.discountValue === "number"
+                                                ? invoiceEditForm.discountValue
+                                                : invoiceEditData.info.discountValue
+                                        }
+                                        onToggleEnabled={(next) => {
+                                            setInvoiceDiscountEnabled(next);
+                                            if (!next) {
+                                                setInvoiceEditForm((prev) => ({
+                                                    ...prev,
+                                                    discountType: undefined,
+                                                    discountValue: undefined,
+                                                }));
+                                            }
+                                        }}
+                                        onChangeType={(next) =>
+                                            setInvoiceEditForm((prev) => ({
+                                                ...prev,
+                                                discountType: next,
+                                            }))
+                                        }
+                                        onChangeValue={(value) =>
+                                            setInvoiceEditForm((prev) => ({
+                                                ...prev,
+                                                discountValue: typeof value === "number" ? value : undefined,
+                                            }))
+                                        }
+                                        onChangeStartDate={() => {}}
+                                        onChangeEndDate={() => {}}
+                                        showPeriod={false}
+                                    />
+                                </CollapsibleBody>
+                            ) : null}
+                        </CollapsibleSection>
+                        <CollapsibleSection>
+                            <CollapsibleHeader
+                                type="button"
+                                onClick={() => setInvoiceAdditionExpanded((prev) => !prev)}
+                            >
+                                <span>추가 금액 설정</span>
+                                <CaretIcon $open={invoiceAdditionExpanded} />
+                            </CollapsibleHeader>
+                            {invoiceAdditionExpanded ? (
+                                <CollapsibleBody>
+                                    <AdditionalChargeFields
+                                        enabled={invoiceAdditionalFields.enabled}
+                                        materialFee={invoiceAdditionalFields.materialFee}
+                                        textbookFee={invoiceAdditionalFields.textbookFee}
+                                        startDate={invoiceAdditionalFields.startDate}
+                                        endDate={invoiceAdditionalFields.endDate}
+                                        onToggleEnabled={(next) => updateInvoiceAdditionalFields({ enabled: next })}
+                                        onChangeMaterialFee={(value) =>
+                                            updateInvoiceAdditionalFields({
+                                                materialFee: typeof value === "number" ? value : undefined,
+                                            })
+                                        }
+                                        onChangeTextbookFee={(value) =>
+                                            updateInvoiceAdditionalFields({
+                                                textbookFee: typeof value === "number" ? value : undefined,
+                                            })
+                                        }
+                                        onChangeStartDate={(value) => updateInvoiceAdditionalFields({ startDate: value })}
+                                        onChangeEndDate={(value) => updateInvoiceAdditionalFields({ endDate: value })}
+                                        showTitle={false}
+                                    />
+                                    {invoiceAdditionalFields.enabled ? (
+                                        <AdditionalFooter>
+                                            <span>추가 금액 합계</span>
+                                            <strong>{formatMoney(invoiceAdditionalTotal)}</strong>
+                                        </AdditionalFooter>
+                                    ) : null}
+                                </CollapsibleBody>
+                            ) : null}
+                        </CollapsibleSection>
                         <FinalAmountBox>
                             <span>최종 금액</span>
                             <strong>{formatMoney(invoiceEditFinalAmount)}</strong>
@@ -1033,6 +1312,21 @@ export function StudentPaymentsSection({
                         </ModalActions>
                     </>
                 ) : null}
+            </Modal>
+            <Modal
+                open={autoAdjustModal.open}
+                onClose={closeAutoAdjustModal}
+                title="청구 금액 자동 조정 안내"
+                maxWidth={520}
+            >
+                <AutoAdjustBody>
+                    <p>{autoAdjustModal.message}</p>
+                </AutoAdjustBody>
+                <ModalActions>
+                    <PrimaryButton type="button" onClick={closeAutoAdjustModal}>
+                        확인했습니다
+                    </PrimaryButton>
+                </ModalActions>
             </Modal>
         </>
     );
@@ -1230,6 +1524,55 @@ const DiscountSection = styled.div`
   display: grid;
   gap: 12px;
   margin-bottom: 16px;
+`;
+
+const AdditionalFooter = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: ${(p) => p.theme.colors.text};
+  span {
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+  strong {
+    font-size: 16px;
+  }
+`;
+
+const CollapsibleSection = styled.div`
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  margin-bottom: 16px;
+  background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
+`;
+
+const CollapsibleHeader = styled.button`
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${(p) => p.theme.colors.text};
+  cursor: pointer;
+`;
+
+const CollapsibleBody = styled.div`
+  border-top: 1px solid ${(p) => p.theme.colors.border};
+  padding: 12px 16px;
+`;
+
+const CaretIcon = styled.span<{ $open: boolean }>`
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  display: inline-block;
+  padding: 4px;
+  transform: rotate(${(p) => (p.$open ? "45deg" : "-45deg")});
+  transition: transform 120ms ease;
 `;
 
 const FinalAmountBox = styled.div`
@@ -1481,6 +1824,15 @@ const ModalActions = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: 12px;
+`;
+
+const AutoAdjustBody = styled.div`
+  text-align: left;
+  p {
+    margin: 0;
+    line-height: 1.6;
+    color: ${(p) => p.theme.colors.text};
+  }
 `;
 
 const ConfirmIntro = styled.div`

@@ -30,6 +30,7 @@ export function useCourseStudents(courseId: number | null) {
 
   const [addingId, setAddingId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [changeNotice, setChangeNotice] = useState<string | null>(null);
 
   const {
     confirm: confirmUnenroll,
@@ -244,6 +245,7 @@ export function useCourseStudents(courseId: number | null) {
             };
           })
         );
+        setChangeNotice("학생의 청구서에 이 수업이 자동으로 추가되었습니다.\n청구서 발송 전에 금액을 다시 확인해 주세요.");
       } catch (err) {
         setStudentError(getErrorMessage(err, "추가에 실패했습니다."));
       } finally {
@@ -310,6 +312,7 @@ export function useCourseStudents(courseId: number | null) {
               : option
           )
         );
+        setChangeNotice("학생의 청구서에서 이 수업이 제거되었습니다.\n청구서 발송 전에 금액을 다시 확인해 주세요.");
       } catch (err) {
         setEnrolledError(getErrorMessage(err, "해제에 실패했습니다."));
       } finally {
@@ -337,5 +340,7 @@ export function useCourseStudents(courseId: number | null) {
     onEnroll,
     onUnenroll,
     confirmUnenrollDialog,
+    changeNotice,
+    onCloseChangeNotice: () => setChangeNotice(null),
   };
 }

@@ -1,5 +1,7 @@
 import styled from "styled-components";
 import type { FormEvent } from "react";
+import Modal from "@/components/common/Modal";
+import { GhostButton } from "@/components/common/UI";
 import {
   AlertError,
   AlertOk,
@@ -95,6 +97,8 @@ type CourseFormPageViewProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectStudent: (student: StudentOption) => void;
   navigateEditStudents: () => void;
+  feeChangeNotice: string | null;
+  onCloseFeeChangeNotice: () => void;
 };
 
 export function CourseFormPageView({
@@ -126,10 +130,27 @@ export function CourseFormPageView({
   onSubmit,
   onSelectStudent,
   navigateEditStudents,
+  feeChangeNotice,
+  onCloseFeeChangeNotice,
 }: CourseFormPageViewProps) {
   const isIndividual = form.courseType === "INDIVIDUAL";
   return (
     <Page>
+      <Modal
+        open={Boolean(feeChangeNotice)}
+        onClose={onCloseFeeChangeNotice}
+        title="청구서 확인 안내"
+      >
+        <FeeNoticeBody>
+          {feeChangeNotice ??
+            "수강료가 변경되어 학생 청구서에 자동으로 반영되었습니다.\n청구서 발송 전에 금액을 다시 확인해 주세요."}
+        </FeeNoticeBody>
+        <FeeModalActions>
+          <GhostButton type="button" onClick={onCloseFeeChangeNotice}>
+            확인했습니다
+          </GhostButton>
+        </FeeModalActions>
+      </Modal>
       <Header>
         <BackButton type="button" onClick={onBack}>
           {leftIcon} 뒤로
@@ -221,4 +242,17 @@ const Sections = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
   gap: ${(p) => p.theme.spacing.pageGap};
   align-items: start;
+`;
+
+const FeeNoticeBody = styled.p`
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 0;
+  white-space: pre-wrap;
+`;
+
+const FeeModalActions = styled.div`
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
 `;

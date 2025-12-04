@@ -76,8 +76,6 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
     setExamModalOpen,
     setExamFormError,
     handleDeleteSelectedExam,
-    gradeMap,
-    examResultsMap,
     gradeSaving,
     hasGradeChanges,
     gradeAutoSaveTimerRef,

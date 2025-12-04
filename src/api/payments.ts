@@ -17,6 +17,15 @@ import type {
 
 export type PaymentTemplateKey = "GUIDE" | "RETRY" | "SUCCESS" | "FAIL";
 
+export type PaymentAdditionalItemPayload = {
+  type: "MATERIAL" | "TEXTBOOK" | "OTHER";
+  label: string;
+  quantity?: number;
+  unitPrice?: number;
+  appliedStart?: string;
+  appliedEnd?: string;
+};
+
 export type PaymentInvoicePayload = {
   studentId: number;
   courseId?: number;
@@ -34,6 +43,7 @@ export type PaymentInvoicePayload = {
   discountEnabled?: boolean;
   discountStartDate?: string;
   discountEndDate?: string;
+  additionalItems?: PaymentAdditionalItemPayload[];
 };
 
 export type PaymentInvoiceUpdatePayload = {
@@ -48,6 +58,7 @@ export type PaymentInvoiceUpdatePayload = {
   courseId?: number;
   cycleValue?: number;
   cycleUnit?: BillingCycleUnit;
+  additionalItems?: PaymentAdditionalItemPayload[];
 };
 
 export type PaymentOnsitePayload = {
@@ -283,10 +294,18 @@ export type PublicPaymentReceipt = {
   course?: PaymentDetail["course"] | null;
   courses?: PaymentDetail["courses"];
   schedule?: PaymentDetail["schedule"];
+  methodDetail?: string | null;
 };
 
 export async function getPublicPaymentReceipt(token: string): Promise<PublicPaymentReceipt> {
   return await fetchJSON<PublicPaymentReceipt>(`/api/public/pay/receipt/${encodeURIComponent(token)}`);
+}
+
+export async function refreshPublicPaymentReceipt(token: string): Promise<PublicPaymentReceipt> {
+  return await fetchJSON<PublicPaymentReceipt>(
+    `/api/public/pay/receipt/${encodeURIComponent(token)}/refresh`,
+    { method: "POST" },
+  );
 }
 
 export type PublicPaymentCheckoutInit = {
@@ -303,6 +322,7 @@ export type PublicPaymentCheckoutInit = {
   failUrl?: string;
   sellerRefId?: string | null;
   tossSellerId?: string | null;
+  widgetClientKey?: string | null;
 };
 
 export async function preparePublicPaymentCheckout(token: string): Promise<PublicPaymentCheckoutInit> {

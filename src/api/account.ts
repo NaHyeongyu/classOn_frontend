@@ -54,6 +54,9 @@ export type SellerUpsertPayload = {
   businessRegistrationNumber?: string;
   companyEmail?: string;
   companyPhone?: string;
+  individualName?: string;
+  individualEmail?: string;
+  individualPhone?: string;
   bankCode: string;
   accountNumber: string;
   accountHolderName: string;
@@ -99,5 +102,11 @@ export async function apiUpdateSeller(payload: SellerUpsertPayload): Promise<Sel
   return fetchJSON<SellerDetail>("/api/account/seller", {
     method: "PUT",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function apiSyncSeller(): Promise<SellerDetail> {
+  return fetchJSON<SellerDetail>("/api/account/seller/sync", {
+    method: "POST",
   });
 }

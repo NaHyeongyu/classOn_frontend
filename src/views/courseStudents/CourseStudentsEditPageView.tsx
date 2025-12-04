@@ -5,9 +5,11 @@ import {
   TitleH3 as Title,
   SmallBtn as UISmallBtn,
   PrimaryButtonSm as UIPrimaryButtonSm,
+  GhostButton,
 } from "@/components/common/UI";
 import BackButton from "@/components/common/BackButton";
 import type { Student } from "@/api/students";
+import Modal from "@/components/common/Modal";
 
 const STATUS_LABEL: Record<Student["status"], string> = {
   ENROLLED: "수강중",
@@ -39,6 +41,8 @@ type CourseStudentsEditPageViewProps = {
   confirmUnenrollDialog: ReactNode;
   onBack: () => void;
   atCapacity: boolean;
+  changeNotice: string | null;
+  onCloseChangeNotice: () => void;
 };
 
 export function CourseStudentsEditPageView({
@@ -59,10 +63,23 @@ export function CourseStudentsEditPageView({
   confirmUnenrollDialog,
   onBack,
   atCapacity,
+  changeNotice,
+  onCloseChangeNotice,
 }: CourseStudentsEditPageViewProps) {
   return (
     <Wrap>
       {confirmUnenrollDialog}
+      <Modal open={Boolean(changeNotice)} onClose={onCloseChangeNotice} title="청구서 확인 안내">
+        <NoticeBody>
+          {changeNotice ??
+            "수업 수강 정보가 변경되어 학생 청구서에 자동 반영되었습니다. 발송 전 청구서 내용을 다시 확인해 주세요."}
+        </NoticeBody>
+        <ModalActions>
+          <GhostButton type="button" onClick={onCloseChangeNotice}>
+            확인했습니다
+          </GhostButton>
+        </ModalActions>
+      </Modal>
       <Head>
         <TopLeft>
           <BackButton onClick={onBack} label="뒤로" />
@@ -311,6 +328,20 @@ const StatusTag = styled.span`
     color: #6d28d9;
     border-color: #ddd6fe;
   }
+`;
+
+const ModalActions = styled.div`
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+`;
+
+const NoticeBody = styled.p`
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 0;
+  color: ${(p) => p.theme.colors.text};
+  white-space: pre-wrap;
 `;
 
 const AlertError = styled.div`

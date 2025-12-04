@@ -14,7 +14,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/components/common/Toast";
 import { getPaymentDetail, sendPaymentInvoices } from "@/api/payments";
 import type { PaymentTemplateKey } from "@/api/payments";
-import type { PaymentDetail } from "@classon/shared-types";
+import type { PaymentDetail, PaymentHistoryRow } from "@classon/shared-types";
 import { formatMoney, formatKoreanDate } from "@/lib/format";
 import { readableError } from "@/lib/errors";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -227,7 +227,7 @@ function KakaoSendPage({ mode }: { mode: SendMode }) {
 
   const isMultiSelection = details.length > 1;
 
-  const sendMutation = useMutation({
+  const sendMutation = useMutation<PaymentHistoryRow[], unknown, void>({
     mutationFn: () =>
       sendPaymentInvoices({
         ids,
@@ -235,13 +235,21 @@ function KakaoSendPage({ mode }: { mode: SendMode }) {
         resend: TEMPLATE_DEFINITIONS[templateKey].resend,
         scheduledAt: schedulePayload ? normalizeSchedulePayload(schedulePayload) : undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (result: PaymentHistoryRow[]) => {
+      invalidatePaymentsQueries(queryClient);
+      const failed = result.filter((row) => row.status === "FAILED");
+      if (failed.length > 0) {
+        toastError(
+          `카카오톡 발송에 실패한 청구서 ${failed.length}건이 있습니다. 상세 내역을 확인한 뒤 다시 시도해 주세요.`,
+        );
+        void detailsQuery.refetch();
+        return;
+      }
       success(
         isScheduleMode
           ? "카카오톡 알림 예약을 등록했습니다."
           : "카카오톡 알림 전송을 요청했습니다.",
       );
-      invalidatePaymentsQueries(queryClient);
       navigate(routes.payments);
     },
     onError: (err: unknown) =>

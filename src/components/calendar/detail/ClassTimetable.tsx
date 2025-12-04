@@ -53,7 +53,12 @@ export default function ClassTimetable({
   const hasScrolledRef = useRef(false);
 
   useEffect(() => {
-    if (containerRef.current && showCurrentTime && records.length > 0 && !hasScrolledRef.current) {
+    if (
+      containerRef.current &&
+      showCurrentTime &&
+      records.length > 0 &&
+      !hasScrolledRef.current
+    ) {
       // Use setTimeout to ensure DOM is updated and layout is stable
       setTimeout(() => {
         if (containerRef.current) {
@@ -67,7 +72,7 @@ export default function ClassTimetable({
         }
       }, 100);
     }
-  }, [records.length, showCurrentTime]); // Run when records load
+  }, [records.length, showCurrentTime, currentTop]); // Run when records load
 
   return (
     <Section $embedded={embedded} $maxHeight={maxHeight}>

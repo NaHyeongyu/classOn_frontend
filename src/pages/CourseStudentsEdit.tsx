@@ -31,6 +31,8 @@ export default function CourseStudentsEdit() {
     onEnroll,
     onUnenroll,
     confirmUnenrollDialog,
+    changeNotice,
+    onCloseChangeNotice,
   } = useCourseStudents(courseId);
 
   const atCapacity = capacity != null && enrolledStudents.length >= capacity;
@@ -52,6 +54,8 @@ export default function CourseStudentsEdit() {
       onEnroll={onEnroll}
       onUnenroll={onUnenroll}
       confirmUnenrollDialog={confirmUnenrollDialog}
+      changeNotice={changeNotice}
+      onCloseChangeNotice={onCloseChangeNotice}
       onBack={() => navigate(courseId ? `/classes/${courseId}` : routes.classes)}
       atCapacity={atCapacity}
     />

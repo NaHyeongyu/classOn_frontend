@@ -1,5 +1,4 @@
 import styled from "styled-components";
-import { SmallBtn as UISmallBtn } from "@/components/courseRecord/CourseRecordStyles";
 
 export const Wrap = styled.div`
   display: grid;

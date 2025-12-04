@@ -14,7 +14,13 @@ import {
 import Modal from "@/components/common/Modal";
 import { useToast } from "@/components/common/Toast";
 import { DiscountFields } from "@/components/payments/DiscountFields";
-import { createPaymentInvoice, listPaymentInvoices, type PaymentInvoicePayload } from "@/api/payments";
+import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
+import {
+  createPaymentInvoice,
+  listPaymentHistory,
+  type PaymentInvoicePayload,
+  type PaymentAdditionalItemPayload,
+} from "@/api/payments";
 import { listStudents, type Student } from "@/api/students";
 import type { PageResult } from "@/types/paging";
 import type { DiscountType, BillingCycleUnit, PaymentHistoryRow } from "@classon/shared-types";
@@ -35,6 +41,11 @@ type StudentOverride = {
   discountEndDate?: string;
   memo?: string;
   managerMemo?: string;
+  extraEnabled?: boolean;
+  materialFee?: number;
+  textbookFee?: number;
+  extraStartDate?: string;
+  extraEndDate?: string;
 };
 
 const today = new Date();
@@ -61,6 +72,11 @@ const defaultForm = {
   cycleValue: 1,
   cycleUnit: "MONTHS" as BillingCycleUnit,
   autoGenerate: true,
+  extraEnabled: false,
+  materialFee: undefined as number | undefined,
+  textbookFee: undefined as number | undefined,
+  extraStartDate: dateISO(today),
+  extraEndDate: dateISO(nextMonth),
 };
 
 function normalizeCycle(value: string | number | undefined): number {
@@ -116,14 +132,23 @@ export default function PaymentsCreate() {
   });
 
   const reservedInvoicesQuery = useQuery<PaymentHistoryRow[]>({
-    queryKey: ["payments-create", "open-invoices"],
+    queryKey: ["payments-create", "students-with-invoice"],
     queryFn: async () => {
-      const pageSize = 500;
-      const [unpaid, pending] = await Promise.all([
-        listPaymentInvoices({ status: "UNPAID,SCHEDULED", page: 0, size: pageSize }),
-        listPaymentInvoices({ status: "PENDING", page: 0, size: pageSize }),
-      ]);
-      return [...(unpaid.content ?? []), ...(pending.content ?? [])];
+      const size = 500;
+      const collected: PaymentHistoryRow[] = [];
+      let page = 0;
+      const MAX_PAGES = 20;
+      while (page < MAX_PAGES) {
+        const chunk = await listPaymentHistory({ status: "ALL", page, size });
+        if (Array.isArray(chunk.content) && chunk.content.length) {
+          collected.push(...chunk.content);
+        }
+        if (chunk.last || !chunk.content?.length) {
+          break;
+        }
+        page += 1;
+      }
+      return collected;
     },
     staleTime: 30_000,
   });
@@ -198,12 +223,42 @@ export default function PaymentsCreate() {
     const discountType = override?.discountType ?? form.discountType;
     const discountValue = override?.discountValue ?? form.discountValue;
     const memoValue = override?.memo ?? form.memo;
+    const extraEnabled = override?.extraEnabled ?? form.extraEnabled;
+    const materialFee = extraEnabled ? override?.materialFee ?? form.materialFee ?? 0 : 0;
+    const textbookFee = extraEnabled ? override?.textbookFee ?? form.textbookFee ?? 0 : 0;
+    const baseAmount = defaultAmountForStudent(student);
+    const totalAmount = baseAmount + materialFee + textbookFee;
+
+    const additionalItems: PaymentAdditionalItemPayload[] = [];
+    if (extraEnabled) {
+      if (materialFee > 0) {
+        additionalItems.push({
+          type: "MATERIAL",
+          label: "재료비",
+          quantity: 1,
+          unitPrice: materialFee,
+          appliedStart: override?.extraStartDate ?? form.extraStartDate,
+          appliedEnd: override?.extraEndDate ?? form.extraEndDate,
+        });
+      }
+      if (textbookFee > 0) {
+        additionalItems.push({
+          type: "TEXTBOOK",
+          label: "교재비",
+          quantity: 1,
+          unitPrice: textbookFee,
+          appliedStart: override?.extraStartDate ?? form.extraStartDate,
+          appliedEnd: override?.extraEndDate ?? form.extraEndDate,
+        });
+      }
+    }
+
     return {
       studentId: student.id,
       dueDate: override?.dueDate ?? form.dueDate,
       periodStart: override?.periodStart ?? form.periodStart,
       periodEnd: override?.periodEnd ?? form.periodEnd,
-      amount: defaultAmountForStudent(student),
+      amount: totalAmount,
       discountType: discountEnabled ? discountType : undefined,
       discountValue: discountEnabled ? discountValue : undefined,
       memo: memoValue,
@@ -218,6 +273,7 @@ export default function PaymentsCreate() {
       discountEndDate: discountEnabled
         ? override?.discountEndDate ?? form.discountEndDate
         : undefined,
+      additionalItems: additionalItems.length ? additionalItems : undefined,
     };
   };
 
@@ -243,7 +299,7 @@ export default function PaymentsCreate() {
     onSuccess: () => {
       success("청구서를 생성했습니다.");
       invalidatePaymentsQueries(queryClient);
-      queryClient.invalidateQueries({ queryKey: ["payments-create", "open-invoices"] }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ["payments-create", "students-with-invoice"] }).catch(() => {});
       navigate(routes.payments);
     },
     onError: (err: unknown) => {
@@ -510,6 +566,24 @@ export default function PaymentsCreate() {
               showPeriod
             />
           </DiscountBox>
+          <DiscountBox>
+            <AdditionalChargeFields
+              enabled={Boolean(form.extraEnabled)}
+              materialFee={form.materialFee}
+              textbookFee={form.textbookFee}
+              startDate={form.extraStartDate}
+              endDate={form.extraEndDate}
+              onToggleEnabled={(next) => setForm((prev) => ({ ...prev, extraEnabled: next }))}
+              onChangeMaterialFee={(value) =>
+                setForm((prev) => ({ ...prev, materialFee: typeof value === "number" ? value : undefined }))
+              }
+              onChangeTextbookFee={(value) =>
+                setForm((prev) => ({ ...prev, textbookFee: typeof value === "number" ? value : undefined }))
+              }
+              onChangeStartDate={(value) => setForm((prev) => ({ ...prev, extraStartDate: value }))}
+              onChangeEndDate={(value) => setForm((prev) => ({ ...prev, extraEndDate: value }))}
+            />
+          </DiscountBox>
           <label>
             메모
             <Textarea
@@ -554,6 +628,7 @@ function StudentOverrideModal({ open, onClose, student, baseForm, initialValues,
   }, [open, initialValues]);
 
   const localDiscountEnabled = local.discountEnabled ?? baseForm.discountEnabled;
+  const localExtraEnabled = local.extraEnabled ?? baseForm.extraEnabled;
 
   const handleLocalCycleChange = (raw: string) => {
     const nextValue = normalizeCycle(raw);
@@ -644,6 +719,45 @@ function StudentOverrideModal({ open, onClose, student, baseForm, initialValues,
             showPeriod
           />
         </DiscountBox>
+        <DiscountBox>
+          <AdditionalChargeFields
+            enabled={Boolean(localExtraEnabled)}
+            materialFee={local.materialFee ?? baseForm.materialFee}
+            textbookFee={local.textbookFee ?? baseForm.textbookFee}
+            startDate={local.extraStartDate ?? baseForm.extraStartDate}
+            endDate={local.extraEndDate ?? baseForm.extraEndDate}
+            onToggleEnabled={(next) =>
+              setLocal((prev) => ({
+                ...prev,
+                extraEnabled: next,
+              }))
+            }
+            onChangeMaterialFee={(value) =>
+              setLocal((prev) => ({
+                ...prev,
+                materialFee: typeof value === "number" ? value : undefined,
+              }))
+            }
+            onChangeTextbookFee={(value) =>
+              setLocal((prev) => ({
+                ...prev,
+                textbookFee: typeof value === "number" ? value : undefined,
+              }))
+            }
+            onChangeStartDate={(value) =>
+              setLocal((prev) => ({
+                ...prev,
+                extraStartDate: value,
+              }))
+            }
+            onChangeEndDate={(value) =>
+              setLocal((prev) => ({
+                ...prev,
+                extraEndDate: value,
+              }))
+            }
+          />
+        </DiscountBox>
         <label>
           메모
           <Textarea
@@ -698,6 +812,7 @@ const FormGrid = styled.div`
     gap: 6px;
     font-size: 13px;
     color: ${(p) => p.theme.colors.textMuted};
+    text-align: left;
   }
 `;
 
@@ -724,6 +839,7 @@ const PeriodGrid = styled.div`
     gap: 6px;
     font-size: 13px;
     color: ${(p) => p.theme.colors.textMuted};
+    text-align: left;
   }
 `;
 
@@ -784,6 +900,23 @@ const PagerBar = styled.div`
 const StyledTable = styled(TableBase)`
   tbody td {
     vertical-align: middle;
+    text-align: center;
+  }
+  tbody td:nth-child(2) {
+    text-align: center;
+  }
+  tbody td:nth-child(3) {
+    text-align: center;
+  }
+  tbody td:nth-child(4) {
+    text-align: center;
+  }
+  thead th {
+    text-align: center;
+  }
+  thead th:first-child,
+  tbody td:first-child {
+    width: 48px;
   }
 `;
 

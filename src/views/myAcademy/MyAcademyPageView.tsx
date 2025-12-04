@@ -82,7 +82,6 @@ export function MyAcademyPageView({
   const billingBlockState = locationState;
   const selectedPlanFromState = billingBlockState?.selectedPlanId;
   const shouldTriggerCardRegister = billingBlockState?.triggerCardRegister;
-  const isBillingBlockForced = billingBlockState?.billingBlock ?? false;
   const lastCustomerKeyRef = useRef<string | null>(null);
   const processedAuthKeyRef = useRef<string | null>(null);
 
@@ -508,6 +507,10 @@ export function MyAcademyPageView({
             <InfoRow>
               <Label>셀러 ID</Label>
               <Value>{seller.data?.refSellerId || "-"}</Value>
+            </InfoRow>
+            <InfoRow title={seller.data?.tossSellerId || undefined}>
+              <Label>토스 셀러 ID</Label>
+              <Value>{seller.data?.tossSellerId || "-"}</Value>
             </InfoRow>
             <InfoRow>
               <Label>정산 계좌</Label>

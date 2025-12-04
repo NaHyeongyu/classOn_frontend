@@ -140,6 +140,19 @@ declare module "@classon/shared-types" {
     [key: string]: unknown;
   }
 
+  export type AdditionalChargeType = "MATERIAL" | "TEXTBOOK" | "OTHER";
+
+  export interface PaymentAdditionalItem {
+    id: number;
+    type?: AdditionalChargeType | null;
+    label?: string | null;
+    quantity?: number | null;
+    unitPrice?: number | null;
+    totalPrice?: number | null;
+    appliedStart?: string | null;
+    appliedEnd?: string | null;
+  }
+
   export interface PaymentHistoryRow {
     id: number;
     status: PaymentStatus;
@@ -201,6 +214,7 @@ declare module "@classon/shared-types" {
     course?: PaymentCourseBrief | null;
     courses?: PaymentCourseBrief[] | null;
     schedule?: PaymentScheduleInfo | null;
+    additionalItems?: PaymentAdditionalItem[] | null;
     alerts?: PaymentAlertLog[] | null;
     latestAlert?: PaymentAlertLog | null;
     [key: string]: unknown;

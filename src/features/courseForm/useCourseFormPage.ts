@@ -52,6 +52,8 @@ type UseCourseFormPageResult = {
   submit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
   onSelectStudent: (student: StudentOption) => void;
   navigateEditStudents: () => void;
+  feeChangeNotice: string | null;
+  onCloseFeeChangeNotice: () => void;
 };
 
 export function useCourseFormPage(): UseCourseFormPageResult {
@@ -98,6 +100,9 @@ export function useCourseFormPage(): UseCourseFormPageResult {
   }, [id]);
 
   const [form, internalSetForm] = useState<FormState>(() => ({ ...DEFAULT_FORM }));
+  const [initialFee, setInitialFee] = useState<number | null>(null);
+  const [feeChangeNotice, setFeeChangeNotice] = useState<string | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [feeInput, setFeeInput] = useState("");
   const toggleDay = useToggleDay(form, internalSetForm);
   const [recurring, setRecurring] = useState(true);
@@ -367,6 +372,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             instructorName: resolvedInstructorName,
           }));
           setFeeInput(found.fee != null ? String(found.fee) : "");
+          setInitialFee(found.fee ?? null);
           ensureInstructorOption(resolvedInstructorId, resolvedInstructorName);
         }
       } catch (err) {
@@ -427,6 +433,16 @@ export function useCourseFormPage(): UseCourseFormPageResult {
           await updateCourse(courseId, payloadForUpdate);
           // Ensure instructor can be cleared/changed, and handle OWNER/ADMIN via follow-up call
           await updateCourseInstructor(courseId, desiredInstructorId);
+          const updatedFee = payload.fee ?? null;
+          const normalizedInitial = initialFee ?? null;
+          const feeChanged = (normalizedInitial ?? null) !== (updatedFee ?? null);
+          setInitialFee(updatedFee ?? null);
+          if (feeChanged) {
+            setFeeChangeNotice("수강료가 변경되어 학생 청구서에 자동으로 반영되었습니다.\n청구서 발송 전에 금액을 다시 확인해 주세요.");
+            setPendingNavigation(paths.classes.detail(courseId));
+          } else {
+            navigate(paths.classes.detail(courseId), { replace: true });
+          }
           setSuccess("수정이 완료되었습니다.");
         } else {
           // For create: backend only accepts TEACHER at create-time. If owner/admin selected self, set after creation.
@@ -440,10 +456,6 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             try { await updateCourseInstructor(created.id, requestedInstructorId); } catch { /* ignore */ }
           }
           setSuccess("수업이 추가되었습니다.");
-        }
-        if (isEdit && courseId) {
-          navigate(paths.classes.detail(courseId), { replace: true });
-        } else {
           navigate(routes.classes, { replace: true });
         }
       } catch (err) {
@@ -452,8 +464,16 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         setSaving(false);
       }
     },
-    [courseId, form, isEdit, isIndividual, navigate, recurring, isOwnerOrAdmin, user?.id],
+    [courseId, form, initialFee, isEdit, isIndividual, navigate, recurring, isOwnerOrAdmin, user?.id],
   );
+
+  const closeFeeNotice = useCallback(() => {
+    setFeeChangeNotice(null);
+    if (pendingNavigation) {
+      navigate(pendingNavigation, { replace: true });
+      setPendingNavigation(null);
+    }
+  }, [navigate, pendingNavigation]);
 
   const onSelectStudent = useCallback((student: StudentOption) => {
     setForm((prev) => ({
@@ -497,5 +517,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
     submit,
     onSelectStudent,
     navigateEditStudents,
+    feeChangeNotice,
+    onCloseFeeChangeNotice: closeFeeNotice,
   };
 }

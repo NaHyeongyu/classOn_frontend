@@ -93,7 +93,6 @@ export default function MyAcademyPlanPage() {
   const billingBlocked = locationState?.reason === "billing-block";
   const [clientKey, setClientKey] = useState<string | null>(null);
   const [academyId, setAcademyId] = useState<number | null>(null);
-  const [isTrialing, setIsTrialing] = useState(false);
   const customerKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -115,12 +114,6 @@ export default function MyAcademyPlanPage() {
         setClientKey(ck?.clientKey || null);
         if (academy) {
           setAcademyId(academy.id);
-          const status = (academy.billingStatus || "").toUpperCase();
-          const endRaw = academy.billingCurrentPeriodEnd;
-          const end = endRaw ? new Date(endRaw) : null;
-          const trialActive =
-            status === "TRIALING" && end !== null && new Date() <= end;
-          setIsTrialing(trialActive);
         }
         if (sub?.id) {
           setSubscription(sub);

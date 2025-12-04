@@ -10,7 +10,6 @@ import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import styled from "styled-components";
-import Modal from "@/components/common/Modal";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 import { routes } from "@/routes";
 
@@ -1467,30 +1466,6 @@ const ReportLabel = styled.h4`
     border-radius: 3px;
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
-  }
-`;
-
-const ReportBox = styled.div`
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 18px;
-  display: grid;
-  gap: 12px;
-`;
-
-const ReportRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 14px;
-  
-  .key {
-    color: #6b7280;
-    font-weight: 500;
-  }
-  .value {
-    color: #111827;
-    font-weight: 600;
   }
 `;
 

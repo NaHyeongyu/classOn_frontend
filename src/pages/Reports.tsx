@@ -1,4 +1,5 @@
 import { PageHeader, SectionCard, PrimaryButton, GhostButtonSmall, EmptyState } from "@/components/common/UI";
+import BackButton from "@/components/common/BackButton";
 import { listCourses, type Course, listCourseStudents, listCourseRecords, type CourseRecord } from "@/api/courses";
 import { getDailyAttendance, type AttendanceDailySummary } from "@/api/attendance";
 import { listExams, listExamResults, type Exam, type ExamResult } from "@/api/exams";
@@ -13,6 +14,7 @@ import styled from "styled-components";
 import Modal from "@/components/common/Modal";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 import { routes } from "@/routes";
+import { numericFromLetter } from "@/features/courseRecord/utils";
 
 type CourseListItem = {
   id: number;
@@ -63,6 +65,10 @@ export default function Reports() {
   const [progressMap, setProgressMap] = useState<Record<number, { saved?: boolean; notified?: boolean; reportId?: number }>>({});
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
+  const [showAttendanceSection, setShowAttendanceSection] = useState(true);
+  const [showGradesSection, setShowGradesSection] = useState(true);
+  const [showLessonsSection, setShowLessonsSection] = useState(true);
+  const [showFeedbackSection, setShowFeedbackSection] = useState(true);
   const hasProgress = useMemo(() => {
     return Object.keys(drafts).length > 0 || selectedStudentIds.length > 0 || mode === "edit";
   }, [drafts, selectedStudentIds.length, mode]);
@@ -466,21 +472,18 @@ export default function Reports() {
       </style>
       <HeaderWrap>
         <PageHeader>
-          <div>
-            <h2>보고서</h2>
-            <p>
-              {mode === "select"
-                ? "좌측에서 수업을 선택하고, 우측에서 보고서를 생성할 학생을 선택하세요."
-                : "좌측에서 학생을 선택해 우측에서 보고서 내용을 미리보고 수정하세요."}
-            </p>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <BackButton label="뒤로" />
+            <div>
+              <h2>보고서</h2>
+              <p>
+                {mode === "select"
+                  ? "좌측에서 수업을 선택하고, 우측에서 보고서를 생성할 학생을 선택하세요."
+                  : "좌측에서 학생을 선택해 우측에서 보고서 내용을 미리보고 수정하세요."}
+              </p>
+            </div>
           </div>
-          <HeaderActions>
-            {mode === "edit" ? (
-              <GhostButtonSmall as="button" type="button" onClick={() => setMode("select")}>
-                학생 다시 선택
-              </GhostButtonSmall>
-            ) : null}
-          </HeaderActions>
+          <HeaderActions>{/* no extra actions for now */}</HeaderActions>
         </PageHeader>
       </HeaderWrap>
 
@@ -697,13 +700,13 @@ export default function Reports() {
               <RightHeader>
                 <div>
                   <RightTitle>보고서 미리보기 / 수정</RightTitle>
-              <RightSubtitle>
-                {activeStudent && selectedCourse
-                  ? `${selectedCourse.title} · ${activeStudent.name} 학생의 보고서 초안입니다.`
-                  : "학생을 선택하면 보고서를 미리보고 수정할 수 있습니다."}
-              </RightSubtitle>
-            </div>
-            <RightActions>
+                  <RightSubtitle>
+                    {activeStudent && selectedCourse
+                      ? `${selectedCourse.title} · ${activeStudent.name} 학생의 보고서 초안입니다.`
+                      : "학생을 선택하면 보고서를 미리보고 수정할 수 있습니다."}
+                  </RightSubtitle>
+                </div>
+                <RightActions>
                   <PrimaryButton
                     type="button"
                     as="button"
@@ -754,8 +757,8 @@ export default function Reports() {
                     </svg>
                     PDF로 저장/인쇄
                   </OutlineButton>
-            </RightActions>
-          </RightHeader>
+                </RightActions>
+              </RightHeader>
           <HintText data-print-hide="true" style={{ marginTop: -8 }}>
             보고서를 저장하면 학생 상세 &gt; 보고서 탭에서 다시 열람/다운로드할 수 있습니다.
           </HintText>
@@ -763,75 +766,111 @@ export default function Reports() {
           {autoError && <ErrorText>{autoError}</ErrorText>}
 
               {activeStudent ? (
-                <ReportPaper>
-                  <ReportPaperInner id="report-print-root">
-                    <ReportPaperHeader>
-                      <div>
-                        <PaperTitle>학습 보고서</PaperTitle>
-                        <PaperSubtitle>
-                          {selectedCourse ? selectedCourse.title : "수업 미지정"}
-                        </PaperSubtitle>
-                      </div>
-                      <PaperMeta>
-                        <dl>
-                          <div>
-                            <dt>학생</dt>
-                            <dd>
-                              {activeStudent.name}
-                              {activeStudent.birthDate && (
-                                <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 4 }}>
-                                  ({activeStudent.birthDate})
-                                </span>
-                              )}
-                            </dd>
-                          </div>
-                          {from && to && (
+                <ReportArea>
+                  <SectionToggleRow>
+                    <SectionToggleLabel>포함할 항목</SectionToggleLabel>
+                    <ToggleChip
+                      type="button"
+                      data-active={showAttendanceSection || undefined}
+                      onClick={() => setShowAttendanceSection((v) => !v)}
+                    >
+                      {showAttendanceSection ? "−" : "+"} 출석
+                    </ToggleChip>
+                    <ToggleChip
+                      type="button"
+                      data-active={showGradesSection || undefined}
+                      onClick={() => setShowGradesSection((v) => !v)}
+                    >
+                      {showGradesSection ? "−" : "+"} 성적
+                    </ToggleChip>
+                    <ToggleChip
+                      type="button"
+                      data-active={showLessonsSection || undefined}
+                      onClick={() => setShowLessonsSection((v) => !v)}
+                    >
+                      {showLessonsSection ? "−" : "+"} 수업 내용
+                    </ToggleChip>
+                    <ToggleChip
+                      type="button"
+                      data-active={showFeedbackSection || undefined}
+                      onClick={() => setShowFeedbackSection((v) => !v)}
+                    >
+                      {showFeedbackSection ? "−" : "+"} 피드백
+                    </ToggleChip>
+                  </SectionToggleRow>
+
+                  <ReportPaper>
+                    <ReportPaperInner id="report-print-root">
+                      <ReportPaperHeader>
+                        <div>
+                          <PaperTitle>학습 보고서</PaperTitle>
+                          <PaperSubtitle>
+                            {selectedCourse ? selectedCourse.title : "수업 미지정"}
+                          </PaperSubtitle>
+                        </div>
+                        <PaperMeta>
+                          <dl>
                             <div>
-                              <dt>기간</dt>
+                              <dt>학생</dt>
                               <dd>
-                                {from} ~ {to}
+                                {activeStudent.name}
+                                {activeStudent.birthDate && (
+                                  <span style={{ fontWeight: 400, color: "#6b7280", marginLeft: 4 }}>
+                                    ({activeStudent.birthDate})
+                                  </span>
+                                )}
                               </dd>
                             </div>
-                          )}
-                        </dl>
-                      </PaperMeta>
-                    </ReportPaperHeader>
+                            {from && to && (
+                              <div>
+                                <dt>기간</dt>
+                                <dd>
+                                  {from} ~ {to}
+                                </dd>
+                              </div>
+                            )}
+                          </dl>
+                        </PaperMeta>
+                      </ReportPaperHeader>
 
-                    <ReportLayout>
+                      <ReportLayout>
                       {/* Student Info Section Removed for brevity */}
 
-                      <ReportSection>
-                        <ReportLabel>출석 내역</ReportLabel>
-                        {activeDetail?.attendance && activeDetail.attendance.length > 0 ? (
-                          <AttendanceList>
-                            {activeDetail.attendance.slice(0, 30).map((row) => (
-                              <li key={`${row.date}-${row.present ? "P" : "A"}`}>
-                                <div className="top">
-                                  <span className="date">{row.date}</span>
-                                  <span className={`status ${row.present ? "present" : "absent"}`}>
-                                    {row.present ? "출석" : "결석"}
-                                  </span>
-                                </div>
-                                {!row.present && row.reason && (
-                                  <span className="reason">{row.reason}</span>
-                                )}
-                              </li>
-                            ))}
-                            {activeDetail.attendance.length > 30 && (
-                              <li className="more">
-                                <span>외 {activeDetail.attendance.length - 30}회 기록</span>
-                              </li>
-                            )}
-                          </AttendanceList>
-                        ) : (
-                          <EmptyHint>선택한 기간에 기록된 출석 데이터가 없습니다.</EmptyHint>
-                        )}
-                      </ReportSection>
+                      {showAttendanceSection && (
+                        <ReportSection>
+                          <ReportLabel>출석 내역</ReportLabel>
+                          {activeDetail?.attendance && activeDetail.attendance.length > 0 ? (
+                            <AttendanceList>
+                              {activeDetail.attendance.slice(0, 30).map((row) => (
+                                <li key={`${row.date}-${row.present ? "P" : "A"}`}>
+                                  <div className="top">
+                                    <span className="date">{row.date}</span>
+                                    <span className={`status ${row.present ? "present" : "absent"}`}>
+                                      {row.present ? "출석" : "결석"}
+                                    </span>
+                                  </div>
+                                  {!row.present && row.reason && (
+                                    <span className="reason">{row.reason}</span>
+                                  )}
+                                </li>
+                              ))}
+                              {activeDetail.attendance.length > 30 && (
+                                <li className="more">
+                                  <span>외 {activeDetail.attendance.length - 30}회 기록</span>
+                                </li>
+                              )}
+                            </AttendanceList>
+                          ) : (
+                            <EmptyHint>선택한 기간에 기록된 출석 데이터가 없습니다.</EmptyHint>
+                          )}
+                        </ReportSection>
+                      )}
 
-                      <ReportSection>
-                        <ReportLabel>성적 내역</ReportLabel>
-                        {activeDetail?.grades && activeDetail.grades.length > 0 ? (
-                          <GradesChartContainer>
+                      {showGradesSection && (
+                        <ReportSection>
+                          <ReportLabel>성적 내역</ReportLabel>
+                          {activeDetail?.grades && activeDetail.grades.length > 0 ? (
+                            <GradesChartContainer>
                             {(() => {
                               const sortedGrades = [...activeDetail.grades].sort((a, b) =>
                                 (a.date || "").localeCompare(b.date || "")
@@ -846,13 +885,40 @@ export default function Reports() {
                               const graphWidth = width - padding.left - padding.right;
                               const graphHeight = height - padding.top - padding.bottom;
 
+                              // Determine grading mode: pure letter vs numeric/percent
+                              const hasLetter = sortedGrades.some((g) => g.level && g.level.trim().length > 0);
+                              const hasNumericOnly = sortedGrades.some((g) => !g.level);
+                              const letterMode = hasLetter && !hasNumericOnly;
+
+                              const letterTicks = ["F", "E", "D", "C", "B", "A"];
+                              const numericTicks = [0, 25, 50, 75, 100];
+                              const ticks = letterMode ? letterTicks : numericTicks;
+
+                              const normFromGrade = (item: GradePoint): number => {
+                                if (!letterMode) {
+                                  return Math.max(0, Math.min(1, item.percent / 100));
+                                }
+                                const raw = (item.level || "").trim();
+                                if (!raw) {
+                                  return Math.max(0, Math.min(1, item.percent / 100));
+                                }
+                                const letter = raw[0]?.toUpperCase();
+                                const idx = letterTicks.indexOf(letter);
+                                if (idx < 0) {
+                                  return Math.max(0, Math.min(1, item.percent / 100));
+                                }
+                                const maxIdx = letterTicks.length - 1;
+                                return maxIdx > 0 ? idx / maxIdx : 0;
+                              };
+
                               // Calculate coordinates
                               const points = sortedGrades.map((item, index) => {
                                 const x =
                                   sortedGrades.length === 1
                                     ? graphWidth / 2
                                     : (index / (sortedGrades.length - 1)) * graphWidth;
-                                const y = graphHeight - (item.percent / 100) * graphHeight;
+                                const norm = normFromGrade(item);
+                                const y = graphHeight - norm * graphHeight;
                                 return { x: x + padding.left, y: y + padding.top, item };
                               });
 
@@ -863,8 +929,11 @@ export default function Reports() {
                               return (
                                 <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto", overflow: "visible" }}>
                                   {/* Grid lines */}
-                                  {[0, 25, 50, 75, 100].map((tick) => {
-                                    const y = padding.top + graphHeight - (tick / 100) * graphHeight;
+                                  {ticks.map((tick, index) => {
+                                    const norm = letterMode
+                                      ? (index / Math.max(1, ticks.length - 1))
+                                      : ((tick as number) / 100);
+                                    const y = padding.top + graphHeight - norm * graphHeight;
                                     return (
                                       <g key={tick}>
                                         <line
@@ -883,7 +952,7 @@ export default function Reports() {
                                           fontSize="11"
                                           fill="#9ca3af"
                                         >
-                                          {tick}
+                                          {letterMode ? (tick as string) : tick}
                                         </text>
                                       </g>
                                     );
@@ -907,7 +976,7 @@ export default function Reports() {
                                         fontWeight="bold"
                                         fill="#111827"
                                       >
-                                        {Math.round(p.item.percent)}점
+                                        {p.item.level ? p.item.level : `${Math.round(p.item.percent)}점`}
                                       </text>
                                       {/* Date/Title label */}
                                       <text
@@ -934,45 +1003,51 @@ export default function Reports() {
                                 </svg>
                               );
                             })()}
-                          </GradesChartContainer>
+                            </GradesChartContainer>
 
-                        ) : (
-                          <EmptyHint>선택한 기간에 등록된 성적 데이터가 없습니다.</EmptyHint>
-                        )}
-                      </ReportSection>
+                          ) : (
+                            <EmptyHint>선택한 기간에 등록된 성적 데이터가 없습니다.</EmptyHint>
+                          )}
+                        </ReportSection>
+                      )}
 
-                      <ReportSection>
-                        <ReportLabel>수업 내용</ReportLabel>
-                        {activeDetail?.lessons && activeDetail.lessons.length > 0 ? (
-                          <LessonList>
-                            {activeDetail.lessons.slice(0, 20).map((item, index) => (
-                              <li key={`${item.date}-${index}`}>
-                                <span className="date">{item.date}</span>
-                                <span className="topic">{item.topic || "내용 없음"}</span>
-                              </li>
-                            ))}
-                            {activeDetail.lessons.length > 20 && (
-                              <li className="more">
-                                <span>외 {activeDetail.lessons.length - 20}개의 수업 기록</span>
-                              </li>
-                            )}
-                          </LessonList>
-                        ) : (
-                          <EmptyHint>선택한 기간에 수업 기록이 없습니다.</EmptyHint>
-                        )}
-                      </ReportSection>
+                      {showLessonsSection && (
+                        <ReportSection>
+                          <ReportLabel>수업 내용</ReportLabel>
+                          {activeDetail?.lessons && activeDetail.lessons.length > 0 ? (
+                            <LessonList>
+                              {activeDetail.lessons.slice(0, 20).map((item, index) => (
+                                <li key={`${item.date}-${index}`}>
+                                  <span className="date">{item.date}</span>
+                                  <span className="topic">{item.topic || "내용 없음"}</span>
+                                </li>
+                              ))}
+                              {activeDetail.lessons.length > 20 && (
+                                <li className="more">
+                                  <span>외 {activeDetail.lessons.length - 20}개의 수업 기록</span>
+                                </li>
+                              )}
+                            </LessonList>
+                          ) : (
+                            <EmptyHint>선택한 기간에 수업 기록이 없습니다.</EmptyHint>
+                          )}
+                        </ReportSection>
+                      )}
 
-                      <ReportSection>
-                        <ReportLabel>선생님 피드백</ReportLabel>
-                        <ReportTextarea
-                          placeholder="학생의 전반적인 학습 태도, 강점/개선점, 향후 학습 제안 등을 작성하세요."
-                          value={activeDraft.comment}
-                          onChange={(event) => handleChangeDraft("comment", event.target.value)}
-                        />
-                      </ReportSection>
+                      {showFeedbackSection && (
+                        <ReportSection>
+                          <ReportLabel>선생님 피드백</ReportLabel>
+                          <ReportTextarea
+                            placeholder="학생의 전반적인 학습 태도, 강점/개선점, 향후 학습 제안 등을 작성하세요."
+                            value={activeDraft.comment}
+                            onChange={(event) => handleChangeDraft("comment", event.target.value)}
+                          />
+                        </ReportSection>
+                      )}
                     </ReportLayout>
                   </ReportPaperInner>
                 </ReportPaper>
+                </ReportArea>
               ) : (
                 <EmptyRow>좌측에서 학생을 선택하면 보고서 내용을 작성할 수 있습니다.</EmptyRow>
               )}
@@ -1014,13 +1089,13 @@ function buildCourseMeta(course: Course): string {
 }
 
 const Viewport = styled.div`
-  height: calc(100vh - 48px);
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  min-height: calc(100vh - 48px);
+  overflow: visible;
 
   @media print {
-    height: auto;
+    min-height: auto;
     overflow: visible;
   }
 `;
@@ -1038,13 +1113,55 @@ const HeaderActions = styled.div`
   justify-content: flex-end;
 `;
 
+const SectionToggleLabel = styled.span`
+  font-size: 11px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.textMuted};
+  white-space: nowrap;
+  margin-right: 4px;
+`;
+
+const SectionToggleRow = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid ${(p) => p.theme.colors.borderMuted};
+  
+  @media print {
+    display: none;
+  }
+`;
+
+const ToggleChip = styled.button`
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: #6b7280;
+  &[data-active='true'] {
+    border-color: #4f46e5;
+    background: #eef2ff;
+    color: #4338ca;
+  }
+`;
+
 const ContentGrid = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.xl};
   grid-template-columns: 1fr;
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
+  min-height: auto;
+  overflow: visible;
   @media (min-width: 1120px) {
     grid-template-columns: 360px 1fr;
   }
@@ -1057,8 +1174,8 @@ const ContentGrid = styled.div`
 
 const LeftColumn = styled.div`
   display: flex;
-  min-height: 0;
-  overflow: hidden;
+  min-height: auto;
+  overflow: visible;
 
   @media print {
     display: none;
@@ -1068,7 +1185,7 @@ const LeftColumn = styled.div`
 const RightColumn = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.xl};
-  min-height: 0;
+  min-height: auto;
 
   @media print {
     display: block;
@@ -1356,15 +1473,20 @@ const ReportPaper = styled.div`
   }
 `;
 
+const ReportArea = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+
 const ReportPaperInner = styled.div`
   width: 100%;
   max-width: 794px; /* A4 width approx */
-  max-height: calc(100vh - 180px);
   background: #ffffff;
   box-shadow: 0 12px 30px -8px rgba(15, 23, 42, 0.28);
   border: 1px solid #e2e8f0;
   padding: 48px;
-  overflow-y: auto;
+  overflow-y: visible;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -1375,7 +1497,6 @@ const ReportPaperInner = styled.div`
   @media print {
     box-shadow: none;
     border: none;
-    max-height: none;
     height: auto;
     overflow: visible;
     padding: 0;
@@ -1731,7 +1852,7 @@ const KakaoButton = styled.button`
 `;
 
 type AttendancePoint = { date: string; present: boolean; reason?: string | null };
-type GradePoint = { examId: number; title: string; date?: string; percent: number };
+type GradePoint = { examId: number; title: string; date?: string; percent: number; level?: string | null };
 type LessonPoint = { date: string; topic?: string | null };
 
 type AutoDetails = {
@@ -1809,9 +1930,15 @@ async function buildAutoDrafts(
         const results: ExamResult[] = await listExamResults(courseId, exam.id);
         for (const row of results) {
           if (!studentSet.has(row.studentId)) continue;
-          if (row.score == null) continue;
-          const total = row.outOf ?? 100;
-          const percent = total > 0 ? (row.score / total) * 100 : row.score;
+          let percent: number | null = null;
+          if (row.score != null) {
+            const total = row.outOf ?? 100;
+            percent = total > 0 ? (row.score / total) * 100 : row.score;
+          } else if (row.level) {
+            const numeric = numericFromLetter(row.level);
+            if (numeric != null) percent = numeric;
+          }
+          if (percent == null) continue;
           if (!resultsByStudent[row.studentId]) {
             resultsByStudent[row.studentId] = { scores: [] };
           }
@@ -1926,15 +2053,22 @@ async function buildAutoDetails(
         const results: ExamResult[] = await listExamResults(courseId, exam.id);
         for (const row of results) {
           if (!studentSet.has(row.studentId)) continue;
-          if (row.score == null) continue;
-          const total = row.outOf ?? 100;
-          const percent = total > 0 ? (row.score / total) * 100 : row.score;
+          let percent: number | null = null;
+          if (row.score != null) {
+            const total = row.outOf ?? 100;
+            percent = total > 0 ? (row.score / total) * 100 : row.score;
+          } else if (row.level) {
+            const numeric = numericFromLetter(row.level);
+            if (numeric != null) percent = numeric;
+          }
+          if (percent == null) continue;
           if (!gradesMap[row.studentId]) gradesMap[row.studentId] = [];
           gradesMap[row.studentId].push({
             examId: exam.id,
             title: exam.title,
             date: exam.examDate,
             percent,
+            level: row.level ?? null,
           });
         }
       }

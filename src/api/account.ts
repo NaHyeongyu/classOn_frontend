@@ -17,6 +17,16 @@ export type AcademyDetail = {
   stage?: "DEVELOPMENT" | "TEST" | "PRODUCTION";
 };
 
+export type PlanUsage = {
+  planId: string;
+  planName?: string | null;
+  studentLimit?: number | null;
+  studentCount: number;
+  teacherLimit?: number | null;
+  teacherCount: number;
+  marketingLimit?: number | null;
+};
+
 export type SellerCompany = {
   name?: string;
   representativeName?: string;
@@ -61,6 +71,10 @@ export type SellerUpsertPayload = {
 
 export async function apiGetMyAcademy(): Promise<AcademyDetail> {
   return fetchJSON<AcademyDetail>("/api/account/academy");
+}
+
+export async function apiGetPlanUsage(): Promise<PlanUsage> {
+  return fetchJSON<PlanUsage>("/api/account/plan-usage");
 }
 
 export async function apiUpdateMyAcademy(payload: Partial<AcademyDetail> & { name: string; category1: string }): Promise<AcademyDetail> {

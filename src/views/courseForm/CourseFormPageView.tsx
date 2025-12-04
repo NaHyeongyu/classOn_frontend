@@ -219,6 +219,6 @@ export function CourseFormPageView({
 const Sections = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: ${(p) => p.theme.spacing.pageGap};
+  gap: 24px;
   align-items: start;
 `;

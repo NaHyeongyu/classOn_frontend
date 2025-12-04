@@ -15,6 +15,7 @@ const Students = lazy(() => import("@/pages/Students"));
 const Classes = lazy(() => import("@/pages/Classes"));
 const CourseForm = lazy(() => import("@/pages/CourseForm"));
 const CourseDetail = lazy(() => import("@/pages/CourseDetail"));
+const Materials = lazy(() => import("@/pages/Materials"));
 const CourseStudentsEdit = lazy(() => import("@/pages/CourseStudentsEdit"));
 const CourseRecordDetail = lazy(() => import("@/pages/CourseRecordDetail"));
 const Attendance = lazy(() => import("@/pages/Attendance"));
@@ -149,6 +150,7 @@ export default function App() {
           <Route path={routes.classesEditStudents} element={<CourseStudentsEdit />} />
           <Route path={routes.classesDetail} element={<CourseDetail />} />
           <Route path={routes.classesDetailTab} element={<CourseDetail />} />
+          <Route path={routes.materials} element={<Materials />} />
           <Route path={routes.classHistoryRecord} element={<CourseRecordDetail />} />
           <Route path={routes.classHistoryDate} element={<CourseRecordDetail />} />
           <Route path={routes.attendance} element={<Attendance />} />

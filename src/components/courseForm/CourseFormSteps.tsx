@@ -479,7 +479,7 @@ export function CourseFormDetailsStep({
         <Field>
           <Label>수강료</Label>
           <FeeWrap>
-            <Input
+            <FeeInput
               type="text"
               inputMode="numeric"
               value={feeInput}
@@ -492,7 +492,6 @@ export function CourseFormDetailsStep({
                 }));
               }}
               placeholder="예: 150,000"
-              style={{ paddingRight: 38 }}
             />
             <Suffix>원</Suffix>
           </FeeWrap>
@@ -588,6 +587,8 @@ const Input = styled.input`
   border-radius: ${(p) => p.theme.radii.md};
   padding: 0 ${(p) => p.theme.spacing.sm};
   font-size: ${(p) => p.theme.font.size.sm};
+  width: 100%;
+  box-sizing: border-box;
   color: ${(p) => p.theme.colors.text};
   &:focus {
     outline: none;
@@ -719,23 +720,30 @@ const ChipBtn = styled.button`
 `;
 
 const TimeRow = styled.div`
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: ${(p) => p.theme.spacing.xs};
+  width: 100%;
   span {
     font-size: ${(p) => p.theme.font.size.sm};
     color: ${(p) => p.theme.colors.textMuted};
+    flex-shrink: 0;
   }
 `;
 
 const TimeSelect = styled(SelectBox)`
-  min-width: 80px;
+  min-width: 0;
+  flex: 1;
 `;
 
 const FeeWrap = styled.div`
   position: relative;
   display: inline-flex;
   width: 100%;
+`;
+
+const FeeInput = styled(Input)`
+  padding-right: 38px;
 `;
 
 const Suffix = styled.span`

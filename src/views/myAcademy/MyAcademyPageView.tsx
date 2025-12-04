@@ -410,25 +410,22 @@ export function MyAcademyPageView({
           <Hint>불러오는 중...</Hint>
         ) : billing.data ? (
           <>
-            <InfoRow>
-              <Label>현재 요금제</Label>
-              <ValueRow>
-                <span>{currentPlanLabel}</span>
-                {!isTrialing && (
-                  <InlineButton type="button" onClick={handleOpenPlanPage}>
-                    요금제 변경
-                  </InlineButton>
-                )}
-              </ValueRow>
-            </InfoRow>
-            <InfoRow>
-              <Label>월 요금</Label>
-              <Value>{formatMoney((billing.data.amountCents || 0) / 100)}</Value>
-            </InfoRow>
-            <InfoRow>
-              <Label>상태</Label>
-              <Value>{subscriptionStatus}</Value>
-            </InfoRow>
+            <CurrentPlanHighlight>
+              <PlanBadge data-status={subscriptionStatus}>
+                {subscriptionStatus}
+              </PlanBadge>
+              <CurrentPlanName>{currentPlanLabel}</CurrentPlanName>
+              <CurrentPlanPrice>
+                {formatMoney((billing.data.amountCents || 0) / 100)}
+                <span>/월</span>
+              </CurrentPlanPrice>
+              {!isTrialing && (
+                <ChangePlanButton type="button" onClick={handleOpenPlanPage}>
+                  요금제 변경
+                </ChangePlanButton>
+              )}
+            </CurrentPlanHighlight>
+            
             <InfoRow>
               <Label>다음 청구 예정일</Label>
               <Value>{billing.data.nextChargeAt ? new Date(billing.data.nextChargeAt).toLocaleString("ko-KR") : "예약 없음"}</Value>
@@ -456,16 +453,18 @@ export function MyAcademyPageView({
           </>
         ) : (
           <>
-            <InfoRow>
-              <Label>현재 요금제</Label>
-              <Value>{currentPlanLabel}</Value>
-            </InfoRow>
-            {isTrialing && (
-              <InfoRow>
-                <Label>체험 종료일</Label>
-                <Value>{trialEndLabel}</Value>
-              </InfoRow>
-            )}
+            <CurrentPlanHighlight>
+              <PlanBadge data-status="Free">
+                {isTrialing ? "체험 중" : "Free"}
+              </PlanBadge>
+              <CurrentPlanName>{currentPlanLabel}</CurrentPlanName>
+              {isTrialing && (
+                <TrialEndInfo>
+                  체험 종료일: {trialEndLabel}
+                </TrialEndInfo>
+              )}
+            </CurrentPlanHighlight>
+            
             {!isTrialing && (
               <>
                 <Hint>요금제 선택 후 카드 등록을 진행하면 자동결제가 시작됩니다.</Hint>
@@ -550,91 +549,92 @@ export function MyAcademyLoadingView() {
 
 const Container = styled.div`
   display: grid;
-  gap: 16px;
+  gap: ${(p) => p.theme.spacing.lg};
 `;
 
 const Header = styled.header`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 32px;
+  gap: ${(p) => p.theme.spacing.md};
+  margin-bottom: ${(p) => p.theme.spacing.xxl};
   
   h1 {
     margin: 0;
-    font-size: 28px;
-    font-weight: 700;
-    color: #111827;
-    letter-spacing: -0.01em;
+    font-size: ${(p) => p.theme.font.size.display};
+    font-weight: ${(p) => p.theme.font.weight.bold};
+    color: ${(p) => p.theme.colors.text};
+    letter-spacing: -0.02em;
   }
   p {
     margin: 6px 0 0;
-    color: #6b7280;
-    font-size: 15px;
+    color: ${(p) => p.theme.colors.textMuted};
+    font-size: ${(p) => p.theme.font.size.md};
   }
 `;
 
 const HeaderActions = styled.div`
   display: flex;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.xs};
   align-items: center;
 `;
 
 const OutlineButton = styled.button`
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  color: #374151;
-  font-weight: 600;
-  border-radius: 12px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: ${(p) => p.theme.colors.surface};
+  color: ${(p) => p.theme.colors.text};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  border-radius: ${(p) => p.theme.radii.sm};
   padding: 10px 18px;
   cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
+  font-size: ${(p) => p.theme.font.size.md};
+  transition: all ${(p) => p.theme.motion.duration.base} ${(p) => p.theme.motion.easing.standard};
+  
   &:hover:not(:disabled) {
-    background: #f9fafb;
-    border-color: #d1d5db;
+    background: ${(p) => p.theme.colors.surfaceMuted};
+    border-color: ${(p) => p.theme.colors.borderStrong};
   }
   &:disabled {
     cursor: not-allowed;
-    opacity: 0.6;
+    opacity: 0.5;
   }
 `;
 
 const Card = styled.section`
-  border: 1px solid #f1f5f9;
-  border-radius: 20px;
-  background: #ffffff;
-  padding: 28px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  background: ${(p) => p.theme.colors.surface};
+  padding: ${(p) => p.theme.spacing.xl};
   display: flex;
   flex-direction: column;
   gap: 0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
+  box-shadow: ${(p) => p.theme.shadow.low};
 `;
 
 const SectionHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #f8fafc;
+  gap: ${(p) => p.theme.spacing.md};
+  margin-bottom: ${(p) => p.theme.spacing.md};
+  padding-bottom: ${(p) => p.theme.spacing.md};
+  border-bottom: 1px solid ${(p) => p.theme.colors.borderMuted};
 `;
 
 const SectionTitle = styled.h2`
   margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: #111827;
+  font-size: ${(p) => p.theme.font.size.lg};
+  font-weight: ${(p) => p.theme.font.weight.bold};
+  color: ${(p) => p.theme.colors.text};
 `;
 
 const InfoRow = styled.div`
   display: grid;
   grid-template-columns: 160px 1fr;
-  gap: 16px;
+  gap: ${(p) => p.theme.spacing.md};
   align-items: center;
-  padding: 16px 0;
-  border-bottom: 1px solid #f8fafc;
+  padding: ${(p) => p.theme.spacing.md} 0;
+  border-bottom: 1px solid ${(p) => p.theme.colors.borderMuted};
 
   &:last-child {
     border-bottom: none;
@@ -643,46 +643,46 @@ const InfoRow = styled.div`
 
   @media (max-width: 640px) {
     grid-template-columns: 1fr;
-    gap: 6px;
+    gap: ${(p) => p.theme.spacing.xs};
     align-items: flex-start;
-    padding: 12px 0;
+    padding: ${(p) => p.theme.spacing.sm} 0;
   }
 `;
 
 const Label = styled.span`
-  font-size: 13px;
-  font-weight: 500;
-  color: #6b7280;
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.medium};
+  color: ${(p) => p.theme.colors.textMuted};
 `;
 
 const Value = styled.span`
-  font-size: 15px;
-  color: #111827;
-  font-weight: 600;
+  font-size: ${(p) => p.theme.font.size.md};
+  color: ${(p) => p.theme.colors.text};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
   display: block;
-  line-height: 1.5;
+  line-height: ${(p) => p.theme.font.lineHeight.normal};
 `;
 
 const ValueRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.sm};
   flex-wrap: wrap;
 `;
 
 const InlineButton = styled.button`
   border: none;
   background: transparent;
-  color: #4f46e5;
-  font-size: 14px;
-  font-weight: 600;
+  color: ${(p) => p.theme.colors.primary};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
   cursor: pointer;
   padding: 0;
-  transition: color 0.2s;
+  transition: color ${(p) => p.theme.motion.duration.base};
   
   &:hover {
-    color: #4338ca;
+    color: ${(p) => p.theme.colors.primaryHover};
     text-decoration: underline;
   }
 `;
@@ -690,28 +690,37 @@ const InlineButton = styled.button`
 const Hint = styled.p.withConfig({
   shouldForwardProp: (prop) => prop !== "danger",
 })<{ danger?: boolean }>`
-  margin: 6px 0 0;
-  font-size: 12px;
-  color: ${({ danger }) => (danger ? "#b91c1c" : "#6b7280")};
+  margin: ${(p) => p.theme.spacing.xs} 0 0;
+  font-size: ${(p) => p.theme.font.size.xs};
+  color: ${({ danger, theme }) => (danger ? theme.colors.danger : theme.colors.textMuted)};
 `;
 
 const SellerRegisterButton = styled.button`
   border: none;
-  background: #4f46e5;
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 12px;
+  background: ${(p) => p.theme.colors.primary};
+  color: ${(p) => p.theme.colors.textInverted};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  border-radius: ${(p) => p.theme.radii.sm};
   padding: 10px 18px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.2s;
+  transition: all ${(p) => p.theme.motion.duration.base} ${(p) => p.theme.motion.easing.standard};
+  box-shadow: ${(p) => p.theme.shadow.medium};
   
   &:hover:not(:disabled) {
-    background: #4338ca;
+    background: ${(p) => p.theme.colors.primaryHover};
+    transform: translateY(-1px);
+    box-shadow: ${(p) => p.theme.shadow.high};
   }
+  
+  &:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: ${(p) => p.theme.shadow.low};
+  }
+  
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
@@ -721,47 +730,55 @@ const SellerRegisterButton = styled.button`
 const SellerHeaderActions = styled.div`
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: ${(p) => p.theme.spacing.sm};
   flex-wrap: wrap;
   justify-content: flex-end;
   min-height: 34px;
 `;
 
 const HeaderHint = styled.span`
-  font-size: 12px;
-  color: #6b7280;
+  font-size: ${(p) => p.theme.font.size.xs};
+  color: ${(p) => p.theme.colors.textMuted};
 `;
 
-/* removed unused TeacherActions/PrimaryButton */
-
 const ErrorBanner = styled.div`
-  border-radius: 12px;
-  background: #fee2e2;
-  border: 1px solid #fecaca;
-  padding: 12px 16px;
-  color: #b91c1c;
-  font-size: 13px;
+  border-radius: ${(p) => p.theme.radii.sm};
+  background: ${(p) => p.theme.colors.dangerSurface};
+  border: 1px solid ${(p) => p.theme.colors.danger};
+  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.md};
+  color: ${(p) => p.theme.colors.danger};
+  font-size: ${(p) => p.theme.font.size.sm};
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: ${(p) => p.theme.spacing.sm};
 `;
 
 const DismissButton = styled.button`
   border: none;
   background: transparent;
-  color: #b91c1c;
-  font-weight: 600;
+  color: ${(p) => p.theme.colors.danger};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
   cursor: pointer;
+  font-size: ${(p) => p.theme.font.size.sm};
+  
+  &:hover {
+    text-decoration: underline;
+  }
 `;
 
 const SkeletonCard = styled.div`
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 18px;
-  background: linear-gradient(90deg, #f3f4f6 0%, #f9fafb 50%, #f3f4f6 100%);
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: ${(p) => p.theme.spacing.xl};
+  background: linear-gradient(
+    90deg,
+    ${(p) => p.theme.colors.gray100} 0%,
+    ${(p) => p.theme.colors.gray200} 50%,
+    ${(p) => p.theme.colors.gray100} 100%
+  );
   background-size: 200% 100%;
-  animation: shimmer 1.6s infinite;
+  animation: shimmer 1.6s ease-in-out infinite;
 
   @keyframes shimmer {
     0% {
@@ -774,31 +791,124 @@ const SkeletonCard = styled.div`
 `;
 
 const ActionsRow = styled.div`
-  margin-top: 12px;
+  margin-top: ${(p) => p.theme.spacing.sm};
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.xs};
 `;
 
 const DangerInlineButton = styled.button`
-  border: 1px solid #fecaca;
-  background: #fff1f2;
-  color: #e11d48;
-  font-size: 13px;
-  font-weight: 600;
-  border-radius: 12px;
+  border: 1px solid ${(p) => p.theme.colors.danger};
+  background: ${(p) => p.theme.colors.dangerSurface};
+  color: ${(p) => p.theme.colors.danger};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  border-radius: ${(p) => p.theme.radii.sm};
   padding: 8px 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all ${(p) => p.theme.motion.duration.base} ${(p) => p.theme.motion.easing.standard};
   
   &:hover:not(:disabled) {
-    background: #ffe4e6;
-    border-color: #fda4af;
+    background: ${(p) => p.theme.colors.danger};
+    color: ${(p) => p.theme.colors.textInverted};
   }
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
+`;
+
+const CurrentPlanHighlight = styled.div`
+  background: linear-gradient(135deg, ${(p) => p.theme.colors.primarySurface} 0%, ${(p) => p.theme.colors.surface} 100%);
+  border: 1px solid ${(p) => p.theme.colors.primary}20;
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: ${(p) => p.theme.spacing.lg};
+  margin-bottom: ${(p) => p.theme.spacing.md};
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.sm};
+  align-items: center;
+  text-align: center;
+`;
+
+const PlanBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: ${(p) => p.theme.font.size.xs};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  
+  &[data-status="정상"],
+  &[data-status="Free"] {
+    background: ${(p) => p.theme.colors.successSurface};
+    color: ${(p) => p.theme.colors.success};
+    border: 1px solid ${(p) => p.theme.colors.success};
+  }
+  
+  &[data-status="연체"] {
+    background: ${(p) => p.theme.colors.dangerSurface};
+    color: ${(p) => p.theme.colors.danger};
+    border: 1px solid ${(p) => p.theme.colors.danger};
+  }
+  
+  &[data-status="해지됨"] {
+    background: ${(p) => p.theme.colors.surfaceMuted};
+    color: ${(p) => p.theme.colors.textMuted};
+    border: 1px solid ${(p) => p.theme.colors.borderMuted};
+  }
+`;
+
+const CurrentPlanName = styled.div`
+  font-size: ${(p) => p.theme.font.size.xl};
+  font-weight: ${(p) => p.theme.font.weight.bold};
+  color: ${(p) => p.theme.colors.text};
+  margin-top: ${(p) => p.theme.spacing.xs};
+`;
+
+const CurrentPlanPrice = styled.div`
+  font-size: ${(p) => p.theme.font.size.display};
+  font-weight: ${(p) => p.theme.font.weight.bold};
+  color: ${(p) => p.theme.colors.primary};
+  letter-spacing: -0.02em;
+  
+  span {
+    font-size: ${(p) => p.theme.font.size.lg};
+    color: ${(p) => p.theme.colors.textMuted};
+    font-weight: ${(p) => p.theme.font.weight.medium};
+    margin-left: 4px;
+  }
+`;
+
+const ChangePlanButton = styled.button`
+  margin-top: ${(p) => p.theme.spacing.xs};
+  padding: 10px 24px;
+  background: ${(p) => p.theme.colors.primary};
+  color: ${(p) => p.theme.colors.textInverted};
+  border: none;
+  border-radius: ${(p) => p.theme.radii.sm};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  cursor: pointer;
+  transition: all ${(p) => p.theme.motion.duration.base} ${(p) => p.theme.motion.easing.standard};
+  
+  &:hover {
+    background: ${(p) => p.theme.colors.primaryHover};
+    transform: translateY(-1px);
+    box-shadow: ${(p) => p.theme.shadow.medium};
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
+const TrialEndInfo = styled.div`
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.textMuted};
+  margin-top: ${(p) => p.theme.spacing.xs};
 `;
 
 type BillingPlan = { id: string; name: string; priceKrw: number };

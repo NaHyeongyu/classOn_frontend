@@ -26,6 +26,7 @@ export const routes = {
   classHistoryDate: '/classes/:id/history/date/:ymd',
 
   attendance: '/attendance',
+  materials: '/materials',
   reports: '/reports',
 
   payments: '/payments',

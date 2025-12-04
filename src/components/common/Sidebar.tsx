@@ -27,7 +27,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   const items = useMemo<NavItem[]>(() => {
     const normalize = (key: unknown) =>
       typeof key === "string" ? key.trim().toUpperCase() : String(key || "").trim().toUpperCase();
-    const teacherMenuKeys = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "FEEDBACK"];
+    const teacherMenuKeys = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "MATERIALS", "FEEDBACK"];
     const teacherMenuSet = new Set(teacherMenuKeys);
 
     const rawMenus = Array.isArray(user?.menus) ? user?.menus ?? [] : [];
@@ -38,6 +38,8 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
     );
 
     let allowedMenus: Set<string> | null = normalizedMenus.size > 0 ? normalizedMenus : null;
+    // 자료실 노출 강제: 메뉴 설정이 존재하더라도 MATERIALS 권한은 기본 포함
+    if (allowedMenus) allowedMenus.add("MATERIALS");
     if (isTeacher) {
       if (allowedMenus) {
         const filtered = Array.from(allowedMenus).filter((key) => teacherMenuSet.has(key));
@@ -51,6 +53,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
         { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
         { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
         { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
+        { key: "materials", label: "자료실", sub: "Materials", to: routes.materials, menuKey: "MATERIALS" },
         { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
       ];
       return teacherItems.filter((item) => {
@@ -65,6 +68,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
       { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
       { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
+      { key: "materials", label: "자료실", sub: "Materials", to: routes.materials, menuKey: "MATERIALS" },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments, menuKey: "PAYMENTS" },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing, menuKey: "MARKETING" },
       { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
@@ -327,6 +331,22 @@ function renderIcon(key: string) {
           <rect x="3" y="3" width="4" height="18" />
           <rect x="10" y="9" width="4" height="12" />
           <rect x="17" y="13" width="4" height="8" />
+        </svg>
+      );
+    case "materials":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+          <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2" />
         </svg>
       );
     case "marketing":

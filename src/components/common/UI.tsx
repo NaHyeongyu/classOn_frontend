@@ -81,6 +81,16 @@ export const PageHeader = styled.header`
   }
 `;
 
+// Simple page title (fallback when PageHeader is overkill)
+export const PageTitle = styled.h1`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.display};
+  font-weight: ${(p) => p.theme.font.weight.bold};
+  line-height: ${(p) => p.theme.font.lineHeight.tight};
+  color: ${(p) => p.theme.colors.text};
+  letter-spacing: -0.01em;
+`;
+
 export const Scroller = styled.div`
   overflow: auto;
 `;

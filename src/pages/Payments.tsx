@@ -3057,6 +3057,10 @@ const CandidateTable = styled(TableBase)`
 
 const TableWrapper = styled.div`
   overflow-x: auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 `;
 
 const SelectButton = styled(PrimaryButton)`
@@ -3321,11 +3325,13 @@ const CenteredTable = styled(StyledTable)`
 `;
 
 const PagerBar = styled.div`
-  margin-top: 12px;
-  display: flex;
+  margin: 12px auto 0;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 10px;
+  width: auto;
+  min-width: 0;
   span {
     font-size: 13px;
     color: ${(p) => p.theme.colors.textMuted};

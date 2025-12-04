@@ -93,7 +93,11 @@ export default function Students() {
   const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
   const summary = useDashboardSummary();
   const studentLimit = summary.data?.studentLimit ?? null;
-  const studentRemaining = summary.data?.studentRemaining ?? null;
+  const studentRemaining =
+    summary.data?.studentRemaining ??
+    (studentLimit != null && summary.data?.totalStudents != null
+      ? Math.max(0, studentLimit - summary.data.totalStudents)
+      : null);
   const quotaError = summary.status === "error";
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState(() => ({
@@ -172,11 +176,11 @@ export default function Students() {
               {!isTeacher && (
                 <AddWrap>
                   <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
-                  {studentLimit != null && (
-                    <QuotaBadge title="요금제별 등록 가능 잔여 인원">
-                      잔여 {Math.max(0, studentRemaining ?? 0)} / {studentLimit}명
-                    </QuotaBadge>
-                  )}
+                  <QuotaBadge title="요금제별 등록 가능 잔여 인원">
+                    {studentLimit != null
+                      ? `잔여 ${Math.max(0, studentRemaining ?? 0)} / ${studentLimit}명`
+                      : "원생 한도: 무제한"}
+                  </QuotaBadge>
                 </AddWrap>
               )}
               {!isTeacher && (

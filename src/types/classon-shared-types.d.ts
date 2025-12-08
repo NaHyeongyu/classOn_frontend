@@ -73,8 +73,10 @@ declare module "@classon/shared-types" {
     enrolledCount?: number | null;
     nextClassDate?: string | null;
     instructorId?: number | null;
+    instructorIds?: number[] | null;
     primaryStudentId?: number | null;
     instructorName?: string | null;
+    instructorNames?: string[] | null;
     primaryStudentName?: string | null;
     description?: string | null;
     createdAt?: string | Date | null;

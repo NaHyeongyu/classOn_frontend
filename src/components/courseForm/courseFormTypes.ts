@@ -18,6 +18,8 @@ export type FormState = {
   primaryStudentName?: string;
   instructorId?: number | null;
   instructorName?: string;
+   // Optional multi-instructor support (backend: instructorIds)
+  instructorIds?: number[] | null;
 };
 
 export type StudentOption = Pick<Student, "id" | "name" | "code" | "status">;
@@ -39,6 +41,7 @@ export const DEFAULT_FORM: FormState = {
   primaryStudentName: "",
   instructorId: null,
   instructorName: "",
+  instructorIds: null,
 };
 
 export type CourseFormStepMeta = {

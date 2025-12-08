@@ -48,6 +48,9 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
     instructorId: payload.instructorId,
+    instructorIds: Array.isArray((payload as any).instructorIds)
+      ? (payload as any).instructorIds
+      : undefined,
     primaryStudentId: payload.primaryStudentId,
   });
   const res = await fetchJSON<Course>(`/api/courses`, { method: "POST", body });
@@ -89,6 +92,9 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
     instructorId: payload.instructorId,
+    instructorIds: Array.isArray((payload as any).instructorIds)
+      ? (payload as any).instructorIds
+      : undefined,
     primaryStudentId: payload.primaryStudentId,
   });
   const res = await fetchJSON<Course>(`/api/courses/${id}`, { method: "PUT", body });

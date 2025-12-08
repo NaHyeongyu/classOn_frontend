@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { createCourse, getCourse, updateCourse, updateCourseInstructor } from "@/api/courses";
+import { createCourse, getCourse, updateCourse } from "@/api/courses";
 import { listStudents } from "@/api/students";
 import { listTeachers, getInstructorCourseCounts } from "@/api/teachers";
 import { getErrorMessage } from "@/lib/errors";
@@ -252,6 +252,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         ...prev,
         instructorId: teacherId,
         instructorName: displayName,
+        instructorIds: [teacherId],
       };
     });
   }, [isTeacher, teacherId, teacherDisplayName, teacherUsername]);
@@ -353,6 +354,10 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             typeof found.instructorId === "number" ? found.instructorId : null;
           const resolvedInstructorName =
             typeof found.instructorName === "string" ? found.instructorName : "";
+          const resolvedInstructorIds =
+            Array.isArray((found as any).instructorIds) && (found as any).instructorIds.length
+              ? (found as any).instructorIds.filter((id: unknown) => typeof id === "number")
+              : (resolvedInstructorId != null ? [resolvedInstructorId] : []);
           setForm(() => ({
             title: found.title,
             description: found.description,
@@ -370,6 +375,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             primaryStudentName: found.primaryStudentName ?? "",
             instructorId: resolvedInstructorId,
             instructorName: resolvedInstructorName,
+            instructorIds: resolvedInstructorIds,
           }));
           setFeeInput(found.fee != null ? String(found.fee) : "");
           setInitialFee(found.fee ?? null);
@@ -419,20 +425,25 @@ export function useCourseFormPage(): UseCourseFormPageResult {
       }
       setSaving(true);
       try {
+        const normalizedInstructorIds = (() => {
+          const src = Array.isArray(form.instructorIds)
+            ? form.instructorIds
+            : (form.instructorId != null ? [form.instructorId] : []);
+          const uniq = new Set<number>();
+          for (const v of src) {
+            if (typeof v === "number" && Number.isFinite(v)) uniq.add(v);
+          }
+          return Array.from(uniq);
+        })();
         const payload = {
           ...form,
+          instructorIds: normalizedInstructorIds,
           startTime: form.startTime?.length === 5 ? `${form.startTime}:00` : form.startTime,
           endTime: form.endTime?.length === 5 ? `${form.endTime}:00` : form.endTime,
           recurring,
         };
         if (isEdit && courseId) {
-          const desiredInstructorId = payload.instructorId ?? null;
-          const selfId = typeof user?.id === 'number' ? user?.id : Number(user?.id);
-          const isSelfOwnerAdmin = isOwnerOrAdmin && desiredInstructorId != null && !Number.isNaN(selfId) && desiredInstructorId === selfId;
-          const payloadForUpdate = isSelfOwnerAdmin ? { ...payload, instructorId: undefined as unknown as number } : payload;
-          await updateCourse(courseId, payloadForUpdate);
-          // Ensure instructor can be cleared/changed, and handle OWNER/ADMIN via follow-up call
-          await updateCourseInstructor(courseId, desiredInstructorId);
+          await updateCourse(courseId, payload);
           const updatedFee = payload.fee ?? null;
           const normalizedInitial = initialFee ?? null;
           const feeChanged = (normalizedInitial ?? null) !== (updatedFee ?? null);
@@ -445,16 +456,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
           }
           setSuccess("수정이 완료되었습니다.");
         } else {
-          // For create: backend only accepts TEACHER at create-time. If owner/admin selected self, set after creation.
-          const requestedInstructorId = payload.instructorId ?? null;
-          const shouldAssignAfter = !!requestedInstructorId && isOwnerOrAdmin && (
-            (typeof user?.id === 'number' && requestedInstructorId === user?.id) ||
-            (typeof user?.id === 'string' && requestedInstructorId === Number(user?.id))
-          );
-          const created = await createCourse(shouldAssignAfter ? { ...payload, instructorId: undefined as unknown as number } : payload);
-          if (shouldAssignAfter && created?.id) {
-            try { await updateCourseInstructor(created.id, requestedInstructorId); } catch { /* ignore */ }
-          }
+          const created = await createCourse(payload);
           setSuccess("수업이 추가되었습니다.");
           navigate(routes.classes, { replace: true });
         }

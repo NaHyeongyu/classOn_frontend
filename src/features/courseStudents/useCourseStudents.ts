@@ -194,6 +194,7 @@ export function useCourseStudents(courseId: number | null) {
         );
         await updateStudentCourses(student.id, nextCourseIds);
         invalidateCacheByPrefix([
+          "/api/courses",
           `/api/courses/${courseId}`,
           `/api/courses/${courseId}/students`,
           "/api/students",
@@ -278,6 +279,7 @@ export function useCourseStudents(courseId: number | null) {
         const nextCourseIds = existing.filter((id: number) => id !== courseId);
         await updateStudentCourses(student.id, nextCourseIds);
         invalidateCacheByPrefix([
+          "/api/courses",
           `/api/courses/${courseId}`,
           `/api/courses/${courseId}/students`,
           "/api/students",

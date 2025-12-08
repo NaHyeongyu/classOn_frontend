@@ -60,16 +60,7 @@ type DetailState =
 
 const today = new Date();
 const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-const formatDate = (date: Date) => date.toISOString().slice(0, 10);
-
-const createMonthRange = (anchor: Date = today) => {
-  const rangeStart = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
-  const rangeEnd = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0);
-  return {
-    from: formatDate(rangeStart),
-    to: formatDate(rangeEnd),
-  };
-};
+const createMonthRange = () => ({ from: "", to: "" });
 
 const invoiceStatusParam = "UNPAID,SCHEDULED";
 const createDefaultHistoryFilters = (): HistoryFilters => ({
@@ -163,7 +154,6 @@ export default function Payments() {
 
   const [historyFilters, setHistoryFilters] = useState<HistoryFilters>(() => ({
     ...createDefaultHistoryFilters(),
-    ...createMonthRange(),
   }));
   const [historyCompletedPage, setHistoryCompletedPage] = useState(0);
   const [historyPendingPage, setHistoryPendingPage] = useState(0);
@@ -645,7 +635,6 @@ export default function Payments() {
   const handleResetHistoryFilters = () => {
     setHistoryFilters({
       ...createDefaultHistoryFilters(),
-      ...createMonthRange(),
     });
     setOnsitePage(0);
   };

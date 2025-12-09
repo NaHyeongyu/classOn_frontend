@@ -44,6 +44,7 @@ export type PaymentInvoicePayload = {
   discountStartDate?: string;
   discountEndDate?: string;
   additionalItems?: PaymentAdditionalItemPayload[];
+  recipientPhone?: string;
 };
 
 export type PaymentInvoiceUpdatePayload = {
@@ -59,6 +60,7 @@ export type PaymentInvoiceUpdatePayload = {
   cycleValue?: number;
   cycleUnit?: BillingCycleUnit;
   additionalItems?: PaymentAdditionalItemPayload[];
+  recipientPhone?: string;
 };
 
 export type PaymentOnsitePayload = {
@@ -87,7 +89,8 @@ export async function listPaymentInvoices(params?: {
   studentStatus?: string;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
-  sp.set("status", params?.status ?? "UNPAID");
+  const statusParam = params?.status?.trim() || "UNPAID,PENDING";
+  sp.set("status", statusParam);
   if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
@@ -149,6 +152,7 @@ export async function createPaymentInvoice(payload: PaymentInvoicePayload): Prom
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
   ]);
   return res;
 }
@@ -162,6 +166,7 @@ export async function updatePaymentInvoice(id: number, payload: PaymentInvoiceUp
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
     `/api/payments/${id}`,
   ]);
   return res;
@@ -186,6 +191,7 @@ export async function sendPaymentInvoices(payload: {
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
   ]);
   return res;
 }
@@ -199,6 +205,7 @@ export async function markOnsitePayment(id: number, payload: PaymentOnsitePayloa
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
     `/api/payments/${id}`,
   ]);
   return res;
@@ -229,6 +236,7 @@ export async function cancelScheduledAlert(paymentId: number, alertId: number): 
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
     `/api/payments/${paymentId}`,
   ]);
   return res;
@@ -245,6 +253,7 @@ export async function sendScheduledAlertNow(paymentId: number, alertId: number):
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
     `/api/payments/${paymentId}`,
   ]);
   return res;

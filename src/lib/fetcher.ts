@@ -86,6 +86,7 @@ const NO_CACHE_PREFIXES = [
   "/api/dashboard/attendance-today",
   "/api/calendar/classes",           // calendar daily view should refresh immediately
   "/api/calendar/classes-range",     // calendar monthly range should refresh immediately
+  "/api/courses",                    // course list should always reflect latest enrollment/teacher changes
   "/api/records/render",
   "/api/attendance/daily",
 ];

@@ -240,10 +240,11 @@ function toDateTime(dateYmd: string, timeHm: string): Date | null {
 }
 
 const ResultCard = styled(SectionCard)`
-  min-height: 0;
+  height: fit-content;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: ${(p) => p.theme.spacing.xl};
+  gap: ${(p) => p.theme.spacing.md};
 `;
 
 const PanelHeader = styled.div`
@@ -267,11 +268,12 @@ const ResultBody = styled.div`
   flex: 1;
   min-height: 0;
   display: grid;
+  overflow-y: auto;
 `;
 
 const ResultContent = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xl};
+  gap: ${(p) => p.theme.spacing.md};
 `;
 
 const ResultMeta = styled.div`
@@ -283,7 +285,7 @@ const ResultMeta = styled.div`
 
 const SectionStack = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xl};
+  gap: ${(p) => p.theme.spacing.md};
 `;
 
 const ResultError = styled.span`

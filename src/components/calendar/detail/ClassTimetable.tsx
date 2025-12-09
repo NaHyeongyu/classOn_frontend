@@ -17,6 +17,7 @@ type Props = {
 const START_HOUR = 8;
 const END_HOUR = 23;
 const HOUR_HEIGHT = 60;
+const OVERLAP_OFFSET = 10;
 
 export default function ClassTimetable({
   items,
@@ -28,9 +29,25 @@ export default function ClassTimetable({
   const [selectedItem, setSelectedItem] = useState<ClassItem | null>(null);
   const [now, setNow] = useState(new Date());
   const containerRef = useRef<HTMLDivElement>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
 
   const records = Array.isArray(items) ? items : [];
   const canAdd = typeof onAdd === "function";
+  const preparedRecords = records
+    .map((item, idx) => {
+      const pos = calculatePosition(item.time);
+      if (!pos) return null;
+      return { item, idx, pos };
+    })
+    .filter((value): value is { item: ClassItem; idx: number; pos: Position } => Boolean(value))
+    .sort((a, b) => a.pos.startMinutes - b.pos.startMinutes || a.idx - b.idx);
+
+  const overlapCountByTime = new Map<string, number>();
+  preparedRecords.forEach(({ item }) => {
+    const count = overlapCountByTime.get(item.time) ?? 0;
+    overlapCountByTime.set(item.time, count + 1);
+  });
+  const overlapOrderByTime = new Map<string, number>();
 
   const hours = Array.from(
     { length: END_HOUR - START_HOUR + 1 },
@@ -139,21 +156,36 @@ export default function ClassTimetable({
               {showCurrentTime && (
                 <CurrentTimeLine style={{ top: currentTop }} />
               )}
-              {records.map((item, i) => {
-                const pos = calculatePosition(item.time);
-                if (!pos) return null;
+              {preparedRecords.map(({ item, idx, pos }) => {
+                const totalOverlap = overlapCountByTime.get(item.time) ?? 1;
+                const currentOrder = overlapOrderByTime.get(item.time) ?? 0;
+                overlapOrderByTime.set(item.time, currentOrder + 1);
+                const offset = currentOrder * OVERLAP_OFFSET;
+                const width = `calc(100% - ${offset}px)`;
+                const blockKey = `${item.time}-${item.subject}-${idx}`;
+                const isHovered = hoveredKey === blockKey;
                 return (
                   <ClassBlock
-                    key={i}
+                    key={blockKey}
                     style={{
                       top: pos.top,
                       height: pos.height,
+                      left: offset,
+                      width,
+                      zIndex: isHovered ? 999 : 1 + currentOrder,
+                      transform: isHovered ? "translateY(-4px) scale(1.01)" : undefined,
+                      boxShadow: isHovered ? "0 8px 16px rgba(15, 23, 42, 0.16)" : undefined,
                     }}
+                    onMouseEnter={() => setHoveredKey(blockKey)}
+                    onMouseLeave={() => setHoveredKey(null)}
                     onClick={() => setSelectedItem(item)}
-                  >
+                    >
                     <BlockSubject>
                       {item.subject}
-                      <TimeText>{item.time}</TimeText>
+                      <TimeText>
+                        {item.time}
+                        {totalOverlap > 1 ? ` · 동시간대 ${totalOverlap}건` : ""}
+                      </TimeText>
                     </BlockSubject>
                   </ClassBlock>
                 );
@@ -187,11 +219,18 @@ function calculatePosition(timeStr: string) {
     return {
       top: (startMinutes / 60) * HOUR_HEIGHT,
       height: (durationMinutes / 60) * HOUR_HEIGHT,
+      startMinutes,
     };
   } catch {
     return null;
   }
 }
+
+type Position = {
+  top: number;
+  height: number;
+  startMinutes: number;
+};
 
 const Section = styled.section<{ $embedded?: boolean; $maxHeight?: string }>`
   border: ${({ $embedded, theme }) =>
@@ -298,13 +337,7 @@ const ClassBlock = styled.div`
   padding: 4px 8px;
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.1s;
-  
-  &:hover {
-    transform: scale(1.01);
-    z-index: 10;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 `;
 
 const BlockSubject = styled.div`

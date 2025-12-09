@@ -15,7 +15,12 @@ import type {
   PaymentCancelPayload,
 } from "@classon/shared-types";
 
-export type PaymentTemplateKey = "GUIDE" | "RETRY" | "SUCCESS" | "FAIL";
+export type PaymentTemplateKey =
+  | "PAYMENT_GUIDE"
+  | "PAYMENT_RETRY"
+  | "PAYMENT_SUCCESS"
+  | "PAYMENT_CANCEL"
+  | "REPORT_READY";
 
 export type PaymentAdditionalItemPayload = {
   type: "MATERIAL" | "TEXTBOOK" | "OTHER";
@@ -289,6 +294,7 @@ export type PublicPaymentInvoice = {
   periodEnd?: string;
   status?: PaymentStatus;
   memo?: string;
+  receiptToken?: string | null;
 };
 
 export async function getPublicPaymentInvoice(token: string): Promise<PublicPaymentInvoice> {

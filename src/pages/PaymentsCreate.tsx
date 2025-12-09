@@ -23,11 +23,17 @@ import {
 } from "@/api/payments";
 import { listStudents, type Student } from "@/api/students";
 import type { PageResult } from "@/types/paging";
-import type { DiscountType, BillingCycleUnit, PaymentHistoryRow } from "@classon/shared-types";
+import type {
+  DiscountType,
+  BillingCycleUnit,
+  PaymentHistoryRow,
+  StudentStatus,
+} from "@classon/shared-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { routes } from "@/routes";
 import { formatMoney } from "@/lib/format";
 import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
+import Pagination from "@/components/common/Pagination";
 
 type StudentOverride = {
   dueDate?: string;
@@ -80,6 +86,26 @@ const defaultForm = {
   recipientPhone: "",
 };
 
+const studentStatusLabels: Record<StudentStatus | "UNKNOWN" | undefined, string> = {
+  ENROLLED: "수강중",
+  ON_LEAVE: "휴학",
+  PENDING: "대기중",
+  STOPPED: "퇴원",
+  UNKNOWN: "미지정",
+  undefined: "미지정",
+};
+
+const studentStatusColor: Record<string, string> = {
+  ENROLLED: "#059669",
+  ON_LEAVE: "#8b5cf6",
+  PENDING: "#f97316",
+  STOPPED: "#dc2626",
+};
+
+function resolveStudentStatus(status?: StudentStatus | "UNKNOWN"): string {
+  return studentStatusLabels[status ?? "UNKNOWN"] ?? studentStatusLabels.UNKNOWN;
+}
+
 function normalizeCycle(value: string | number | undefined): number {
   const num = typeof value === "string" ? Number(value) : value;
   if (!Number.isFinite(num) || (num ?? 0) <= 0) return 1;
@@ -116,7 +142,7 @@ export default function PaymentsCreate() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [studentPage, setStudentPage] = useState(0);
   const pageSize = 10;
-  const [overrides, setOverrides] = useState<Record<number, StudentOverride>>({});
+  const [overrides] = useState<Record<number, StudentOverride>>({});
   const [activeOverrideId, setActiveOverrideId] = useState<number | null>(null);
   const [form, setForm] = useState(defaultForm);
   const [discountOpen, setDiscountOpen] = useState(false);
@@ -138,13 +164,6 @@ export default function PaymentsCreate() {
       ...prev,
       cycleValue: nextValue,
       periodEnd: computePeriodEnd(prev.periodStart, nextValue),
-    }));
-  };
-  const handlePeriodStartChange = (value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      periodStart: value,
-      periodEnd: computePeriodEnd(value, prev.cycleValue),
     }));
   };
 
@@ -190,7 +209,9 @@ export default function PaymentsCreate() {
     const base = students.filter(
       (student: Student) =>
         typeof student.id === "number" &&
-        !reservedStudentIds.has(student.id),
+        !reservedStudentIds.has(student.id) &&
+        Array.isArray(student.courses) &&
+        student.courses.some((course) => Boolean(course)),
     );
     if (!search.trim()) return base;
     const keyword = search.trim().toLowerCase();
@@ -370,8 +391,6 @@ export default function PaymentsCreate() {
     }
     return selectedStudents[0];
   }, [selectedStudents, activeOverrideId]);
-  const selectedCount = selectedStudents.length;
-
   const primaryBaseAmount = useMemo(() => {
     if (!primaryStudent) return 0;
     return defaultAmountForStudent(primaryStudent);
@@ -437,30 +456,6 @@ export default function PaymentsCreate() {
     });
   }, [selectedIds]);
 
-  const activeOverrideStudent = useMemo(
-    () => selectedStudents.find((s) => s.id === activeOverrideId) ?? null,
-    [selectedStudents, activeOverrideId],
-  );
-
-  const activeOverride = activeOverrideStudent ? overrides[activeOverrideStudent.id] : undefined;
-
-  const patchOverride = (studentId: number, patch: Partial<StudentOverride>) => {
-    setOverrides((prev) => {
-      const current = prev[studentId] ?? {};
-      const next: StudentOverride = { ...current, ...patch };
-      return { ...prev, [studentId]: next };
-    });
-  };
-
-  const resetOverride = (studentId: number) => {
-    setOverrides((prev) => {
-      if (!prev[studentId]) return prev;
-      const next = { ...prev };
-      delete next[studentId];
-      return next;
-    });
-  };
-
   const totalPagesRaw = Math.ceil(filteredStudents.length / pageSize);
   const totalPages = totalPagesRaw > 0 ? totalPagesRaw : 1;
 
@@ -501,9 +496,10 @@ export default function PaymentsCreate() {
               <StyledTable>
                 <colgroup>
                   <col style={{ width: "48px" }} />
-                  <col style={{ width: "26%" }} />
-                  <col style={{ width: "32%" }} />
-                  <col style={{ width: "20%" }} />
+                  <col style={{ width: "22%" }} />
+                  <col style={{ width: "28%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "16%" }} />
                   <col />
                 </colgroup>
                 <thead>
@@ -511,6 +507,7 @@ export default function PaymentsCreate() {
                     <th />
                     <th>이름</th>
                     <th>수강 수업</th>
+                    <th>상태</th>
                     <th>청구 금액</th>
                     <th>작업</th>
                   </tr>
@@ -518,23 +515,27 @@ export default function PaymentsCreate() {
                 <tbody>
                   {studentsQuery.isLoading ? (
                     <tr>
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         <Skeleton h={36} />
                       </td>
                     </tr>
                   ) : pagedStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={5}>
+                      <td colSpan={6}>
                         <EmptyState>조건에 맞는 학생이 없습니다.</EmptyState>
                       </td>
                     </tr>
                   ) : (
                     pagedStudents.map((student: Student) => {
-                      const courseTitles =
-                        student.courses
-                          ?.map((course: NonNullable<Student["courses"]>[number]) => course?.title ?? null)
-                          .filter((title: string | null): title is string => Boolean(title && title.trim()))
-                          .join(", ") ?? "-";
+                      const courseNameList =
+                        (student.courses ?? [])
+                          .map((course: NonNullable<Student["courses"]>[number]) => {
+                            const title = course?.title?.trim();
+                            const code = course?.code?.trim();
+                            return title || code || null;
+                          })
+                          .filter((value: string | null): value is string => Boolean(value && value.trim()));
+                      const courseTitles = courseNameList.length ? courseNameList.join(", ") : "-";
                       const fee = defaultAmountForStudent(student);
                       const selected = selectedIds.includes(student.id);
                       const canEdit = selected && selectedIds.length >= 2;
@@ -554,6 +555,11 @@ export default function PaymentsCreate() {
                             <Meta>{student.code}</Meta>
                           </td>
                           <td>{courseTitles || "-"}</td>
+                          <td>
+                            <StudentStatusBadge data-status={student.status ?? undefined}>
+                              {resolveStudentStatus(student.status)}
+                            </StudentStatusBadge>
+                          </td>
                           <td className="amount-cell">{formatMoney(fee)}</td>
                           <td>
                             {showIcon ? (
@@ -579,25 +585,7 @@ export default function PaymentsCreate() {
                 </tbody>
               </StyledTable>
             </TableWrapper>
-            <PagerBar>
-              <GhostButton
-                type="button"
-                onClick={() => setStudentPage((prev) => Math.max(0, prev - 1))}
-                disabled={studentPage <= 0}
-              >
-                이전
-              </GhostButton>
-              <span>
-                {Math.min(studentPage + 1, totalPages)} / {totalPages}
-              </span>
-              <GhostButton
-                type="button"
-                onClick={() => setStudentPage((prev) => Math.min(totalPages - 1, prev + 1))}
-                disabled={studentPage >= totalPages - 1}
-              >
-                다음
-              </GhostButton>
-            </PagerBar>
+            <Pagination page={studentPage} totalPages={totalPages} onChangePage={setStudentPage} />
           </SectionCard>
         </LeftColumn>
 
@@ -607,7 +595,7 @@ export default function PaymentsCreate() {
               <h3>청구서 설정</h3>
               <p>선택된 학생에게 적용될 내용입니다.</p>
             </ReceiptHeader>
-            
+
             {!selectedIds.length ? (
               <EmptyReceipt>
                 <div className="icon">🧾</div>
@@ -643,6 +631,7 @@ export default function PaymentsCreate() {
                     </div>
                   </RepresentativeCard>
                 )}
+
 
                 <ReceiptSection>
                   <SectionTitle>결제 정보</SectionTitle>
@@ -1104,46 +1093,6 @@ const SelectLike = styled.select`
   background: #fff;
 `;
 
-const ModalGrid = styled(FormGrid)`
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-`;
-
-const PeriodText = styled.div`
-  font-size: 13px;
-  color: ${(p) => p.theme.colors.text};
-  display: grid;
-  gap: 4px;
-  margin-bottom: 8px;
-  font-weight: 600;
-`;
-
-const PeriodGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-  label {
-    display: grid;
-    gap: 6px;
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-    text-align: left;
-  }
-`;
-
-const SmallHint = styled.span`
-  font-size: 12px;
-  color: ${(p) => p.theme.colors.textMuted};
-`;
-
-const DiscountBox = styled.div`
-  margin: 12px 0 16px;
-  padding: 16px;
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.md};
-  background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
-`;
-
 const Input = styled.input`
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: 10px;
@@ -1173,17 +1122,7 @@ const TableWrapper = styled.div`
   overflow-x: auto;
 `;
 
-const PagerBar = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 12px;
-  align-items: center;
-  span {
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-`;
+
 
 const StyledTable = styled(TableBase)`
   tbody td {
@@ -1197,10 +1136,9 @@ const StyledTable = styled(TableBase)`
   tbody td:nth-child(2) {
     text-align: center;
   }
-  tbody td:nth-child(3) {
-    text-align: center;
-  }
-  tbody td:nth-child(4) {
+  tbody td:nth-child(3),
+  tbody td:nth-child(4),
+  tbody td:nth-child(5) {
     text-align: center;
   }
   thead th {
@@ -1212,65 +1150,20 @@ const StyledTable = styled(TableBase)`
   }
 `;
 
-const IconButton = styled.button<{ $active?: boolean }>`
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 4px;
-  color: ${(p) => (p.$active ? p.theme.colors.success : p.theme.colors.primary)};
-  opacity: ${(p) => (p.disabled ? 0.6 : 1)};
-`;
-
 const Meta = styled.span`
   display: block;
   font-size: 12px;
   color: ${(p) => p.theme.colors.textMuted};
 `;
 
-const InfoList = styled.ul`
-  list-style: none;
-  margin: 0 0 12px;
-  padding: 8px 10px;
-  border-radius: ${(p) => p.theme.radii.md};
-  background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
-  display: grid;
-  gap: 4px;
-  li {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    span {
-      color: ${(p) => p.theme.colors.textMuted};
-    }
-    strong {
-      font-weight: 600;
-      color: ${(p) => p.theme.colors.text};
-    }
-  }
-`;
-
-const SummaryAmountCard = styled.div`
-  margin: 0 0 16px;
-  padding: 10px 12px;
-  border-radius: ${(p) => p.theme.radii.md};
-  background: ${(p) => p.theme.colors.primarySurface ?? "#eef2ff"};
-  border: 1px solid ${(p) => p.theme.colors.primary ?? "#4f46e5"};
-  display: grid;
-  gap: 4px;
-  .label {
-    font-size: 12px;
-    color: ${(p) => p.theme.colors.primary ?? "#4f46e5"};
-    font-weight: 600;
-  }
-  .value {
-    font-size: 20px;
-    font-weight: 700;
-    color: ${(p) => p.theme.colors.text};
-  }
-  .hint {
-    font-size: 12px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
+const StudentStatusBadge = styled.span<{ "data-status"?: string }>`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: ${({ "data-status": status }) =>
+    (studentStatusColor[status ?? ""] ?? "#94a3b8")}1A;
+  color: ${({ "data-status": status }) => studentStatusColor[status ?? ""] ?? "#475569"};
 `;

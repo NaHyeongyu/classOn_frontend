@@ -1190,8 +1190,9 @@ const Actions = styled.div`
   gap: 12px;
 `;
 const Label = styled.div`
-  color: #6B7280;
-  font-size: 13px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
 `;
 const Desc = styled.div`
   color: ${(p) => p.theme.colors.text};
@@ -1332,8 +1333,9 @@ const Field = styled.div`
   align-items: center;
   min-height: 32px;
   & > div:nth-child(2) {
-    font-size: ${(p) => p.theme.font.size.md};
-    color: ${(p) => p.theme.colors.text};
+    font-size: 15px;
+    font-weight: 800;
+    color: #111827;
   }
 `;
 

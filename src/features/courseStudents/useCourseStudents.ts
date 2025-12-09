@@ -20,6 +20,7 @@ export function useCourseStudents(courseId: number | null) {
   const [error, setError] = useState<string | null>(null);
 
   const [studentSearch, setStudentSearch] = useState("");
+  const [studentStatus, setStudentStatus] = useState<"" | "ENROLLED" | "ON_LEAVE" | "PENDING">("");
   const [studentOptions, setStudentOptions] = useState<Student[]>([]);
   const [studentLoading, setStudentLoading] = useState(false);
   const [studentError, setStudentError] = useState<string | null>(null);
@@ -133,45 +134,104 @@ export function useCourseStudents(courseId: number | null) {
     };
   }, [courseId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      (async () => {
-        setStudentLoading(true);
-        setStudentError(null);
-        try {
-          let page = 0;
-          const size = 100;
-          let all: Student[] = [];
-          const query = studentSearch.trim();
-          while (true) {
-            const res = await listStudents({
-              q: query || undefined,
-              page,
-              size,
-            });
-            const { content, last } = res;
-            all = all.concat(content);
-            if (last || content.length === 0 || page > 200) break;
-            page += 1;
-          }
-          if (!cancelled) setStudentOptions(all);
-        } catch (err) {
-          if (!cancelled) {
-            setStudentError(
-              getErrorMessage(err, "학생 목록을 불러오지 못했습니다.")
-            );
-          }
-        } finally {
-          if (!cancelled) setStudentLoading(false);
-        }
-      })();
-    }, 200);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
+  const executeSearch = useCallback(async () => {
+    setStudentLoading(true);
+    setStudentError(null);
+    try {
+      let page = 0;
+      const size = 100;
+      let all: Student[] = [];
+      const query = studentSearch.trim();
+      while (true) {
+        const res = await listStudents({
+          q: query || undefined,
+          status: studentStatus || undefined,
+          page,
+          size,
+        });
+        const { content, last } = res;
+        all = all.concat(content);
+        if (last || content.length === 0 || page > 200) break;
+        page += 1;
+      }
+      setStudentOptions(all);
+    } catch (err) {
+      setStudentError(
+        getErrorMessage(err, "학생 목록을 불러오지 못했습니다.")
+      );
+    } finally {
+      setStudentLoading(false);
+    }
+  }, [studentSearch, studentStatus]);
+
+  const executeSearchWithStatus = useCallback(async (status: "" | "ENROLLED" | "ON_LEAVE" | "PENDING") => {
+    setStudentLoading(true);
+    setStudentError(null);
+    try {
+      let page = 0;
+      const size = 100;
+      let all: Student[] = [];
+      const query = studentSearch.trim();
+      while (true) {
+        const res = await listStudents({
+          q: query || undefined,
+          status: status || undefined,
+          page,
+          size,
+        });
+        const { content, last } = res;
+        all = all.concat(content);
+        if (last || content.length === 0 || page > 200) break;
+        page += 1;
+      }
+      setStudentOptions(all);
+    } catch (err) {
+      setStudentError(
+        getErrorMessage(err, "학생 목록을 불러오지 못했습니다.")
+      );
+    } finally {
+      setStudentLoading(false);
+    }
   }, [studentSearch]);
+
+  const resetSearch = useCallback(async () => {
+    // Reset state
+    setStudentSearch("");
+    setStudentStatus("");
+    
+    // Execute search immediately with empty values
+    setStudentLoading(true);
+    setStudentError(null);
+    try {
+      let page = 0;
+      const size = 100;
+      let all: Student[] = [];
+      while (true) {
+        const res = await listStudents({
+          q: undefined,
+          status: undefined,
+          page,
+          size,
+        });
+        const { content, last } = res;
+        all = all.concat(content);
+        if (last || content.length === 0 || page > 200) break;
+        page += 1;
+      }
+      setStudentOptions(all);
+    } catch (err) {
+      setStudentError(
+        getErrorMessage(err, "학생 목록을 불러오지 못했습니다.")
+      );
+    } finally {
+      setStudentLoading(false);
+    }
+  }, []);
+
+  // Initial search on mount
+  useEffect(() => {
+    executeSearch();
+  }, [executeSearch]);
 
   const onEnroll = useCallback(
     async (student: Student) => {
@@ -246,7 +306,7 @@ export function useCourseStudents(courseId: number | null) {
             };
           })
         );
-        setChangeNotice("학생의 청구서에 이 수업이 자동으로 추가되었습니다.\n청구서 발송 전에 금액을 다시 확인해 주세요.");
+        setChangeNotice("학생의 청구서에 이 수업이 자동으로 추가되었습니다.\n청구서 생성 및 발송 전에 금액을 확인해주세요.");
       } catch (err) {
         setStudentError(getErrorMessage(err, "추가에 실패했습니다."));
       } finally {
@@ -314,7 +374,7 @@ export function useCourseStudents(courseId: number | null) {
               : option
           )
         );
-        setChangeNotice("학생의 청구서에서 이 수업이 제거되었습니다.\n청구서 발송 전에 금액을 다시 확인해 주세요.");
+        setChangeNotice("학생의 청구서에서 이 수업이 제거되었습니다.\n청구서 생성 및 발송 전에 금액을 확인해주세요.");
       } catch (err) {
         setEnrolledError(getErrorMessage(err, "해제에 실패했습니다."));
       } finally {
@@ -331,6 +391,11 @@ export function useCourseStudents(courseId: number | null) {
     error,
     studentSearch,
     setStudentSearch,
+    studentStatus,
+    setStudentStatus,
+    executeSearch,
+    executeSearchWithStatus,
+    resetSearch,
     studentOptions,
     studentLoading,
     studentError,

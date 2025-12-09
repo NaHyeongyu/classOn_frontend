@@ -254,6 +254,9 @@ function ReceiptLayout({ data }: { data: PublicPaymentReceipt }) {
   const completedText = info.completedAt
     ? formatKoreanDateTimeKST(info.completedAt, { includeWeekday: true, showSeconds: true })
     : "-";
+  const canceledText = info.canceledAt
+    ? formatKoreanDateTimeKST(info.canceledAt, { includeWeekday: true, showSeconds: true })
+    : "-";
   const statusLabel =
     info.status === "COMPLETED"
       ? "결제 완료"
@@ -333,6 +336,12 @@ function ReceiptLayout({ data }: { data: PublicPaymentReceipt }) {
             <span>결제 시간</span>
             <strong>{completedText}</strong>
           </DetailRow>
+          {info.status === "CANCELED" ? (
+            <DetailRow>
+              <span>취소 시간</span>
+              <strong>{canceledText}</strong>
+            </DetailRow>
+          ) : null}
           <DetailRow>
             <span>승인 번호</span>
             <strong>{info.approvalNumber ?? "-"}</strong>

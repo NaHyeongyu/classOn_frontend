@@ -354,10 +354,13 @@ export function useCourseFormPage(): UseCourseFormPageResult {
             typeof found.instructorId === "number" ? found.instructorId : null;
           const resolvedInstructorName =
             typeof found.instructorName === "string" ? found.instructorName : "";
+          const instructorIdsRaw = (found as { instructorIds?: unknown }).instructorIds;
           const resolvedInstructorIds =
-            Array.isArray((found as any).instructorIds) && (found as any).instructorIds.length
-              ? (found as any).instructorIds.filter((id: unknown) => typeof id === "number")
-              : (resolvedInstructorId != null ? [resolvedInstructorId] : []);
+            instructorIdsRaw && Array.isArray(instructorIdsRaw) && instructorIdsRaw.length
+              ? instructorIdsRaw.filter((id): id is number => typeof id === "number")
+              : resolvedInstructorId != null
+                ? [resolvedInstructorId]
+                : [];
           setForm(() => ({
             title: found.title,
             description: found.description,
@@ -456,7 +459,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
           }
           setSuccess("수정이 완료되었습니다.");
         } else {
-          const created = await createCourse(payload);
+          await createCourse(payload);
           setSuccess("수업이 추가되었습니다.");
           navigate(routes.classes, { replace: true });
         }
@@ -466,7 +469,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         setSaving(false);
       }
     },
-    [courseId, form, initialFee, isEdit, isIndividual, navigate, recurring, isOwnerOrAdmin, user?.id],
+    [courseId, form, initialFee, isEdit, isIndividual, navigate, recurring],
   );
 
   const closeFeeNotice = useCallback(() => {

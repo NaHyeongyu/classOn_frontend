@@ -12,6 +12,7 @@ import Modal from "@/components/common/Modal";
 import { useToast } from "@/components/common/Toast";
 import { DiscountFields } from "@/components/payments/DiscountFields";
 import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
+import { PaymentDetailModal } from "@/components/payments/PaymentDetailModal";
 import {
     cancelPayment,
     getPaymentDetail,
@@ -180,6 +181,11 @@ export function StudentPaymentsSection({
     const [invoiceAdditionalFields, setInvoiceAdditionalFields] = useState<AdditionalFieldState>(
         createEmptyAdditionalFields(),
     );
+
+    // View mode expanded states
+    const [viewDiscountExpanded, setViewDiscountExpanded] = useState(false);
+    const [viewAdditionExpanded, setViewAdditionExpanded] = useState(false);
+
     const buildAdditionalItemsPayload = useCallback(
         (fields: AdditionalFieldState): PaymentAdditionalItemPayload[] | undefined => {
             if (!fields.enabled) return undefined;
@@ -438,6 +444,20 @@ export function StudentPaymentsSection({
         buildAdditionalItemsPayload,
     ]);
 
+    // Initialize view mode expanded states based on invoice data
+    useEffect(() => {
+        if (!invoice) return;
+        const info = invoice.info;
+        const hasDiscount = Boolean(info.discountType && info.discountValue != null);
+        
+        const additionalFields = mapAdditionalFieldsFromDetail(invoice);
+        const hasAdditional = additionalFields.enabled;
+
+        setViewDiscountExpanded(hasDiscount);
+        setViewAdditionExpanded(hasAdditional);
+    }, [invoice, mapAdditionalFieldsFromDetail]);
+
+
     useEffect(() => {
         if (!isEditing) {
             saveInFlight.current = false;
@@ -591,16 +611,73 @@ export function StudentPaymentsSection({
                                 <span>수강 금액</span>
                                 <input type="text" value={formatMoney(invoice.info.originalAmount ?? 0)} disabled />
                             </label>
-                            <label>
-                                <span>할인 방식</span>
-                                <input value={invoice.info.discountType ?? "없음"} disabled />
-                            </label>
-                            {invoice.info.discountType ? (
-                                <label>
-                                    <span>할인</span>
-                                    <input value={formatDiscountDisplay(invoice.info.discountType, invoice.info.discountValue)} disabled />
-                                </label>
-                            ) : null}
+                            <CollapsibleSection>
+                                <CollapsibleHeader
+                                    type="button"
+                                    onClick={() => setViewDiscountExpanded((prev) => !prev)}
+                                >
+                                    <span>할인 설정</span>
+                                    <CaretIcon $open={viewDiscountExpanded} />
+                                </CollapsibleHeader>
+                                {viewDiscountExpanded ? (
+                                    <CollapsibleBody>
+                                        <DiscountFields
+                                            enabled={Boolean(invoice.info.discountType && invoice.info.discountValue != null)}
+                                            discountType={invoice.info.discountType ?? undefined}
+                                            discountValue={invoice.info.discountValue ?? undefined}
+                                            onToggleEnabled={() => {}}
+                                            onChangeType={() => {}}
+                                            onChangeValue={() => {}}
+                                            onChangeStartDate={() => {}}
+                                            onChangeEndDate={() => {}}
+                                            showPeriod={false}
+                                            disabled={true}
+                                        />
+                                    </CollapsibleBody>
+                                ) : null}
+                            </CollapsibleSection>
+
+                            <CollapsibleSection>
+                                <CollapsibleHeader
+                                    type="button"
+                                    onClick={() => setViewAdditionExpanded((prev) => !prev)}
+                                >
+                                    <span>추가 금액 설정</span>
+                                    <CaretIcon $open={viewAdditionExpanded} />
+                                </CollapsibleHeader>
+                                {viewAdditionExpanded ? (
+                                    <CollapsibleBody>
+                                        {(() => {
+                                            const fields = mapAdditionalFieldsFromDetail(invoice);
+                                            const total = (fields.materialFee ?? 0) + (fields.textbookFee ?? 0);
+                                            return (
+                                                <>
+                                                    <AdditionalChargeFields
+                                                        enabled={fields.enabled}
+                                                        materialFee={fields.materialFee}
+                                                        textbookFee={fields.textbookFee}
+                                                        startDate={fields.startDate}
+                                                        endDate={fields.endDate}
+                                                        onToggleEnabled={() => {}}
+                                                        onChangeMaterialFee={() => {}}
+                                                        onChangeTextbookFee={() => {}}
+                                                        onChangeStartDate={() => {}}
+                                                        onChangeEndDate={() => {}}
+                                                        showTitle={false}
+                                                        disabled={true}
+                                                    />
+                                                    {fields.enabled ? (
+                                                        <AdditionalFooter>
+                                                            <span>추가 금액 합계</span>
+                                                            <strong>{formatMoney(total)}</strong>
+                                                        </AdditionalFooter>
+                                                    ) : null}
+                                                </>
+                                            );
+                                        })()}
+                                    </CollapsibleBody>
+                                ) : null}
+                            </CollapsibleSection>
                             <label>
                                 <span>최종 금액</span>
                                 <input
@@ -672,13 +749,14 @@ export function StudentPaymentsSection({
             {headerNode}
             {bodyContent}
 
-            <Modal
-                open={isDetailOpen}
-                onClose={closeDetail}
-                title={resolvedDetailVariant === "invoice" ? "청구서 상세" : "결제 상세"}
-                maxWidth={720}
-                blockOutsideClose={detailVariant === "invoice" && isEditing}
-            >
+            {resolvedDetailVariant === "invoice" ? (
+                <Modal
+                    open={isDetailOpen}
+                    onClose={closeDetail}
+                    title="청구서 상세"
+                    maxWidth={720}
+                    blockOutsideClose={isEditing}
+                >
                 {isDetailOpen && detailLoading ? <Skeleton h={200} /> : null}
                 {!detailLoading && detailData ? (
                     <DetailLayout>
@@ -1023,6 +1101,16 @@ export function StudentPaymentsSection({
                     </DetailLayout>
                 ) : null}
             </Modal>
+            ) : (
+                <PaymentDetailModal
+                    open={isDetailOpen}
+                    onClose={closeDetail}
+                    paymentId={isDetailOpen ? detailState.id : null}
+                    variant="history"
+                    onCancelPayment={handleCancelPayment}
+                    cancelPending={cancelMutation.isPending}
+                />
+            )}
 
             <Modal
                 open={invoiceEditOpen}
@@ -1142,7 +1230,7 @@ export function StudentPaymentsSection({
                             {invoiceDiscountExpanded ? (
                                 <CollapsibleBody>
                                     <DiscountFields
-                                        enabled={invoiceDiscountEnabled}
+                                        enabled={Boolean(invoiceDiscountEnabled)}
                                         discountType={
                                             invoiceEditForm.discountType ??
                                             invoiceEditData.info.discountType ??
@@ -1155,13 +1243,11 @@ export function StudentPaymentsSection({
                                         }
                                         onToggleEnabled={(next) => {
                                             setInvoiceDiscountEnabled(next);
-                                            if (!next) {
-                                                setInvoiceEditForm((prev) => ({
-                                                    ...prev,
-                                                    discountType: undefined,
-                                                    discountValue: undefined,
-                                                }));
-                                            }
+                                            setInvoiceEditForm((prev) => ({
+                                                ...prev,
+                                                discountType: next ? prev.discountType : undefined,
+                                                discountValue: next ? prev.discountValue : undefined,
+                                            }));
                                         }}
                                         onChangeType={(next) =>
                                             setInvoiceEditForm((prev) => ({
@@ -1175,9 +1261,19 @@ export function StudentPaymentsSection({
                                                 discountValue: typeof value === "number" ? value : undefined,
                                             }))
                                         }
-                                        onChangeStartDate={() => {}}
-                                        onChangeEndDate={() => {}}
-                                        showPeriod={false}
+                                        onChangeStartDate={(value) =>
+                                            setInvoiceEditForm((prev) => ({
+                                                ...prev,
+                                                discountStartDate: value || undefined,
+                                            }))
+                                        }
+                                        onChangeEndDate={(value) =>
+                                            setInvoiceEditForm((prev) => ({
+                                                ...prev,
+                                                discountEndDate: value || undefined,
+                                            }))
+                                        }
+                                        showPeriod
                                     />
                                 </CollapsibleBody>
                             ) : null}
@@ -1193,12 +1289,22 @@ export function StudentPaymentsSection({
                             {invoiceAdditionExpanded ? (
                                 <CollapsibleBody>
                                     <AdditionalChargeFields
-                                        enabled={invoiceAdditionalFields.enabled}
+                                        enabled={Boolean(invoiceAdditionalFields.enabled)}
                                         materialFee={invoiceAdditionalFields.materialFee}
                                         textbookFee={invoiceAdditionalFields.textbookFee}
                                         startDate={invoiceAdditionalFields.startDate}
                                         endDate={invoiceAdditionalFields.endDate}
-                                        onToggleEnabled={(next) => updateInvoiceAdditionalFields({ enabled: next })}
+                                        onToggleEnabled={(next) => {
+                                            updateInvoiceAdditionalFields({ enabled: next });
+                                            if (!next) {
+                                                updateInvoiceAdditionalFields({
+                                                    materialFee: undefined,
+                                                    textbookFee: undefined,
+                                                    startDate: undefined,
+                                                    endDate: undefined,
+                                                });
+                                            }
+                                        }}
                                         onChangeMaterialFee={(value) =>
                                             updateInvoiceAdditionalFields({
                                                 materialFee: typeof value === "number" ? value : undefined,
@@ -1657,6 +1763,9 @@ const HeaderRow = styled.div`
 const InvoiceForm = styled.div`
   display: grid;
   gap: 12px;
+  ${CollapsibleSection} {
+    margin-bottom: 0;
+  }
   label {
     display: grid;
     gap: 6px;
@@ -1845,10 +1954,3 @@ const ConfirmIntro = styled.div`
     color: ${(p) => p.theme.colors.text};
   }
 `;
-function formatDiscountDisplay(type?: DiscountType | null, value?: number | null): string {
-    if (!type || value == null || Number.isNaN(value)) return "-";
-    if (type === "PERCENT") {
-        return `${value}%`;
-    }
-    return formatMoney(value);
-}

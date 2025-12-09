@@ -44,8 +44,11 @@ export default function Materials() {
       try {
         const list = await listMaterials({ presign: true });
         if (!cancelled) setItems(list);
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || "자료를 불러오지 못했습니다.");
+      } catch (err) {
+        if (!cancelled) {
+          const message = err instanceof Error ? err.message : "자료를 불러오지 못했습니다.";
+          setError(message);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }

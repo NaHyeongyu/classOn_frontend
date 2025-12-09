@@ -10,6 +10,7 @@ import {
   preparePublicPaymentCheckout,
   type PublicPaymentInvoice,
 } from "@/api/payments";
+import { routes } from "@/routes";
 import type { PaymentDetail } from "@classon/shared-types";
 import type { TossPayments } from "@/types/tossPayments";
 
@@ -55,6 +56,7 @@ type InvoiceViewModel = {
   memo?: string;
   status?: string;
   checkoutUrl?: string;
+  receiptToken?: string;
 };
 
 type InvoicePreviewProps = {
@@ -81,6 +83,7 @@ const SAMPLE_DATA: InvoiceViewModel = {
   memo: "",
   status: "UNPAID",
   checkoutUrl: undefined,
+  receiptToken: undefined,
 };
 
 const statusLabel: Record<string, string> = {
@@ -155,7 +158,11 @@ export default function InvoicePreview({
     (shouldFetch && invoiceQuery.isLoading && !invoiceQuery.data) ||
     (mode === "admin" && !payment);
   const disablePay = mode === "admin" || isStaffPreview || criticalInvoiceIssue;
-  const canPay = mode === "guardian" && hasToken && !disablePay;
+  const receiptLink = resolvedData.receiptToken
+    ? `${routes.paymentsReceipt}?token=${encodeURIComponent(resolvedData.receiptToken)}`
+    : null;
+  const showReceiptLink = mode === "guardian" && Boolean(receiptLink);
+  const canPay = mode === "guardian" && hasToken && !disablePay && !showReceiptLink;
   
   const [paying, setPaying] = useState(false);
   const [tossPayments, setTossPayments] = useState<TossPayments | null>(null);
@@ -245,7 +252,10 @@ export default function InvoicePreview({
         if (typeof window === "undefined" || !window.PaymentWidget) {
           throw new Error("결제 위젯 스크립트를 찾을 수 없습니다.");
         }
-        const widget = window.PaymentWidget(widgetClientKey, checkoutQuery.data.customerKey ?? checkoutQuery.data.orderId);
+        const widget = window.PaymentWidget(
+          widgetClientKey,
+          checkoutQuery.data.customerKey ?? checkoutQuery.data.orderId,
+        );
         widget.renderPaymentMethods(
           container,
           { value: checkoutQuery.data.amount },
@@ -283,6 +293,8 @@ export default function InvoicePreview({
     showWidget,
     widgetClientKey,
     checkoutQuery.data,
+    widgetPaymentMethodsId,
+    widgetAgreementId,
   ]);
 
   const checkoutErrorMessage = useMemo(() => {
@@ -301,6 +313,7 @@ export default function InvoicePreview({
     disablePay ||
     paying ||
     tokenMissing ||
+    showReceiptLink ||
     (canPay && (!checkoutQuery.data || checkoutQuery.isLoading || !tossPayments));
 
   const widgetActionDisabled =
@@ -310,7 +323,7 @@ export default function InvoicePreview({
     widgetPaying ||
     !widgetReady ||
     !checkoutQuery.data;
-  const showFallbackButton = !showWidget || Boolean(widgetError);
+  const showFallbackButton = (!showWidget || Boolean(widgetError)) && !showReceiptLink;
 
   const handlePay = async () => {
     if (payDisabled || !tossPayments || !checkoutQuery.data) return;
@@ -431,27 +444,38 @@ export default function InvoicePreview({
 
         {canPay && checkoutErrorMessage ? <InlineError>{checkoutErrorMessage}</InlineError> : null}
 
-        <Note>결제 버튼을 누르면 안전한 토스페이먼츠 결제 페이지로 이동합니다.</Note>
         {showWidget ? (
+          <>
+            <Note>결제 버튼을 누르면 안전한 토스페이먼츠 결제 페이지로 이동합니다.</Note>
+            <WidgetCard>
+              {widgetLoading && !widgetReady ? (
+                <WidgetHeader>
+                  <small>결제 수단을 불러오는 중입니다...</small>
+                </WidgetHeader>
+              ) : null}
+              {widgetError ? <InlineError>{widgetError}</InlineError> : null}
+              <WidgetBody>
+                <div id={widgetPaymentMethodsId} ref={paymentMethodsRef} />
+                <div id={widgetAgreementId} ref={agreementRef} />
+              </WidgetBody>
+              <WidgetActions>
+                <PrimaryButton
+                  type="button"
+                  onClick={handleWidgetPay}
+                  disabled={widgetActionDisabled || widgetPaying}
+                >
+                  {widgetPaying ? "결제 창으로 이동..." : widgetReady ? "결제하기" : "결제 준비 중..."}
+                </PrimaryButton>
+              </WidgetActions>
+            </WidgetCard>
+          </>
+        ) : null}
+        {showReceiptLink ? (
           <WidgetCard>
-            {widgetLoading && !widgetReady ? (
-              <WidgetHeader>
-                <small>결제 수단을 불러오는 중입니다...</small>
-              </WidgetHeader>
-            ) : null}
-            {widgetError ? <InlineError>{widgetError}</InlineError> : null}
-            <WidgetBody>
-              <div id={widgetPaymentMethodsId} ref={paymentMethodsRef} />
-              <div id={widgetAgreementId} ref={agreementRef} />
-            </WidgetBody>
+            <ReceiptHeadline>이미 결제가 완료된 청구서입니다.</ReceiptHeadline>
+            <ReceiptSub>아래 버튼을 눌러 영수증을 바로 확인할 수 있어요.</ReceiptSub>
             <WidgetActions>
-              <PrimaryButton
-                type="button"
-                onClick={handleWidgetPay}
-                disabled={widgetActionDisabled || widgetPaying}
-              >
-                {widgetPaying ? "결제 창으로 이동..." : widgetReady ? "결제하기" : "결제 준비 중..."}
-              </PrimaryButton>
+              <ReceiptLinkButton href={receiptLink ?? "#"}>영수증 보기</ReceiptLinkButton>
             </WidgetActions>
           </WidgetCard>
         ) : null}
@@ -641,6 +665,9 @@ function applyFallbackOverrides(data: InvoiceViewModel, fallback?: Partial<Invoi
   if (typeof fallback.checkoutUrl === "string" && fallback.checkoutUrl.trim()) {
     next.checkoutUrl = fallback.checkoutUrl;
   }
+  if (typeof fallback.receiptToken === "string" && fallback.receiptToken.trim()) {
+    next.receiptToken = fallback.receiptToken;
+  }
   return next;
 }
 
@@ -662,6 +689,7 @@ function mapPublicInvoice(data: PublicPaymentInvoice): InvoiceViewModel {
     memo: data.memo ?? "",
     status: data.status ?? "UNPAID",
     checkoutUrl: undefined,
+    receiptToken: data.receiptToken ?? undefined,
   };
 }
 
@@ -689,6 +717,7 @@ function mapPaymentDetail(detail: PaymentDetail, academyNameOverride?: string): 
     memo: info.memo ?? undefined,
     status: info.status ?? "UNPAID",
     checkoutUrl: undefined,
+    receiptToken: undefined,
   };
 }
 
@@ -935,8 +964,43 @@ const WidgetBody = styled.div`
 const WidgetActions = styled.div`
   display: flex;
   align-items: stretch;
+  gap: 8px;
+  & > * {
+    flex: 1;
+  }
   button {
     flex: 1;
+  }
+`;
+
+const ReceiptHeadline = styled.p`
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+`;
+
+const ReceiptSub = styled.p`
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+`;
+
+const ReceiptLinkButton = styled.a`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: ${(p) => p.theme.colors.primary};
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  &:hover {
+    opacity: 0.92;
   }
 `;
 

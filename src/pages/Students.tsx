@@ -506,7 +506,6 @@ const StickyInner = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${(p) => p.theme.spacing.md};
-  padding: ${(p) => p.theme.spacing.lg} 0 0;
 `;
 const StickyHeader = styled(PageHeader)`
   position: static;

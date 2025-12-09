@@ -51,7 +51,7 @@ export function StudentReportsTab({ reports, loading, error, onRefresh, studentI
       {loading ? (
         <Muted>불러오는 중...</Muted>
       ) : (
-        <UITable style={{ minWidth: 720 }}>
+        <CenteredTable style={{ minWidth: 720 }}>
           <thead>
             <tr>
               <th>생성일</th>
@@ -66,7 +66,7 @@ export function StudentReportsTab({ reports, loading, error, onRefresh, studentI
           <tbody>
             {reports.length === 0 ? (
               <tr>
-                <td colSpan={6}>
+                <td colSpan={7}>
                   <Muted>저장된 보고서가 없습니다.</Muted>
                 </td>
               </tr>
@@ -92,7 +92,7 @@ export function StudentReportsTab({ reports, loading, error, onRefresh, studentI
                 ))
               )}
             </tbody>
-          </UITable>
+          </CenteredTable>
       )}
     </div>
   );
@@ -146,6 +146,8 @@ const Subtitle = styled.p`
 const Muted = styled.span`
   color: #6b7280;
   font-size: 13px;
+  display: block;
+  text-align: center;
 `;
 
 const ErrorBox = styled.div`
@@ -188,5 +190,11 @@ const DeleteButton = styled.button`
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
+  }
+`;
+
+const CenteredTable = styled(UITable)`
+  th, td {
+    text-align: center !important;
   }
 `;

@@ -6,6 +6,7 @@ import {
   PrimaryButton,
   SectionCard,
 } from "@/components/common/UI";
+import SelectBox from "@/components/common/SelectBox";
 import type {
   FeedbackKind,
   useFeedbackPage,
@@ -63,16 +64,15 @@ export function FeedbackPageView({
         <Row>
           <Col>
             <Label htmlFor="fb-kind">유형</Label>
-            <Select
-              id="fb-kind"
+            <SelectBox
+              ariaLabel="유형"
               value={kind}
-              onChange={(event) =>
-                setKind(event.target.value as FeedbackKind)
-              }
-            >
-              <option value="BUG">오류</option>
-              <option value="FEATURE">피드백</option>
-            </Select>
+              onChange={(value) => setKind((value as FeedbackKind) ?? "BUG")}
+              options={[
+                { label: "오류", value: "BUG" },
+                { label: "피드백", value: "FEATURE" },
+              ]}
+            />
           </Col>
           <Col>
             <Label htmlFor="fb-contact">
@@ -148,7 +148,7 @@ const Row = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: ${(p) => p.theme.spacing.md};
-  margin-bottom: ${(p) => p.theme.spacing.sm};
+  margin-bottom: ${(p) => p.theme.spacing.md};
   
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
@@ -163,9 +163,14 @@ const Col = styled.div`
 const Label = styled.label`
   display: block;
   margin-bottom: ${(p) => p.theme.spacing.xs};
+  margin-top: ${(p) => p.theme.spacing.md};
   font-size: ${(p) => p.theme.font.size.sm};
   font-weight: ${(p) => p.theme.font.weight.semiBold};
   color: ${(p) => p.theme.colors.text};
+  
+  &:first-of-type {
+    margin-top: 0;
+  }
 `;
 
 const OptionalBadge = styled.span`
@@ -209,17 +214,6 @@ const Input = styled.input`
   height: 40px;
 `;
 
-const Select = styled.select`
-  ${inputStyles}
-  height: 40px;
-  padding-right: 32px;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236B7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-`;
-
 const TextArea = styled.textarea`
   ${inputStyles}
   padding: 12px;
@@ -233,7 +227,7 @@ const BtnRow = styled.div`
   display: flex;
   justify-content: flex-end;
   gap: ${(p) => p.theme.spacing.sm};
-  margin-top: ${(p) => p.theme.spacing.lg};
+  margin-top: ${(p) => p.theme.spacing.md};
 
   @media (max-width: 480px) {
     flex-direction: column-reverse;

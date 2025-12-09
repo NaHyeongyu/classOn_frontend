@@ -10,7 +10,7 @@ import { useToast } from "@/components/common/Toast";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 import { routes } from "@/routes";
 import { numericFromLetter } from "@/features/courseRecord/utils";
@@ -474,8 +474,8 @@ export default function Reports() {
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <BackButton label="뒤로" />
             <div>
-              <h2>보고서</h2>
-              <p>
+              <h2 style={{ marginBottom: 6 }}>보고서</h2>
+              <p style={{ margin: 0 }}>
                 {mode === "select"
                   ? "좌측에서 수업을 선택하고, 우측에서 보고서를 생성할 학생을 선택하세요."
                   : "좌측에서 학생을 선택해 우측에서 보고서 내용을 미리보고 수정하세요."}
@@ -613,8 +613,8 @@ export default function Reports() {
               </PeriodRow>
               {studentsLoading && <HintText>학생 목록을 불러오는 중입니다…</HintText>}
               {studentsError && <ErrorText>{studentsError}</ErrorText>}
-              <StudentsListWrap>
-                <StudentsList role="list" aria-label="학생 목록">
+              <StudentsListWrap $tall>
+                <StudentsList role="list" aria-label="학생 목록" $tall>
                   {students.map((student) => {
                     const checked = selectedStudentIds.includes(student.id);
                     const progress = progressMap[student.id];
@@ -722,15 +722,7 @@ export default function Reports() {
                     data-print-hide="true"
                     disabled={!activeStudent || savingReport || notifying}
                   >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      style={{ marginRight: 6 }}
-                    >
-                      <path d="M12 2C6.48 2 2 6.03 2 11c0 2.95 1.54 5.58 3.97 7.3l-1.42 4.24a.5.5 0 0 0 .64.64l4.24-1.42C11.23 22.46 13.56 23 16 23c5.52 0 10-4.03 10-9s-4.48-9-10-9z" />
-                    </svg>
+                    <img src="/logo/kakaotalk_sharing_btn_small.png" alt="카카오톡" width="20" height="20" />
                     {notifying ? "발송 중..." : "저장 후 알림톡 발송"}
                   </KakaoButton>
                   <OutlineButton
@@ -761,7 +753,16 @@ export default function Reports() {
           <HintText data-print-hide="true" style={{ marginTop: -8 }}>
             보고서를 저장하면 학생 상세 &gt; 보고서 탭에서 다시 열람/다운로드할 수 있습니다.
           </HintText>
-          {autoLoading && <HintText>출석/성적/수업 내용을 불러오는 중입니다…</HintText>}
+          {autoLoading && (
+            <InlineInfoBar data-variant="info">
+              출석·성적·수업 내용을 불러오는 중입니다. 잠시만 기다려 주세요…
+            </InlineInfoBar>
+          )}
+          {savingReport && (
+            <InlineInfoBar data-variant="progress">
+              보고서를 생성하는 중입니다. 브라우저를 닫거나 이동하지 말아 주세요.
+            </InlineInfoBar>
+          )}
           {autoError && <ErrorText>{autoError}</ErrorText>}
 
               {activeStudent ? (
@@ -1103,6 +1104,7 @@ const HeaderWrap = styled.div`
   padding: 0 ${(p) => p.theme.spacing.xs};
   display: grid;
   gap: ${(p) => p.theme.spacing.sm};
+  margin-bottom: 24px;
 `;
 
 const HeaderActions = styled.div`
@@ -1156,7 +1158,7 @@ const ToggleChip = styled.button`
 
 const ContentGrid = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xl};
+  gap: 20px;
   grid-template-columns: 1fr;
   flex: 1;
   min-height: auto;
@@ -1192,7 +1194,7 @@ const RightColumn = styled.div`
 `;
 
 const LeftHeader = styled.div`
-  margin-bottom: ${(p) => p.theme.spacing.md};
+  margin-bottom: ${(p) => p.theme.spacing.sm};
 `;
 
 const LeftTitle = styled.h3`
@@ -1204,7 +1206,7 @@ const LeftTitle = styled.h3`
 `;
 
 const LeftSubtitle = styled.p`
-  margin: 4px 0 0;
+  margin: 6px 0 14px;
   font-size: ${(p) => p.theme.font.size.sm};
   color: ${({ theme }) => theme.colors.textMuted};
 `;
@@ -1248,12 +1250,12 @@ const ErrorText = styled.p`
 const CourseListWrap = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
-  max-height: 420px;
+  height: 600px;
   overflow: hidden;
 `;
 
 const CourseList = styled.div`
-  max-height: 420px;
+  height: 100%;
   overflow-y: auto;
   display: grid;
 `;
@@ -1295,7 +1297,7 @@ const RightHeader = styled.div`
   justify-content: space-between;
   align-items: flex-start;
   gap: ${(p) => p.theme.spacing.md};
-  margin-bottom: ${(p) => p.theme.spacing.lg};
+  margin-bottom: ${(p) => p.theme.spacing.sm};
   @media (max-width: 768px) {
     flex-direction: column;
     align-items: stretch;
@@ -1306,7 +1308,7 @@ const RightHeader = styled.div`
 `;
 
 const RightTitle = styled.h3`
-  margin: 0;
+  margin: 0 0 6px;
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.01em;
@@ -1314,7 +1316,7 @@ const RightTitle = styled.h3`
 `;
 
 const RightSubtitle = styled.p`
-  margin: 4px 0 0;
+  margin: 0;
   font-size: ${(p) => p.theme.font.size.sm};
   color: ${({ theme }) => theme.colors.textMuted};
 `;
@@ -1330,17 +1332,51 @@ const RightActions = styled.div`
   }
 `;
 
-const StudentsListWrap = styled.div`
+const StudentsListWrap = styled.div<{ $tall?: boolean }>`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
-  max-height: 420px;
   overflow: hidden;
+  ${({ $tall }) =>
+    $tall
+      ? css`
+          height: 600px;
+        `
+      : css`
+          max-height: 420px;
+        `}
 `;
 
-const StudentsList = styled.div`
-  max-height: 420px;
+const StudentsList = styled.div<{ $tall?: boolean }>`
   overflow-y: auto;
   display: grid;
+  ${({ $tall }) =>
+    $tall
+      ? css`
+          height: 100%;
+        `
+      : css`
+          max-height: 420px;
+        `}
+`;
+
+const InlineInfoBar = styled.div`
+  margin: ${(p) => p.theme.spacing.xs} 0;
+  padding: ${(p) => p.theme.spacing.sm} ${(p) => p.theme.spacing.md};
+  border-radius: ${(p) => p.theme.radii.md};
+  font-size: ${(p) => p.theme.font.size.sm};
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  &[data-variant="info"] {
+    background: #eef2ff;
+    color: #3730a3;
+    border: 1px solid #c7d2fe;
+  }
+  &[data-variant="progress"] {
+    background: #ecfdf5;
+    color: #065f46;
+    border: 1px solid #a7f3d0;
+  }
 `;
 
 const StudentRow = styled.div`
@@ -1810,19 +1846,29 @@ const OutlineButton = styled.button`
 `;
 
 const KakaoButton = styled.button`
-  border: none;
+  border: 1px solid #f4d000;
   background: #fee500;
-  color: #191919;
-  font-weight: 600;
-  border-radius: 8px;
-  padding: 8px 14px;
+  color: #1e1200;
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: 0 18px;
+  height: 40px;
+  font-weight: 700;
+  font-size: 14px;
   cursor: pointer;
-  font-size: 13px;
   display: inline-flex;
   align-items: center;
-  transition: all 0.2s;
-  &:hover {
-    background: #fdd835;
+  justify-content: center;
+  gap: 8px;
+  transition: transform 0.15s ease;
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+  &:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
   }
 `;
 

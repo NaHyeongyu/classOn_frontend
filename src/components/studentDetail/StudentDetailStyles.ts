@@ -243,6 +243,14 @@ export const CourseItem = styled.div`
   display: grid;
   gap: 6px;
   background: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #d1d5db;
+  }
 `;
 
 export const CourseHeader = styled.div`
@@ -256,6 +264,22 @@ export const CourseTitle = styled.div`
   font-weight: 800;
   color: #0f172a;
   font-size: 14px;
+`;
+
+export const CourseFee = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  span {
+    font-weight: 600;
+  }
+  strong {
+    font-size: 14px;
+    font-weight: 800;
+    color: #4b5563;
+  }
 `;
 
 export const CourseMeta = styled.div`

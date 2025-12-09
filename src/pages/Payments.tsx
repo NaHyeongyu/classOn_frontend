@@ -47,6 +47,7 @@ import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
 import { DiscountFields } from "@/components/payments/DiscountFields";
 import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
+import Pagination from "@/components/common/Pagination";
 
 type DetailState =
   | {
@@ -60,12 +61,33 @@ type DetailState =
 
 const today = new Date();
 const defaultMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-const createMonthRange = () => ({ from: "", to: "" });
+
+const formatDateInput = (date: Date) => {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+const getMonthRangeFor = (base: Date) => {
+  const start = new Date(base.getFullYear(), base.getMonth(), 1);
+  const end = new Date(base.getFullYear(), base.getMonth() + 1, 0);
+  return { from: formatDateInput(start), to: formatDateInput(end) };
+};
+
+const currentMonthRange = getMonthRangeFor(today);
+const previousTwoMonthRange = (() => {
+  const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  return { from: formatDateInput(start), to: formatDateInput(end) };
+})();
+
+const createMonthRange = () => ({ ...currentMonthRange });
 
 const invoiceStatusParam = "UNPAID,SCHEDULED";
 const createDefaultHistoryFilters = (): HistoryFilters => ({
-  from: "",
-  to: "",
+  from: previousTwoMonthRange.from,
+  to: previousTwoMonthRange.to,
   q: "",
   status: "ALL",
 });
@@ -420,8 +442,6 @@ export default function Payments() {
   );
   const completedTotalPages = completedHistoryQuery.data?.totalPages ?? 0;
   const pendingTotalPages = pendingHistoryQuery.data?.totalPages ?? 0;
-  const completedIsLast = completedHistoryQuery.data?.last ?? true;
-  const pendingIsLast = pendingHistoryQuery.data?.last ?? true;
   const pendingTitle =
     historyFilters.status === "UNPAID"
       ? "미납 내역"
@@ -589,7 +609,9 @@ export default function Payments() {
         });
       return;
     }
-    navigate(paths.payments.kakaoConfirm({ ids: String(row.id), template: "RETRY" }));
+    navigate(
+      paths.payments.kakaoConfirm({ ids: String(row.id), template: "PAYMENT_RETRY" }),
+    );
   };
 
   const closeResendPrompt = () => {
@@ -601,7 +623,12 @@ export default function Payments() {
       closeResendPrompt();
       return;
     }
-    navigate(paths.payments.kakaoConfirm({ ids: String(resendPrompt.row.id), template: "RETRY" }));
+    navigate(
+      paths.payments.kakaoConfirm({
+        ids: String(resendPrompt.row.id),
+        template: "PAYMENT_RETRY",
+      }),
+    );
     closeResendPrompt();
   };
 
@@ -957,7 +984,6 @@ export default function Payments() {
                     page={showCompletedColumn ? historyCompletedPage : 0}
                     size={historyPageSize}
                     totalPages={showCompletedColumn ? completedTotalPages : 0}
-                    last={showCompletedColumn ? completedIsLast : true}
                     onChangePage={showCompletedColumn ? setHistoryCompletedPage : () => {}}
                     onRowClick={showCompletedColumn ? handleHistoryRowClick : () => {}}
                     activeId={activeHistoryId}
@@ -976,7 +1002,6 @@ export default function Payments() {
                     page={historyFilterCompleted || historyFilterCanceled ? 0 : historyPendingPage}
                     size={historyPageSize}
                     totalPages={pendingTotalPages}
-                    last={pendingIsLast}
                     onChangePage={
                       historyFilterCompleted || historyFilterCanceled ? () => {} : setHistoryPendingPage
                     }
@@ -1170,7 +1195,6 @@ function InvoicesTable(props: {
     onToggleSelect,
     onRowClick,
   } = props;
-  const lastPage = Math.max(totalPages - 1, 0);
   const renderStudentStatus = (status?: string | null) => {
     const value = status ?? "";
     if (!value) return "미정";
@@ -1264,25 +1288,11 @@ function InvoicesTable(props: {
         </tbody>
       </CenteredTable>
       {showPager ? (
-        <PagerBar>
-          <GhostButton
-            type="button"
-            onClick={() => onChangePage(Math.max(0, page - 1))}
-            disabled={page <= 0}
-          >
-            이전
-          </GhostButton>
-          <span>
-            {page + 1} / {Math.max(1, totalPages)}
-          </span>
-          <GhostButton
-            type="button"
-            onClick={() => onChangePage(Math.min(lastPage, page + 1))}
-            disabled={totalPages === 0 || page >= totalPages - 1}
-          >
-            다음
-          </GhostButton>
-        </PagerBar>
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          onChangePage={onChangePage}
+        />
       ) : null}
     </TableWrapper>
   );
@@ -1294,7 +1304,6 @@ function HistoryTable(props: {
   page: number;
   size: number;
   totalPages: number;
-  last?: boolean;
   onChangePage: (page: number) => void;
   onRowClick: (row: PaymentHistoryRow) => void;
   activeId: number | null;
@@ -1307,7 +1316,6 @@ function HistoryTable(props: {
     loading,
     page,
     totalPages,
-    last,
     onChangePage,
     onRowClick,
     activeId,
@@ -1315,7 +1323,6 @@ function HistoryTable(props: {
     onResendClick,
     emptyMessage,
   } = props;
-  const isLastPage = last ?? (totalPages === 0 || page >= totalPages - 1);
   const isPendingVariant = variant === "pending";
   const mapPendingStatus = (status: string) => {
     if (status === "UNPAID") return "PENDING";
@@ -1435,25 +1442,11 @@ function HistoryTable(props: {
         )}
         </tbody>
       </CenteredTable>
-      <PagerBar>
-        <GhostButton
-          type="button"
-          onClick={() => onChangePage(Math.max(0, page - 1))}
-          disabled={page <= 0}
-        >
-          이전
-        </GhostButton>
-        <span>
-          {page + 1} / {Math.max(1, totalPages)}
-        </span>
-        <GhostButton
-          type="button"
-          onClick={() => onChangePage(page + 1)}
-          disabled={isLastPage}
-        >
-          다음
-        </GhostButton>
-      </PagerBar>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onChangePage={onChangePage}
+      />
     </TableWrapper>
   );
 }
@@ -1802,7 +1795,8 @@ useEffect(() => {
           <DetailColumn>
             {isInvoiceVariant ? (
               <form onSubmit={handleSubmit}>
-                <SectionTitle>청구 정보</SectionTitle>
+                <DetailStack>
+                  <SectionTitle>청구 정보</SectionTitle>
                 {isScheduledPayment ? (
                   <ScheduleNotice>
                     <strong>예약 발송 예정</strong>
@@ -2002,6 +1996,7 @@ useEffect(() => {
                     </>
                   )}
                 </ModalActions>
+                </DetailStack>
               </form>
           ) : (
             (() => {
@@ -2031,7 +2026,7 @@ useEffect(() => {
                 const nextDueText = computeNextDueDateLabel(detail);
 
                 return (
-                  <div>
+                  <DetailStack>
                     {isScheduledPayment ? (
                       <>
                         <ScheduleNotice>
@@ -2193,7 +2188,7 @@ useEffect(() => {
                         </GhostButton>
                       ) : null}
                     </ModalActions>
-                  </div>
+                  </DetailStack>
                 );
               })()
             )}
@@ -2682,9 +2677,9 @@ function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number
   const unsent = typeof unsentOverride === "number" ? unsentOverride : summary.unsentCount;
   return [
     { label: "이번달 총 결제액", value: formatMoney(summary.paidAmount), icon: paidIcon, tone: "primary" },
-    { label: "이번달 대기 금액", value: formatMoney(summary.unpaidAmount), icon: unpaidIcon, tone: "danger" },
-    { label: "이번달 대기 인원", value: `${summary.unpaidCount}명`, icon: peopleIcon, tone: "warning" },
-    { label: "청구서 미발송 인원", value: `${unsent}명`, icon: paperIcon, tone: "success" },
+    { label: "이번달 대기 금액", value: formatMoney(summary.unpaidAmount), icon: unpaidIcon, tone: "primary" },
+    { label: "이번달 대기 인원", value: `${summary.unpaidCount}명`, icon: peopleIcon, tone: "primary" },
+    { label: "청구서 미발송 인원", value: `${unsent}명`, icon: paperIcon, tone: "primary" },
   ];
 }
 
@@ -3052,6 +3047,16 @@ const TableWrapper = styled.div`
   align-items: center;
 `;
 
+const PagerBar = styled.div`
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 14px;
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
 const SelectButton = styled(PrimaryButton)`
   height: 32px;
   padding: 0 12px;
@@ -3171,7 +3176,7 @@ const DetailInfoRows = styled.ul`
   margin: 0;
   padding: 0;
   display: grid;
-  gap: 10px;
+  gap: 12px;
   li {
     display: flex;
     align-items: center;
@@ -3189,7 +3194,6 @@ const DetailInfoRows = styled.ul`
 const CollapsibleCard = styled.div`
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
-  margin-top: 16px;
   background: ${(p) => p.theme.colors.surface};
 `;
 
@@ -3210,6 +3214,7 @@ const CollapsibleHeader = styled.button`
 const CollapsibleBody = styled.div`
   border-top: 1px solid ${(p) => p.theme.colors.borderMuted};
   padding: 12px 16px;
+  margin-bottom: 8px;
 `;
 
 const CaretIcon = styled.span<{ $open: boolean }>`
@@ -3313,19 +3318,7 @@ const CenteredTable = styled(StyledTable)`
   }
 `;
 
-const PagerBar = styled.div`
-  margin: 12px auto 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: auto;
-  min-width: 0;
-  span {
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-`;
+
 
 const StatusBadge = styled.span<{ status: string }>`
   display: inline-flex;
@@ -3368,15 +3361,32 @@ const DetailLayout = styled.div`
 
 const DetailColumn = styled.div`
   display: grid;
-  gap: 16px;
+  gap: 12px;
   align-items: flex-start;
   align-content: flex-start;
 `;
 
+const DetailStack = styled.div`
+  display: grid;
+  gap: 12px;
+  
+  label {
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+`;
+
 const SectionTitle = styled.h4`
-  margin: 0;
+  margin: 8px 0 0 0;
   font-size: 15px;
   color: ${(p) => p.theme.colors.text};
+  
+  &:first-child {
+    margin-top: 0;
+  }
 `;
 
 const DetailList = styled.ul`
@@ -3423,6 +3433,7 @@ const ConfirmIntro = styled.div`
 `;
 
 const Paragraph = styled.p`
+  margin: 0;
   border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
   padding: 12px;

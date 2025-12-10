@@ -10,9 +10,10 @@ import { useStudentInfo } from "@/features/studentDetail/useStudentInfo";
 import { useStudentMemos } from "@/features/studentDetail/useStudentMemos";
 import { useStudentAttendance } from "@/features/studentDetail/useStudentAttendance";
 import { useStudentGrades } from "@/features/studentDetail/useStudentGrades";
+import { useStudentReports } from "@/features/studentDetail/useStudentReports";
 import { useStudentCounsels } from "@/features/studentDetail/useStudentCounsels";
 
-export type TabKey = "courses" | "attendance" | "counsels" | "grades" | "invoice" | "paymentHistory";
+export type TabKey = "courses" | "attendance" | "counsels" | "grades" | "invoice" | "paymentHistory" | "reports";
 
 type ConfirmDialogResult = {
   dialog: ReactNode;
@@ -54,6 +55,7 @@ export type StudentDetailPageState = {
     error: string | null;
     refresh: () => void;
   };
+  reports: ReturnType<typeof useStudentReports>;
   deleteConfirmDialog: ReactNode;
 };
 
@@ -89,6 +91,7 @@ export function useStudentDetailPage(): StudentDetailPageState {
       case "grades":
       case "invoice":
       case "paymentHistory":
+      case "reports":
         return tabParam;
       default:
         return "courses";
@@ -104,6 +107,11 @@ export function useStudentDetailPage(): StudentDetailPageState {
     studentId: numericId,
     courses: student?.courses,
     enabled: activeTab === "grades",
+  });
+
+  const reports = useStudentReports({
+    studentId: numericId,
+    enabled: activeTab === "reports",
   });
 
   const counsels = useStudentCounsels({
@@ -201,6 +209,7 @@ export function useStudentDetailPage(): StudentDetailPageState {
         void paymentsQuery.refetch();
       },
     },
+    reports,
     deleteConfirmDialog,
   };
 }

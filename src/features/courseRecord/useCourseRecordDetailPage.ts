@@ -8,10 +8,9 @@ import { useCourseRecordEditor } from "@/features/courseRecord/useCourseRecordEd
 import { useCourseRecordAttendance } from "@/features/courseRecord/useCourseRecordAttendance";
 import { useCourseRecordAttachments } from "@/features/courseRecord/useCourseRecordAttachments";
 import { useCourseRecordGrades } from "@/features/courseRecord/useCourseRecordGrades";
-import { letterFromNumeric, numericFromLetter } from "@/features/courseRecord/utils";
 import type { CourseRecordAttendanceProps, CourseRecordGradesPanelProps } from "@/components/courseRecord/CourseRecordRightPanel";
 
-const GRADE_AUTO_SAVE_DELAY = 1500;
+const GRADE_AUTO_SAVE_DELAY = 1000;
 
 export type UseCourseRecordDetailPageOptions = {
   courseId: number | null;
@@ -77,9 +76,6 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
     setExamModalOpen,
     setExamFormError,
     handleDeleteSelectedExam,
-    selectedExam,
-    gradeMap,
-    examResultsMap,
     gradeSaving,
     hasGradeChanges,
     gradeAutoSaveTimerRef,
@@ -88,26 +84,19 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
     examLoading,
     selectedExamId,
     exams,
-    setExamFormTitle,
-    setExamFormMode,
-    setExamFormTemplateId,
-    examTemplates,
+    selectedExam,
   } = grades;
 
   const [rightTab, setRightTab] = useState<"attendance" | "grades">("attendance");
   const [gradeView, setGradeView] = useState<"intro" | "list" | "scores">("intro");
 
+  // 시험 개수에 따라 초기 뷰만 조정하고,
+  // 실제 성적 입력 화면으로 전환은 모달에서 "선택" 버튼을 눌렀을 때만 이루어지도록 합니다.
   useEffect(() => {
-    if (exams.length === 0) {
-      if (gradeView !== "intro") setGradeView("intro");
-      return;
+    if (exams.length === 0 && gradeView !== "intro") {
+      setGradeView("intro");
     }
-    if (selectedExam) {
-      if (gradeView !== "scores") setGradeView("scores");
-    } else if (gradeView === "intro") {
-      setGradeView("list");
-    }
-  }, [exams, selectedExam, gradeView]);
+  }, [exams.length, gradeView]);
 
   const scoreStudents = useMemo(
     () =>
@@ -116,38 +105,6 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
         .map((row) => ({ id: row.id, name: row.name })),
     [attendance.attendanceRows],
   );
-
-  const avgNumeric = useMemo(() => {
-    if (!selectedExam) return null;
-    let sum = 0;
-    let count = 0;
-    for (const student of scoreStudents) {
-      let numeric: number | null = null;
-      if (selectedExam.inputMode === "percent") {
-        const raw = gradeMap[student.id]?.percent;
-        if (raw !== undefined && raw !== "") {
-          const parsed = Number(raw);
-          if (Number.isFinite(parsed)) {
-            numeric = Math.max(0, Math.min(100, Math.round(parsed)));
-          }
-        } else {
-          const existing = examResultsMap[student.id]?.score;
-          if (existing != null && Number.isFinite(existing)) {
-            numeric = Math.max(0, Math.min(100, Math.round(existing)));
-          }
-        }
-      } else {
-        const letter = gradeMap[student.id]?.letter ?? examResultsMap[student.id]?.level ?? "";
-        numeric = numericFromLetter(letter);
-      }
-      if (numeric != null) {
-        sum += numeric;
-        count += 1;
-      }
-    }
-    if (count === 0) return null;
-    return Math.round((sum / count) * 10) / 10;
-  }, [examResultsMap, gradeMap, selectedExam, scoreStudents]);
 
   useEffect(() => {
     if (!selectedExam) return;
@@ -169,13 +126,12 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
     };
   }, [gradeAutoSaveTimerRef, gradeSaving, hasGradeChanges, saveScoresForPresent, scoreStudents.length, selectedExam]);
 
-  const avgSummary = useMemo(() => {
-    if (avgNumeric == null) return null;
-    if (selectedExam?.inputMode === "letter") {
-      return letterFromNumeric(avgNumeric);
+  // 저장된 시험이 있으면 바로 성적 입력 뷰로 전환해 다시 들어와도 보이게 한다.
+  useEffect(() => {
+    if (selectedExam && gradeView !== "scores") {
+      setGradeView("scores");
     }
-    return avgNumeric.toFixed(1);
-  }, [avgNumeric, selectedExam]);
+  }, [gradeView, selectedExam]);
 
   const actionableCount = attendance.actionableRows.filter((row) => row.status !== "present").length;
   const filteredAttendanceRows = attendance.attendanceRows;
@@ -233,19 +189,9 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
   const gradesPanelProps: CourseRecordGradesPanelProps = {
     gradeView,
     setGradeView,
-    avgSummary,
     scoreStudents,
     grades,
-    openExamModal: (view: "list" | "create") => {
-      setExamModalView(view);
-      setExamFormError(null);
-      setExamFormTitle("");
-      setExamFormMode("percent");
-      if (view === "create") {
-        setExamFormTemplateId(examTemplates[0]?.id ?? "");
-      }
-      setExamModalOpen(true);
-    },
+    openExamModal: handleOpenExamSelect,
     closeExamModal: () => setExamModalOpen(false),
   };
 
@@ -302,7 +248,6 @@ export function useCourseRecordDetailPage({ courseId, recordId, ymd, searchParam
       onOpenExamModal: handleOpenExamSelect,
       onDeleteExam: handleDeleteExam,
     },
-    avgSummary,
     stats: {
       loading: statsLoading,
       summaryRate,

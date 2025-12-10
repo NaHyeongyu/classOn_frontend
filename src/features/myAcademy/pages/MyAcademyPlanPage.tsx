@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { apiGetSubscription, apiUpsertSubscription, apiGetTossClientKey, type SubscriptionDto } from "@/api/billing";
+import { apiGetMyAcademy, apiGetPlanUsage, type PlanUsage } from "@/api/account";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/common/Toast";
 import { routes } from "@/routes";
@@ -12,33 +13,159 @@ import {
   PlanDescription,
   PlanPriceWrapper,
   PlanPrice,
-  PlanOriginalPrice,
   PlanButton,
   Hint as RegisterHint,
   ChoiceList,
   ScaleCard,
-  PlanLabel,
+  PlanFeatures,
+  PlanFeatureItem,
+  PlanFeatureIcon,
+  PlanFeatureText,
+  PlanFeatureSectionTitle,
+  ChoiceBadge,
 } from "@/components/register/RegisterForm.styles";
 import styled from "styled-components";
-import { apiGetMyAcademy } from "@/api/account";
+import { useAuth } from "@/hooks/useAuth";
 import { loadTossPayments } from "@/lib/tossPayments";
+import { PrimaryButton, GhostButton } from "@/components/common/UI";
 
 type BillingPlanConfig = {
   id: string;
   name: string;
+  label: string;
   desc: string;
   priceKrw: number;
   originalPrice?: string;
+  paymentIncluded?: boolean;
+  features: Array<{
+    title: string;
+    desc?: string;
+    icon?: "check" | "x";
+  }>;
 };
 
 const PLANS: BillingPlanConfig[] = [
-  { id: "free", name: "Free", desc: "50명 이하 · 무료 체험용", priceKrw: 0 },
-  { id: "plan-100-basic", name: "Small Basic", desc: "총원 100명 · 결제 기능 없음(무료 플랜과 중복 불가)", priceKrw: 9000 },
-  { id: "plan-100-pay", name: "Small Plus", desc: "총원 100명 · 결제 기능 포함", priceKrw: 18000 },
-  { id: "plan-300-basic", name: "Midium Basic", desc: "300명 · 결제 기능 없음", priceKrw: 18000 },
-  { id: "plan-300-pay", name: "Midium Plus", desc: "300명 · 결제 기능 포함", priceKrw: 34000 },
-  { id: "plan-500-basic", name: "Large Basic", desc: "500명 · 결제 기능 없음", priceKrw: 27000 },
-  { id: "plan-500-pay", name: "Large Plus", desc: "500명 · 결제 기능 포함", priceKrw: 52000 },
+  {
+    id: "free",
+    name: "Free",
+    label: "무료 플랜",
+    desc: "소규모 개인/체험 학원을 위한 입문 플랜",
+    priceKrw: 0,
+    paymentIncluded: false,
+    features: [
+      { title: "원생관리", desc: "최대 50명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "파일 첨부 불가 · 수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 30회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { icon: "x", title: "결제관리", desc: "포함되지 않음 · 결제 요청·미납 관리는 상위 플랜에서 이용 가능" },
+      { icon: "x", title: "보고서", desc: "포함되지 않음 · 월간 보고서 생성 기능은 상위 플랜에서 제공" },
+      { icon: "x", title: "강사관리", desc: "포함되지 않음 · 강사별 관리 기능 미제공" },
+    ],
+  },
+  {
+    id: "plan-100-basic",
+    name: "Small Basic",
+    label: "120명 · 결제 기능 없음",
+    desc: "원생 120명 이하, 결제 없이 운영하는 기본 유료 플랜",
+    priceKrw: 9000,
+    originalPrice: "9,000원",
+    paymentIncluded: false,
+    features: [
+      { title: "원생관리", desc: "최대 120명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 3명 · 강사별 수업·원생 관리" },
+      { icon: "x", title: "결제관리", desc: "포함되지 않음 · 결제 요청·미납 관리 기능 없음" },
+      { icon: "x", title: "보고서", desc: "포함되지 않음 · 월간 보고서 생성 기능 없음" },
+    ],
+  },
+  {
+    id: "plan-100-pay",
+    name: "Small Plus",
+    label: "120명 · 결제 기능 포함",
+    desc: "원생 120명 이하, 결제 및 보고서를 포함한 플랜",
+    priceKrw: 19900,
+    originalPrice: "19,900원",
+    paymentIncluded: true,
+    features: [
+      { title: "원생관리", desc: "최대 120명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 3명 · 강사별 수업·원생 관리" },
+      { title: "결제관리", desc: "결제 요청부터 미납 관리까지 한 화면에서 처리" },
+      { title: "보고서", desc: "입력된 데이터를 바탕으로 월간 학습 보고서 자동 생성" },
+    ],
+  },
+  {
+    id: "plan-300-basic",
+    name: "Midium Basic",
+    label: "300명 · 결제 기능 없음",
+    desc: "중형 학원(최대 300명)을 위한 기본 플랜",
+    priceKrw: 18000,
+    paymentIncluded: false,
+    features: [
+      { title: "원생관리", desc: "최대 300명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 7명 · 강사별 수업·원생 관리" },
+      { icon: "x", title: "결제관리", desc: "포함되지 않음 · 결제 요청·미납 관리 기능 없음" },
+      { icon: "x", title: "보고서", desc: "포함되지 않음 · 월간 보고서 생성 기능 없음" },
+    ],
+  },
+  {
+    id: "plan-300-pay",
+    name: "Midium Plus",
+    label: "300명 · 결제 기능 포함",
+    desc: "중형 학원의 결제·보고서까지 포함한 플랜",
+    priceKrw: 36900,
+    paymentIncluded: true,
+    features: [
+      { title: "원생관리", desc: "최대 300명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 7명 · 강사별 수업·원생 관리" },
+      { title: "결제관리", desc: "결제 요청부터 미납 관리까지 한 화면에서 처리" },
+      { title: "보고서", desc: "입력된 데이터를 바탕으로 월간 학습 보고서 자동 생성" },
+    ],
+  },
+  {
+    id: "plan-500-basic",
+    name: "Large Basic",
+    label: "500명 · 결제 기능 없음",
+    desc: "대형 학원(최대 500명)을 위한 기본 플랜",
+    priceKrw: 27000,
+    paymentIncluded: false,
+    features: [
+      { title: "원생관리", desc: "최대 500명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 10명 · 강사별 수업·원생 관리" },
+      { icon: "x", title: "결제관리", desc: "포함되지 않음 · 결제 요청·미납 관리 기능 없음" },
+      { icon: "x", title: "보고서", desc: "포함되지 않음 · 월간 보고서 생성 기능 없음" },
+    ],
+  },
+  {
+    id: "plan-500-pay",
+    name: "Large Plus",
+    label: "500명 · 결제 기능 포함",
+    desc: "대형 학원의 결제·보고서까지 포함한 풀 패키지",
+    priceKrw: 54900,
+    paymentIncluded: true,
+    features: [
+      { title: "원생관리", desc: "최대 500명 · 원생 정보·시험·상담을 한눈에 관리" },
+      { title: "수업관리", desc: "수업 기록과 내용을 간편하게 정리" },
+      { title: "출결관리", desc: "모바일 앱과 연동해 출결을 자동으로 관리" },
+      { title: "마케팅", desc: "월 60회 · 수업 내용만 입력하면 AI가 인스타그램/블로그 캡션을 자동 생성" },
+      { title: "강사관리", desc: "최대 10명 · 강사별 수업·원생 관리" },
+      { title: "결제관리", desc: "결제 요청부터 미납 관리까지 한 화면에서 처리" },
+      { title: "보고서", desc: "입력된 데이터를 바탕으로 월간 학습 보고서 자동 생성" },
+    ],
+  },
 ];
 
 type StudentScaleOption = "UNDER_50" | "RANGE_50_100" | "RANGE_100_300" | "RANGE_300_500" | "OVER_500" | "";
@@ -84,23 +211,25 @@ export default function MyAcademyPlanPage() {
   const [subscription, setSubscription] = useState<SubscriptionDto | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [studentScale, setStudentScale] = useState<StudentScaleOption>("UNDER_50");
+  const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
   const { success, error } = useToast();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const billingBlocked = locationState?.reason === "billing-block";
   const [clientKey, setClientKey] = useState<string | null>(null);
   const [academyId, setAcademyId] = useState<number | null>(null);
-  const [isTrialing, setIsTrialing] = useState(false);
   const customerKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [academy, sub, ck] = await Promise.all([
+        const [academy, usage, sub, ck] = await Promise.all([
           apiGetMyAcademy().catch(
             (): Awaited<ReturnType<typeof apiGetMyAcademy>> | null => null,
           ),
+          apiGetPlanUsage().catch((): PlanUsage | null => null),
           apiGetSubscription().catch(
             (): Awaited<ReturnType<typeof apiGetSubscription>> | null => null,
           ),
@@ -112,13 +241,8 @@ export default function MyAcademyPlanPage() {
         setClientKey(ck?.clientKey || null);
         if (academy) {
           setAcademyId(academy.id);
-          const status = (academy.billingStatus || "").toUpperCase();
-          const endRaw = academy.billingCurrentPeriodEnd;
-          const end = endRaw ? new Date(endRaw) : null;
-          const trialActive =
-            status === "TRIALING" && end !== null && new Date() <= end;
-          setIsTrialing(trialActive);
         }
+        if (usage) setPlanUsage(usage);
         if (sub?.id) {
           setSubscription(sub);
           setSelectedPlanId(sub.planId);
@@ -201,11 +325,8 @@ export default function MyAcademyPlanPage() {
     }
   };
 
-  // 카드 등록 완료 후 처리는 마이페이지(MyAcademy)가 담당 (successUrl을 myAcademy로 지정)
-
   const handleSubmit = async () => {
     if (!selectedPlan) return;
-    // 요금제 다운그레이드 시 원생 수 초과 여부는 서버에서 최종 검증합니다.
     if (billingBlocked) {
       await handleCardRegister();
       return;
@@ -218,7 +339,6 @@ export default function MyAcademyPlanPage() {
         amountKrw: selectedPlan.priceKrw,
         currency: "KRW",
       });
-      // Clear cached subscription/KPI so UI reflects the new plan immediately
       queryClient.invalidateQueries({ queryKey: ["dashboard", "summary"] }).catch(() => {});
       try {
         const { invalidateCache } = await import("@/lib/fetcher");
@@ -242,128 +362,343 @@ export default function MyAcademyPlanPage() {
     navigate(routes.myAcademy, { replace: true });
   };
 
-  return (
-    <PageContainer>
-      <Header>
-        <div>
-          <h1>요금제 선택 / 변경</h1>
-          <p>원생 규모와 요금제를 회원가입 시 화면과 동일하게 다시 선택할 수 있습니다.</p>
-        </div>
-      </Header>
-      {loading ? (
-        <RegisterHint>현재 요금제를 불러오는 중입니다…</RegisterHint>
-      ) : (
-        <>
-          {isTrialing && (
-            <RegisterHint>
-              무료 체험 기간에는 요금제를 변경할 수 없습니다. 체험 종료 후 결제수단 등록과 함께 요금제를 선택해 주세요.
-            </RegisterHint>
-          )}
-          {subscription && (
-            <CurrentPlanCard>
-              <Label>현재 요금제</Label>
-              <Value>
-                {subscription.planName || getPlanById(subscription.planId)?.name || "설정되지 않음"}
-              </Value>
-            </CurrentPlanCard>
-          )}
-          <PlanLabel>
-            원생 규모<span>*</span>
-          </PlanLabel>
-          <ChoiceList>
-            {STUDENT_SCALE_OPTIONS.map((option) => (
-              <ScaleCard
-                key={option.id}
-                type="button"
-                data-active={studentScale === option.id}
-                onClick={() => setStudentScale(option.id)}
-              >
-                {option.label}
-              </ScaleCard>
-            ))}
-          </ChoiceList>
+  const handleLogout = () => {
+    logout();
+    navigate(routes.login, { replace: true });
+  };
 
-          <PlanLabel>
-            추천 요금제<span>*</span>
-          </PlanLabel>
-          <PlanGrid>
-            {availablePlans.length === 0 ? (
-              <RegisterHint>원생 규모를 선택하면 추천 요금제가 나타납니다.</RegisterHint>
-            ) : (
-              availablePlans.map((planId) => {
-                const plan = getPlanById(planId);
-                if (!plan) return null;
-                const active = selectedPlanId === plan.id;
-                return (
-                  <PlanCard
-                    key={plan.id}
+  return (
+    <PageWrapper>
+      <PlanCardShell>
+        <PlanHeaderBar>
+          <div>
+            <h1>요금제 선택 / 변경</h1>
+            <p>원생 규모에 맞는 요금제를 선택하고 필요 시 결제수단을 등록하세요.</p>
+          </div>
+          {billingBlocked && (
+            <HeaderRight>
+              <BillingBadge>결제가 필요합니다</BillingBadge>
+              <LogoutButton type="button" onClick={handleLogout}>
+                로그아웃
+              </LogoutButton>
+            </HeaderRight>
+          )}
+        </PlanHeaderBar>
+        {planUsage ? (
+          <UsageBar>
+            <UsageHeader>
+              <span className="label">현재 사용량</span>
+              <span className="plan-name">{planUsage.planName || planUsage.planId || "플랜 정보 없음"}</span>
+            </UsageHeader>
+            <UsageGrid>
+              <UsageItem>
+                <span className="usage-label">원생</span>
+                <div className="usage-value">
+                  <span className="current">{planUsage.studentCount}</span>
+                  <span className="separator">/</span>
+                  <span>{planUsage.studentLimit ?? "무제한"}</span>
+                </div>
+              </UsageItem>
+              <UsageItem>
+                <span className="usage-label">강사</span>
+                <div className="usage-value">
+                  <span className="current">{planUsage.teacherCount}</span>
+                  <span className="separator">/</span>
+                  <span>{planUsage.teacherLimit ?? "무제한"}</span>
+                </div>
+              </UsageItem>
+              <UsageItem>
+                <span className="usage-label">마케팅</span>
+                <div className="usage-value">
+                  {planUsage.marketingLimit != null ? `월 ${planUsage.marketingLimit}회` : "무제한"}
+                </div>
+              </UsageItem>
+            </UsageGrid>
+          </UsageBar>
+        ) : null}
+        <PageContainer>
+          {loading ? (
+            <RegisterHint>현재 요금제를 불러오는 중입니다…</RegisterHint>
+          ) : (
+            <>
+              {subscription && (
+                <CurrentPlanCard>
+                  <Label>현재 요금제</Label>
+                  <Value>
+                    {subscription.planName || getPlanById(subscription.planId)?.name || "설정되지 않음"}
+                  </Value>
+                </CurrentPlanCard>
+              )}
+              <SectionLabel>
+                원생 규모<span>*</span>
+              </SectionLabel>
+              <ChoiceList>
+                {STUDENT_SCALE_OPTIONS.map((option) => (
+                  <ScaleCard
+                    key={option.id}
                     type="button"
-                    data-active={active}
-                    onClick={() => setSelectedPlanId(plan.id)}
+                    data-active={studentScale === option.id}
+                    onClick={() => setStudentScale(option.id)}
                   >
-                    <PlanHeader>
-                      <PlanTitle>{plan.name}</PlanTitle>
-                      <PlanDescription>{plan.desc}</PlanDescription>
-                      <PlanPriceWrapper>
-                        {plan.originalPrice && <PlanOriginalPrice>{plan.originalPrice}</PlanOriginalPrice>}
-                        <PlanPrice>
-                          {plan.id === "free"
-                            ? "무료"
-                            : plan.priceKrw.toLocaleString("ko-KR")}
-                          {plan.id === "free" ? null : <span>/월</span>}
-                        </PlanPrice>
-                      </PlanPriceWrapper>
-                    </PlanHeader>
-                    <PlanButton>{active ? "선택됨" : "이 요금제 선택"}</PlanButton>
-                  </PlanCard>
-                );
-              })
-            )}
-          </PlanGrid>
-          <Actions>
-            <OutlineBtn type="button" onClick={handleCancel} disabled={saving}>
-              취소
-            </OutlineBtn>
-            <PrimaryBtn
-              type="button"
-              onClick={handleSubmit}
-              disabled={saving || !selectedPlan || isTrialing}
-            >
-              {saving
-                ? "진행 중..."
-                : billingBlocked
-                ? "카드 등록하기"
-                : "요금제 변경 완료"}
-            </PrimaryBtn>
-          </Actions>
-        </>
-      )}
-    </PageContainer>
+                    {option.label}
+                  </ScaleCard>
+                ))}
+              </ChoiceList>
+
+              <SectionLabel>
+                추천 요금제<span>*</span>
+              </SectionLabel>
+              <PlanGrid>
+                {availablePlans.length === 0 ? (
+                  <RegisterHint>원생 규모를 선택하면 추천 요금제가 나타납니다.</RegisterHint>
+                ) : (
+                  availablePlans.map((planId) => {
+                    const plan = getPlanById(planId);
+                    if (!plan) return null;
+                    const active = selectedPlanId === plan.id;
+                    const badgeVariant = plan.paymentIncluded ? "muted" : "warning";
+                    const badgeLabel = plan.paymentIncluded ? "결제 기능 포함" : "결제 기능 미포함";
+                    const availableFeatures = plan.features.filter((feat) => feat.icon !== "x");
+                    const unavailableFeatures = plan.features.filter((feat) => feat.icon === "x");
+                    
+                    return (
+                      <PlanCard
+                        key={plan.id}
+                        type="button"
+                        data-active={active}
+                        onClick={() => setSelectedPlanId(plan.id)}
+                      >
+                        <PlanHeader>
+                          <ChoiceBadge data-variant={badgeVariant}>{badgeLabel}</ChoiceBadge>
+                          <PlanTitle>{plan.name}</PlanTitle>
+                          <PlanDescription>{plan.desc}</PlanDescription>
+                          <PlanPriceWrapper>
+                            <PlanPrice>
+                              {plan.id === "free" ? "무료" : plan.priceKrw.toLocaleString("ko-KR") + "원"}
+                              {plan.id === "free" ? null : <span>/월</span>}
+                            </PlanPrice>
+                          </PlanPriceWrapper>
+                        </PlanHeader>
+                        
+                        <PlanButton>{active ? "선택됨" : "이 요금제 선택"}</PlanButton>
+                        
+                        <PlanFeatures>
+                          {availableFeatures.length > 0 && (
+                            <>
+                              <PlanFeatureSectionTitle>포함 기능</PlanFeatureSectionTitle>
+                              {availableFeatures.map((feat, idx) => (
+                                <PlanFeatureItem key={`a-${idx}`}>
+                                  <PlanFeatureIcon>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <polyline points="20 6 9 17 4 12" />
+                                    </svg>
+                                  </PlanFeatureIcon>
+                                  <PlanFeatureText>
+                                    <b>{feat.title}</b>
+                                    {feat.desc && <span>{feat.desc}</span>}
+                                  </PlanFeatureText>
+                                </PlanFeatureItem>
+                              ))}
+                            </>
+                          )}
+                          {unavailableFeatures.length > 0 && (
+                            <>
+                              <PlanFeatureSectionTitle data-variant="negative">
+                                미포함 / 제한
+                              </PlanFeatureSectionTitle>
+                              {unavailableFeatures.map((feat, idx) => (
+                                <PlanFeatureItem key={`u-${idx}`} data-unavailable="true">
+                                  <PlanFeatureIcon>
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                      <line x1="18" y1="6" x2="6" y2="18" />
+                                      <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                  </PlanFeatureIcon>
+                                  <PlanFeatureText>
+                                    <b>{feat.title}</b>
+                                    {feat.desc && <span>{feat.desc}</span>}
+                                  </PlanFeatureText>
+                                </PlanFeatureItem>
+                              ))}
+                            </>
+                          )}
+                        </PlanFeatures>
+                      </PlanCard>
+                    );
+                  })
+                )}
+              </PlanGrid>
+              <Actions>
+                <GhostButton type="button" onClick={handleCancel} disabled={saving}>
+                  취소
+                </GhostButton>
+                <PrimaryButton
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={saving || !selectedPlan}
+                >
+                  {saving
+                    ? "진행 중..."
+                    : billingBlocked
+                    ? "카드 등록하기"
+                    : "요금제 변경 완료"}
+                </PrimaryButton>
+              </Actions>
+            </>
+          )}
+        </PageContainer>
+      </PlanCardShell>
+    </PageWrapper>
   );
 }
+
+const PageWrapper = styled.div`
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${(p) => p.theme.colors.surface};
+  padding: ${(p) => p.theme.spacing.md};
+`;
+
+const PlanCardShell = styled.div`
+  width: 100%;
+  max-width: 1120px;
+  background: transparent;
+  padding: 48px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  @media (max-width: 640px) {
+    padding: 32px 24px;
+  }
+`;
+
+const UsageBar = styled.div`
+  background: ${(p) => p.theme.colors.surfaceMuted};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: ${(p) => p.theme.spacing.md};
+  display: flex;
+  flex-direction: column;
+  gap: ${(p) => p.theme.spacing.sm};
+`;
+
+const UsageHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: ${(p) => p.theme.spacing.xs};
+  border-bottom: 1px solid ${(p) => p.theme.colors.borderMuted};
+  
+  .label {
+    font-size: ${(p) => p.theme.font.size.xs};
+    color: ${(p) => p.theme.colors.textMuted};
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: ${(p) => p.theme.font.weight.semiBold};
+  }
+  
+  .plan-name {
+    font-size: ${(p) => p.theme.font.size.sm};
+    font-weight: ${(p) => p.theme.font.weight.semiBold};
+    color: ${(p) => p.theme.colors.text};
+  }
+`;
+
+const UsageGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: ${(p) => p.theme.spacing.xs};
+`;
+
+const UsageItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  
+  .usage-label {
+    font-size: ${(p) => p.theme.font.size.xs};
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+  
+  .usage-value {
+    font-size: ${(p) => p.theme.font.size.sm};
+    font-weight: ${(p) => p.theme.font.weight.semiBold};
+    color: ${(p) => p.theme.colors.text};
+    
+    .current {
+      color: ${(p) => p.theme.colors.primary};
+    }
+    
+    .separator {
+      margin: 0 4px;
+      color: ${(p) => p.theme.colors.textMuted};
+    }
+  }
+`;
+
+const PlanHeaderBar = styled.header`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  h1 {
+    margin: 0;
+    font-size: 28px;
+    font-weight: 800;
+    color: ${(p) => p.theme.colors.text};
+    letter-spacing: -0.03em;
+  }
+  p {
+    margin: 6px 0 0;
+    color: ${(p) => p.theme.colors.textMuted};
+    font-size: 14px;
+  }
+`;
+
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+`;
+
+const BillingBadge = styled.span`
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+`;
+
+const LogoutButton = styled.button`
+  border-radius: 999px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: #ffffff;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  color: ${(p) => p.theme.colors.text};
+  &:hover {
+    background: ${(p) => p.theme.colors.surfaceMuted};
+  }
+`;
 
 const PageContainer = styled.div`
   display: grid;
   gap: 16px;
 `;
 
-const Header = styled.header`
-  h1 {
-    margin: 0;
-    font-size: 22px;
-    color: #111827;
-  }
-  p {
-    margin: 6px 0 0;
-    color: #6b7280;
-    font-size: 13px;
-  }
-`;
-
 const CurrentPlanCard = styled.div`
   border-radius: 14px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: none;
+  background: ${(p) => p.theme.colors.surfaceMuted};
   padding: 12px 14px;
   display: flex;
   align-items: center;
@@ -373,14 +708,14 @@ const CurrentPlanCard = styled.div`
 
 const Label = styled.span`
   font-size: 12px;
-  color: #6b7280;
+  color: ${(p) => p.theme.colors.textMuted};
   letter-spacing: 0.03em;
 `;
 
 const Value = styled.span`
   font-size: 15px;
   font-weight: 600;
-  color: #111827;
+  color: ${(p) => p.theme.colors.text};
 `;
 
 const PlanCard = styled(RegisterPlanCard)``;
@@ -392,32 +727,14 @@ const Actions = styled.div`
   gap: 10px;
 `;
 
-const OutlineBtn = styled.button`
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  background: #ffffff;
-  padding: 8px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #374151;
-  cursor: pointer;
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-`;
-
-const PrimaryBtn = styled.button`
-  border-radius: 999px;
-  border: none;
-  background: #4f46e5;
-  padding: 8px 18px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #ffffff;
-  cursor: pointer;
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+const SectionLabel = styled.div`
+  font-size: ${(p) => p.theme.font.size.md};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  color: ${(p) => p.theme.colors.text};
+  margin-bottom: ${(p) => p.theme.spacing.sm};
+  
+  span {
+    color: ${(p) => p.theme.colors.danger};
+    margin-left: 2px;
   }
 `;

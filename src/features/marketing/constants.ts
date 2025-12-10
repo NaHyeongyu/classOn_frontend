@@ -57,16 +57,4 @@ export const MARKETING_PLATFORM_OPTIONS: Array<{
     icon: "📸",
     description: "짧고 임팩트 있는 메시지",
   },
-  {
-    value: "NAVER_BLOG",
-    name: "네이버 블로그",
-    icon: "📝",
-    description: "길고 친절한 설명에 적합",
-  },
-  {
-    value: "KAKAO_CHANNEL",
-    name: "카카오 채널",
-    icon: "💬",
-    description: "맞춤 안내와 상담 연결에 용이",
-  },
 ];

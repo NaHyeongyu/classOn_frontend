@@ -1,4 +1,5 @@
 import { useMemo, type KeyboardEvent } from "react";
+import { Link } from "react-router-dom";
 import {
   Card,
   CardHeader,
@@ -31,6 +32,7 @@ import {
 import { LoadingSpinner } from "@/components/common/Loading";
 import type { AdminAcademyDetailPageViewModel } from "@/features/admin/hooks/useAdminAcademyDetailPage";
 import styled from "styled-components";
+import { routes } from "@/routes";
 
 type Props = AdminAcademyDetailPageViewModel;
 
@@ -85,6 +87,9 @@ export function AdminAcademyDetailPageView({
           <PageSubtitle>{header.subtitle}</PageSubtitle>
         </HeaderBlock>
         <ToolbarGroup>
+          <MonoGhost as={Link} to={routes.admin}>
+            ← 목록으로
+          </MonoGhost>
           <ToolbarInfo>조회 기간</ToolbarInfo>
           <Input
             type="date"

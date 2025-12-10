@@ -73,8 +73,10 @@ declare module "@classon/shared-types" {
     enrolledCount?: number | null;
     nextClassDate?: string | null;
     instructorId?: number | null;
+    instructorIds?: number[] | null;
     primaryStudentId?: number | null;
     instructorName?: string | null;
+    instructorNames?: string[] | null;
     primaryStudentName?: string | null;
     description?: string | null;
     createdAt?: string | Date | null;
@@ -110,13 +112,22 @@ declare module "@classon/shared-types" {
   export type BillingCycleUnit = "MONTHS" | "WEEKS" | "DAYS" | string;
   export type PaymentMethod = "CARD" | "BANK_TRANSFER" | "CASH" | string;
   export type PaymentType = "ONLINE" | "OFFLINE" | string;
-  export type PaymentStatus = "UNPAID" | "PENDING" | "COMPLETED" | "FAILED" | "CANCELED" | string;
+  export type PaymentStatus =
+    | "UNPAID"
+    | "SCHEDULED"
+    | "PENDING"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELED"
+    | string;
 
   export interface PaymentSummary {
     paidAmount: number;
     unpaidAmount: number;
     unpaidCount: number;
     unsentCount: number;
+    overdueAmount?: number;
+    overdueCount?: number;
     [key: string]: unknown;
   }
 
@@ -126,6 +137,7 @@ declare module "@classon/shared-types" {
     code: string;
     phoneNumber?: string | null;
     guardianPhone?: string | null;
+    recipientPhone?: string | null;
     joinedDate?: string | null;
     status?: string | null;
     [key: string]: unknown;
@@ -137,6 +149,19 @@ declare module "@classon/shared-types" {
     code?: string | null;
     fee?: number | null;
     [key: string]: unknown;
+  }
+
+  export type AdditionalChargeType = "MATERIAL" | "TEXTBOOK" | "OTHER";
+
+  export interface PaymentAdditionalItem {
+    id: number;
+    type?: AdditionalChargeType | null;
+    label?: string | null;
+    quantity?: number | null;
+    unitPrice?: number | null;
+    totalPrice?: number | null;
+    appliedStart?: string | null;
+    appliedEnd?: string | null;
   }
 
   export interface PaymentHistoryRow {
@@ -181,6 +206,7 @@ declare module "@classon/shared-types" {
     approvalNumber?: string | null;
     currency?: string | null;
     course?: PaymentCourseBrief | null;
+    invoiceRequestedAt?: string | null;
     [key: string]: unknown;
   }
 
@@ -200,6 +226,7 @@ declare module "@classon/shared-types" {
     course?: PaymentCourseBrief | null;
     courses?: PaymentCourseBrief[] | null;
     schedule?: PaymentScheduleInfo | null;
+    additionalItems?: PaymentAdditionalItem[] | null;
     alerts?: PaymentAlertLog[] | null;
     latestAlert?: PaymentAlertLog | null;
     [key: string]: unknown;

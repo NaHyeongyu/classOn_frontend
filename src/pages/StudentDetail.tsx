@@ -25,6 +25,7 @@ export default function StudentDetail() {
       grades={state.grades}
       counsels={state.counsels}
       payments={state.payments}
+      reports={state.reports}
       deleteConfirmDialog={state.deleteConfirmDialog}
       onOpenCourse={state.onOpenCourse}
     />

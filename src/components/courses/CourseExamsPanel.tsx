@@ -48,7 +48,7 @@ export default function CourseExamsPanel({
       <SectionHead>
         <div>
           <Title>시험 관리</Title>
-          <Muted>수업과 연결된 시험을 확인하고 추가합니다.</Muted>
+          <Muted>이 화면에서는 시험 템플릿만 생성·수정합니다.</Muted>
         </div>
         <UIPrimaryButton type="button" onClick={onCreate}>시험 생성</UIPrimaryButton>
       </SectionHead>
@@ -65,7 +65,6 @@ export default function CourseExamsPanel({
               <tr>
                 <th>시험명</th>
                 <th>형태</th>
-                <th>평균</th>
                 <th className="manage">
                   <div className="manage-header" aria-hidden="true">
                     <span className="manage-label">관리</span>
@@ -83,7 +82,6 @@ export default function CourseExamsPanel({
                     </NameCell>
                   </td>
                   <td>{examModeLabel(exam.inputMode)}</td>
-                  <td>{renderAverage(exam)}</td>
                   <td className="manage">
                     <div className="actions">
                       <UIGhostButtonSmall type="button" data-variant="edit" onClick={() => onEdit(exam)}>수정</UIGhostButtonSmall>
@@ -140,24 +138,6 @@ function examModeLabel(mode?: Exam['inputMode']) {
   }
 }
 
-function renderAverage(exam: Exam): string {
-  if (exam.averageScore == null) return '—';
-  if (exam.inputMode === 'letter') return averageToLetter(exam.averageScore);
-  const rounded = Math.round(exam.averageScore * 10) / 10;
-  const formatted = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
-  return `${formatted}점`;
-}
-
-function averageToLetter(n: number): string {
-  const v = Math.round(n);
-  if (v >= 90) return 'A';
-  if (v >= 80) return 'B';
-  if (v >= 70) return 'C';
-  if (v >= 60) return 'D';
-  if (v >= 50) return 'E';
-  return 'F';
-}
-
 const Muted = styled.p`
   margin: 0;
   color: ${(p) => p.theme.colors.textMuted};
@@ -168,59 +148,16 @@ const TableWrap = styled.div`
 `;
 const Table = styled(UITable)`
   width: 100%;
-  thead th,
-  tbody td {
-    vertical-align: middle;
-    text-align: center;
-  }
-  thead th:first-child,
-  tbody td:first-child {
-    width: 40%;
-  }
-  thead th:nth-child(2),
-  tbody td:nth-child(2),
-  thead th:nth-child(3),
-  tbody td:nth-child(3) {
-    width: 20%;
-  }
-  thead th.manage,
-  tbody td.manage {
-    width: 160px;
-    white-space: nowrap;
-  }
-  thead th.manage {
-    position: relative;
-  }
-  thead th.manage .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-  thead th.manage .manage-header {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    width: 100%;
-    font-size: 12px;
-    color: #94a3b8;
-  }
-  thead th.manage .manage-label {
-    color: #1f2937;
-    font-weight: 600;
-  }
-  tbody td.manage .actions {
-    display: inline-flex;
-    gap: 6px;
-    justify-content: center;
-    flex-wrap: nowrap;
-  }
+  thead th, tbody td { vertical-align: middle; padding: 12px 14px; }
+  thead th:first-child, tbody td:first-child { text-align: left; width: 60%; }
+  thead th:nth-child(2), tbody td:nth-child(2) { width: 25%; text-align: center; }
+  thead th.manage, tbody td.manage { width: 15%; min-width: 150px; text-align: right; white-space: nowrap; }
+  tbody tr + tr { border-top: 1px solid ${(p) => p.theme.colors.borderMuted}; }
+  thead th.manage { position: relative; }
+  thead th.manage .sr-only { position: absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
+  thead th.manage .manage-header { display:inline-flex; align-items:center; justify-content:flex-end; gap:6px; width:100%; font-size:12px; color:#94a3b8; }
+  thead th.manage .manage-label { color:#1f2937; font-weight:600; }
+  tbody td.manage .actions { display:inline-flex; gap:6px; justify-content:flex-end; flex-wrap:nowrap; }
 `;
 const Empty = styled.div`
   display: grid;
@@ -238,15 +175,9 @@ const Empty = styled.div`
   }
 `;
 const NameCell = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  text-align: center;
-  .name {
-    font-weight: 700;
-    color: #1f2937;
-  }
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  text-align: left;
+  .name { font-weight: 700; color: #1f2937; }
 `;
 const Form = styled.div`
   display: grid;

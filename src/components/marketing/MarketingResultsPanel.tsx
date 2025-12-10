@@ -240,10 +240,12 @@ function toDateTime(dateYmd: string, timeHm: string): Date | null {
 }
 
 const ResultCard = styled(SectionCard)`
-  min-height: 0;
+  min-height: 500px;
+  height: fit-content;
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: ${(p) => p.theme.spacing.xl};
+  gap: ${(p) => p.theme.spacing.md};
 `;
 
 const PanelHeader = styled.div`
@@ -266,12 +268,17 @@ const PanelSub = styled.p`
 const ResultBody = styled.div`
   flex: 1;
   min-height: 0;
-  display: grid;
+  display: flex;
+  flex-direction: column;
 `;
 
 const ResultContent = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xl};
+  gap: ${(p) => p.theme.spacing.md};
+  align-self: flex-start;
+  width: 100%;
+  overflow-y: auto;
+  max-height: 100%;
 `;
 
 const ResultMeta = styled.div`
@@ -283,7 +290,7 @@ const ResultMeta = styled.div`
 
 const SectionStack = styled.div`
   display: grid;
-  gap: ${(p) => p.theme.spacing.xl};
+  gap: ${(p) => p.theme.spacing.md};
 `;
 
 const ResultError = styled.span`
@@ -301,6 +308,7 @@ const ResultSectionHeader = styled.header`
   justify-content: space-between;
   align-items: baseline;
   .title {
+    font-size: 14px;
     font-weight: 700;
     color: ${({ theme }) => theme.colors.text};
   }
@@ -388,6 +396,8 @@ const RecordDetail = styled.li`
 const ResultStickyActions = styled.div`
   display: flex;
   justify-content: flex-end;
+  padding-top: ${(p) => p.theme.spacing.md};
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
 `;
 
 const ResultActionRow = styled.div`

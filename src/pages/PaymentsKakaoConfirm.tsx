@@ -14,7 +14,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useToast } from "@/components/common/Toast";
 import { getPaymentDetail, sendPaymentInvoices } from "@/api/payments";
 import type { PaymentTemplateKey } from "@/api/payments";
-import type { PaymentDetail } from "@classon/shared-types";
+import type { PaymentDetail, PaymentHistoryRow } from "@classon/shared-types";
 import { formatMoney, formatKoreanDate } from "@/lib/format";
 import { readableError } from "@/lib/errors";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -26,6 +26,14 @@ import InvoicePreview from "@/components/payments/InvoicePreview";
 import SelectBox from "@/components/common/SelectBox";
 
 type TemplateKey = PaymentTemplateKey;
+
+const DEFAULT_TEMPLATE_KEY: TemplateKey = "PAYMENT_GUIDE";
+const LEGACY_TEMPLATE_ALIASES: Record<string, TemplateKey> = {
+  GUIDE: "PAYMENT_GUIDE",
+  RETRY: "PAYMENT_RETRY",
+  SUCCESS: "PAYMENT_SUCCESS",
+  FAIL: "PAYMENT_CANCEL",
+};
 
 const PAYMENT_LINK_HOST_PREVIEW =
   import.meta.env.VITE_PAYMENT_LINK_HOST_PREVIEW ??
@@ -40,8 +48,8 @@ const TEMPLATE_DEFINITIONS: Record<
   TemplateKey,
   { label: string; body: string; resend: boolean }
 > = {
-  GUIDE: {
-    label: "결제 안내용 (기본 청구)",
+  PAYMENT_GUIDE: {
+    label: "결제 안내 (기본 청구)",
     resend: false,
     body: [
       "[#{academyName}]",
@@ -54,22 +62,22 @@ const TEMPLATE_DEFINITIONS: Record<
       "자세한 내용은 아래에서 확인하실 수 있습니다.",
     ].join("\n"),
   },
-  RETRY: {
-    label: "결제 재안내용 (미납 재전송)",
+  PAYMENT_RETRY: {
+    label: "결제 재안내 (미납 재전송)",
     resend: true,
     body: [
       "[#{academyName}]",
-      "안녕하세요. #{studentName} 학부모님 😊",
       "",
-      "#{courseName} 수업의 청구서 확인을 재요청드립니다.",
+      "안녕하세요 😊",
       "",
-      "총 금액은 #{finalAmount}원이며,",
-      "기한은 #{dueDate}입니다.",
+      "이전에 안내드린",
+      "#{studentName} 학생의 #{courseName} 수업 관련 비용 내용에 대해",
+      "다시 한 번 확인 요청드립니다.",
       "",
-      "아래 버튼을 눌러 청구서 내용을 확인해주세요.",
+      "자세한 내용은 아래에서 확인하실 수 있습니다.",
     ].join("\n"),
   },
-  SUCCESS: {
+  PAYMENT_SUCCESS: {
     label: "결제 완료 안내",
     resend: false,
     body: [
@@ -79,16 +87,28 @@ const TEMPLATE_DEFINITIONS: Record<
       "항상 믿고 맡겨주셔서 감사합니다.",
     ].join("\n"),
   },
-  FAIL: {
-    label: "결제 실패 안내",
+  PAYMENT_CANCEL: {
+    label: "결제 취소 안내",
     resend: false,
     body: [
       "[#{academyName}]",
-      "안녕하세요. #{studentName} 학부모님 😊",
+      "#{studentName} 학생의 #{courseName} 수업 수강료 결제가 취소 처리되었습니다.",
       "",
-      "#{studentName} 학생의 #{courseName} 수업료 납부가 진행 되지 않았습니다.",
+      "관련하여 추가 안내가 필요하시면 학원으로 문의해주세요.",
       "",
-      "청구서 페이지에서 다시 한 번 안내 내용을 확인해 주세요.",
+      "늘 믿고 함께해주셔서 감사합니다.",
+    ].join("\n"),
+  },
+  REPORT_READY: {
+    label: "수업 보고서 안내",
+    resend: false,
+    body: [
+      "[#{academyName}]",
+      "안녕하세요 😊",
+      "#{studentName} 학생의",
+      "#{courseName} 수업 보고서가 있어 알려드립니다.",
+      "",
+      "자세한 내용은 아래에서 확인하실 수 있습니다.",
     ].join("\n"),
   },
 };
@@ -112,9 +132,13 @@ const statusColor: Record<string, string> = {
 function normalizeTemplateKey(raw: string | null): TemplateKey | null {
   if (!raw) return null;
   const key = raw.trim().toUpperCase();
-  return Object.prototype.hasOwnProperty.call(TEMPLATE_DEFINITIONS, key)
-    ? (key as TemplateKey)
-    : null;
+  if (Object.prototype.hasOwnProperty.call(TEMPLATE_DEFINITIONS, key)) {
+    return key as TemplateKey;
+  }
+  if (Object.prototype.hasOwnProperty.call(LEGACY_TEMPLATE_ALIASES, key)) {
+    return LEGACY_TEMPLATE_ALIASES[key];
+  }
+  return null;
 }
 
 type SendMode = "send" | "schedule";
@@ -156,7 +180,7 @@ function KakaoSendPage({ mode }: { mode: SendMode }) {
 
   const [academyName, setAcademyName] = useState("OO학원");
   const queryTemplate = normalizeTemplateKey(searchParams.get("template"));
-  const initialTemplateKey = queryTemplate ?? "GUIDE";
+  const initialTemplateKey = queryTemplate ?? DEFAULT_TEMPLATE_KEY;
   const [templateKey, setTemplateKey] = useState<TemplateKey>(initialTemplateKey);
   const [message, setMessage] = useState(TEMPLATE_DEFINITIONS[initialTemplateKey].body);
   const [previewDetail, setPreviewDetail] = useState<PaymentDetail | null>(null);
@@ -227,7 +251,7 @@ function KakaoSendPage({ mode }: { mode: SendMode }) {
 
   const isMultiSelection = details.length > 1;
 
-  const sendMutation = useMutation({
+  const sendMutation = useMutation<PaymentHistoryRow[], unknown, void>({
     mutationFn: () =>
       sendPaymentInvoices({
         ids,
@@ -235,13 +259,21 @@ function KakaoSendPage({ mode }: { mode: SendMode }) {
         resend: TEMPLATE_DEFINITIONS[templateKey].resend,
         scheduledAt: schedulePayload ? normalizeSchedulePayload(schedulePayload) : undefined,
       }),
-    onSuccess: () => {
+    onSuccess: (result: PaymentHistoryRow[]) => {
+      invalidatePaymentsQueries(queryClient);
+      const failed = result.filter((row) => row.status === "FAILED");
+      if (failed.length > 0) {
+        toastError(
+          `카카오톡 발송에 실패한 청구서 ${failed.length}건이 있습니다. 상세 내역을 확인한 뒤 다시 시도해 주세요.`,
+        );
+        void detailsQuery.refetch();
+        return;
+      }
       success(
         isScheduleMode
           ? "카카오톡 알림 예약을 등록했습니다."
           : "카카오톡 알림 전송을 요청했습니다.",
       );
-      invalidatePaymentsQueries(queryClient);
       navigate(routes.payments);
     },
     onError: (err: unknown) =>
@@ -376,16 +408,17 @@ function KakaoSendPage({ mode }: { mode: SendMode }) {
             ) : null}
             <label>
               템플릿 선택
-              <Select
+              <SelectBox
+                ariaLabel="템플릿 선택"
                 value={templateKey}
-                onChange={(event) => setTemplateKey(event.target.value as TemplateKey)}
-              >
-                {Object.entries(TEMPLATE_DEFINITIONS).map(([key, value]) => (
-                  <option key={key} value={key}>
-                    {value.label}
-                  </option>
-                ))}
-              </Select>
+                onChange={(value) =>
+                  setTemplateKey((value as TemplateKey) ?? DEFAULT_TEMPLATE_KEY)
+                }
+                options={Object.entries(TEMPLATE_DEFINITIONS).map(([key, value]) => ({
+                  label: value.label,
+                  value: key,
+                }))}
+              />
             </label>
             <label>
               학원명
@@ -611,14 +644,6 @@ const FormStack = styled.div`
     font-size: 13px;
     color: ${(p) => p.theme.colors.textMuted};
   }
-`;
-
-const Select = styled.select`
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 14px;
-  background: #fff;
 `;
 
 const Input = styled.input`

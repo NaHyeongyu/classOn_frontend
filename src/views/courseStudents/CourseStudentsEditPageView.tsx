@@ -1,13 +1,16 @@
-import { ReactNode } from "react";
+import { ReactNode, useState } from "react";
 import styled from "styled-components";
 import {
   SectionCard as Section,
   TitleH3 as Title,
   SmallBtn as UISmallBtn,
   PrimaryButtonSm as UIPrimaryButtonSm,
+  GhostButton,
 } from "@/components/common/UI";
 import BackButton from "@/components/common/BackButton";
 import type { Student } from "@/api/students";
+import Modal from "@/components/common/Modal";
+import SelectBox from "@/components/common/SelectBox";
 
 const STATUS_LABEL: Record<Student["status"], string> = {
   ENROLLED: "수강중",
@@ -26,6 +29,11 @@ type CourseStudentsEditPageViewProps = {
   capacity: number | null;
   studentSearch: string;
   onChangeStudentSearch: (value: string) => void;
+  studentStatus: "" | "ENROLLED" | "ON_LEAVE" | "PENDING";
+  onChangeStudentStatus: (value: "" | "ENROLLED" | "ON_LEAVE" | "PENDING") => void;
+  onSearchClick: () => void;
+  onSearchWithStatus: (status: "" | "ENROLLED" | "ON_LEAVE" | "PENDING") => void;
+  onReset: () => void;
   studentOptions: Student[];
   studentLoading: boolean;
   studentError: string | null;
@@ -39,6 +47,8 @@ type CourseStudentsEditPageViewProps = {
   confirmUnenrollDialog: ReactNode;
   onBack: () => void;
   atCapacity: boolean;
+  changeNotice: string | null;
+  onCloseChangeNotice: () => void;
 };
 
 export function CourseStudentsEditPageView({
@@ -46,6 +56,11 @@ export function CourseStudentsEditPageView({
   capacity,
   studentSearch,
   onChangeStudentSearch,
+  studentStatus,
+  onChangeStudentStatus,
+  onSearchClick,
+  onSearchWithStatus,
+  onReset,
   studentOptions,
   studentLoading,
   studentError,
@@ -59,10 +74,44 @@ export function CourseStudentsEditPageView({
   confirmUnenrollDialog,
   onBack,
   atCapacity,
+  changeNotice,
+  onCloseChangeNotice,
 }: CourseStudentsEditPageViewProps) {
+  const [composing, setComposing] = useState(false);
+  const [pendingEnter, setPendingEnter] = useState(false);
+
+  function handleSearch() {
+    onSearchClick();
+  }
+
+  function handleStatusChange(val: string) {
+    const newStatus = val as typeof studentStatus;
+    onChangeStudentStatus(newStatus);
+    // Trigger search immediately with the new status value
+    onSearchWithStatus(newStatus);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (composing) setPendingEnter(true);
+      else handleSearch();
+    }
+  }
   return (
     <Wrap>
       {confirmUnenrollDialog}
+      <Modal open={Boolean(changeNotice)} onClose={onCloseChangeNotice} title="청구서 확인 안내">
+        <NoticeBody style={{ textAlign: 'center' }}>
+          {changeNotice ??
+            "수업 수강 정보가 변경되어 학생 청구서에 자동 반영되었습니다. 발송 전 청구서 내용을 다시 확인해 주세요."}
+        </NoticeBody>
+        <ModalActions>
+          <GhostButton type="button" onClick={onCloseChangeNotice}>
+            확인
+          </GhostButton>
+        </ModalActions>
+      </Modal>
       <Head>
         <TopLeft>
           <BackButton onClick={onBack} label="뒤로" />
@@ -80,11 +129,39 @@ export function CourseStudentsEditPageView({
           <div>
             <Field>
               <Label>학생 검색</Label>
-              <Input
-                placeholder="이름/연락처로 검색 (빈칸=전체)"
-                value={studentSearch}
-                onChange={(event) => onChangeStudentSearch(event.target.value)}
-              />
+              <SearchRow>
+                <SelectBox
+                  ariaLabel="상태"
+                  value={studentStatus}
+                  onChange={handleStatusChange}
+                  placeholder="전체"
+                  options={[
+                    { label: '수강중', value: 'ENROLLED' },
+                    { label: '휴학', value: 'ON_LEAVE' },
+                    { label: '대기', value: 'PENDING' },
+                  ]}
+                />
+                <SearchInput
+                  placeholder="이름/연락처로 검색"
+                  value={studentSearch}
+                  onChange={(event: React.ChangeEvent<HTMLInputElement>) => onChangeStudentSearch(event.target.value)}
+                  onCompositionStart={() => setComposing(true)}
+                  onCompositionEnd={() => {
+                    setComposing(false);
+                    if (pendingEnter) {
+                      setPendingEnter(false);
+                      handleSearch();
+                    }
+                  }}
+                  onKeyDown={handleKeyDown}
+                />
+                <SearchBtn type="button" onClick={handleSearch}>
+                  검색
+                </SearchBtn>
+                <ResetBtn type="button" onClick={onReset}>
+                  초기화
+                </ResetBtn>
+              </SearchRow>
               <Hint>
                 {studentLoading
                   ? "검색 중..."
@@ -142,7 +219,7 @@ export function CourseStudentsEditPageView({
                 등록된 학생 ({enrolledStudents.length}명
                 {capacity ? ` / 정원 ${capacity}명` : ""})
               </Label>
-              <ListBox>
+              <EnrolledListBox>
                 {enrolledLoading ? <Muted>불러오는 중...</Muted> : null}
                 {!enrolledLoading && enrolledStudents.length === 0 ? (
                   <Muted>아직 등록된 학생이 없습니다.</Muted>
@@ -168,7 +245,7 @@ export function CourseStudentsEditPageView({
                     </RowActions>
                   </Row>
                 ))}
-              </ListBox>
+              </EnrolledListBox>
             </Field>
           </div>
         </Grid>
@@ -230,12 +307,65 @@ const Label = styled.div`
   font-weight: 700;
 `;
 
-const Input = styled.input`
-  height: 38px;
+const SearchRow = styled.div`
+  display: grid;
+  grid-template-columns: 0.8fr 2fr auto auto;
+  gap: 8px;
+  align-items: center;
+`;
+
+const SearchInput = styled.input`
+  height: 40px;
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 0 10px;
   font-size: 14px;
+  width: 100%;
+`;
+
+const SearchBtn = styled.button`
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid #111827;
+  background: #111827;
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  
+  &:hover {
+    background: #1f2937;
+    border-color: #1f2937;
+  }
+  
+  &:active {
+    background: #374151;
+    border-color: #374151;
+  }
+`;
+
+const ResetBtn = styled.button`
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #374151;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  white-space: nowrap;
+  
+  &:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+  
+  &:active {
+    background: #f3f4f6;
+  }
 `;
 
 const Hint = styled.div`
@@ -253,6 +383,12 @@ const ListBox = styled.div`
   display: grid;
   gap: 6px;
 `;
+
+const EnrolledListBox = styled(ListBox)`
+  max-height: 509px;
+`;
+
+
 
 const Row = styled.div`
   display: flex;
@@ -311,6 +447,20 @@ const StatusTag = styled.span`
     color: #6d28d9;
     border-color: #ddd6fe;
   }
+`;
+
+const ModalActions = styled.div`
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+`;
+
+const NoticeBody = styled.p`
+  font-size: 16px;
+  line-height: 1.7;
+  margin: 0;
+  color: ${(p) => p.theme.colors.text};
+  white-space: pre-wrap;
 `;
 
 const AlertError = styled.div`

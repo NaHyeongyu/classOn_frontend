@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { SummarizeItem, SummarizeOptions } from "@/api/summarize";
-import type { MarketingSummaryPayload, MarketingDirection } from "@/features/marketing/types";
+import type { MarketingSummaryPayload } from "@/features/marketing/types";
 import type { SavedPost } from "@/api/marketingSaved";
 
 export type PlatformChoice = SavedPost["platform"];
@@ -47,13 +47,13 @@ export type UseMarketingSummaryResult = {
     platformChoice: PlatformChoice;
     formatStyle: SummaryLocationState["formatStyle"];
     directionText: string;
-    summaryDirections: MarketingDirection[];
-    selectedDirectionIndex: number | null;
     draft: Draft;
     tagsList: string[];
     blogTitle: string;
+    bodyInput: string;
   };
   ui: {
+    setBodyInput: (value: string) => void;
     tagInput: string;
     setTagInput: (value: string) => void;
     igImgIdx: number;

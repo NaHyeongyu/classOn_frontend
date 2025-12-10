@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import styled from "styled-components";
 import { useQuery } from "@tanstack/react-query";
 import { PrimaryButton } from "@/components/common/UI";
@@ -10,8 +10,37 @@ import {
   preparePublicPaymentCheckout,
   type PublicPaymentInvoice,
 } from "@/api/payments";
+import { routes } from "@/routes";
 import type { PaymentDetail } from "@classon/shared-types";
 import type { TossPayments } from "@/types/tossPayments";
+
+type TossPaymentWidget = {
+  renderPaymentMethods(
+    selector: HTMLElement,
+    amount: { value: number },
+    options?: Record<string, unknown>,
+  ): unknown;
+  renderAgreement(
+    selector: HTMLElement,
+    options?: Record<string, unknown>,
+  ): unknown;
+  requestPayment(args: {
+    orderId: string;
+    orderName?: string;
+    successUrl?: string;
+    failUrl?: string;
+    customerName?: string | null;
+    amount: number;
+  }): Promise<void>;
+};
+
+type TossPaymentWidgetFactory = (clientKey: string, customerKey: string) => TossPaymentWidget;
+
+declare global {
+  interface Window {
+    PaymentWidget?: TossPaymentWidgetFactory;
+  }
+}
 
 type InvoiceViewModel = {
   academyName: string;
@@ -27,6 +56,7 @@ type InvoiceViewModel = {
   memo?: string;
   status?: string;
   checkoutUrl?: string;
+  receiptToken?: string;
 };
 
 type InvoicePreviewProps = {
@@ -37,6 +67,8 @@ type InvoicePreviewProps = {
   fallback?: Partial<InvoiceViewModel>;
   variant?: "page" | "modal";
 };
+
+type ApiError = Error & { status?: number; code?: string | number };
 
 const SAMPLE_DATA: InvoiceViewModel = {
   academyName: "클래스온 어학원",
@@ -51,6 +83,7 @@ const SAMPLE_DATA: InvoiceViewModel = {
   memo: "",
   status: "UNPAID",
   checkoutUrl: undefined,
+  receiptToken: undefined,
 };
 
 const statusLabel: Record<string, string> = {
@@ -72,24 +105,36 @@ export default function InvoicePreview({
   const { user } = useAuth();
   const { error: showError } = useToast();
   const isStaffPreview = user?.role === "ADMIN" || user?.role === "OWNER";
-  const shouldFetch = mode === "guardian" && Boolean(token);
+  const normalizedToken = typeof token === "string" && token.trim() ? token.trim() : undefined;
+  const hasToken = Boolean(normalizedToken);
+  const shouldFetch = mode === "guardian" && hasToken;
+  const tokenMissing = mode === "guardian" && !hasToken;
 
   const invoiceQuery = useQuery({
-    queryKey: ["public-invoice", token],
+    queryKey: ["public-invoice", normalizedToken],
     enabled: shouldFetch,
     queryFn: async () => {
-      if (!token) throw new Error("토큰이 없습니다.");
-      return await getPublicPaymentInvoice(token);
+      if (!normalizedToken) throw new Error("토큰이 없습니다.");
+      return await getPublicPaymentInvoice(normalizedToken);
     },
     staleTime: 30_000,
     retry: 0,
   });
 
+  const invoiceError = invoiceQuery.error as ApiError | null;
+  const invoiceErrorCode = invoiceError?.code ? String(invoiceError.code) : undefined;
+  const invoiceErrorMessage = invoiceError?.message?.trim();
+  const invoiceDetached = invoiceErrorCode === "PAYMENT_INVOICE_DETACHED";
+  const invoiceMissing = invoiceErrorCode === "PAYMENT_INVOICE_NOT_FOUND";
+  const invoiceInvalidToken = invoiceErrorCode === "PAYMENT_INVOICE_INVALID_TOKEN";
+  const criticalInvoiceIssue = invoiceDetached || invoiceMissing;
+
   useEffect(() => {
     if (invoiceQuery.isError && shouldFetch) {
-      showError("청구서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      const msg = invoiceErrorMessage || "청구서를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+      showError(invoiceInvalidToken ? `${msg} 학원에 문의해 새 링크를 받아 주세요.` : msg);
     }
-  }, [invoiceQuery.isError, shouldFetch, showError]);
+  }, [invoiceQuery.isError, shouldFetch, showError, invoiceErrorMessage, invoiceInvalidToken]);
 
   const resolvedData = useMemo<InvoiceViewModel>(() => {
     let base: InvoiceViewModel;
@@ -112,20 +157,39 @@ export default function InvoicePreview({
   const loading =
     (shouldFetch && invoiceQuery.isLoading && !invoiceQuery.data) ||
     (mode === "admin" && !payment);
-  const disablePay = mode === "admin" || isStaffPreview;
-  const canPay = mode === "guardian" && Boolean(token) && !disablePay;
+  const disablePay = mode === "admin" || isStaffPreview || criticalInvoiceIssue;
+  const receiptLink = resolvedData.receiptToken
+    ? `${routes.paymentsReceipt}?token=${encodeURIComponent(resolvedData.receiptToken)}`
+    : null;
+  const showReceiptLink = mode === "guardian" && Boolean(receiptLink);
+  const canPay = mode === "guardian" && hasToken && !disablePay && !showReceiptLink;
   
   const [paying, setPaying] = useState(false);
   const [tossPayments, setTossPayments] = useState<TossPayments | null>(null);
   const [refundPolicyExpanded, setRefundPolicyExpanded] = useState(false);
   const [customerServiceExpanded, setCustomerServiceExpanded] = useState(false);
+  const paymentMethodsRef = useRef<HTMLDivElement | null>(null);
+  const agreementRef = useRef<HTMLDivElement | null>(null);
+  const widgetPaymentMethodsId = useMemo(
+    () => `payment-widget-methods-${Math.random().toString(36).slice(2)}`,
+    [],
+  );
+  const widgetAgreementId = useMemo(
+    () => `payment-widget-agreement-${Math.random().toString(36).slice(2)}`,
+    [],
+  );
+  const widgetInstanceRef = useRef<TossPaymentWidget | null>(null);
+  const [widgetReady, setWidgetReady] = useState(false);
+  const [widgetLoading, setWidgetLoading] = useState(false);
+  const [widgetError, setWidgetError] = useState<string | null>(null);
+  const [widgetPaying, setWidgetPaying] = useState(false);
   
   const checkoutQuery = useQuery({
-    queryKey: ["public-checkout", token],
-    enabled: canPay && Boolean(token),
+    queryKey: ["public-checkout", normalizedToken],
+    enabled: canPay,
     queryFn: async () => {
-      if (!token) throw new Error("토큰이 없습니다.");
-      return await preparePublicPaymentCheckout(token);
+      if (!normalizedToken) throw new Error("토큰이 없습니다.");
+      return await preparePublicPaymentCheckout(normalizedToken);
     },
     retry: 0,
     staleTime: 300_000,
@@ -151,6 +215,88 @@ export default function InvoicePreview({
     loadTossPayments();
   }, [canPay, checkoutQuery.data, showError]);
 
+  const widgetClientKey = useMemo(() => {
+    const fromApi = checkoutQuery.data?.widgetClientKey?.trim();
+    if (fromApi) return fromApi;
+    const fromEnv =
+      typeof import.meta.env.VITE_TOSS_WIDGET_CLIENT_KEY === "string"
+        ? import.meta.env.VITE_TOSS_WIDGET_CLIENT_KEY.trim()
+        : "";
+    return fromEnv || undefined;
+  }, [checkoutQuery.data?.widgetClientKey]);
+  const showWidget = canPay && Boolean(widgetClientKey);
+
+  useEffect(() => {
+    if (!showWidget) {
+      setWidgetReady(false);
+      setWidgetError(null);
+      widgetInstanceRef.current = null;
+      if (paymentMethodsRef.current) paymentMethodsRef.current.innerHTML = "";
+      if (agreementRef.current) agreementRef.current.innerHTML = "";
+    }
+  }, [showWidget]);
+
+  useEffect(() => {
+    if (!showWidget || !checkoutQuery.data || !widgetClientKey) return;
+    const container = paymentMethodsRef.current;
+    const agreement = agreementRef.current;
+    if (!container || !agreement) return;
+    let canceled = false;
+    setWidgetLoading(true);
+    setWidgetError(null);
+    setWidgetReady(false);
+    (async () => {
+      try {
+        await ensureTossPaymentWidgetScript();
+        if (canceled) return;
+        if (typeof window === "undefined" || !window.PaymentWidget) {
+          throw new Error("결제 위젯 스크립트를 찾을 수 없습니다.");
+        }
+        const widget = window.PaymentWidget(
+          widgetClientKey,
+          checkoutQuery.data.customerKey ?? checkoutQuery.data.orderId,
+        );
+        widget.renderPaymentMethods(
+          container,
+          { value: checkoutQuery.data.amount },
+          { variantKey: "DEFAULT" },
+        );
+        widget.renderAgreement(agreement, { variantKey: "AGREEMENT" });
+        widgetInstanceRef.current = widget;
+        if (!canceled) {
+          setWidgetReady(true);
+          setWidgetError(null);
+        }
+      } catch (err) {
+        if (canceled) return;
+        console.error("Failed to load Toss Payments widget:", err);
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "결제 위젯을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+        setWidgetError(message);
+        setWidgetReady(false);
+        widgetInstanceRef.current = null;
+        if (container) container.innerHTML = "";
+        if (agreement) agreement.innerHTML = "";
+      } finally {
+        if (!canceled) setWidgetLoading(false);
+      }
+    })();
+    return () => {
+      canceled = true;
+      widgetInstanceRef.current = null;
+      if (container) container.innerHTML = "";
+      if (agreement) agreement.innerHTML = "";
+    };
+  }, [
+    showWidget,
+    widgetClientKey,
+    checkoutQuery.data,
+    widgetPaymentMethodsId,
+    widgetAgreementId,
+  ]);
+
   const checkoutErrorMessage = useMemo(() => {
     if (!checkoutQuery.error) return null;
     const err = checkoutQuery.error;
@@ -163,7 +309,21 @@ export default function InvoicePreview({
     return "결제 설정을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
   }, [checkoutQuery.error]);
 
-  const payDisabled = disablePay || paying || (canPay && (!checkoutQuery.data || checkoutQuery.isLoading || !tossPayments));
+  const payDisabled =
+    disablePay ||
+    paying ||
+    tokenMissing ||
+    showReceiptLink ||
+    (canPay && (!checkoutQuery.data || checkoutQuery.isLoading || !tossPayments));
+
+  const widgetActionDisabled =
+    !showWidget ||
+    disablePay ||
+    widgetLoading ||
+    widgetPaying ||
+    !widgetReady ||
+    !checkoutQuery.data;
+  const showFallbackButton = (!showWidget || Boolean(widgetError)) && !showReceiptLink;
 
   const handlePay = async () => {
     if (payDisabled || !tossPayments || !checkoutQuery.data) return;
@@ -190,6 +350,28 @@ export default function InvoicePreview({
           : "결제 창을 열 수 없습니다. 잠시 후 다시 시도해 주세요.";
       showError(message);
       setPaying(false);
+    }
+  };
+
+  const handleWidgetPay = async () => {
+    if (widgetActionDisabled || !widgetInstanceRef.current || !checkoutQuery.data) return;
+    try {
+      setWidgetPaying(true);
+      await widgetInstanceRef.current.requestPayment({
+        orderId: checkoutQuery.data.orderId,
+        orderName: checkoutQuery.data.orderName ?? resolvedData.courseTitle,
+        successUrl: checkoutQuery.data.successUrl ?? window.location.href,
+        failUrl: checkoutQuery.data.failUrl ?? window.location.href,
+        customerName: checkoutQuery.data.studentName ?? resolvedData.studentName,
+        amount: checkoutQuery.data.amount,
+      });
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message
+          ? err.message
+          : "결제 창을 열 수 없습니다. 잠시 후 다시 시도해 주세요.";
+      showError(message);
+      setWidgetPaying(false);
     }
   };
 
@@ -262,7 +444,41 @@ export default function InvoicePreview({
 
         {canPay && checkoutErrorMessage ? <InlineError>{checkoutErrorMessage}</InlineError> : null}
 
-        <Note>결제 버튼을 누르면 안전한 토스페이먼츠 결제 페이지로 이동합니다.</Note>
+        {showWidget ? (
+          <>
+            <Note>결제 버튼을 누르면 안전한 토스페이먼츠 결제 페이지로 이동합니다.</Note>
+            <WidgetCard>
+              {widgetLoading && !widgetReady ? (
+                <WidgetHeader>
+                  <small>결제 수단을 불러오는 중입니다...</small>
+                </WidgetHeader>
+              ) : null}
+              {widgetError ? <InlineError>{widgetError}</InlineError> : null}
+              <WidgetBody>
+                <div id={widgetPaymentMethodsId} ref={paymentMethodsRef} />
+                <div id={widgetAgreementId} ref={agreementRef} />
+              </WidgetBody>
+              <WidgetActions>
+                <PrimaryButton
+                  type="button"
+                  onClick={handleWidgetPay}
+                  disabled={widgetActionDisabled || widgetPaying}
+                >
+                  {widgetPaying ? "결제 창으로 이동..." : widgetReady ? "결제하기" : "결제 준비 중..."}
+                </PrimaryButton>
+              </WidgetActions>
+            </WidgetCard>
+          </>
+        ) : null}
+        {showReceiptLink ? (
+          <WidgetCard>
+            <ReceiptHeadline>이미 결제가 완료된 청구서입니다.</ReceiptHeadline>
+            <ReceiptSub>아래 버튼을 눌러 영수증을 바로 확인할 수 있어요.</ReceiptSub>
+            <WidgetActions>
+              <ReceiptLinkButton href={receiptLink ?? "#"}>영수증 보기</ReceiptLinkButton>
+            </WidgetActions>
+          </WidgetCard>
+        ) : null}
       </DataCard>
 
       {variant === "page" && (
@@ -335,11 +551,67 @@ export default function InvoicePreview({
     </>
   );
 
+  const DetachedBanner = criticalInvoiceIssue ? (
+    <NoticeCard>
+      <NoticeTitle>청구서를 찾을 수 없습니다.</NoticeTitle>
+      <NoticeBody>
+        학원에서 해당 청구서를 삭제했거나 연결이 해제되었습니다. 정확한 결제 안내는 학원에 문의해 주세요.
+      </NoticeBody>
+    </NoticeCard>
+  ) : null;
+
+  const InvalidTokenBanner =
+    invoiceInvalidToken && !criticalInvoiceIssue ? (
+      <NoticeCard>
+        <NoticeTitle>청구서 링크가 올바르지 않습니다.</NoticeTitle>
+        <NoticeBody>복사된 주소가 잘못되었을 수 있습니다. 학원에 문의해 새 링크를 받아 주세요.</NoticeBody>
+      </NoticeCard>
+    ) : null;
+
+  const MissingTokenBanner =
+    tokenMissing && !criticalInvoiceIssue ? (
+      <NoticeCard>
+        <NoticeTitle>결제 링크가 필요합니다.</NoticeTitle>
+        <NoticeBody>
+          카카오톡으로 받은 청구서 메시지에서 결제 버튼을 눌러 접속해 주세요. 링크가 없다면 학원에 재발급을
+          요청해 주세요.
+        </NoticeBody>
+      </NoticeCard>
+    ) : null;
+
   if (variant === "modal") {
     return (
       <ModalLayout>
+        {DetachedBanner}
+        {MissingTokenBanner}
+        {InvalidTokenBanner}
         {card}
-        <ModalActions>
+        {showFallbackButton ? (
+          <ModalActions>
+            <ActionStack>
+              <BigPayButton type="button" onClick={handlePay} disabled={payDisabled}>
+                {paying ? "결제 준비 중..." : "결제하기"}
+              </BigPayButton>
+              {disablePay ? (
+                <StaffNotice>관리자/원장 미리보기에서는 결제가 비활성화됩니다.</StaffNotice>
+              ) : null}
+            </ActionStack>
+          </ModalActions>
+        ) : null}
+      </ModalLayout>
+    );
+  }
+
+  return (
+    <Shell>
+      <ContentWrap>
+        {DetachedBanner}
+        {MissingTokenBanner}
+        {InvalidTokenBanner}
+        {card}
+      </ContentWrap>
+     <BottomBar>
+        {showFallbackButton ? (
           <ActionStack>
             <BigPayButton type="button" onClick={handlePay} disabled={payDisabled}>
               {paying ? "결제 준비 중..." : "결제하기"}
@@ -348,23 +620,7 @@ export default function InvoicePreview({
               <StaffNotice>관리자/원장 미리보기에서는 결제가 비활성화됩니다.</StaffNotice>
             ) : null}
           </ActionStack>
-        </ModalActions>
-      </ModalLayout>
-    );
-  }
-
-  return (
-    <Shell>
-      <ContentWrap>{card}</ContentWrap>
-      <BottomBar>
-        <ActionStack>
-          <BigPayButton type="button" onClick={handlePay} disabled={payDisabled}>
-            {paying ? "결제 준비 중..." : "결제하기"}
-          </BigPayButton>
-          {disablePay ? (
-            <StaffNotice>관리자/원장 미리보기에서는 결제가 비활성화됩니다.</StaffNotice>
-          ) : null}
-        </ActionStack>
+        ) : null}
       </BottomBar>
     </Shell>
   );
@@ -409,6 +665,9 @@ function applyFallbackOverrides(data: InvoiceViewModel, fallback?: Partial<Invoi
   if (typeof fallback.checkoutUrl === "string" && fallback.checkoutUrl.trim()) {
     next.checkoutUrl = fallback.checkoutUrl;
   }
+  if (typeof fallback.receiptToken === "string" && fallback.receiptToken.trim()) {
+    next.receiptToken = fallback.receiptToken;
+  }
   return next;
 }
 
@@ -430,6 +689,7 @@ function mapPublicInvoice(data: PublicPaymentInvoice): InvoiceViewModel {
     memo: data.memo ?? "",
     status: data.status ?? "UNPAID",
     checkoutUrl: undefined,
+    receiptToken: data.receiptToken ?? undefined,
   };
 }
 
@@ -457,6 +717,7 @@ function mapPaymentDetail(detail: PaymentDetail, academyNameOverride?: string): 
     memo: info.memo ?? undefined,
     status: info.status ?? "UNPAID",
     checkoutUrl: undefined,
+    receiptToken: undefined,
   };
 }
 
@@ -509,6 +770,29 @@ const DataCard = styled.div`
   border-radius: 16px;
   box-shadow: 0 14px 30px rgba(2, 6, 23, 0.06);
   padding: 18px;
+`;
+
+const NoticeCard = styled.div`
+  border: 1px solid #fee2e2;
+  background: #fef2f2;
+  color: #991b1b;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+`;
+
+const NoticeTitle = styled.h2`
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #b91c1c;
+`;
+
+const NoticeBody = styled.p`
+  margin: 0;
+  font-size: 14px;
+  color: #7f1d1d;
+  line-height: 1.5;
 `;
 
 const Top = styled.div`
@@ -647,6 +931,77 @@ const Note = styled.p`
   margin: 14px 0 0 0;
   color: #6b7280;
   font-size: 13px;
+`;
+
+const WidgetCard = styled.div`
+  margin-top: 16px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  background: #ffffff;
+`;
+
+const WidgetHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  small {
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+`;
+const WidgetBody = styled.div`
+  display: grid;
+  gap: 10px;
+  min-height: 120px;
+  > div:first-child {
+    min-height: 80px;
+  }
+`;
+
+const WidgetActions = styled.div`
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  & > * {
+    flex: 1;
+  }
+  button {
+    flex: 1;
+  }
+`;
+
+const ReceiptHeadline = styled.p`
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+`;
+
+const ReceiptSub = styled.p`
+  margin: 0;
+  font-size: 13px;
+  color: #6b7280;
+`;
+
+const ReceiptLinkButton = styled.a`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  border-radius: 999px;
+  background: ${(p) => p.theme.colors.primary};
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  &:hover {
+    opacity: 0.92;
+  }
 `;
 
 const InlineError = styled.p`
@@ -832,6 +1187,7 @@ const CustomerServiceValue = styled.div`
 
 const TOSS_PAYMENTS_SCRIPT_URL = "https://js.tosspayments.com/v1";
 let tossPaymentsScriptPromise: Promise<void> | null = null;
+let tossWidgetScriptPromise: Promise<void> | null = null;
 
 async function ensureTossPaymentsScript(): Promise<void> {
   if (typeof window === "undefined") return;
@@ -847,4 +1203,22 @@ async function ensureTossPaymentsScript(): Promise<void> {
     });
   }
   await tossPaymentsScriptPromise;
+}
+
+async function ensureTossPaymentWidgetScript(): Promise<void> {
+  if (typeof window === "undefined") {
+    throw new Error("브라우저 환경에서만 결제 위젯을 사용할 수 있습니다.");
+  }
+  if (window.PaymentWidget) return;
+  if (!tossWidgetScriptPromise) {
+    tossWidgetScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://js.tosspayments.com/v1/payment-widget";
+      script.async = true;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error("결제 위젯 스크립트를 불러오지 못했습니다."));
+      document.head.appendChild(script);
+    });
+  }
+  await tossWidgetScriptPromise;
 }

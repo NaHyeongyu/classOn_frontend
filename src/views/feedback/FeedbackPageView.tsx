@@ -1,4 +1,4 @@
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import {
   GhostButton,
   Page,
@@ -6,6 +6,7 @@ import {
   PrimaryButton,
   SectionCard,
 } from "@/components/common/UI";
+import SelectBox from "@/components/common/SelectBox";
 import type {
   FeedbackKind,
   useFeedbackPage,
@@ -31,12 +32,12 @@ export function FeedbackPageView({
     <Page>
       <PageHeader>
         <div>
-          <h2>오류 제보 · 기능 요청</h2>
+          <h2>오류/피드백</h2>
           <p>
             개선이 필요하거나 버그가 있다면 편하게 보내주세요. 또는 이메일로 제보:
-            <a href="mailto:nahg0525@gmail.com" style={{ marginLeft: 6 }}>
+            <EmailLink href="mailto:nahg0525@gmail.com">
               nahg0525@gmail.com
-            </a>
+            </EmailLink>
           </p>
         </div>
         <Actions>
@@ -53,39 +54,30 @@ export function FeedbackPageView({
               href="/feedback/changelog"
               style={{ whiteSpace: "nowrap" }}
             >
-              업데이트 안내 보기
+              업데이트 안내
             </GhostButton>
           )}
         </Actions>
       </PageHeader>
 
-      <HighlightCard role="note" aria-label="서비스 안내">
-        <HighlightTitle>Classon은 아직 성장하고 있습니다.</HighlightTitle>
-        <HighlightBody>
-          <p>선생님들의 목소리에 귀 기울이며,</p>
-          <p>현장에서 정말 필요한 기능을 하나씩 만들어가고 있습니다.</p>
-          <p>부족한 부분이 있을 수 있습니다.</p>
-          <p>하지만 여러분과 함께 더 나은 서비스로 발전해 나가겠습니다.</p>
-        </HighlightBody>
-      </HighlightCard>
-
       <SectionCard as="form" onSubmit={onSubmit} aria-labelledby="fb-title">
         <Row>
           <Col>
             <Label htmlFor="fb-kind">유형</Label>
-            <Select
-              id="fb-kind"
+            <SelectBox
+              ariaLabel="유형"
               value={kind}
-              onChange={(event) =>
-                setKind(event.target.value as FeedbackKind)
-              }
-            >
-              <option value="BUG">오류 제보</option>
-              <option value="FEATURE">기능 요청</option>
-            </Select>
+              onChange={(value) => setKind((value as FeedbackKind) ?? "BUG")}
+              options={[
+                { label: "오류", value: "BUG" },
+                { label: "피드백", value: "FEATURE" },
+              ]}
+            />
           </Col>
           <Col>
-            <Label htmlFor="fb-contact">연락처 (선택)</Label>
+            <Label htmlFor="fb-contact">
+              연락처 <OptionalBadge>선택</OptionalBadge>
+            </Label>
             <Input
               id="fb-contact"
               placeholder="답변을 받고 싶은 이메일 또는 연락처"
@@ -106,8 +98,8 @@ export function FeedbackPageView({
         <Label htmlFor="fb-body">내용</Label>
         <TextArea
           id="fb-body"
-          placeholder={`어떤 문제가 있었는지 또는 어떤 기능이 필요한지 자세히 알려주세요.\n(가능하면 재현 방법과 기대 동작을 함께 적어주세요.)`}
-          rows={8}
+          placeholder={`어떤 문제가 있었는지 또는 어떤 기능이 필요한지 자세히 알려주세요.\n\n• 재현 방법\n• 기대했던 동작\n• 실제 발생한 동작\n\n위 내용을 포함해주시면 더 빠르게 해결할 수 있습니다.`}
+          rows={10}
           value={body}
           onChange={(event) => setBody(event.target.value)}
         />
@@ -117,7 +109,14 @@ export function FeedbackPageView({
             초기화
           </GhostButton>
           <PrimaryButton type="submit" disabled={submitting}>
-            {submitting ? "제출 중…" : "제출하기"}
+            {submitting ? (
+              <>
+                <Spinner />
+                제출 중…
+              </>
+            ) : (
+              "제출하기"
+            )}
           </PrimaryButton>
         </BtnRow>
       </SectionCard>
@@ -125,9 +124,22 @@ export function FeedbackPageView({
   );
 }
 
+const EmailLink = styled.a`
+  color: ${(p) => p.theme.colors.primary};
+  text-decoration: none;
+  margin-left: 6px;
+  font-weight: ${(p) => p.theme.font.weight.medium};
+  transition: color ${(p) => p.theme.motion.duration.base};
+
+  &:hover {
+    color: ${(p) => p.theme.colors.primaryHover};
+    text-decoration: underline;
+  }
+`;
+
 const Actions = styled.div`
   display: inline-flex;
-  gap: 8px;
+  gap: ${(p) => p.theme.spacing.xs};
   align-items: center;
   flex-wrap: wrap;
 `;
@@ -135,80 +147,116 @@ const Actions = styled.div`
 const Row = styled.div`
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: ${(p) => p.theme.spacing.md};
+  margin-bottom: ${(p) => p.theme.spacing.md};
+  
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
 `;
 
-const Col = styled.div``;
+const Col = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
 
 const Label = styled.label`
   display: block;
-  margin: 8px 0 6px;
-  font-size: 12px;
-  color: #6b7280;
+  margin-bottom: ${(p) => p.theme.spacing.xs};
+  margin-top: ${(p) => p.theme.spacing.md};
+  font-size: ${(p) => p.theme.font.size.sm};
+  font-weight: ${(p) => p.theme.font.weight.semiBold};
+  color: ${(p) => p.theme.colors.text};
+  
+  &:first-of-type {
+    margin-top: 0;
+  }
+`;
+
+const OptionalBadge = styled.span`
+  font-size: ${(p) => p.theme.font.size.xs};
+  font-weight: ${(p) => p.theme.font.weight.medium};
+  color: ${(p) => p.theme.colors.textMuted};
+  background: ${(p) => p.theme.colors.surfaceMuted};
+  padding: 2px 6px;
+  border-radius: ${(p) => p.theme.radii.xs};
+  margin-left: 4px;
+`;
+
+const inputStyles = css`
+  width: 100%;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.sm};
+  padding: 0 12px;
+  background: ${(p) => p.theme.colors.surface};
+  color: ${(p) => p.theme.colors.text};
+  font-size: ${(p) => p.theme.font.size.md};
+  font-family: inherit;
+  transition: all ${(p) => p.theme.motion.duration.base} ${(p) => p.theme.motion.easing.standard};
+
+  &:hover {
+    border-color: ${(p) => p.theme.colors.borderStrong};
+  }
+
+  &:focus {
+    outline: none;
+    border-color: ${(p) => p.theme.colors.primary};
+    box-shadow: ${(p) => p.theme.shadow.focusPrimary};
+  }
+
+  &::placeholder {
+    color: ${(p) => p.theme.colors.textMuted};
+  }
 `;
 
 const Input = styled.input`
-  width: 100%;
+  ${inputStyles}
   height: 40px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 12px;
-`;
-
-const Select = styled.select`
-  width: 100%;
-  height: 40px;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 0 8px;
-  background: #fff;
 `;
 
 const TextArea = styled.textarea`
-  width: 100%;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  padding: 10px 12px;
+  ${inputStyles}
+  padding: 12px;
   resize: vertical;
+  min-height: 160px;
+  line-height: ${(p) => p.theme.font.lineHeight.relaxed};
+  font-family: inherit;
 `;
 
 const BtnRow = styled.div`
   display: flex;
   justify-content: flex-end;
-  gap: 8px;
-  margin-top: 14px;
-`;
+  gap: ${(p) => p.theme.spacing.sm};
+  margin-top: ${(p) => p.theme.spacing.md};
 
-const HighlightCard = styled(SectionCard)`
-  border-left: 4px solid #4f46e5;
-  background: linear-gradient(
-    135deg,
-    rgba(79, 70, 229, 0.08),
-    rgba(59, 130, 246, 0.05)
-  );
-  padding: 24px 28px;
-  display: grid;
-  gap: 12px;
-`;
-
-const HighlightTitle = styled.h3`
-  margin: 0;
-  font-size: 20px;
-  font-weight: 800;
-  color: #1f2937;
-`;
-
-const HighlightBody = styled.div`
-  display: grid;
-  gap: 6px;
-  p {
-    margin: 0;
-    font-size: 15px;
-    color: #374151;
-    line-height: 1.6;
+  @media (max-width: 480px) {
+    flex-direction: column-reverse;
+    
+    button {
+      width: 100%;
+    }
   }
+`;
+
+const spin = css`
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+const Spinner = styled.span`
+  ${spin}
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  margin-right: 8px;
 `;

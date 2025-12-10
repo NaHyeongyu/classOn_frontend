@@ -4,7 +4,6 @@ import styled from "styled-components";
 import { useQuery } from "@tanstack/react-query";
 import { formatMoney } from "@/lib/format";
 import { confirmPublicPaymentCheckout } from "@/api/payments";
-import { PrimaryButton } from "@/components/common/UI";
 import { useToast } from "@/components/common/Toast";
 import { routes } from "@/routes";
 
@@ -89,15 +88,20 @@ export default function PaymentTossSuccess() {
           </>
         ) : null}
 
+        <Notice>
+          <p>
+            영수증 생성에는 최대 30초 정도 소요될 수 있습니다. 아래 버튼을 눌러 영수증을 열었다가 “새로고침”을
+            누르면 최신 승인 정보를 확인할 수 있습니다.
+          </p>
+        </Notice>
         <Actions>
           {data?.receiptToken ? (
             <ReceiptButton to={`${routes.paymentsReceipt}?token=${encodeURIComponent(data.receiptToken)}`}>
               영수증 보기
             </ReceiptButton>
-          ) : null}
-          <PrimaryButton as={Link} to={`/pay/${token}`}>
-            청구서로 돌아가기
-          </PrimaryButton>
+          ) : (
+            <DisabledReceipt>영수증을 준비하는 중입니다. 잠시 후 다시 시도해 주세요.</DisabledReceipt>
+          )}
         </Actions>
       </Card>
     </ResultShell>
@@ -174,4 +178,27 @@ const ReceiptButton = styled(Link)`
   color: #2563eb;
   text-decoration: none;
   background: #fff;
+`;
+
+const DisabledReceipt = styled.div`
+  padding: 14px;
+  border-radius: 12px;
+  border: 1px dashed #cbd5f5;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+`;
+
+const Notice = styled.div`
+  margin-top: 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.5;
+  }
 `;

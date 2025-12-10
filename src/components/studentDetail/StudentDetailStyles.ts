@@ -117,29 +117,60 @@ export const Tabs = styled.div`
   flex-wrap: wrap;
 `;
 
-export const TabButton = styled(UISmallBtn)`
+export const TabButton = styled.button`
   height: 40px;
-  padding: 0 16px;
+  padding: 0 20px;
   font-size: 14px;
-  &[data-active="true"] {
-    background: ${(p) => p.theme.colors.surfaceMuted};
-    color: ${(p) => p.theme.colors.text};
-    border-color: ${(p) => p.theme.colors.border};
-  }
-`;
-
-export const Badge = styled.span`
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 9999px;
-  background: #e5e7eb;
-  color: #374151;
-  font-weight: 800;
-  font-size: 11px;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
+
+  /* Active State */
+  &[data-active="true"] {
+    background: ${(p) => p.theme.colors.primary};
+    color: #ffffff;
+    border: 1px solid ${(p) => p.theme.colors.primary};
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Inactive State */
+  &[data-active="true"] .badge-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+  }
+
+  /* Inactive State */
+  &:not([data-active="true"]) {
+    background: #ffffff;
+    color: ${(p) => p.theme.colors.text};
+    border: 1px solid ${(p) => p.theme.colors.border};
+    &:hover {
+      background: ${(p) => p.theme.colors.surfaceMuted};
+      border-color: ${(p) => p.theme.colors.borderMuted};
+    }
+  }
+`;
+
+export const Badge = styled.span.attrs({ className: "badge-count" })`
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-weight: 700;
+  font-size: 11px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
 `;
 
 export const Empty = styled.div`
@@ -225,6 +256,14 @@ export const CourseItem = styled.div`
   display: grid;
   gap: 6px;
   background: #fff;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border-color: #d1d5db;
+  }
 `;
 
 export const CourseHeader = styled.div`
@@ -238,6 +277,22 @@ export const CourseTitle = styled.div`
   font-weight: 800;
   color: #0f172a;
   font-size: 14px;
+`;
+
+export const CourseFee = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  span {
+    font-weight: 600;
+  }
+  strong {
+    font-size: 14px;
+    font-weight: 800;
+    color: #4b5563;
+  }
 `;
 
 export const CourseMeta = styled.div`

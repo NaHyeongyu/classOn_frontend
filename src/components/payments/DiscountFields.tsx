@@ -17,6 +17,7 @@ export type DiscountFieldsProps = {
   onChangeEndDate: (value: string) => void;
   showPeriod?: boolean;
   disabled?: boolean;
+  showTitle?: boolean;
 };
 
 export function DiscountFields({
@@ -32,6 +33,7 @@ export function DiscountFields({
   onChangeEndDate,
   showPeriod = true,
   disabled = false,
+  showTitle = true,
 }: DiscountFieldsProps) {
   const handleToggle = (next: boolean) => {
     if (disabled) return;
@@ -40,7 +42,7 @@ export function DiscountFields({
 
   return (
     <DiscountSection>
-      <SectionSubtitle>할인 설정</SectionSubtitle>
+      {showTitle ? <SectionSubtitle>할인 설정</SectionSubtitle> : null}
       <DiscountControls>
         <DiscountRow>
           <span className="discount-label">할인 유무</span>

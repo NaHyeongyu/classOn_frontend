@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import styled from 'styled-components';
 import { TableBase as UITable, PrimaryBtn as UIPrimaryBtn } from '@/components/common/UI';
 import type { Student } from '@/api/students';
 import { formatPhone } from '@/lib/format';
 import { Section, SectionHead, Title, AlertError as ErrorBanner } from '@/components/courseDetail/CourseDetail.styles';
+import Pagination from '@/components/common/Pagination';
 
 type Props = {
   students: Student[];
@@ -13,7 +14,17 @@ type Props = {
   showAddButton?: boolean; // default true; hide in teacher view
 };
 
+const ITEMS_PER_PAGE = 5;
+
 export default function CourseStudentsPanel({ students, loading, error, editHref, showAddButton = true }: Props) {
+  const [currentPage, setCurrentPage] = useState(0);
+
+  const totalPages = Math.ceil(students.length / ITEMS_PER_PAGE);
+  const paginatedStudents = useMemo(() => {
+    const startIndex = currentPage * ITEMS_PER_PAGE;
+    return students.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [students, currentPage]);
+
   return (
     <Section>
       <SectionHead>
@@ -36,12 +47,12 @@ export default function CourseStudentsPanel({ students, loading, error, editHref
             </tr>
           </thead>
           <tbody>
-            {students.length === 0 && !loading ? (
+            {paginatedStudents.length === 0 && !loading ? (
               <tr>
                 <td colSpan={4} style={{ color: '#6b7280' }}>등록된 학생이 없습니다.</td>
               </tr>
             ) : (
-              students.map((s) => (
+              paginatedStudents.map((s) => (
                 <tr key={s.id}>
                   <td>
                     <strong>{s.name}</strong>
@@ -58,6 +69,13 @@ export default function CourseStudentsPanel({ students, loading, error, editHref
           </tbody>
         </Table>
       </TableWrap>
+      {totalPages > 1 && (
+        <Pagination
+          page={currentPage}
+          totalPages={totalPages}
+          onChangePage={setCurrentPage}
+        />
+      )}
     </Section>
   );
 }
@@ -76,7 +94,7 @@ const Muted = styled.p`
   color: ${(p) => p.theme.colors.textMuted};
   font-size: ${(p) => p.theme.font.size.xs};
 `;
-const TableWrap = styled.div` overflow: auto; `;
+const TableWrap = styled.div``;
 const Table = styled(UITable)`
   thead th { background:#f9fafb; text-align: center; }
   tbody td { text-align: center; }

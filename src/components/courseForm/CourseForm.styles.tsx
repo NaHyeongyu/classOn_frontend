@@ -111,9 +111,10 @@ export const StepChip = styled.button`
 
 export const StepFooter = styled.div`
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  gap: ${(p) => p.theme.spacing.md};
+  gap: 12px;
+  margin-top: 40px;
 `;
 
 export const NavButton = styled.button`

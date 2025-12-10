@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import type { ClassItem } from "../../../types/calendarDetail";
 import { DashboardMoreButton } from "@/components/dashboard/DashboardButtons";
@@ -17,6 +17,7 @@ type Props = {
 const START_HOUR = 8;
 const END_HOUR = 23;
 const HOUR_HEIGHT = 60;
+const OVERLAP_OFFSET = 10;
 
 export default function ClassTimetable({
   items,
@@ -26,13 +27,69 @@ export default function ClassTimetable({
   maxHeight,
 }: Props) {
   const [selectedItem, setSelectedItem] = useState<ClassItem | null>(null);
+  const [now, setNow] = useState(new Date());
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+
   const records = Array.isArray(items) ? items : [];
   const canAdd = typeof onAdd === "function";
+  const preparedRecords = records
+    .map((item, idx) => {
+      const pos = calculatePosition(item.time);
+      if (!pos) return null;
+      return { item, idx, pos };
+    })
+    .filter((value): value is { item: ClassItem; idx: number; pos: Position } => Boolean(value))
+    .sort((a, b) => a.pos.startMinutes - b.pos.startMinutes || a.idx - b.idx);
+
+  const overlapCountByTime = new Map<string, number>();
+  preparedRecords.forEach(({ item }) => {
+    const count = overlapCountByTime.get(item.time) ?? 0;
+    overlapCountByTime.set(item.time, count + 1);
+  });
+  const overlapOrderByTime = new Map<string, number>();
 
   const hours = Array.from(
     { length: END_HOUR - START_HOUR + 1 },
     (_, i) => START_HOUR + i
   );
+
+  // Update current time every minute
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentMinutesFromStart = (currentHour - START_HOUR) * 60 + currentMinute;
+  const currentTop = (currentMinutesFromStart / 60) * HOUR_HEIGHT;
+  const showCurrentTime = currentHour >= START_HOUR && currentHour <= END_HOUR;
+
+  // Auto-scroll to current time on mount or when data loads
+  const hasScrolledRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      containerRef.current &&
+      showCurrentTime &&
+      records.length > 0 &&
+      !hasScrolledRef.current
+    ) {
+      // Use setTimeout to ensure DOM is updated and layout is stable
+      setTimeout(() => {
+        if (containerRef.current) {
+          // Scroll to show current time with some context above (e.g. 100px)
+          // Using 'smooth' behavior for better UX
+          containerRef.current.scrollTo({
+            top: Math.max(0, currentTop - 100),
+            behavior: 'smooth'
+          });
+          hasScrolledRef.current = true;
+        }
+      }, 100);
+    }
+  }, [records.length, showCurrentTime, currentTop]); // Run when records load
 
   return (
     <Section $embedded={embedded} $maxHeight={maxHeight}>
@@ -70,7 +127,11 @@ export default function ClassTimetable({
         )}
       </SectionHeader>
 
-      <TimetableContainer $embedded={embedded} $maxHeight={maxHeight}>
+      <TimetableContainer
+        ref={containerRef}
+        $embedded={embedded}
+        $maxHeight={maxHeight}
+      >
         {records.length === 0 ? (
           <EmptyPlaceholder
             title="등록된 수업 내역이 없습니다."
@@ -92,21 +153,39 @@ export default function ClassTimetable({
               {hours.map((h) => (
                 <GridLine key={h} style={{ top: (h - START_HOUR) * HOUR_HEIGHT }} />
               ))}
-              {records.map((item, i) => {
-                const pos = calculatePosition(item.time);
-                if (!pos) return null;
+              {showCurrentTime && (
+                <CurrentTimeLine style={{ top: currentTop }} />
+              )}
+              {preparedRecords.map(({ item, idx, pos }) => {
+                const totalOverlap = overlapCountByTime.get(item.time) ?? 1;
+                const currentOrder = overlapOrderByTime.get(item.time) ?? 0;
+                overlapOrderByTime.set(item.time, currentOrder + 1);
+                const offset = currentOrder * OVERLAP_OFFSET;
+                const width = `calc(100% - ${offset}px)`;
+                const blockKey = `${item.time}-${item.subject}-${idx}`;
+                const isHovered = hoveredKey === blockKey;
                 return (
                   <ClassBlock
-                    key={i}
+                    key={blockKey}
                     style={{
                       top: pos.top,
                       height: pos.height,
+                      left: offset,
+                      width,
+                      zIndex: isHovered ? 999 : 1 + currentOrder,
+                      transform: isHovered ? "translateY(-4px) scale(1.01)" : undefined,
+                      boxShadow: isHovered ? "0 8px 16px rgba(15, 23, 42, 0.16)" : undefined,
                     }}
+                    onMouseEnter={() => setHoveredKey(blockKey)}
+                    onMouseLeave={() => setHoveredKey(null)}
                     onClick={() => setSelectedItem(item)}
-                  >
+                    >
                     <BlockSubject>
                       {item.subject}
-                      <TimeText>{item.time}</TimeText>
+                      <TimeText>
+                        {item.time}
+                        {totalOverlap > 1 ? ` · 동시간대 ${totalOverlap}건` : ""}
+                      </TimeText>
                     </BlockSubject>
                   </ClassBlock>
                 );
@@ -140,11 +219,18 @@ function calculatePosition(timeStr: string) {
     return {
       top: (startMinutes / 60) * HOUR_HEIGHT,
       height: (durationMinutes / 60) * HOUR_HEIGHT,
+      startMinutes,
     };
   } catch {
     return null;
   }
 }
+
+type Position = {
+  top: number;
+  height: number;
+  startMinutes: number;
+};
 
 const Section = styled.section<{ $embedded?: boolean; $maxHeight?: string }>`
   border: ${({ $embedded, theme }) =>
@@ -251,13 +337,7 @@ const ClassBlock = styled.div`
   padding: 4px 8px;
   cursor: pointer;
   overflow: hidden;
-  transition: transform 0.1s;
-  
-  &:hover {
-    transform: scale(1.01);
-    z-index: 10;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
 `;
 
 const BlockSubject = styled.div`
@@ -274,4 +354,24 @@ const TimeText = styled.span`
   font-weight: 400;
   font-size: 0.9em;
   margin-left: 6px;
+`;
+
+const CurrentTimeLine = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px solid #ef4444;
+  z-index: 20;
+  pointer-events: none;
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: -5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #ef4444;
+  }
 `;

@@ -14,9 +14,6 @@ import type {
 } from "@/features/attendance/types";
 import {
   AttendanceCard,
-  AttendeeSection,
-  AttendeeTitle,
-  Card,
   CardFooter,
   CardList,
   CardMain,
@@ -38,6 +35,7 @@ import {
   TitleCell,
   ViewButton,
   StyledTable,
+  DayWrapper,
 } from "./Attendance.styles";
 
 type AttendanceDayCardProps = {
@@ -60,7 +58,7 @@ export function AttendanceDayCard({
     viewMode === "daily" ? filterByStatus(rows, statusFilter) : [];
 
   return (
-    <Card key={day.date}>
+    <DayWrapper key={day.date}>
       <DayHeader>
         <div>
           <strong>{labelDate(day.date)}</strong>
@@ -127,9 +125,7 @@ export function AttendanceDayCard({
           <NoClassText>등록된 수업이 없습니다.</NoClassText>
         )
       ) : (
-        <AttendeeSection>
-          <AttendeeTitle>출석 학생</AttendeeTitle>
-          {filteredRows.length > 0 ? (
+          filteredRows.length > 0 ? (
             <CardList>
               {filteredRows.map((row) => (
                 <AttendanceCard key={row.key}>
@@ -159,11 +155,9 @@ export function AttendanceDayCard({
                       <StatusBadge data-type={row.status.toLowerCase()}>
                         {statusLabel(row.status)}
                       </StatusBadge>
-                      <MetaItem>
-                        {row.status === "UNPROCESSED"
-                          ? "미처리"
-                          : formatClock(row.createdAt)}
-                      </MetaItem>
+                      {row.status !== "UNPROCESSED" ? (
+                        <MetaItem>{formatClock(row.createdAt)}</MetaItem>
+                      ) : null}
                       {row.status !== "UNPROCESSED" ? (
                         <SourceBadge
                           data-type={(row.source ?? "MANUAL").toUpperCase()}
@@ -200,9 +194,8 @@ export function AttendanceDayCard({
             </CardList>
           ) : (
             <NoClassText>조건에 맞는 출석 기록이 없습니다.</NoClassText>
-          )}
-        </AttendeeSection>
+          )
       )}
-    </Card>
+    </DayWrapper>
   );
 }

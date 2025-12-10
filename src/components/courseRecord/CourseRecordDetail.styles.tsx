@@ -1,5 +1,4 @@
 import styled from "styled-components";
-import { SmallBtn as UISmallBtn } from "@/components/courseRecord/CourseRecordStyles";
 
 export const Wrap = styled.div`
   display: grid;
@@ -72,14 +71,32 @@ export const HeaderText = styled.div`
   gap: 4px;
 `;
 
-export const TabBtn = styled(UISmallBtn)`
+export const TabBtn = styled.button`
   height: 40px;
-  padding: 0 16px;
+  padding: 0 20px;
   font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+
+  /* Active State */
   &[data-active="true"] {
-    background: #f3f4f6;
-    color: #111827;
-    border-color: #e5e7eb;
+    background: ${(p) => p.theme.colors.primary};
+    color: #ffffff;
+    border: 1px solid ${(p) => p.theme.colors.primary};
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Inactive State */
+  &:not([data-active="true"]) {
+    background: #ffffff;
+    color: ${(p) => p.theme.colors.text};
+    border: 1px solid ${(p) => p.theme.colors.border};
+    &:hover {
+      background: ${(p) => p.theme.colors.surfaceMuted};
+      border-color: ${(p) => p.theme.colors.borderMuted};
+    }
   }
 `;
 

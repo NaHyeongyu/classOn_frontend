@@ -20,6 +20,11 @@ export default function CourseStudentsEdit() {
     error,
     studentSearch,
     setStudentSearch,
+    studentStatus,
+    setStudentStatus,
+    executeSearch,
+    executeSearchWithStatus,
+    resetSearch,
     studentOptions,
     studentLoading,
     studentError,
@@ -31,6 +36,8 @@ export default function CourseStudentsEdit() {
     onEnroll,
     onUnenroll,
     confirmUnenrollDialog,
+    changeNotice,
+    onCloseChangeNotice,
   } = useCourseStudents(courseId);
 
   const atCapacity = capacity != null && enrolledStudents.length >= capacity;
@@ -41,6 +48,11 @@ export default function CourseStudentsEdit() {
       capacity={capacity}
       studentSearch={studentSearch}
       onChangeStudentSearch={setStudentSearch}
+      studentStatus={studentStatus}
+      onChangeStudentStatus={setStudentStatus}
+      onSearchClick={executeSearch}
+      onSearchWithStatus={executeSearchWithStatus}
+      onReset={resetSearch}
       studentOptions={studentOptions}
       studentLoading={studentLoading}
       studentError={studentError || error}
@@ -52,6 +64,8 @@ export default function CourseStudentsEdit() {
       onEnroll={onEnroll}
       onUnenroll={onUnenroll}
       confirmUnenrollDialog={confirmUnenrollDialog}
+      changeNotice={changeNotice}
+      onCloseChangeNotice={onCloseChangeNotice}
       onBack={() => navigate(courseId ? `/classes/${courseId}` : routes.classes)}
       atCapacity={atCapacity}
     />

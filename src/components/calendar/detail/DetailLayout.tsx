@@ -34,8 +34,8 @@ const Columns = styled.div`
   grid-template-columns: 1fr 1fr 1fr;
   gap: 12px;
   flex: 1 1 auto;
-  min-height: 0;
-  height: 800px; /* Fixed height to fit on screen */
+  min-height: 720px; /* Increased min-height to fit 9 items */
+  height: calc(100vh - 140px); /* Fixed height to fit on screen */
   overflow: hidden;
   @media (max-width: 960px) { 
     grid-template-columns: 1fr;

@@ -27,7 +27,10 @@ export function MarketingPageView({
 }: MarketingPageViewProps) {
   const summary = useDashboardSummary();
   const limit = summary.data?.marketingLimit ?? null;
-  const remaining = summary.data?.marketingRemaining ?? null;
+  const used = summary.data?.marketingUsed ?? null;
+  const remaining =
+    summary.data?.marketingRemaining ??
+    (limit != null && used != null ? Math.max(0, limit - used) : null);
   const loading = summary.status === "loading" && !summary.data;
   const quotaError = summary.status === "error";
   const quotaText = loading
@@ -35,8 +38,8 @@ export function MarketingPageView({
     : quotaError
       ? "불러오기 실패"
       : limit != null
-        ? `${Math.max(0, remaining ?? 0)} / ${limit}회 남음`
-        : "정보 없음";
+        ? `${Math.max(0, remaining ?? (used != null ? limit - used : limit))} / ${limit}회 남음`
+        : "무제한";
 
   return (
     <Viewport>

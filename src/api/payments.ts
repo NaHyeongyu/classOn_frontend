@@ -15,7 +15,21 @@ import type {
   PaymentCancelPayload,
 } from "@classon/shared-types";
 
-export type PaymentTemplateKey = "GUIDE" | "RETRY" | "SUCCESS" | "FAIL";
+export type PaymentTemplateKey =
+  | "PAYMENT_GUIDE"
+  | "PAYMENT_RETRY"
+  | "PAYMENT_SUCCESS"
+  | "PAYMENT_CANCEL"
+  | "REPORT_READY";
+
+export type PaymentAdditionalItemPayload = {
+  type: "MATERIAL" | "TEXTBOOK" | "OTHER";
+  label: string;
+  quantity?: number;
+  unitPrice?: number;
+  appliedStart?: string;
+  appliedEnd?: string;
+};
 
 export type PaymentInvoicePayload = {
   studentId: number;
@@ -34,6 +48,8 @@ export type PaymentInvoicePayload = {
   discountEnabled?: boolean;
   discountStartDate?: string;
   discountEndDate?: string;
+  additionalItems?: PaymentAdditionalItemPayload[];
+  recipientPhone?: string;
 };
 
 export type PaymentInvoiceUpdatePayload = {
@@ -48,6 +64,8 @@ export type PaymentInvoiceUpdatePayload = {
   courseId?: number;
   cycleValue?: number;
   cycleUnit?: BillingCycleUnit;
+  additionalItems?: PaymentAdditionalItemPayload[];
+  recipientPhone?: string;
 };
 
 export type PaymentOnsitePayload = {
@@ -76,7 +94,8 @@ export async function listPaymentInvoices(params?: {
   studentStatus?: string;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
-  sp.set("status", params?.status ?? "UNPAID");
+  const statusParam = params?.status?.trim() || "UNPAID,PENDING";
+  sp.set("status", statusParam);
   if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
@@ -138,6 +157,7 @@ export async function createPaymentInvoice(payload: PaymentInvoicePayload): Prom
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
   ]);
   return res;
 }
@@ -151,6 +171,7 @@ export async function updatePaymentInvoice(id: number, payload: PaymentInvoiceUp
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
     `/api/payments/${id}`,
   ]);
   return res;
@@ -175,6 +196,7 @@ export async function sendPaymentInvoices(payload: {
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
   ]);
   return res;
 }
@@ -188,6 +210,7 @@ export async function markOnsitePayment(id: number, payload: PaymentOnsitePayloa
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
     `/api/payments/${id}`,
   ]);
   return res;
@@ -218,6 +241,7 @@ export async function cancelScheduledAlert(paymentId: number, alertId: number): 
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
     `/api/payments/${paymentId}`,
   ]);
   return res;
@@ -234,6 +258,7 @@ export async function sendScheduledAlertNow(paymentId: number, alertId: number):
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
+    "/api/payments/history/pending",
     `/api/payments/${paymentId}`,
   ]);
   return res;
@@ -269,6 +294,7 @@ export type PublicPaymentInvoice = {
   periodEnd?: string;
   status?: PaymentStatus;
   memo?: string;
+  receiptToken?: string | null;
 };
 
 export async function getPublicPaymentInvoice(token: string): Promise<PublicPaymentInvoice> {
@@ -283,10 +309,18 @@ export type PublicPaymentReceipt = {
   course?: PaymentDetail["course"] | null;
   courses?: PaymentDetail["courses"];
   schedule?: PaymentDetail["schedule"];
+  methodDetail?: string | null;
 };
 
 export async function getPublicPaymentReceipt(token: string): Promise<PublicPaymentReceipt> {
   return await fetchJSON<PublicPaymentReceipt>(`/api/public/pay/receipt/${encodeURIComponent(token)}`);
+}
+
+export async function refreshPublicPaymentReceipt(token: string): Promise<PublicPaymentReceipt> {
+  return await fetchJSON<PublicPaymentReceipt>(
+    `/api/public/pay/receipt/${encodeURIComponent(token)}/refresh`,
+    { method: "POST" },
+  );
 }
 
 export type PublicPaymentCheckoutInit = {
@@ -303,6 +337,7 @@ export type PublicPaymentCheckoutInit = {
   failUrl?: string;
   sellerRefId?: string | null;
   tossSellerId?: string | null;
+  widgetClientKey?: string | null;
 };
 
 export async function preparePublicPaymentCheckout(token: string): Promise<PublicPaymentCheckoutInit> {

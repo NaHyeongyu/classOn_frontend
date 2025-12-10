@@ -1,6 +1,8 @@
 import styled from "styled-components";
 import type { CalendarPaymentRow } from "@/features/calendar/useCalendarPaymentList";
 import { PrimaryButtonSm, TableBase, Skeleton } from "@/components/common/UI";
+import Pagination from "@/components/common/Pagination";
+import { useState } from "react";
 
 export type PaymentPanelProps = {
   rows?: CalendarPaymentRow[];
@@ -15,6 +17,11 @@ export function PaymentPanel({
   error,
   onMore,
 }: PaymentPanelProps) {
+  const [page, setPage] = useState(0);
+  const pageSize = 9;
+  const totalPages = Math.ceil(rows.length / pageSize);
+  const visibleRows = rows.slice(page * pageSize, (page + 1) * pageSize);
+
   return (
     <Section>
       <Header>
@@ -39,10 +46,10 @@ export function PaymentPanel({
       <TableWrapper>
         <CenteredTable>
           <colgroup>
-            <col style={{ width: "70px" }} />
-          <col style={{ width: "26%" }} />
-          <col style={{ width: "17%" }} />
-          <col style={{ width: "25%" }} />
+            <col style={{ width: "12%" }} />
+            <col style={{ width: "23%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "25%" }} />
             <col />
           </colgroup>
           <thead>
@@ -68,13 +75,11 @@ export function PaymentPanel({
                 </td>
               </tr>
             ) : (
-              rows.map((row, index) => (
+              visibleRows.map((row, index) => (
                 <tr key={row.id}>
-                  <td>{index + 1}</td>
+                  <td>{page * pageSize + index + 1}</td>
                   <td>
                     <StudentName>{row.studentName}</StudentName>
-                    {row.studentCode ? <MetaText>{row.studentCode}</MetaText> : null}
-                    {row.courseTitle ? <CourseName>{row.courseTitle}</CourseName> : null}
                   </td>
                   <td>
                     <StatusBadge data-status={row.status ?? undefined}>{row.statusLabel}</StatusBadge>
@@ -87,6 +92,13 @@ export function PaymentPanel({
           </tbody>
         </CenteredTable>
       </TableWrapper>
+      {rows.length > 0 && (
+        <StyledPagination
+          page={page}
+          totalPages={totalPages}
+          onChangePage={setPage}
+        />
+      )}
     </Section>
   );
 }
@@ -176,7 +188,7 @@ const Actions = styled.div`
 
 const TableWrapper = styled.div`
   width: 100%;
-  overflow: auto;
+  /* overflow: auto; removed to show all 8 items */
   flex: 1;
   min-height: 0;
 `;
@@ -186,18 +198,22 @@ const CenteredTable = styled(TableBase)`
   th,
   td {
     text-align: center;
+    padding: 8px 4px; /* Reduced padding */
+    height: 40px; /* Reduced height */
   }
   thead th {
     text-align: center;
     white-space: nowrap;
+    padding: 8px 4px;
+    background: #f9fafb;
   }
   tbody td {
-    font-size: 14px;
+    font-size: 13px;
   }
 `;
 
 const statusBadgeColors: Record<string, string> = {
-  UNPAID: "#f97316",
+  UNPAID: "#4b5563",
   PENDING: "#2563EB",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
@@ -214,13 +230,6 @@ const StatusBadge = styled.span<{ "data-status"?: string }>`
   background: ${({ "data-status": status }) =>
     (status && `${statusBadgeColors[status] ?? "#d1d5db"}1A`) || "rgba(209,213,219,0.2)"};
   color: ${({ "data-status": status }) => statusBadgeColors[status ?? "UNPAID"] ?? "#52525b"};
-`;
-
-const MetaText = styled.span`
-  display: block;
-  font-size: 12px;
-  color: ${(p) => p.theme.colors.textMuted};
-  margin-top: 2px;
 `;
 
 const ErrorText = styled.span`
@@ -251,13 +260,6 @@ const StudentName = styled.strong`
   letter-spacing: -0.01em;
 `;
 
-const CourseName = styled.span`
-  display: block;
-  font-size: ${(p) => p.theme.font.size.sm}; /* 13px */
-  color: ${(p) => p.theme.colors.textMuted};
-  margin-top: 2px;
-`;
-
 const NoData = styled.div`
   padding: 20px 0;
   text-align: center;
@@ -272,3 +274,8 @@ const walletIcon = (
     <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
   </svg>
 );
+
+const StyledPagination = styled(Pagination)`
+  margin-top: 48px;
+  margin-bottom: 0px;
+`;

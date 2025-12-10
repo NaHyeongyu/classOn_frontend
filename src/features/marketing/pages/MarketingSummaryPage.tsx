@@ -10,15 +10,13 @@ export default function MarketingSummaryPage() {
       toneLabel={data.toneLabel}
       speechLabel={data.speechLabel}
       platformChoice={data.platformChoice}
-      directionText={data.directionText}
-      body={data.draft.body}
+      body={data.bodyInput}
+      onBodyChange={ui.setBodyInput}
       tagInput={ui.tagInput}
       onTagInputChange={ui.setTagInput}
       tagsList={data.tagsList}
       tagCount={data.draft.tags.length}
       blogTitle={data.blogTitle}
-      summaryDirections={data.summaryDirections}
-      selectedDirectionIndex={data.selectedDirectionIndex}
       images={data.draft.images}
       currentImageIndex={ui.igImgIdx}
       onPrevImage={() => ui.setIgImgIdx((idx) => Math.max(0, idx - 1))}

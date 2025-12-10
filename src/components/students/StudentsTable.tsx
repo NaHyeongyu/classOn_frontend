@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listStudents, type Student, type PageResult } from "../../api/students";
 import { readableError } from "@/lib/errors";
 import { formatPhone } from "../../lib/format";
-import { visiblePages } from "../../lib/pagination";
+import Pagination from "../common/Pagination";
 // No row-level destructive actions here; deletion is available only on edit page.
 
 type ChipType = "수강중" | "휴학" | "대기중";
@@ -213,21 +213,16 @@ export default function StudentsTable({ filters, refreshKey }: { filters: Filter
           </tbody>
       </StyledTable>
     </Scroller>
-      <Pager>
-        <PageBtn onClick={() => changePage(page - 1)} disabled={page === 0}>이전</PageBtn>
-        {visiblePages(page, totalPages, 7).map(p => (
-          <PageBtn key={p} data-active={p === page} onClick={() => changePage(p)}>{p + 1}</PageBtn>
-        ))}
-        <PageBtn onClick={() => changePage(page + 1)} disabled={page >= totalPages - 1}>다음</PageBtn>
-        <PageSize>
-          <span>페이지당</span>
-          <select value={size} onChange={(e) => { const next = Number(e.target.value); setPage(0); setSize(next); }}>
-            <option value={10}>10</option>
-            <option value={20}>20</option>
-            <option value={50}>50</option>
-          </select>
-        </PageSize>
-      </Pager>
+      <Pagination
+        page={page}
+        totalPages={totalPages}
+        onChangePage={changePage}
+        size={size}
+        onSizeChange={(newSize) => {
+          setPage(0);
+          setSize(newSize);
+        }}
+      />
       </CardInner>
       {/* Row-level delete dialog removed; delete is available in the edit page */}
     </TableCard>
@@ -259,21 +254,7 @@ const Chip = styled.span<{ type: ChipType }>`
 const ErrText = styled.div`
   color: #b91c1c; font-size: 12px; margin-top: 4px;
 `;
-const Pager = styled.div`
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-  margin-top: ${(p) => p.theme.spacing.md};
-`;
-const PageBtn = styled.button<{ disabled?: boolean }>`
-  min-width: 28px; height: 28px; padding: 0 8px; border-radius: 8px; border: 1px solid #e5e7eb; background: #fff; font-size: 12px; color: #111827;
-  &[data-active='true'] { background: #111827; color: #fff; border-color: #111827; }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
-`;
-const PageSize = styled.div`
-  display: inline-flex; align-items: center; gap: 6px; margin-left: 12px; color: #6b7280; font-size: 12px;
-  select { height: 28px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; padding: 0 8px; }
-`;
+
 
 const CardInner = styled.div`
   position: relative;

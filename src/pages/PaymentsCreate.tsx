@@ -5,23 +5,35 @@ import {
   Page,
   SectionCard,
   PageHeader,
-  PrimaryButton,
+  PrimaryButtonLg,
   GhostButton,
   TableBase,
   EmptyState,
   Skeleton,
+  ToggleSwitch,
 } from "@/components/common/UI";
-import Modal from "@/components/common/Modal";
 import { useToast } from "@/components/common/Toast";
 import { DiscountFields } from "@/components/payments/DiscountFields";
-import { createPaymentInvoice, listPaymentInvoices, type PaymentInvoicePayload } from "@/api/payments";
+import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
+import {
+  createPaymentInvoice,
+  listPaymentHistory,
+  type PaymentInvoicePayload,
+  type PaymentAdditionalItemPayload,
+} from "@/api/payments";
 import { listStudents, type Student } from "@/api/students";
 import type { PageResult } from "@/types/paging";
-import type { DiscountType, BillingCycleUnit, PaymentHistoryRow } from "@classon/shared-types";
+import type {
+  DiscountType,
+  BillingCycleUnit,
+  PaymentHistoryRow,
+  StudentStatus,
+} from "@classon/shared-types";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { routes } from "@/routes";
 import { formatMoney } from "@/lib/format";
 import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
+import Pagination from "@/components/common/Pagination";
 
 type StudentOverride = {
   dueDate?: string;
@@ -35,6 +47,11 @@ type StudentOverride = {
   discountEndDate?: string;
   memo?: string;
   managerMemo?: string;
+  extraEnabled?: boolean;
+  materialFee?: number;
+  textbookFee?: number;
+  extraStartDate?: string;
+  extraEndDate?: string;
 };
 
 const today = new Date();
@@ -50,7 +67,7 @@ const nextMonth = nextMonthBase;
 const defaultForm = {
   dueDate: dateISO(today),
   periodStart: dateISO(today),
-  periodEnd: dateISO(nextMonth),
+  periodEnd: computePeriodEnd(dateISO(today), 1, "MONTHS"),
   discountStartDate: dateISO(today),
   discountEndDate: dateISO(nextMonth),
   discountEnabled: false,
@@ -61,7 +78,33 @@ const defaultForm = {
   cycleValue: 1,
   cycleUnit: "MONTHS" as BillingCycleUnit,
   autoGenerate: true,
+  extraEnabled: false,
+  materialFee: undefined as number | undefined,
+  textbookFee: undefined as number | undefined,
+  extraStartDate: dateISO(today),
+  extraEndDate: dateISO(nextMonth),
+  recipientPhone: "",
 };
+
+const studentStatusLabels: Record<StudentStatus | "UNKNOWN" | undefined, string> = {
+  ENROLLED: "수강중",
+  ON_LEAVE: "휴학",
+  PENDING: "대기중",
+  STOPPED: "퇴원",
+  UNKNOWN: "미지정",
+  undefined: "미지정",
+};
+
+const studentStatusColor: Record<string, string> = {
+  ENROLLED: "#059669",
+  ON_LEAVE: "#8b5cf6",
+  PENDING: "#f97316",
+  STOPPED: "#dc2626",
+};
+
+function resolveStudentStatus(status?: StudentStatus | "UNKNOWN"): string {
+  return studentStatusLabels[status ?? "UNKNOWN"] ?? studentStatusLabels.UNKNOWN;
+}
 
 function normalizeCycle(value: string | number | undefined): number {
   const num = typeof value === "string" ? Number(value) : value;
@@ -69,13 +112,33 @@ function normalizeCycle(value: string | number | undefined): number {
   return Math.max(1, Math.round(Number(num)));
 }
 
-function computePeriodEnd(start: string, months: number): string {
+function computePeriodEnd(start: string, cycleValue: number, unit: BillingCycleUnit): string {
   if (!start) return start;
   const base = new Date(start);
   if (Number.isNaN(base.getTime())) return start;
   const next = new Date(base);
-  next.setMonth(next.getMonth() + months);
+  const value = Number.isFinite(cycleValue) && cycleValue > 0 ? cycleValue : 1;
+  if (unit === "DAYS") {
+    next.setDate(next.getDate() + value);
+  } else if (unit === "WEEKS") {
+    next.setDate(next.getDate() + value * 7);
+  } else {
+    next.setMonth(next.getMonth() + value);
+  }
   return dateISO(next);
+}
+
+function formatPhoneKR(raw?: string | null): string {
+  if (!raw) return "";
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  if (digits.length === 11 && digits.startsWith("010")) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10 && digits.startsWith("010")) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return digits;
 }
 
 export default function PaymentsCreate() {
@@ -86,26 +149,33 @@ export default function PaymentsCreate() {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [studentPage, setStudentPage] = useState(0);
   const pageSize = 10;
-  const [overrides, setOverrides] = useState<Record<number, StudentOverride>>({});
-  const [overrideTarget, setOverrideTarget] = useState<Student | null>(null);
-  const [overrideOpen, setOverrideOpen] = useState(false);
+  const [overrides] = useState<Record<number, StudentOverride>>({});
+  const [activeOverrideId, setActiveOverrideId] = useState<number | null>(null);
   const [form, setForm] = useState(defaultForm);
+  const [discountOpen, setDiscountOpen] = useState(false);
+  const [extraOpen, setExtraOpen] = useState(false);
   const handleDueDateChange = (value: string) => {
-    setForm((prev) => ({ ...prev, dueDate: value }));
+    setForm((prev) => {
+      const nextStart = value || prev.periodStart;
+      const unit = prev.cycleUnit ?? "MONTHS";
+      return {
+        ...prev,
+        dueDate: value,
+        periodStart: nextStart,
+        periodEnd: computePeriodEnd(nextStart, prev.cycleValue, unit),
+      };
+    });
   };
-  const handleCycleValueChange = (raw: string) => {
-    const nextValue = normalizeCycle(raw);
+  const handleCycleOptionChange = (raw: string) => {
+    const [unitToken, valueToken] = raw.split(":");
+    const nextUnit: BillingCycleUnit =
+      unitToken === "D" ? "DAYS" : unitToken === "W" ? "WEEKS" : "MONTHS";
+    const nextValue = normalizeCycle(valueToken);
     setForm((prev) => ({
       ...prev,
       cycleValue: nextValue,
-      periodEnd: computePeriodEnd(prev.periodStart, nextValue),
-    }));
-  };
-  const handlePeriodStartChange = (value: string) => {
-    setForm((prev) => ({
-      ...prev,
-      periodStart: value,
-      periodEnd: computePeriodEnd(value, prev.cycleValue),
+      cycleUnit: nextUnit,
+      periodEnd: computePeriodEnd(prev.periodStart, nextValue, nextUnit),
     }));
   };
 
@@ -116,14 +186,23 @@ export default function PaymentsCreate() {
   });
 
   const reservedInvoicesQuery = useQuery<PaymentHistoryRow[]>({
-    queryKey: ["payments-create", "open-invoices"],
+    queryKey: ["payments-create", "students-with-invoice"],
     queryFn: async () => {
-      const pageSize = 500;
-      const [unpaid, pending] = await Promise.all([
-        listPaymentInvoices({ status: "UNPAID,SCHEDULED", page: 0, size: pageSize }),
-        listPaymentInvoices({ status: "PENDING", page: 0, size: pageSize }),
-      ]);
-      return [...(unpaid.content ?? []), ...(pending.content ?? [])];
+      const size = 500;
+      const collected: PaymentHistoryRow[] = [];
+      let page = 0;
+      const MAX_PAGES = 20;
+      while (page < MAX_PAGES) {
+        const chunk = await listPaymentHistory({ status: "ALL", page, size });
+        if (Array.isArray(chunk.content) && chunk.content.length) {
+          collected.push(...chunk.content);
+        }
+        if (chunk.last || !chunk.content?.length) {
+          break;
+        }
+        page += 1;
+      }
+      return collected;
     },
     staleTime: 30_000,
   });
@@ -141,10 +220,10 @@ export default function PaymentsCreate() {
   const filteredStudents: Student[] = useMemo(() => {
     const base = students.filter(
       (student: Student) =>
-        Array.isArray(student.courses) &&
-        student.courses.length > 0 &&
         typeof student.id === "number" &&
-        !reservedStudentIds.has(student.id),
+        !reservedStudentIds.has(student.id) &&
+        Array.isArray(student.courses) &&
+        student.courses.some((course) => Boolean(course)),
     );
     if (!search.trim()) return base;
     const keyword = search.trim().toLowerCase();
@@ -168,9 +247,16 @@ export default function PaymentsCreate() {
   }, [filteredStudents.length, pageSize, studentPage]);
 
   const handleToggleSelect = (id: number) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
-    );
+    setSelectedIds((prev) => {
+      const isSelected = prev.includes(id);
+      if (isSelected) {
+        const next = prev.filter((value) => value !== id);
+        return next;
+      }
+      const next = [...prev, id];
+      setActiveOverrideId(id);
+      return next;
+    });
   };
 
   const handleSelectAll = () => {
@@ -200,12 +286,42 @@ export default function PaymentsCreate() {
     const discountType = override?.discountType ?? form.discountType;
     const discountValue = override?.discountValue ?? form.discountValue;
     const memoValue = override?.memo ?? form.memo;
+    const extraEnabled = override?.extraEnabled ?? form.extraEnabled;
+    const materialFee = extraEnabled ? override?.materialFee ?? form.materialFee ?? 0 : 0;
+    const textbookFee = extraEnabled ? override?.textbookFee ?? form.textbookFee ?? 0 : 0;
+    const baseAmount = defaultAmountForStudent(student);
+    const totalAmount = baseAmount + materialFee + textbookFee;
+
+    const additionalItems: PaymentAdditionalItemPayload[] = [];
+    if (extraEnabled) {
+      if (materialFee > 0) {
+        additionalItems.push({
+          type: "MATERIAL",
+          label: "재료비",
+          quantity: 1,
+          unitPrice: materialFee,
+          appliedStart: override?.extraStartDate ?? form.extraStartDate,
+          appliedEnd: override?.extraEndDate ?? form.extraEndDate,
+        });
+      }
+      if (textbookFee > 0) {
+        additionalItems.push({
+          type: "TEXTBOOK",
+          label: "교재비",
+          quantity: 1,
+          unitPrice: textbookFee,
+          appliedStart: override?.extraStartDate ?? form.extraStartDate,
+          appliedEnd: override?.extraEndDate ?? form.extraEndDate,
+        });
+      }
+    }
+
     return {
       studentId: student.id,
       dueDate: override?.dueDate ?? form.dueDate,
       periodStart: override?.periodStart ?? form.periodStart,
       periodEnd: override?.periodEnd ?? form.periodEnd,
-      amount: defaultAmountForStudent(student),
+      amount: totalAmount,
       discountType: discountEnabled ? discountType : undefined,
       discountValue: discountEnabled ? discountValue : undefined,
       memo: memoValue,
@@ -220,6 +336,8 @@ export default function PaymentsCreate() {
       discountEndDate: discountEnabled
         ? override?.discountEndDate ?? form.discountEndDate
         : undefined,
+      additionalItems: additionalItems.length ? additionalItems : undefined,
+      recipientPhone: form.recipientPhone,
     };
   };
 
@@ -234,10 +352,21 @@ export default function PaymentsCreate() {
       if (!selectedStudents.length) {
         throw new Error("선택한 학생 정보를 찾을 수 없습니다.");
       }
+      // 간단한 클라이언트 측 검증: 보호자 연락처/금액 0원인 대상은 생성 시도 전에 막습니다.
+      const invalidContacts = selectedStudents.filter((student) => {
+        const rawGuardian = (student.guardianPhone ?? "").trim();
+        return !rawGuardian;
+      });
+      if (invalidContacts.length) {
+        throw new Error("보호자 연락처가 없는 학생이 포함되어 있어 청구서를 생성할 수 없습니다.\n학생 정보에서 학부모 전화번호를 먼저 등록해 주세요.");
+      }
       await Promise.all(
         selectedStudents.map((student: Student) => {
           const override = overrides[student.id];
           const payload = buildPayload(student, override);
+          if (!payload.amount || payload.amount <= 0) {
+            throw new Error("청구 금액이 0원인 학생이 포함되어 있어 청구서를 생성할 수 없습니다.\n수업 수강료나 추가 금액을 확인해 주세요.");
+          }
           return createPaymentInvoice(payload);
         }),
       );
@@ -245,7 +374,7 @@ export default function PaymentsCreate() {
     onSuccess: () => {
       success("청구서를 생성했습니다.");
       invalidatePaymentsQueries(queryClient);
-      queryClient.invalidateQueries({ queryKey: ["payments-create", "open-invoices"] }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ["payments-create", "students-with-invoice"] }).catch(() => {});
       navigate(routes.payments);
     },
     onError: (err: unknown) => {
@@ -253,24 +382,91 @@ export default function PaymentsCreate() {
     },
   });
 
-  const openOverrideModal = (student: Student) => {
-    setOverrideTarget(student);
-    setOverrideOpen(true);
-  };
-
-  const handleOverrideSave = (values: StudentOverride) => {
-    if (!overrideTarget) return;
-    setOverrides((prev) => ({
-      ...prev,
-      [overrideTarget.id]: values,
-    }));
-    setOverrideOpen(false);
-  };
-
   const pagedStudents: Student[] = useMemo(() => {
     const start = studentPage * pageSize;
     return filteredStudents.slice(start, start + pageSize);
   }, [filteredStudents, pageSize, studentPage]);
+
+  const selectedStudents: Student[] = useMemo(
+    () =>
+      selectedIds
+        .map((id) => students.find((student: Student) => student.id === id))
+        .filter((student): student is Student => Boolean(student)),
+    [selectedIds, students],
+  );
+
+  const primaryStudent: Student | null = useMemo(() => {
+    if (!selectedStudents.length) return null;
+    if (activeOverrideId != null) {
+      const found = selectedStudents.find((s) => s.id === activeOverrideId);
+      if (found) return found;
+    }
+    return selectedStudents[0];
+  }, [selectedStudents, activeOverrideId]);
+  const primaryBaseAmount = useMemo(() => {
+    if (!primaryStudent) return 0;
+    return defaultAmountForStudent(primaryStudent);
+  }, [primaryStudent, defaultAmountForStudent]);
+
+  const primaryExtrasTotal = useMemo(() => {
+    if (!form.extraEnabled) return 0;
+    const material = form.materialFee ?? 0;
+    const textbook = form.textbookFee ?? 0;
+    return material + textbook;
+  }, [form.extraEnabled, form.materialFee, form.textbookFee]);
+
+  const primaryOriginalAmount = useMemo(
+    () => primaryBaseAmount + primaryExtrasTotal,
+    [primaryBaseAmount, primaryExtrasTotal],
+  );
+
+  const primaryFinalAmount = useMemo(() => {
+    if (primaryOriginalAmount <= 0) return 0;
+    if (!form.discountEnabled || !form.discountType || !form.discountValue) {
+      return primaryOriginalAmount;
+    }
+    if (form.discountType === "AMOUNT") {
+      const discounted = primaryOriginalAmount - form.discountValue;
+      return discounted > 0 ? discounted : 0;
+    }
+    const percent = form.discountValue / 100;
+    const discounted = primaryOriginalAmount - primaryOriginalAmount * percent;
+    return discounted > 0 ? Math.round(discounted) : 0;
+  }, [primaryOriginalAmount, form.discountEnabled, form.discountType, form.discountValue]);
+
+  const primaryRecipientPhone = useMemo(() => {
+    if (!primaryStudent) return "";
+    const raw =
+      (primaryStudent.guardianPhone && primaryStudent.guardianPhone.trim()) ||
+      "";
+    const digits = raw.replace(/[^0-9]/g, "");
+    return digits || raw || "";
+  }, [primaryStudent]);
+
+  const primaryCourseTitles = useMemo(() => {
+    if (!primaryStudent) return "-";
+    return (
+      primaryStudent.courses
+        ?.map((c) => c?.title ?? null)
+        .filter((t): t is string => Boolean(t && t.trim()))
+        .join(", ") ?? "-"
+    );
+  }, [primaryStudent]);
+
+  useEffect(() => {
+    setForm((prev) => ({ ...prev, recipientPhone: primaryRecipientPhone }));
+  }, [primaryRecipientPhone]);
+
+  useEffect(() => {
+    if (!selectedIds.length) {
+      setActiveOverrideId(null);
+      return;
+    }
+    setActiveOverrideId((prev) => {
+      if (prev != null && selectedIds.includes(prev)) return prev;
+      return selectedIds[0] ?? null;
+    });
+  }, [selectedIds]);
 
   const totalPagesRaw = Math.ceil(filteredStudents.length / pageSize);
   const totalPages = totalPagesRaw > 0 ? totalPagesRaw : 1;
@@ -288,357 +484,595 @@ export default function PaymentsCreate() {
       </PageHeader>
 
       <CreateLayout>
-        <SectionCard>
-          <RightHeader>
-            <div>
-              <h3>학생 목록</h3>
-              <SmallText>이름 / 수강 수업 / 청구 금액을 확인하고 선택하세요.</SmallText>
-            </div>
-            <GhostButton type="button" onClick={handleSelectAll} disabled={!filteredStudents.length}>
-              전체 선택/해제
-            </GhostButton>
-          </RightHeader>
-          <label>
-            학생 검색
-            <Input
-              type="text"
-              placeholder="이름 검색"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-          <TableWrapper>
-            <StyledTable>
-              <colgroup>
-                <col style={{ width: "48px" }} />
-                <col style={{ width: "26%" }} />
-                <col style={{ width: "32%" }} />
-                <col style={{ width: "20%" }} />
-                <col />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th />
-                  <th>이름</th>
-                  <th>수강 수업</th>
-                  <th>청구 금액</th>
-                  <th>작업</th>
-                </tr>
-              </thead>
-              <tbody>
-                {studentsQuery.isLoading ? (
+        <LeftColumn>
+          <SectionCard>
+            <RightHeader>
+              <div>
+                <h3>학생 목록</h3>
+                <SmallText>이름 / 수강 수업 / 청구 금액을 확인하고 선택하세요.</SmallText>
+              </div>
+              <GhostButton type="button" onClick={handleSelectAll} disabled={!filteredStudents.length}>
+                전체 선택/해제
+              </GhostButton>
+            </RightHeader>
+            <label>
+              학생 검색
+              <Input
+                type="text"
+                placeholder="이름 검색"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <TableWrapper>
+              <StyledTable>
+                <colgroup>
+                  <col style={{ width: "48px" }} />
+                  <col style={{ width: "22%" }} />
+                  <col style={{ width: "28%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "16%" }} />
+                  <col />
+                </colgroup>
+                <thead>
                   <tr>
-                    <td colSpan={5}>
-                      <Skeleton h={36} />
-                    </td>
+                    <th />
+                    <th>이름</th>
+                    <th>수강 수업</th>
+                    <th>상태</th>
+                    <th>청구 금액</th>
+                    <th>작업</th>
                   </tr>
-                ) : pagedStudents.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>
-                      <EmptyState>조건에 맞는 학생이 없습니다.</EmptyState>
-                    </td>
-                  </tr>
-                ) : (
-                  pagedStudents.map((student: Student) => {
-                    const courseTitles =
-                      student.courses
-                        ?.map((course: NonNullable<Student["courses"]>[number]) => course?.title ?? null)
-                        .filter((title: string | null): title is string => Boolean(title && title.trim()))
-                        .join(", ") ?? "-";
-                    const fee = defaultAmountForStudent(student);
-                    const selected = selectedIds.includes(student.id);
-                    const canEdit = selected && selectedIds.length >= 2;
-                    const overrideApplied = Boolean(overrides[student.id]);
-                    const showIcon = canEdit || overrideApplied;
-                    return (
-                      <tr key={student.id}>
-                        <td>
-                          <Checkbox
-                            type="checkbox"
-                            checked={selected}
-                            onChange={() => handleToggleSelect(student.id)}
-                          />
-                        </td>
-                        <td>
-                          <strong>{student.name}</strong>
-                          <Meta>{student.code}</Meta>
-                        </td>
-                        <td>{courseTitles || "-"}</td>
-                        <td>{formatMoney(fee)}</td>
-                        <td>
-                          {showIcon ? (
-                            <IconButton
-                              type="button"
-                              onClick={() => canEdit && openOverrideModal(student)}
-                              aria-label={overrideApplied ? "개별 설정 완료" : "개별 설정"}
-                              $active={overrideApplied}
-                              disabled={!canEdit}
-                            >
-                              {overrideApplied ? "✔️" : "✏️"}
-                            </IconButton>
-                          ) : (
-                            "-"
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
+                </thead>
+                <tbody>
+                  {studentsQuery.isLoading ? (
+                    <tr>
+                      <td colSpan={6}>
+                        <Skeleton h={36} />
+                      </td>
+                    </tr>
+                  ) : pagedStudents.length === 0 ? (
+                    <tr>
+                      <td colSpan={6}>
+                        <EmptyState>조건에 맞는 학생이 없습니다.</EmptyState>
+                      </td>
+                    </tr>
+                  ) : (
+                    pagedStudents.map((student: Student) => {
+                      const courseNameList =
+                        (student.courses ?? [])
+                          .map((course: NonNullable<Student["courses"]>[number]) => {
+                            const title = course?.title?.trim();
+                            const code = course?.code?.trim();
+                            return title || code || null;
+                          })
+                          .filter((value: string | null): value is string => Boolean(value && value.trim()));
+                      const courseTitles = courseNameList.length ? courseNameList.join(", ") : "-";
+                      const fee = defaultAmountForStudent(student);
+                      const selected = selectedIds.includes(student.id);
+                      const canEdit = selected && selectedIds.length >= 2;
+                      const overrideApplied = Boolean(overrides[student.id]);
+                      const showIcon = canEdit || overrideApplied;
+                      return (
+                        <tr key={student.id} data-selected={selected}>
+                          <td>
+                            <Checkbox
+                              type="checkbox"
+                              checked={selected}
+                              onChange={() => handleToggleSelect(student.id)}
+                            />
+                          </td>
+                          <td>
+                            <strong>{student.name}</strong>
+                            <Meta>{student.code}</Meta>
+                          </td>
+                          <td>{courseTitles || "-"}</td>
+                          <td>
+                            <StudentStatusBadge data-status={student.status ?? undefined}>
+                              {resolveStudentStatus(student.status)}
+                            </StudentStatusBadge>
+                          </td>
+                          <td className="amount-cell">{formatMoney(fee)}</td>
+                          <td>
+                            {showIcon ? (
+                              <BadgeButton
+                                type="button"
+                                onClick={() => {
+                                  if (!canEdit) return;
+                                  setActiveOverrideId(student.id);
+                                }}
+                                $active={overrideApplied}
+                                disabled={!canEdit}
+                              >
+                                {overrideApplied ? "개별 설정됨" : "개별 설정"}
+                              </BadgeButton>
+                            ) : (
+                              "-"
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </StyledTable>
+            </TableWrapper>
+            <Pagination page={studentPage} totalPages={totalPages} onChangePage={setStudentPage} />
+          </SectionCard>
+        </LeftColumn>
+
+        <RightColumn>
+          <ReceiptCard>
+            <ReceiptHeader>
+              <h3>청구서 설정</h3>
+              <p>선택된 학생에게 적용될 내용입니다.</p>
+            </ReceiptHeader>
+
+            {!selectedIds.length ? (
+              <EmptyReceipt>
+                <div className="icon">🧾</div>
+                <p>왼쪽 목록에서<br/>청구서를 보낼 학생을<br/>선택해주세요.</p>
+              </EmptyReceipt>
+            ) : (
+              <>
+                {primaryStudent && (
+                  <RepresentativeCard>
+                    <div className="row">
+                      <div className="label">학생 이름</div>
+                      <div className="value">{primaryStudent.name}</div>
+                    </div>
+                    <div className="row">
+                      <div className="label">수강 수업</div>
+                      <div className="value">{primaryCourseTitles}</div>
+                    </div>
+                    <div className="row">
+                      <div className="label">발신 번호</div>
+                      <div className="input-wrap">
+                        <Input
+                          value={formatPhoneKR(form.recipientPhone)}
+                          placeholder="예: 010-1234-5678"
+                          onChange={(e) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              recipientPhone: (e.target.value || "").replace(/[^0-9]/g, ""),
+                            }))
+                          }
+                          style={{ textAlign: "right", padding: "6px 10px" }}
+                        />
+                      </div>
+                    </div>
+                  </RepresentativeCard>
                 )}
-              </tbody>
-            </StyledTable>
-          </TableWrapper>
-          <PagerBar>
-            <GhostButton
-              type="button"
-              onClick={() => setStudentPage((prev) => Math.max(0, prev - 1))}
-              disabled={studentPage <= 0}
-            >
-              이전
-            </GhostButton>
-            <span>
-              {Math.min(studentPage + 1, totalPages)} / {totalPages}
-            </span>
-            <GhostButton
-              type="button"
-              onClick={() => setStudentPage((prev) => Math.min(totalPages - 1, prev + 1))}
-              disabled={studentPage >= totalPages - 1}
-            >
-              다음
-            </GhostButton>
-          </PagerBar>
-        </SectionCard>
 
-        <SectionCard>
-          <LeftHeader>
-            <div>
-              <h3>결제 상세 설정</h3>
-              <SmallText>선택된 학생에게 동일한 설정이 적용됩니다.</SmallText>
-            </div>
-            <PrimaryButton
-              type="button"
-              disabled={!selectedIds.length || createMutation.isPending}
-              onClick={() => createMutation.mutate()}
-            >
-              {selectedIds.length ? `청구서 생성 (${selectedIds.length}명)` : "학생을 선택하세요"}
-            </PrimaryButton>
-          </LeftHeader>
-          <FormGrid>
-            <label>
-              결제 예정일
-              <Input
-                type="date"
-                value={form.dueDate}
-                onChange={(event) => handleDueDateChange(event.target.value)}
-              />
-            </label>
-            <label>
-              결제 주기 (개월)
-              <Input
-                type="number"
-                min={1}
-                value={form.cycleValue}
-                onChange={(event) => handleCycleValueChange(event.target.value)}
-              />
-            </label>
-          </FormGrid>
-          <PeriodText>
-            청구 기간 (자동 갱신)
-            <SmallHint>입력한 결제 주기(개월)에 따라 다음 청구 기간이 자동 생성됩니다.</SmallHint>
-          </PeriodText>
-          <PeriodGrid>
-            <label>
-              시작일
-              <Input
-                type="date"
-                value={form.periodStart}
-                onChange={(event) => handlePeriodStartChange(event.target.value)}
-              />
-            </label>
-            <label>
-              종료일
-              <Input
-                type="date"
-                value={form.periodEnd}
-                onChange={(event) => setForm((prev) => ({ ...prev, periodEnd: event.target.value }))}
-              />
-            </label>
-          </PeriodGrid>
-          <DiscountBox>
-            <DiscountFields
-              enabled={Boolean(form.discountEnabled)}
-              discountType={form.discountType ?? undefined}
-              discountValue={form.discountValue}
-              startDate={form.discountStartDate}
-              endDate={form.discountEndDate}
-              onToggleEnabled={(next) => setForm((prev) => ({ ...prev, discountEnabled: next }))}
-              onChangeType={(next) => setForm((prev) => ({ ...prev, discountType: next }))}
-              onChangeValue={(value) =>
-                setForm((prev) => ({ ...prev, discountValue: typeof value === "number" ? value : undefined }))
-              }
-              onChangeStartDate={(value) => setForm((prev) => ({ ...prev, discountStartDate: value }))}
-              onChangeEndDate={(value) => setForm((prev) => ({ ...prev, discountEndDate: value }))}
-              showPeriod
-            />
-          </DiscountBox>
-          <label>
-            메모
-            <Textarea
-              value={form.memo}
-              onChange={(event) => {
-                const nextValue = event.target.value;
-                setForm((prev) => ({ ...prev, memo: nextValue, managerMemo: nextValue }));
-              }}
-            />
-          </label>
-        </SectionCard>
+
+                <ReceiptSection>
+                  <SectionTitle>결제 정보</SectionTitle>
+                  <FormGrid>
+                    <label>
+                      결제 예정일
+                      <Input
+                        type="date"
+                        value={form.dueDate}
+                        onChange={(event) => handleDueDateChange(event.target.value)}
+                      />
+                    </label>
+                    <label>
+                      결제 주기
+                      <SelectLike
+                        value={`${form.cycleUnit === "DAYS" ? "D" : form.cycleUnit === "WEEKS" ? "W" : "M"}:${form.cycleValue ?? 1}`}
+                        onChange={(event) => handleCycleOptionChange(event.target.value)}
+                      >
+                        <option value="D:1">테스트(1일)</option>
+                        <option value="D:2">테스트(2일)</option>
+                        <option value="M:1">1개월</option>
+                        <option value="M:2">2개월</option>
+                        <option value="M:3">3개월</option>
+                        <option value="M:6">6개월</option>
+                        <option value="M:12">12개월</option>
+                      </SelectLike>
+                    </label>
+                  </FormGrid>
+                </ReceiptSection>
+
+                <ReceiptSection>
+                  <SectionTitle>
+                    청구 기간
+                    {form.cycleValue > 0 && (
+                      <Badge>
+                        {form.cycleValue}
+                        {form.cycleUnit === "DAYS"
+                          ? "일간"
+                          : form.cycleUnit === "WEEKS"
+                            ? "주간"
+                            : "개월간"}
+                      </Badge>
+                    )}
+                  </SectionTitle>
+                  <PeriodRow>
+                    <PeriodValue>
+                      <span>시작일</span>
+                      <strong>{form.periodStart || "-"}</strong>
+                    </PeriodValue>
+                    <span className="arrow">→</span>
+                    <PeriodValue>
+                      <span>종료일</span>
+                      <strong>{form.periodEnd || "-"}</strong>
+                    </PeriodValue>
+                  </PeriodRow>
+                </ReceiptSection>
+
+                <ReceiptSection>
+                  <SectionTitle>금액 상세</SectionTitle>
+
+                  <AccordionCard>
+                    <AccordionHeader>
+                      <span>할인 설정</span>
+                      <div>
+                        <ToggleSwitch>
+                          <input
+                            type="checkbox"
+                            checked={form.discountEnabled}
+                            onChange={(e) => {
+                              const next = e.target.checked;
+                              setForm((prev) => ({ ...prev, discountEnabled: next }));
+                              if (next) {
+                                setDiscountOpen(true);
+                              } else {
+                                setDiscountOpen(false);
+                              }
+                            }}
+                          />
+                          <div className="switch" />
+                        </ToggleSwitch>
+                      </div>
+                    </AccordionHeader>
+                    {discountOpen && (
+                      <AccordionBody>
+                        <DiscountFields
+                          enabled={Boolean(form.discountEnabled)}
+                          discountType={form.discountType ?? undefined}
+                          discountValue={form.discountValue}
+                          startDate={form.discountStartDate}
+                          endDate={form.discountEndDate}
+                          onToggleEnabled={(next) => {
+                            setForm((prev) => ({ ...prev, discountEnabled: next }));
+                          }}
+                          onChangeType={(next) => setForm((prev) => ({ ...prev, discountType: next }))}
+                          onChangeValue={(value) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              discountValue: typeof value === "number" ? value : undefined,
+                            }))
+                          }
+                          onChangeStartDate={(value) =>
+                            setForm((prev) => ({ ...prev, discountStartDate: value }))
+                          }
+                          onChangeEndDate={(value) =>
+                            setForm((prev) => ({ ...prev, discountEndDate: value }))
+                          }
+                          showPeriod
+                        />
+                      </AccordionBody>
+                    )}
+                  </AccordionCard>
+
+                  <AccordionCard>
+                    <AccordionHeader>
+                      <span>추가 금액 설정</span>
+                      <div>
+                        <ToggleSwitch>
+                          <input
+                            type="checkbox"
+                            checked={form.extraEnabled}
+                            onChange={(e) => {
+                              const next = e.target.checked;
+                              setForm((prev) => ({ ...prev, extraEnabled: next }));
+                              if (next) {
+                                setExtraOpen(true);
+                              } else {
+                                setExtraOpen(false);
+                              }
+                            }}
+                          />
+                          <div className="switch" />
+                        </ToggleSwitch>
+                      </div>
+                    </AccordionHeader>
+                    {extraOpen && (
+                      <AccordionBody>
+                        <AdditionalChargeFields
+                          enabled={Boolean(form.extraEnabled)}
+                          materialFee={form.materialFee}
+                          textbookFee={form.textbookFee}
+                          startDate={form.extraStartDate}
+                          endDate={form.extraEndDate}
+                          onToggleEnabled={(next) => {
+                            setForm((prev) => ({ ...prev, extraEnabled: next }));
+                          }}
+                          onChangeMaterialFee={(value) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              materialFee: typeof value === "number" ? value : undefined,
+                            }))
+                          }
+                          onChangeTextbookFee={(value) =>
+                            setForm((prev) => ({
+                              ...prev,
+                              textbookFee: typeof value === "number" ? value : undefined,
+                            }))
+                          }
+                          onChangeStartDate={(value) =>
+                            setForm((prev) => ({ ...prev, extraStartDate: value }))
+                          }
+                          onChangeEndDate={(value) =>
+                            setForm((prev) => ({ ...prev, extraEndDate: value }))
+                          }
+                        />
+                      </AccordionBody>
+                    )}
+                  </AccordionCard>
+                </ReceiptSection>
+
+                <ReceiptSection>
+                  <SectionTitle>메모</SectionTitle>
+                  <Textarea
+                    placeholder="청구서에 표시될 메모를 입력하세요."
+                    value={form.memo}
+                    onChange={(event) => {
+                      const nextValue = event.target.value;
+                      setForm((prev) => ({ ...prev, memo: nextValue, managerMemo: nextValue }));
+                    }}
+                  />
+                </ReceiptSection>
+
+                <TotalAmountSection>
+                  <div className="label">최종 청구 금액</div>
+                  <div className="amount">{formatMoney(primaryFinalAmount)}</div>
+                  <div className="desc">할인 및 추가 금액이 포함된 금액입니다.</div>
+                </TotalAmountSection>
+
+                <PrimaryButtonLg
+                  type="button"
+                  disabled={!selectedIds.length || createMutation.isPending}
+                  onClick={() => createMutation.mutate()}
+                  style={{ width: "100%", marginTop: "16px" }}
+                >
+                  {selectedIds.length ? `${selectedIds.length}명 청구서 생성하기` : "학생을 선택하세요"}
+                </PrimaryButtonLg>
+              </>
+            )}
+          </ReceiptCard>
+        </RightColumn>
       </CreateLayout>
-
-      <StudentOverrideModal
-        open={overrideOpen}
-        onClose={() => setOverrideOpen(false)}
-        student={overrideTarget}
-        baseForm={form}
-        initialValues={overrideTarget ? overrides[overrideTarget.id] : undefined}
-        onSave={handleOverrideSave}
-      />
     </Page>
   );
 }
 
-type OverrideModalProps = {
-  open: boolean;
-  onClose: () => void;
-  student: Student | null;
-  baseForm: typeof defaultForm;
-  initialValues?: StudentOverride;
-  onSave: (values: StudentOverride) => void;
-};
-
-function StudentOverrideModal({ open, onClose, student, baseForm, initialValues, onSave }: OverrideModalProps) {
-  const [local, setLocal] = useState<StudentOverride>(initialValues ?? {});
-
-  useEffect(() => {
-    if (open) {
-      setLocal(initialValues ?? {});
-    }
-  }, [open, initialValues]);
-
-  const localDiscountEnabled = local.discountEnabled ?? baseForm.discountEnabled;
-
-  const handleLocalCycleChange = (raw: string) => {
-    const nextValue = normalizeCycle(raw);
-    setLocal((prev) => ({
-      ...prev,
-      cycleValue: nextValue,
-      periodEnd: computePeriodEnd(prev.periodStart ?? baseForm.periodStart, nextValue),
-    }));
-  };
-
-  const handleLocalPeriodStartChange = (value: string) => {
-    setLocal((prev) => ({
-      ...prev,
-      periodStart: value,
-      periodEnd: computePeriodEnd(value, prev.cycleValue ?? baseForm.cycleValue),
-    }));
-  };
-
-  if (!open || !student) return null;
-
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onSave(local);
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title={`${student.name} 개별 설정`} maxWidth={520}>
-      <form onSubmit={handleSubmit}>
-        <ModalGrid>
-          <label>
-            결제 예정일
-            <Input
-              type="date"
-              value={local.dueDate ?? baseForm.dueDate}
-              onChange={(event) => setLocal((prev) => ({ ...prev, dueDate: event.target.value }))}
-            />
-          </label>
-          <label>
-            결제 주기 (개월)
-            <Input
-              type="number"
-              min={1}
-              value={local.cycleValue ?? baseForm.cycleValue}
-              onChange={(event) => handleLocalCycleChange(event.target.value)}
-            />
-          </label>
-          <label>
-            청구 기간
-            <Input
-              type="date"
-              value={local.periodStart ?? baseForm.periodStart}
-              onChange={(event) => handleLocalPeriodStartChange(event.target.value)}
-            />
-          </label>
-          <label>
-            &nbsp;
-            <Input
-              type="date"
-              value={local.periodEnd ?? baseForm.periodEnd}
-              onChange={(event) =>
-                setLocal((prev) => ({ ...prev, periodEnd: event.target.value }))
-              }
-            />
-          </label>
-        </ModalGrid>
-        <DiscountBox>
-          <DiscountFields
-            enabled={Boolean(localDiscountEnabled)}
-            discountType={local.discountType ?? baseForm.discountType ?? undefined}
-            discountValue={local.discountValue ?? undefined}
-            startDate={local.discountStartDate ?? baseForm.discountStartDate}
-            endDate={local.discountEndDate ?? baseForm.discountEndDate}
-            onToggleEnabled={(next) =>
-              setLocal((prev) => ({
-                ...prev,
-                discountEnabled: next,
-              }))
-            }
-            onChangeType={(next) => setLocal((prev) => ({ ...prev, discountType: next }))}
-            onChangeValue={(value) =>
-              setLocal((prev) => ({
-                ...prev,
-                discountValue: typeof value === "number" ? value : undefined,
-              }))
-            }
-            onChangeStartDate={(value) => setLocal((prev) => ({ ...prev, discountStartDate: value }))}
-            onChangeEndDate={(value) => setLocal((prev) => ({ ...prev, discountEndDate: value }))}
-            showPeriod
-          />
-        </DiscountBox>
-        <label>
-          메모
-          <Textarea
-            value={local.memo ?? baseForm.memo}
-            onChange={(event) => {
-              const nextValue = event.target.value;
-              setLocal((prev) => ({ ...prev, memo: nextValue, managerMemo: nextValue }));
-            }}
-          />
-        </label>
-        <ModalActions>
-          <GhostButton type="button" onClick={onClose}>
-            취소
-          </GhostButton>
-          <PrimaryButton type="submit">저장</PrimaryButton>
-        </ModalActions>
-      </form>
-    </Modal>
-  );
-}
+// Per-student override editor는 제거되었습니다. 현재는 선택된 학생들에게 동일한 청구서 설정을 적용합니다.
 
 const CreateLayout = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  display: flex;
   gap: 24px;
+  align-items: flex-start;
+  @media (max-width: 1024px) {
+    flex-direction: column;
+  }
+`;
+
+const LeftColumn = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const RightColumn = styled.div`
+  width: 800px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 24px;
+  
+  @media (max-width: 1440px) {
+    width: 600px;
+  }
+
+  @media (max-width: 1280px) {
+    width: 480px;
+  }
+  
+  @media (max-width: 1024px) {
+    width: 100%;
+    position: static;
+  }
+`;
+
+const ReceiptCard = styled(SectionCard)`
+  border: 1px solid ${(p) => p.theme.colors.border};
+  box-shadow: ${(p) => p.theme.shadow.medium};
+  padding: 0;
+  overflow: hidden;
+  background: #fff;
+`;
+
+const ReceiptHeader = styled.div`
+  background: ${(p) => p.theme.colors.surfaceAlt};
+  padding: 20px 24px;
+  border-bottom: 1px dashed ${(p) => p.theme.colors.border};
+  h3 {
+    margin: 0 0 4px;
+    font-size: 18px;
+    font-weight: 700;
+  }
+  p {
+    margin: 0;
+    font-size: 13px;
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+`;
+
+const ReceiptSection = styled.div`
+  padding: 20px 24px;
+  border-bottom: 1px solid ${(p) => p.theme.colors.borderMuted};
+`;
+
+const SectionTitle = styled.h4`
+  margin: 0 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+  color: ${(p) => p.theme.colors.text};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+`;
+
+const Badge = styled.span`
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: ${(p) => p.theme.colors.primarySurface};
+  color: ${(p) => p.theme.colors.primary};
+  font-size: 11px;
+  font-weight: 600;
+`;
+
+const RepresentativeCard = styled.div`
+  margin: 20px 24px 0;
+  padding: 16px;
+  background: ${(p) => p.theme.colors.surfaceAlt};
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.textMuted};
+    flex-shrink: 0;
+  }
+  .value {
+    font-size: 14px;
+    color: ${(p) => p.theme.colors.text};
+    text-align: right;
+    font-weight: 500;
+  }
+  .input-wrap {
+    width: 160px;
+  }
+`;
+
+const PeriodRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  .arrow {
+    color: ${(p) => p.theme.colors.textMuted};
+    font-size: 14px;
+  }
+`;
+
+const PeriodValue = styled.div`
+  flex: 1;
+  display: grid;
+  gap: 4px;
+  span {
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+  strong {
+    font-size: 14px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
+  }
+`;
+
+const TotalAmountSection = styled.div`
+  padding: 24px;
+  background: ${(p) => p.theme.colors.primarySurface};
+  text-align: center;
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.primary};
+    margin-bottom: 4px;
+  }
+  .amount {
+    font-size: 32px;
+    font-weight: 800;
+    color: ${(p) => p.theme.colors.primary};
+    letter-spacing: -0.5px;
+    margin-bottom: 8px;
+  }
+  .desc {
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+    opacity: 0.8;
+  }
+`;
+
+const AccordionCard = styled.div`
+  margin: 12px 0 8px;
+  padding: 0;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
+`;
+
+const AccordionHeader = styled.div`
+  width: 100%;
+  padding: 10px 12px;
+  border: none;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: default;
+  span {
+    font-size: 13px;
+    color: ${(p) => p.theme.colors.text};
+    font-weight: 600;
+  }
+`;
+
+const AccordionBody = styled.div`
+  border-top: 1px solid ${(p) => p.theme.colors.borderMuted};
+  padding: 12px;
+`;
+
+const EmptyReceipt = styled.div`
+  padding: 60px 24px;
+  text-align: center;
+  color: ${(p) => p.theme.colors.textMuted};
+  .icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+  }
+  p {
+    margin: 0;
+    line-height: 1.5;
+    font-size: 14px;
+  }
+`;
+
+const BadgeButton = styled.button<{ $active?: boolean }>`
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid ${(p) => (p.$active ? p.theme.colors.primary : p.theme.colors.border)};
+  background: ${(p) => (p.$active ? p.theme.colors.primarySurface : "transparent")};
+  color: ${(p) => (p.$active ? p.theme.colors.primary : p.theme.colors.textMuted)};
+  transition: all 0.2s;
+  
+  &:hover:not(:disabled) {
+    border-color: ${(p) => p.theme.colors.primary};
+    color: ${(p) => p.theme.colors.primary};
+  }
 `;
 
 const LeftHeader = styled.div`
@@ -668,46 +1102,18 @@ const FormGrid = styled.div`
     gap: 6px;
     font-size: 13px;
     color: ${(p) => p.theme.colors.textMuted};
+    text-align: left;
   }
 `;
 
-const ModalGrid = styled(FormGrid)`
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-`;
-
-const PeriodText = styled.div`
-  font-size: 13px;
-  color: ${(p) => p.theme.colors.text};
-  display: grid;
-  gap: 4px;
-  margin-bottom: 8px;
-  font-weight: 600;
-`;
-
-const PeriodGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-  label {
-    display: grid;
-    gap: 6px;
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-`;
-
-const SmallHint = styled.span`
-  font-size: 12px;
-  color: ${(p) => p.theme.colors.textMuted};
-`;
-
-const DiscountBox = styled.div`
-  margin: 12px 0 16px;
-  padding: 16px;
+const SelectLike = styled.select`
   border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.md};
-  background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 14px;
+  width: 100%;
+  box-sizing: border-box;
+  background: #fff;
 `;
 
 const Input = styled.input`
@@ -739,33 +1145,32 @@ const TableWrapper = styled.div`
   overflow-x: auto;
 `;
 
-const PagerBar = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 12px;
-  align-items: center;
-  span {
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-`;
+
 
 const StyledTable = styled(TableBase)`
   tbody td {
     vertical-align: middle;
+    text-align: center;
   }
-`;
-
-const IconButton = styled.button<{ $active?: boolean }>`
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 16px;
-  line-height: 1;
-  padding: 4px;
-  color: ${(p) => (p.$active ? p.theme.colors.success : p.theme.colors.primary)};
-  opacity: ${(p) => (p.disabled ? 0.6 : 1)};
+  tbody td.amount-cell {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  tbody td:nth-child(2) {
+    text-align: center;
+  }
+  tbody td:nth-child(3),
+  tbody td:nth-child(4),
+  tbody td:nth-child(5) {
+    text-align: center;
+  }
+  thead th {
+    text-align: center;
+  }
+  thead th:first-child,
+  tbody td:first-child {
+    width: 48px;
+  }
 `;
 
 const Meta = styled.span`
@@ -774,9 +1179,14 @@ const Meta = styled.span`
   color: ${(p) => p.theme.colors.textMuted};
 `;
 
-const ModalActions = styled.div`
-  margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+const StudentStatusBadge = styled.span<{ "data-status"?: string }>`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: ${({ "data-status": status }) =>
+    (studentStatusColor[status ?? ""] ?? "#94a3b8")}1A;
+  color: ${({ "data-status": status }) => studentStatusColor[status ?? ""] ?? "#475569"};
 `;

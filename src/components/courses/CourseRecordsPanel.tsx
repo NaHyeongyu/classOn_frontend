@@ -194,7 +194,7 @@ export default function CourseRecordsPanel({
                               key={`${record.id || `${record.dateLabel}-${record.time}`}`}
                               data-variant={record.type === "지난 수업" ? "past" : "upcoming"}
                             >
-                              {record.time || "시간 미정"}
+                              {record.time && record.time !== "-" ? record.time : "시간 미정"}
                             </TimeBadge>
                           ))}
                         </TimesList>
@@ -293,7 +293,7 @@ const MonthGrid = styled.div`
   gap: ${(p) => p.theme.spacing.xs};
 `;
 const DayCell = styled.div<{ $clickable?: boolean; $dim?: boolean; $today?: boolean }>`
-  min-height: 80px;
+  min-height: 100px;
   border: 1px solid ${(p) => (p.$today ? p.theme.colors.primary : p.theme.colors.borderMuted)};
   border-radius: ${(p) => p.theme.radii.lg};
   padding: ${(p) => p.theme.spacing.sm};
@@ -325,21 +325,27 @@ const TimesList = styled.div`
   margin-top: auto;
 `;
 const TimeBadge = styled.span`
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 6px;
-  border-radius: 999px;
+  padding: 6px 8px;
+  border-radius: 6px;
   font-size: ${(p) => p.theme.font.size.xs};
-  border: 1px solid ${(p) => p.theme.colors.borderMuted};
-  background: ${(p) => p.theme.colors.surfaceMuted};
-  color: ${(p) => p.theme.colors.text};
+  font-weight: 600;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+
   &[data-variant="past"] {
+    background: ${(p) => p.theme.colors.surfaceAlt};
     color: ${(p) => p.theme.colors.textMuted};
   }
   &[data-variant="upcoming"] {
-    border-color: ${(p) => p.theme.colors.primary};
+    background: ${(p) => p.theme.colors.primary}1A;
     color: ${(p) => p.theme.colors.primary};
+    &:hover {
+      background: ${(p) => p.theme.colors.primary}26;
+    }
   }
 `;
 const MonthEmpty = styled.p`

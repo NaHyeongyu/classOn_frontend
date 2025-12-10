@@ -87,8 +87,13 @@ export function useMarketingSavedListPage(): UseMarketingSavedListPageReturn {
           q: query || undefined,
         });
         if (cancelled) return;
-        const content = res.content ?? [];
-        setRows(content.map(toLocalSaved));
+        const remoteRows = (res.content ?? []).map(toLocalSaved);
+        // 로컬 저장분을 합쳐 서버 오류가 없어도 오프라인 저장이 보이도록 한다.
+        const merged = [
+          ...remoteRows,
+          ...localFallback.filter((item) => !remoteRows.some((r) => r.id === item.id)),
+        ];
+        setRows(merged);
         setTotalPages(res.totalPages ?? 1);
       } catch (err) {
         if (cancelled) return;

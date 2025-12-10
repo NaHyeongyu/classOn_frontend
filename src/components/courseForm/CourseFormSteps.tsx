@@ -61,11 +61,27 @@ export function CourseFormBasicStep({
   const { user } = useAuth();
   const repName = useRepresentativeName();
   const isMainAccount = (opt?: TeacherOption) => isMainAccountForTeacher(user, opt, repName);
-  const instructorDisplay =
+  const selectedIds =
+    Array.isArray(form.instructorIds) && form.instructorIds.length
+      ? form.instructorIds
+      : form.instructorId != null
+      ? [form.instructorId]
+      : [];
+  const selectedTeachers = teacherOptions.filter((opt) =>
+    selectedIds.includes(opt.id),
+  );
+  const primaryTeacher =
+    selectedTeachers[0] ||
+    teacherOptions.find((opt) => opt.id === form.instructorId);
+  const primaryLabel =
+    primaryTeacher?.name ||
+    primaryTeacher?.username ||
     form.instructorName?.trim() ||
-    teacherOptions.find((opt) => opt.id === form.instructorId)?.name ||
-    teacherOptions.find((opt) => opt.id === form.instructorId)?.username ||
     "";
+  const instructorDisplay =
+    selectedTeachers.length <= 1
+      ? primaryLabel
+      : `${primaryLabel} 외 ${selectedTeachers.length - 1}명`;
 
   return (
     <StepSection meta={meta}>
@@ -135,48 +151,81 @@ export function CourseFormBasicStep({
               />
               <FieldErr>{teacherError}</FieldErr>
             </>
+          ) : teacherOptions.length === 0 ? (
+            <>
+              <Hint>강사를 먼저 등록해야 합니다. 내 정보 &gt; 강사 관리에서 추가해 주세요.</Hint>
+            </>
           ) : (
             <>
-              <Select
-                ariaLabel="담당 강사"
-                placeholder="강사를 선택해 주세요"
-                value={form.instructorId != null ? String(form.instructorId) : ""}
-                onChange={(value) => {
-                  const nextId = value ? Number(value) : null;
-                  setForm((state) => {
-                    const selected = teacherOptions.find((opt) => opt.id === nextId);
-                    return {
-                      ...state,
-                      instructorId: nextId,
-                      instructorName: selected?.name || selected?.username || "",
-                    };
-                  });
-                }}
-                disabled={teacherOptions.length === 0}
-                options={[
-                  { label: "강사를 선택해 주세요", value: "" },
-                  ...teacherOptions.map((opt) => {
-                    const base = opt.name || opt.username || `강사 #${opt.id}`;
-                    const suffix =
-                      typeof opt.courseCount === "number"
-                        ? ` (담당 수업 ${opt.courseCount}개)`
-                        : "";
-                    const mainTag = isMainAccount(opt) ? " [본계정]" : "";
-                    return {
-                      label: `${base}${mainTag}${suffix}`,
-                      value: String(opt.id),
-                    };
-                  }),
-                ]}
-              />
-              {teacherOptions.length === 0 ? (
-                <Hint>강사를 먼저 등록해야 합니다. 내 정보 &gt; 강사 관리에서 추가해 주세요.</Hint>
-              ) : user && !teacherOptions.some((opt) => isMainAccount(opt)) ? (
+              <TeacherList role="group" aria-label="담당 강사 선택">
+                {teacherOptions.map((opt) => {
+                  const checked = selectedIds.includes(opt.id);
+              const base = opt.name || opt.username || `강사 #${opt.id}`;
+              const suffix =
+                typeof opt.courseCount === "number"
+                  ? ` (담당 수업 ${opt.courseCount}개)`
+                  : "";
+              const mainTag = isMainAccount(opt) ? " [본계정]" : "";
+              const label = `${base}${mainTag}${suffix}`;
+              return (
+                    <TeacherItem key={opt.id} data-active={checked || undefined}>
+                      <label>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            const nextChecked = e.currentTarget.checked;
+                            setForm((state) => {
+                              const prevIds = Array.isArray(state.instructorIds)
+                                ? state.instructorIds
+                                : state.instructorId != null
+                                ? [state.instructorId]
+                                : [];
+                              const raw = nextChecked
+                                ? [...prevIds, opt.id]
+                                : prevIds.filter((id) => id !== opt.id);
+                              const uniq = Array.from(new Set(raw));
+                              const nextPrimaryId = uniq[0] ?? null;
+                              const nextPrimary =
+                                teacherOptions.find((t) => t.id === nextPrimaryId) || null;
+                              return {
+                                ...state,
+                                instructorIds: uniq.length ? uniq : null,
+                                instructorId: nextPrimaryId,
+                                instructorName:
+                                  nextPrimary?.name ||
+                                  nextPrimary?.username ||
+                                  (nextPrimaryId != null ? `강사 #${nextPrimaryId}` : ""),
+                              };
+                            });
+                          }}
+                        />
+                        <span>{label}</span>
+                      </label>
+                    </TeacherItem>
+                  );
+                })}
+              </TeacherList>
+              {selectedTeachers.length > 0 ? (
+                <Hint>
+                  선택된 강사:{" "}
+                  {selectedTeachers
+                    .map(
+                      (t) =>
+                        t.name ||
+                        t.username ||
+                        `강사 #${t.id}`,
+                    )
+                    .join(", ")}
+                </Hint>
+              ) : (
+                <Hint>담당 강사는 선택 사항입니다. 필요 시 여러 명을 선택할 수 있습니다.</Hint>
+              )}
+              {user && !teacherOptions.some((opt) => isMainAccount(opt)) ? (
                 <Hint>본계정(담당자)이 목록에 없으면 강사로 등록해 주세요.</Hint>
               ) : null}
             </>
           )}
-          {/* 담당 강사는 선택 사항입니다. */}
         </Field>
 
         <Field as="div">
@@ -479,7 +528,7 @@ export function CourseFormDetailsStep({
         <Field>
           <Label>수강료</Label>
           <FeeWrap>
-            <Input
+            <FeeInput
               type="text"
               inputMode="numeric"
               value={feeInput}
@@ -492,7 +541,6 @@ export function CourseFormDetailsStep({
                 }));
               }}
               placeholder="예: 150,000"
-              style={{ paddingRight: 38 }}
             />
             <Suffix>원</Suffix>
           </FeeWrap>
@@ -588,6 +636,8 @@ const Input = styled.input`
   border-radius: ${(p) => p.theme.radii.md};
   padding: 0 ${(p) => p.theme.spacing.sm};
   font-size: ${(p) => p.theme.font.size.sm};
+  width: 100%;
+  box-sizing: border-box;
   color: ${(p) => p.theme.colors.text};
   &:focus {
     outline: none;
@@ -613,6 +663,43 @@ const ReadOnlyField = styled.div`
   color: ${(p) => p.theme.colors.text};
   font-weight: ${(p) => p.theme.font.weight.semiBold};
   word-break: break-word;
+`;
+
+const TeacherList = styled.ul`
+  list-style: none;
+  padding: 6px;
+  margin: 4px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border-radius: ${(p) => p.theme.radii.md};
+  background: ${(p) => p.theme.colors.surfaceAlt};
+`;
+
+const TeacherItem = styled.li`
+  label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid ${(p) => p.theme.colors.borderMuted};
+    background: ${(p) => p.theme.colors.surface};
+    font-size: ${(p) => p.theme.font.size.sm};
+    color: ${(p) => p.theme.colors.text};
+    cursor: pointer;
+    transition: background 0.12s ease-out, border-color 0.12s ease-out, box-shadow 0.12s ease-out;
+  }
+  input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+  }
+  &[data-active='true'] label {
+    border-color: ${(p) => p.theme.colors.primary};
+    background: ${(p) => p.theme.colors.primarySurface};
+    color: ${(p) => p.theme.colors.primary};
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.02);
+  }
 `;
 
 const FieldErr = styled.span`
@@ -719,23 +806,30 @@ const ChipBtn = styled.button`
 `;
 
 const TimeRow = styled.div`
-  display: inline-flex;
+  display: flex;
   align-items: center;
   gap: ${(p) => p.theme.spacing.xs};
+  width: 100%;
   span {
     font-size: ${(p) => p.theme.font.size.sm};
     color: ${(p) => p.theme.colors.textMuted};
+    flex-shrink: 0;
   }
 `;
 
 const TimeSelect = styled(SelectBox)`
-  min-width: 80px;
+  min-width: 0;
+  flex: 1;
 `;
 
 const FeeWrap = styled.div`
   position: relative;
   display: inline-flex;
   width: 100%;
+`;
+
+const FeeInput = styled(Input)`
+  padding-right: 38px;
 `;
 
 const Suffix = styled.span`

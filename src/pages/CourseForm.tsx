@@ -42,6 +42,8 @@ export default function CourseForm() {
       onSubmit={state.submit}
       onSelectStudent={state.onSelectStudent}
       navigateEditStudents={state.navigateEditStudents}
+      feeChangeNotice={state.feeChangeNotice}
+      onCloseFeeChangeNotice={state.onCloseFeeChangeNotice}
     />
   );
 }

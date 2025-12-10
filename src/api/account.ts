@@ -17,6 +17,16 @@ export type AcademyDetail = {
   stage?: "DEVELOPMENT" | "TEST" | "PRODUCTION";
 };
 
+export type PlanUsage = {
+  planId: string;
+  planName?: string | null;
+  studentLimit?: number | null;
+  studentCount: number;
+  teacherLimit?: number | null;
+  teacherCount: number;
+  marketingLimit?: number | null;
+};
+
 export type SellerCompany = {
   name?: string;
   representativeName?: string;
@@ -54,6 +64,9 @@ export type SellerUpsertPayload = {
   businessRegistrationNumber?: string;
   companyEmail?: string;
   companyPhone?: string;
+  individualName?: string;
+  individualEmail?: string;
+  individualPhone?: string;
   bankCode: string;
   accountNumber: string;
   accountHolderName: string;
@@ -61,6 +74,10 @@ export type SellerUpsertPayload = {
 
 export async function apiGetMyAcademy(): Promise<AcademyDetail> {
   return fetchJSON<AcademyDetail>("/api/account/academy");
+}
+
+export async function apiGetPlanUsage(): Promise<PlanUsage> {
+  return fetchJSON<PlanUsage>("/api/account/plan-usage");
 }
 
 export async function apiUpdateMyAcademy(payload: Partial<AcademyDetail> & { name: string; category1: string }): Promise<AcademyDetail> {
@@ -99,5 +116,11 @@ export async function apiUpdateSeller(payload: SellerUpsertPayload): Promise<Sel
   return fetchJSON<SellerDetail>("/api/account/seller", {
     method: "PUT",
     body: JSON.stringify(payload),
+  });
+}
+
+export async function apiSyncSeller(): Promise<SellerDetail> {
+  return fetchJSON<SellerDetail>("/api/account/seller/sync", {
+    method: "POST",
   });
 }

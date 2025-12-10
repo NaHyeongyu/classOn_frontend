@@ -5,6 +5,13 @@ import type { PageResult } from "../types/paging";
 import type { Attendance, Course, CourseRecord } from "@classon/shared-types";
 export type { Course, CourseRecord, Attendance } from "@classon/shared-types";
 
+type CoursePayload = Partial<Course> & { instructorIds?: number[] | null };
+
+const normalizeInstructorIds = (value?: number[] | null): number[] | undefined => {
+  if (!Array.isArray(value)) return undefined;
+  return value.filter((id): id is number => typeof id === "number");
+};
+
 export type Attachment = {
   id: number;
   filename: string;
@@ -34,7 +41,8 @@ export async function getCourse(id: number): Promise<Course> {
   return await fetchJSON<Course>(`/api/courses/${id}`);
 }
 
-export async function createCourse(payload: Partial<Course>): Promise<Course> {
+export async function createCourse(payload: CoursePayload): Promise<Course> {
+  const instructorIds = normalizeInstructorIds(payload.instructorIds);
   const body = JSON.stringify({
     title: payload.title,
     description: payload.description,
@@ -48,6 +56,7 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
     instructorId: payload.instructorId,
+    instructorIds,
     primaryStudentId: payload.primaryStudentId,
   });
   const res = await fetchJSON<Course>(`/api/courses`, { method: "POST", body });
@@ -75,7 +84,8 @@ export async function createCourse(payload: Partial<Course>): Promise<Course> {
   return res;
 }
 
-export async function updateCourse(id: number, payload: Partial<Course>): Promise<Course> {
+export async function updateCourse(id: number, payload: CoursePayload): Promise<Course> {
+  const instructorIds = normalizeInstructorIds(payload.instructorIds);
   const body = JSON.stringify({
     title: payload.title,
     description: payload.description,
@@ -89,6 +99,7 @@ export async function updateCourse(id: number, payload: Partial<Course>): Promis
     endTime: payload.endTime,
     recurring: payload.recurring ?? true,
     instructorId: payload.instructorId,
+    instructorIds,
     primaryStudentId: payload.primaryStudentId,
   });
   const res = await fetchJSON<Course>(`/api/courses/${id}`, { method: "PUT", body });

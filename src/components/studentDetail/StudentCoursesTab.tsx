@@ -6,14 +6,16 @@ import {
   CourseStatus,
   CourseTitle,
   Empty,
-  ModalBtn,
+  CourseFee,
 } from "./StudentDetailStyles";
+import { formatMoney } from "@/lib/format";
 
 type CourseSummary = {
   id: number;
   title: string;
   code: string;
   status: string;
+  fee?: number | null;
 };
 
 type Props = {
@@ -34,12 +36,13 @@ export function StudentCoursesTab({
   return (
     <CourseList>
       {courses.map((course) => (
-        <CourseItem key={course.id}>
+        <CourseItem key={course.id} onClick={() => onOpenCourse(course.id)}>
           <CourseHeader>
             <CourseTitle>{course.title}</CourseTitle>
-            <ModalBtn type="button" onClick={() => onOpenCourse(course.id)}>
-              상세
-            </ModalBtn>
+            <CourseFee>
+              <span>수강료</span>
+              <strong>{formatMoney(course.fee)}</strong>
+            </CourseFee>
           </CourseHeader>
           <CourseMeta>
             <code>{course.code}</code>

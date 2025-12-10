@@ -27,7 +27,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   const items = useMemo<NavItem[]>(() => {
     const normalize = (key: unknown) =>
       typeof key === "string" ? key.trim().toUpperCase() : String(key || "").trim().toUpperCase();
-    const teacherMenuKeys = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "FEEDBACK"];
+    const teacherMenuKeys = ["DASHBOARD", "CALENDAR", "STUDENTS", "COURSES", "ATTENDANCE", "MATERIALS", "FEEDBACK"];
     const teacherMenuSet = new Set(teacherMenuKeys);
 
     const rawMenus = Array.isArray(user?.menus) ? user?.menus ?? [] : [];
@@ -38,6 +38,8 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
     );
 
     let allowedMenus: Set<string> | null = normalizedMenus.size > 0 ? normalizedMenus : null;
+    // 자료실 노출 강제: 메뉴 설정이 존재하더라도 MATERIALS 권한은 기본 포함
+    if (allowedMenus) allowedMenus.add("MATERIALS");
     if (isTeacher) {
       if (allowedMenus) {
         const filtered = Array.from(allowedMenus).filter((key) => teacherMenuSet.has(key));
@@ -51,7 +53,8 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
         { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
         { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
         { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
-        { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
+        { key: "materials", label: "자료실", sub: "Materials", to: routes.materials, menuKey: "MATERIALS" },
+        { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
       ];
       return teacherItems.filter((item) => {
         if (!allowedMenus || !item.menuKey) return true;
@@ -65,14 +68,31 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
       { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
       { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
+      { key: "materials", label: "자료실", sub: "Materials", to: routes.materials, menuKey: "MATERIALS" },
       { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments, menuKey: "PAYMENTS" },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing, menuKey: "MARKETING" },
-      { key: "feedback", label: "오류/요청", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
+      { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
     ];
     if (isOwnerOrAdmin) {
-      const entry: NavItem = { key: "teachers-manage", label: "강사관리", sub: "Teacher Management", to: routes.teachersManage };
-      const idx = base.findIndex((i) => i.key === "feedback");
-      if (idx >= 0) base.splice(idx, 0, entry); else base.push(entry);
+      const reportsEntry: NavItem = { key: "reports", label: "보고서", sub: "Reports", to: routes.reports };
+      const teachersEntry: NavItem = {
+        key: "teachers-manage",
+        label: "강사관리",
+        sub: "Teacher Management",
+        to: routes.teachersManage,
+      };
+      const attendanceIndex = base.findIndex((i) => i.key === "attendance");
+      if (attendanceIndex >= 0) {
+        base.splice(attendanceIndex + 1, 0, reportsEntry);
+      } else {
+        base.unshift(reportsEntry);
+      }
+      const feedbackIndex = base.findIndex((i) => i.key === "feedback");
+      if (feedbackIndex >= 0) {
+        base.splice(feedbackIndex, 0, teachersEntry);
+      } else {
+        base.push(teachersEntry);
+      }
     }
     if (enableFeedback) {
       base.push({ key: "changelog", label: "업데이트 안내", sub: "Patch Notes", to: routes.feedbackChangelog });
@@ -294,6 +314,39 @@ function renderIcon(key: string) {
           <line x1="8" y1="2" x2="8" y2="6" />
           <line x1="3" y1="10" x2="21" y2="10" />
           <path d="M9 16l2 2 4-4" />
+        </svg>
+      );
+    case "reports":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="3" width="4" height="18" />
+          <rect x="10" y="9" width="4" height="12" />
+          <rect x="17" y="13" width="4" height="8" />
+        </svg>
+      );
+    case "materials":
+      return (
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 7h6l2 2h10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+          <path d="M3 7V5a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v2" />
         </svg>
       );
     case "marketing":

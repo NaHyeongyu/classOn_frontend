@@ -39,17 +39,6 @@ export default function DashboardAttendance() {
 
   useEffect(() => {
     void load();
-    const refresh: () => void = () => {
-      void load();
-    };
-    const timer = setInterval(refresh, 60_000);
-    window.addEventListener("calendar:classes-refresh", refresh);
-    window.addEventListener("dashboard:attendance-refresh", refresh);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener("calendar:classes-refresh", refresh);
-      window.removeEventListener("dashboard:attendance-refresh", refresh);
-    };
   }, [load]);
 
   const totals = useMemo(

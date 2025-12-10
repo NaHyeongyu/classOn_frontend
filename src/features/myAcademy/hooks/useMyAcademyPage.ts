@@ -146,14 +146,19 @@ export type AcademyModalState = {
 type SellerFormState = {
   businessType: "INDIVIDUAL" | "INDIVIDUAL_BUSINESS" | "CORPORATE";
   refSellerId: string;
+  tossSellerId?: string;
   companyName: string;
   representativeName: string;
   businessRegistrationNumber: string;
   companyEmail: string;
   companyPhone: string;
+  individualName: string;
+  individualEmail: string;
+  individualPhone: string;
   accountBankCode: string;
   accountNumber: string;
   accountHolderName: string;
+  metadataJson?: string;
 };
 
 export type SellerModalState = {
@@ -254,14 +259,19 @@ function buildRefSellerId(detail: AcademyDetail | null) {
 function createSellerForm(academy: AcademyDetail | null, seller: SellerDetail | null): SellerFormState {
   const company = seller?.company;
   const account = seller?.account;
+  const individual = seller?.individual;
   return {
     businessType: seller?.businessType ?? "INDIVIDUAL_BUSINESS",
     refSellerId: seller?.refSellerId ?? buildRefSellerId(academy),
+    tossSellerId: seller?.tossSellerId,
     companyName: company?.name ?? academy?.name ?? "",
     representativeName: company?.representativeName ?? academy?.representativeName ?? "",
     businessRegistrationNumber: company?.businessRegistrationNumber ?? academy?.bizNo ?? "",
     companyEmail: company?.email ?? academy?.billingEmail ?? "",
     companyPhone: company?.phone ?? academy?.phone ?? "",
+    individualName: individual?.name ?? "",
+    individualEmail: individual?.email ?? "",
+    individualPhone: individual?.phone ?? "",
     accountBankCode: account?.bankCode ?? "",
     accountNumber: account?.accountNumber ?? "",
     accountHolderName:
@@ -896,8 +906,8 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         return;
       }
       const bankCode = sellerModalForm.accountBankCode.trim();
-      const accountNumber = sellerModalForm.accountNumber.trim();
-      if (!bankCode || !accountNumber) {
+      const accountNumberDigits = sellerModalForm.accountNumber.replace(/\D/g, "");
+      if (!bankCode || !accountNumberDigits) {
         setSellerModalError("정산 받을 은행과 계좌번호를 입력해 주세요.");
         return;
       }
@@ -909,19 +919,68 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         setSellerModalError("예금주명을 입력해 주세요.");
         return;
       }
+      const companyName = sellerModalForm.companyName.trim();
+      const representativeName = sellerModalForm.representativeName.trim();
+      const companyEmail = sellerModalForm.companyEmail.trim();
+      const companyPhoneDigits = sellerModalForm.companyPhone.replace(/\D/g, "");
       const bizNumberDigits = sellerModalForm.businessRegistrationNumber.replace(/\D/g, "");
+      if (!companyName) {
+        setSellerModalError("사업자명을 입력해 주세요.");
+        return;
+      }
+      if (!representativeName) {
+        setSellerModalError("대표자명을 입력해 주세요.");
+        return;
+      }
+      if (!companyEmail) {
+        setSellerModalError("사업자 이메일을 입력해 주세요.");
+        return;
+      }
+      if (!companyPhoneDigits) {
+        setSellerModalError("사업자 연락처를 숫자만 입력해 주세요.");
+        return;
+      }
+      if (sellerModalForm.businessType !== "INDIVIDUAL" && bizNumberDigits.length !== 10) {
+        setSellerModalError("사업자등록번호 10자리를 입력해 주세요.");
+        return;
+      }
+      const normalizedIndividualPhone = sellerModalForm.individualPhone.replace(/\D/g, "");
+      if (sellerModalForm.businessType === "INDIVIDUAL") {
+        if (!sellerModalForm.individualName.trim()) {
+          setSellerModalError("개인 사업자명(담당자 이름)을 입력해 주세요.");
+          return;
+        }
+        if (!sellerModalForm.individualEmail.trim()) {
+          setSellerModalError("개인 이메일 주소를 입력해 주세요.");
+          return;
+        }
+        if (!normalizedIndividualPhone) {
+          setSellerModalError("개인 연락처를 숫자만 입력해 주세요.");
+          return;
+        }
+      }
       setSellerModalSubmitting(true);
       try {
         const registered = await apiRegisterSeller({
           refSellerId,
           businessType: sellerModalForm.businessType,
-          companyName: sellerModalForm.companyName.trim() || undefined,
-          representativeName: sellerModalForm.representativeName.trim() || undefined,
+          companyName,
+          representativeName,
           businessRegistrationNumber: bizNumberDigits || undefined,
-          companyEmail: sellerModalForm.companyEmail.trim() || undefined,
-          companyPhone: sellerModalForm.companyPhone.trim() || undefined,
+          companyEmail,
+          companyPhone: companyPhoneDigits,
+          individualName:
+            sellerModalForm.businessType === "INDIVIDUAL"
+              ? sellerModalForm.individualName.trim()
+              : undefined,
+          individualEmail:
+            sellerModalForm.businessType === "INDIVIDUAL"
+              ? sellerModalForm.individualEmail.trim()
+              : undefined,
+          individualPhone:
+            sellerModalForm.businessType === "INDIVIDUAL" ? normalizedIndividualPhone : undefined,
           bankCode,
-          accountNumber,
+          accountNumber: accountNumberDigits,
           accountHolderName: holderName,
         });
         queryClient.setQueryData(sellerQueryKey, registered);
@@ -1007,7 +1066,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const billingView: BillingViewState = {
     loading: subscriptionLoading,
     data: subscription,
-    createOrUpdate: async (payload) => {
+    createOrUpdate: async (payload): Promise<void> => {
       setSubscriptionLoading(true);
       try {
         const sub = await apiUpsertSubscription(payload);
@@ -1016,11 +1075,19 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         setSubscriptionLoading(false);
       }
     },
-    cancel: async () => {
+    cancel: async (): Promise<void> => {
       setSubscriptionLoading(true);
       try {
         await apiCancelSubscription();
-        setSubscription(null);
+        // 서버에서 구독을 CANCELED 상태로 표시하고, 다음 결제부터 자동결제를 중단합니다.
+        // 현재 결제 주기 종료일까지는 academy.billingCurrentPeriodEnd 기준으로 이용이 유지됩니다.
+        let next: SubscriptionDto | null = null;
+        try {
+          next = await apiGetSubscription();
+        } catch {
+          next = null;
+        }
+        setSubscription(next);
       } finally {
         setSubscriptionLoading(false);
       }

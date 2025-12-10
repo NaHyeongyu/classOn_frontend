@@ -241,13 +241,23 @@ export default function CourseDetail() {
 
   const handleConfirmCreate = useCallback(async () => {
     if (!numericId) return;
+    if (!createStart || !createEnd) {
+      setCreateError("시작 시간과 종료 시간을 모두 선택해 주세요.");
+      return;
+    }
+    const start = toHHMMSS(createStart);
+    const end = toHHMMSS(createEnd);
+    if (!start || !end) {
+      setCreateError("시간 형식이 올바르지 않습니다.");
+      return;
+    }
     setCreateSaving(true);
     setCreateError(null);
     try {
       await createCourseRecord(numericId, {
         recordDate: createDate,
-        startTime: toHHMMSS(createStart),
-        endTime: toHHMMSS(createEnd),
+        startTime: start,
+        endTime: end,
       });
       setCreateOpen(false);
     } catch (e) {
@@ -295,7 +305,9 @@ export default function CourseDetail() {
     setExamError(null);
     try {
       const list = await listExams(numericId);
-      setExams(list);
+      // 수업 상세에서는 템플릿(시험 일자 미지정)만 노출합니다.
+      const templates = list.filter((exam) => !exam.examDate);
+      setExams(templates);
     } catch (e) {
       setExamError(readableError(e, "시험 목록을 불러오지 못했습니다."));
     } finally {
@@ -636,7 +648,10 @@ export default function CourseDetail() {
       dateLabel: `${r.recordDate} (${
         "일월화수목금토"[new Date(r.recordDate).getDay()]
       })`,
-      time: formatCourseTime(course),
+      time:
+        r.startTime && r.endTime
+          ? `${hhmm(r.startTime)} ~ ${hhmm(r.endTime)}`
+          : formatCourseTime(course),
       type: new Date(r.recordDate) < new Date() ? "지난 수업" : "예정",
       notes: r.notes || r.content || null,
     }));
@@ -1175,8 +1190,9 @@ const Actions = styled.div`
   gap: 12px;
 `;
 const Label = styled.div`
-  color: #6B7280;
-  font-size: 13px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
 `;
 const Desc = styled.div`
   color: ${(p) => p.theme.colors.text};
@@ -1317,8 +1333,9 @@ const Field = styled.div`
   align-items: center;
   min-height: 32px;
   & > div:nth-child(2) {
-    font-size: ${(p) => p.theme.font.size.md};
-    color: ${(p) => p.theme.colors.text};
+    font-size: 15px;
+    font-weight: 800;
+    color: #111827;
   }
 `;
 
@@ -1392,4 +1409,3 @@ const classIcon = (
     <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
   </svg>
 );
-

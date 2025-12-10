@@ -206,6 +206,7 @@ declare module "@classon/shared-types" {
     approvalNumber?: string | null;
     currency?: string | null;
     course?: PaymentCourseBrief | null;
+    invoiceRequestedAt?: string | null;
     [key: string]: unknown;
   }
 

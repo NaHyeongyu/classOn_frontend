@@ -76,20 +76,14 @@ const getMonthRangeFor = (base: Date) => {
 };
 
 const currentMonthRange = getMonthRangeFor(today);
-const previousTwoMonthRange = (() => {
-  const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-  const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-  return { from: formatDateInput(start), to: formatDateInput(end) };
-})();
 
 const createMonthRange = () => ({ ...currentMonthRange });
 
 const invoiceStatusParam = "UNPAID,SCHEDULED";
 const createDefaultHistoryFilters = (): HistoryFilters => ({
-  from: previousTwoMonthRange.from,
-  to: previousTwoMonthRange.to,
+  from: "",
+  to: "",
   q: "",
-  status: "ALL",
 });
 
 const statusLabel: Record<string, string> = {
@@ -150,14 +144,6 @@ type HistoryFilters = {
   from: string;
   to: string;
   q: string;
-  status: HistoryStatusFilter;
-};
-
-const resolvePendingStatusParam = (status: HistoryStatusFilter | "ALL"): string => {
-  if (status === "ALL") return "ALL";
-  if (status === "UNPAID") return "UNPAID,PENDING,SCHEDULED";
-  if (status === "FAILED") return "FAILED";
-  return "ALL";
 };
 
 export default function Payments() {
@@ -180,18 +166,9 @@ export default function Payments() {
   const [historyCompletedPage, setHistoryCompletedPage] = useState(0);
   const [historyPendingPage, setHistoryPendingPage] = useState(0);
   const historyPageSize = 10;
-  const historyFilterCompleted = historyFilters.status === "COMPLETED";
-  const historyFilterCanceled = historyFilters.status === "CANCELED";
-  const showCompletedColumn =
-    historyFilters.status === "ALL" || historyFilterCompleted || historyFilterCanceled;
-  const pendingEmptyMessage =
-    historyFilterCompleted || historyFilterCanceled
-      ? `${historyStatusLabel[historyFilters.status]}일땐 발송 내역에 표시할 결제 내역이 없습니다.`
-      : undefined;
-  const completedPlaceholderMessage =
-    showCompletedColumn || historyFilters.status === "ALL"
-      ? undefined
-      : `${historyStatusLabel[historyFilters.status]}일땐 완료·취소 내역에 표시할 결제 내역이 없습니다.`;
+  const showCompletedColumn = true;
+  const pendingEmptyMessage: string | undefined = undefined;
+  const completedPlaceholderMessage: string | undefined = undefined;
 
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<number[]>([]);
   const [detailState, setDetailState] = useState<DetailState>({ open: false });
@@ -246,11 +223,7 @@ export default function Payments() {
   });
 
   const completedHistoryStatusParam =
-    historyFilterCompleted
-      ? "COMPLETED"
-      : historyFilterCanceled
-        ? "CANCELED"
-        : "COMPLETED,CANCELED";
+    "COMPLETED,CANCELED";
 
   const completedHistoryQuery = useQuery<PageResult<PaymentHistoryRow>>({
     queryKey: [
@@ -284,7 +257,6 @@ export default function Payments() {
       historyFilters.from,
       historyFilters.to,
       historyFilters.q,
-      historyFilters.status,
       historyPendingPage,
       historyPageSize,
     ],
@@ -293,7 +265,7 @@ export default function Payments() {
         from: historyFilters.from || undefined,
         to: historyFilters.to || undefined,
         q: historyFilters.q,
-        status: resolvePendingStatusParam(historyFilters.status),
+        status: "PENDING,UNPAID",
         page: historyPendingPage,
         size: historyPageSize,
       }),
@@ -316,7 +288,7 @@ export default function Payments() {
   useEffect(() => {
     setHistoryCompletedPage(0);
     setHistoryPendingPage(0);
-  }, [historyFilters.from, historyFilters.to, historyFilters.q, historyFilters.status]);
+  }, [historyFilters.from, historyFilters.to, historyFilters.q]);
 
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: PaymentInvoiceUpdatePayload }) =>
@@ -434,28 +406,13 @@ export default function Payments() {
   );
   const completedRows = completedHistoryQuery.data?.content ?? [];
   const pendingRows = useMemo<PaymentHistoryRow[]>(
-    () =>
-      historyFilterCompleted || historyFilterCanceled
-        ? []
-        : pendingHistoryQuery.data?.content ?? [],
-    [historyFilterCompleted, historyFilterCanceled, pendingHistoryQuery.data],
+    () => pendingHistoryQuery.data?.content ?? [],
+    [pendingHistoryQuery.data],
   );
   const completedTotalPages = completedHistoryQuery.data?.totalPages ?? 0;
   const pendingTotalPages = pendingHistoryQuery.data?.totalPages ?? 0;
-  const pendingTitle =
-    historyFilters.status === "UNPAID"
-      ? "미납 내역"
-      : historyFilters.status === "FAILED"
-        ? "발송 실패 내역"
-        : "발송 내역";
-  const pendingDescription =
-    historyFilterCompleted || historyFilterCanceled
-      ? "선택한 상태는 오른쪽 완료·취소 내역에서 확인하세요."
-      : historyFilters.status === "UNPAID"
-        ? "청구서 발송 전 미납 청구서"
-        : historyFilters.status === "FAILED"
-          ? "솔라피 발송이 실패한 청구서입니다. 원인을 확인하고 재발송하세요."
-          : "발송 후 결제 대기 중인 청구서 (발송 5일 후 재발송 버튼이 노출됩니다.)";
+  const pendingTitle = "미납 내역";
+  const pendingDescription = "발송된 청구서 중 아직 결제되지 않은 건";
 
   useEffect(() => {
     const completedRows = completedHistoryQuery.data?.content ?? [];
@@ -508,21 +465,17 @@ export default function Payments() {
       onsiteContext === "invoice" ? invoiceSearch : historyFilters.q,
       onsiteContext === "invoice" ? invoiceDateRange.from : historyFilters.from,
       onsiteContext === "invoice" ? invoiceDateRange.to : historyFilters.to,
-      onsiteContext === "invoice" ? invoiceStudentStatus : historyFilters.status,
+      onsiteContext === "invoice" ? invoiceStudentStatus : "PENDING,UNPAID",
       onsitePage,
       onsitePageSize,
     ],
     queryFn: () => {
       if (onsiteContext === "history") {
-        const statusParam =
-          historyFilterCompleted || historyFilterCanceled
-            ? "PENDING,SCHEDULED"
-            : resolvePendingStatusParam(historyFilters.status);
         return listPendingHistory({
           from: historyFilters.from || undefined,
           to: historyFilters.to || undefined,
           q: historyFilters.q,
-          status: statusParam,
+          status: "PENDING,UNPAID",
           page: onsitePage,
           size: onsitePageSize,
         });
@@ -540,8 +493,7 @@ export default function Payments() {
     enabled:
       paymentEnabled &&
       onsiteSelectorOpen &&
-      (onsiteContext === "invoice" ||
-        (onsiteContext === "history" && !historyFilterCompleted && !historyFilterCanceled)),
+      (onsiteContext === "invoice" || onsiteContext === "history"),
     placeholderData: (previousData: PageResult<PaymentHistoryRow> | undefined) => previousData,
   });
   const onsiteCandidates = onsiteCandidatesQuery.data?.content ?? [];
@@ -678,7 +630,7 @@ export default function Payments() {
     updateMutation.mutate({ id: detailState.id, payload });
   };
 
-  const [activeSection, setActiveSection] = useState<"invoice" | "history">("invoice");
+  const [activeSection, setActiveSection] = useState<"invoice" | "pending" | "history">("invoice");
 
   const handleOnsiteSubmit = async (payload: PaymentOnsitePayload) => {
     if (!onsiteTarget) return;
@@ -718,11 +670,18 @@ export default function Payments() {
     openOnsiteModalForRow(row);
   };
 
-  const sectionTitle = activeSection === "invoice" ? "청구서" : "결제 내역";
+  const sectionTitle =
+    activeSection === "invoice"
+      ? "청구서"
+      : activeSection === "pending"
+        ? "미납 내역"
+        : "결제 내역";
   const sectionDescription =
     activeSection === "invoice"
       ? "청구서를 선택해 한 번에 발송하거나 검색해 관리하세요."
-      : "결제 내역을 필터링하고 상세 정보를 확인하세요.";
+      : activeSection === "pending"
+        ? "발송된 청구서 중 결제가 완료되지 않은 내역입니다."
+        : "완료·취소된 결제 내역을 확인하세요.";
 
   if (!paymentEnabled) {
     return (
@@ -777,6 +736,14 @@ export default function Payments() {
             onClick={() => setActiveSection("invoice")}
           >
             청구서
+          </ToggleButton>
+          <ToggleButton
+            type="button"
+            $active={activeSection === "pending"}
+            aria-pressed={activeSection === "pending"}
+            onClick={() => setActiveSection("pending")}
+          >
+            미납 내역
           </ToggleButton>
           <ToggleButton
             type="button"
@@ -912,6 +879,59 @@ export default function Payments() {
                 onRowClick={handleInvoiceRowClick}
               />
             </>
+          ) : activeSection === "pending" ? (
+            <>
+              <HistoryFilters>
+                <PeriodFilter>
+                  <span>결제일</span>
+                  <div>
+                    <Input
+                      type="date"
+                      value={historyFilters.from}
+                      onChange={(event) => handleHistoryDateChange("from", event.target.value)}
+                    />
+                    <span>~</span>
+                    <Input
+                      type="date"
+                      value={historyFilters.to}
+                      onChange={(event) => handleHistoryDateChange("to", event.target.value)}
+                    />
+                  </div>
+                </PeriodFilter>
+                <FilterFieldWide>
+                  <span>검색</span>
+                  <Input
+                    type="text"
+                    value={historyFilters.q}
+                    placeholder="이름 검색"
+                    onChange={(event) =>
+                      setHistoryFilters((prev) => ({ ...prev, q: event.target.value }))
+                    }
+                  />
+                </FilterFieldWide>
+                <FilterActions>
+                  <PrimaryButton type="button" onClick={handleApplyHistoryFilters}>
+                    검색
+                  </PrimaryButton>
+                  <GhostButton type="button" onClick={handleResetHistoryFilters}>
+                    초기화
+                  </GhostButton>
+                </FilterActions>
+              </HistoryFilters>
+              <HistoryTable
+                rows={pendingRows}
+                loading={pendingHistoryQuery.isLoading}
+                page={historyPendingPage}
+                size={historyPageSize}
+                totalPages={pendingTotalPages}
+                onChangePage={setHistoryPendingPage}
+                onRowClick={handleHistoryRowClick}
+                activeId={activeHistoryId}
+                variant="pending"
+                onResendClick={handleHistoryResend}
+                emptyMessage={pendingEmptyMessage}
+              />
+            </>
           ) : (
             <>
               <HistoryFilters>
@@ -942,27 +962,6 @@ export default function Payments() {
                     }
                   />
                 </FilterFieldWide>
-                <FilterFieldCompact>
-                  <span>상태</span>
-                  <Select
-                    ariaLabel="결제 상태"
-                    placeholder="전체"
-                    value={historyFilters.status}
-                    onChange={(value) =>
-                      setHistoryFilters((prev) => ({
-                        ...prev,
-                        status: (value || "ALL") as HistoryStatusFilter,
-                      }))
-                    }
-                    options={[
-                      { label: "전체", value: "ALL" },
-                      { label: "미납", value: "UNPAID" },
-                      { label: "완료", value: "COMPLETED" },
-                      { label: "실패", value: "FAILED" },
-                      { label: "취소", value: "CANCELED" },
-                    ]}
-                  />
-                </FilterFieldCompact>
                 <FilterActions>
                   <PrimaryButton type="button" onClick={handleApplyHistoryFilters}>
                     검색
@@ -972,49 +971,18 @@ export default function Payments() {
                   </GhostButton>
                 </FilterActions>
               </HistoryFilters>
-              <HistorySplit>
-                <HistoryColumnSticky data-hidden={!showCompletedColumn}>
-                  <HistoryColumnHeader>
-                    <ColumnTitle>완료·취소 내역</ColumnTitle>
-                    <small>결제가 완료되었거나 취소된 청구서</small>
-                  </HistoryColumnHeader>
-                  <HistoryTable
-                    rows={showCompletedColumn ? completedRows : []}
-                    loading={showCompletedColumn ? completedHistoryQuery.isLoading : false}
-                    page={showCompletedColumn ? historyCompletedPage : 0}
-                    size={historyPageSize}
-                    totalPages={showCompletedColumn ? completedTotalPages : 0}
-                    onChangePage={showCompletedColumn ? setHistoryCompletedPage : () => {}}
-                    onRowClick={showCompletedColumn ? handleHistoryRowClick : () => {}}
-                    activeId={activeHistoryId}
-                    variant="completed"
-                    emptyMessage={completedPlaceholderMessage}
-                  />
-                </HistoryColumnSticky>
-                <HistoryColumn>
-                  <HistoryColumnHeader>
-                    <ColumnTitle>{pendingTitle}</ColumnTitle>
-                  <small>{pendingDescription}</small>
-                </HistoryColumnHeader>
-                  <HistoryTable
-                    rows={pendingRows}
-                    loading={historyFilterCompleted || historyFilterCanceled ? false : pendingHistoryQuery.isLoading}
-                    page={historyFilterCompleted || historyFilterCanceled ? 0 : historyPendingPage}
-                    size={historyPageSize}
-                    totalPages={pendingTotalPages}
-                    onChangePage={
-                      historyFilterCompleted || historyFilterCanceled ? () => {} : setHistoryPendingPage
-                    }
-                    onRowClick={
-                      historyFilterCompleted || historyFilterCanceled ? () => {} : handleHistoryRowClick
-                    }
-                    activeId={activeHistoryId}
-                    variant="pending"
-                    onResendClick={handleHistoryResend}
-                    emptyMessage={pendingEmptyMessage}
-                  />
-                </HistoryColumn>
-              </HistorySplit>
+              <HistoryTable
+                rows={completedRows}
+                loading={completedHistoryQuery.isLoading}
+                page={historyCompletedPage}
+                size={historyPageSize}
+                totalPages={completedTotalPages}
+                onChangePage={setHistoryCompletedPage}
+                onRowClick={handleHistoryRowClick}
+                activeId={activeHistoryId}
+                variant="completed"
+                emptyMessage={completedPlaceholderMessage}
+              />
             </>
           )}
         </SectionCard>
@@ -1324,23 +1292,9 @@ function HistoryTable(props: {
     emptyMessage,
   } = props;
   const isPendingVariant = variant === "pending";
-  const mapPendingStatus = (status: string) => {
-    if (status === "UNPAID") return "PENDING";
-    return status;
-  };
   const resolvePendingSentDate = (row: PaymentHistoryRow) => {
-    if (row.status === "SCHEDULED" || row.status === "FAILED") {
-      return "-";
-    }
     if (!row.invoiceRequestedAt) return "-";
     return formatKoreanDate(row.invoiceRequestedAt, { includeWeekday: false });
-  };
-  const normalizeStatus = (status?: string) => (status ?? "").trim().toUpperCase();
-  const getPendingWeight = (status?: string) => {
-    const normalized = normalizeStatus(status);
-    if (normalized === "SCHEDULED") return 0;
-    if (normalized === "FAILED") return 1;
-    return 2;
   };
   const parseTimestamp = (value?: string | null) => {
     if (!value) return Number.MAX_SAFE_INTEGER;
@@ -1389,16 +1343,14 @@ function HistoryTable(props: {
           ) : (
             (isPendingVariant
               ? [...rows].sort((a, b) => {
-                  const weightDiff = getPendingWeight(a.status) - getPendingWeight(b.status);
-                  if (weightDiff !== 0) return weightDiff;
                   const timeDiff = getPendingSortTimestamp(a) - getPendingSortTimestamp(b);
                   if (timeDiff !== 0) return timeDiff;
                   return (a.id ?? 0) - (b.id ?? 0);
                 })
               : rows
             ).map((row) => {
-              const canResend = row.status === "UNPAID" || row.status === "FAILED";
-              const displayStatus = isPendingVariant ? mapPendingStatus(row.status) : row.status;
+              const canResend = row.status === "PENDING" || row.status === "UNPAID" || row.status === "FAILED";
+              const displayStatus = isPendingVariant ? "PENDING" : row.status;
               return (
             <tr
               key={row.id}
@@ -2661,6 +2613,7 @@ function OnsitePaymentModal({
 type SummaryStat = {
   label: string;
   value: string;
+  hint?: string;
   icon: ReactNode;
   tone: "primary" | "success" | "warning" | "danger" | "muted";
 };
@@ -2670,16 +2623,45 @@ function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number
     return [
       { label: "이번달 총 결제액", value: "—", icon: paidIcon, tone: "muted" },
       { label: "이번달 대기 금액", value: "—", icon: unpaidIcon, tone: "muted" },
-      { label: "이번달 대기 인원", value: "—", icon: peopleIcon, tone: "muted" },
-      { label: "청구서 미발송 인원", value: "—", icon: paperIcon, tone: "muted" },
+      { label: "이번달 미납 금액", value: "—", icon: overdueIcon, tone: "muted" },
+      { label: "청구서 대기 인원", value: "—", icon: peopleIcon, tone: "muted" },
+      { label: "미납 인원", value: "—", icon: warningIcon, tone: "muted" },
     ];
   }
   const unsent = typeof unsentOverride === "number" ? unsentOverride : summary.unsentCount;
   return [
-    { label: "이번달 총 결제액", value: formatMoney(summary.paidAmount), icon: paidIcon, tone: "primary" },
-    { label: "이번달 대기 금액", value: formatMoney(summary.unpaidAmount), icon: unpaidIcon, tone: "primary" },
-    { label: "이번달 대기 인원", value: `${summary.unpaidCount}명`, icon: peopleIcon, tone: "primary" },
-    { label: "청구서 미발송 인원", value: `${unsent}명`, icon: paperIcon, tone: "primary" },
+    {
+      label: "이번달 총 결제액",
+      value: formatMoney(summary.paidAmount),
+      icon: paidIcon,
+      tone: "primary",
+    },
+    {
+      label: "이번달 대기 금액",
+      value: formatMoney(summary.unpaidAmount),
+      icon: unpaidIcon,
+      tone: "warning",
+      hint: `${summary.unpaidCount}명`,
+    },
+    {
+      label: "이번달 미납 금액",
+      value: formatMoney((summary as any).overdueAmount ?? 0),
+      icon: overdueIcon,
+      tone: "danger",
+      hint: `${(summary as any).overdueCount ?? 0}명`,
+    },
+    {
+      label: "청구서 대기 인원",
+      value: `${unsent}명`,
+      icon: peopleIcon,
+      tone: "warning",
+    },
+    {
+      label: "미납 인원",
+      value: `${(summary as any).overdueCount ?? 0}명`,
+      icon: warningIcon,
+      tone: "danger",
+    },
   ];
 }
 
@@ -2776,6 +2758,21 @@ const paperIcon = (
     <path d="M16 13H8" />
     <path d="M16 17H8" />
     <path d="M10 9H8" />
+  </svg>
+);
+
+const overdueIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+    <path d="M12 7v5l3 3" />
+  </svg>
+);
+
+const warningIcon = (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 9v4" />
+    <path d="M12 17h.01" />
+    <path d="m10.29 3.86-8 14A1 1 0 0 0 3.15 19h17.7a1 1 0 0 0 .86-1.5l-8-14a1 1 0 0 0-1.72 0Z" />
   </svg>
 );
 

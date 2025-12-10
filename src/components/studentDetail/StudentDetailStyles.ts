@@ -125,6 +125,10 @@ export const TabButton = styled.button`
   border-radius: 10px;
   transition: all 0.2s ease;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 
   /* Active State */
   &[data-active="true"] {
@@ -132,6 +136,12 @@ export const TabButton = styled.button`
     color: #ffffff;
     border: 1px solid ${(p) => p.theme.colors.primary};
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Inactive State */
+  &[data-active="true"] .badge-count {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
   }
 
   /* Inactive State */
@@ -146,18 +156,21 @@ export const TabButton = styled.button`
   }
 `;
 
-export const Badge = styled.span`
-  min-width: 18px;
-  height: 18px;
-  padding: 0 6px;
-  border-radius: 9999px;
-  background: #e5e7eb;
-  color: #374151;
-  font-weight: 800;
+export const Badge = styled.span.attrs({ className: "badge-count" })`
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  border-radius: 99px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-weight: 700;
   font-size: 11px;
+  line-height: 1;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
 `;
 
 export const Empty = styled.div`

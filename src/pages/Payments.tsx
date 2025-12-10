@@ -265,7 +265,7 @@ export default function Payments() {
         from: historyFilters.from || undefined,
         to: historyFilters.to || undefined,
         q: historyFilters.q,
-        status: "PENDING,UNPAID",
+        status: "PENDING,SCHEDULED,UNPAID,FAILED",
         page: historyPendingPage,
         size: historyPageSize,
       }),
@@ -465,7 +465,7 @@ export default function Payments() {
       onsiteContext === "invoice" ? invoiceSearch : historyFilters.q,
       onsiteContext === "invoice" ? invoiceDateRange.from : historyFilters.from,
       onsiteContext === "invoice" ? invoiceDateRange.to : historyFilters.to,
-      onsiteContext === "invoice" ? invoiceStudentStatus : "PENDING,UNPAID",
+      onsiteContext === "invoice" ? invoiceStudentStatus : "PENDING,SCHEDULED,UNPAID,FAILED",
       onsitePage,
       onsitePageSize,
     ],
@@ -475,7 +475,7 @@ export default function Payments() {
           from: historyFilters.from || undefined,
           to: historyFilters.to || undefined,
           q: historyFilters.q,
-          status: "PENDING,UNPAID",
+          status: "PENDING,SCHEDULED,UNPAID,FAILED",
           page: onsitePage,
           size: onsitePageSize,
         });
@@ -1180,12 +1180,12 @@ function InvoicesTable(props: {
         <colgroup>
           <col style={{ width: "32px" }} />
           <col style={{ width: "68px" }} />
-          <col style={{ width: "18%" }} />
           <col style={{ width: "22%" }} />
-          <col style={{ width: "11%" }} />
-          <col style={{ width: "10%" }} />
-          <col style={{ width: "15%" }} />
-          <col style={{ width: "20%" }} />
+          <col style={{ width: "24%" }} />
+          <col style={{ width: "14%" }} />
+          <col style={{ width: "12%" }} />
+          <col style={{ width: "14%" }} />
+          <col style={{ width: "14%" }} />
         </colgroup>
         <thead>
           <tr>
@@ -1193,7 +1193,6 @@ function InvoicesTable(props: {
             <th className="number-cell">번호</th>
             <th>학생</th>
             <th>수강과목</th>
-            <th>학생 상태</th>
             <th>상태</th>
             <th>총 결제금액</th>
             <th>결제 예정일</th>
@@ -1238,11 +1237,6 @@ function InvoicesTable(props: {
                   ) : (
                     <MetaText>-</MetaText>
                   )}
-                </td>
-                <td>
-                  <StudentStatusBadge data-status={row.student.status ?? undefined}>
-                    {renderStudentStatus(row.student.status)}
-                  </StudentStatusBadge>
                 </td>
                 <td>
                   <StatusBadge status={row.status}>{statusLabel[row.status] ?? row.status}</StatusBadge>
@@ -1292,9 +1286,14 @@ function HistoryTable(props: {
     emptyMessage,
   } = props;
   const isPendingVariant = variant === "pending";
+  const renderDueDate = (value?: string | null) => {
+    if (!value) return "-";
+    return formatKoreanDate(value, { includeWeekday: false });
+  };
   const resolvePendingSentDate = (row: PaymentHistoryRow) => {
     if (!row.invoiceRequestedAt) return "-";
-    return formatKoreanDate(row.invoiceRequestedAt, { includeWeekday: false });
+    const prefix = row.status === "SCHEDULED" ? "예약" : "발송";
+    return `${prefix} ${formatKoreanDate(row.invoiceRequestedAt, { includeWeekday: false })}`;
   };
   const parseTimestamp = (value?: string | null) => {
     if (!value) return Number.MAX_SAFE_INTEGER;
@@ -1308,23 +1307,61 @@ function HistoryTable(props: {
     const created = parseTimestamp(anyRow.createdAt);
     return Math.min(requested, due, created);
   };
+  const canResendAfter = (row: PaymentHistoryRow) => {
+    if (!row.invoiceRequestedAt) return true;
+    const sent = Date.parse(row.invoiceRequestedAt);
+    if (Number.isNaN(sent)) return true;
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    return Date.now() - sent >= threeDaysMs;
+  };
+  const resendTooltip = (row: PaymentHistoryRow) => {
+    if (!row.invoiceRequestedAt) return undefined;
+    if (canResendAfter(row)) return "발송 후 3일이 지나 재발송할 수 있습니다.";
+    const nextTs = Date.parse(row.invoiceRequestedAt) + 3 * 24 * 60 * 60 * 1000;
+    if (Number.isNaN(nextTs)) return "발송 후 3일 뒤 재발송 가능합니다.";
+    const nextDate = new Date(nextTs);
+    const y = nextDate.getFullYear();
+    const m = String(nextDate.getMonth() + 1).padStart(2, "0");
+    const d = String(nextDate.getDate()).padStart(2, "0");
+    return `발송 후 3일 뒤(${y}-${m}-${d})부터 재발송 가능합니다.`;
+  };
   return (
     <TableWrapper>
       <CenteredTable>
         <colgroup>
-          <col style={{ width: "28%" }} />
-          <col style={{ width: "16%" }} />
-          <col style={{ width: "22%" }} />
-          <col style={{ width: "22%" }} />
-          {isPendingVariant ? <col style={{ width: "12%" }} /> : null}
+          <col style={{ width: "26%" }} />
+          <col style={{ width: "14%" }} />
+          {isPendingVariant ? (
+            <>
+              <col style={{ width: "16%" }} />
+              <col style={{ width: "14%" }} />
+              <col style={{ width: "18%" }} />
+            </>
+          ) : (
+            <>
+              <col style={{ width: "18%" }} />
+              <col style={{ width: "18%" }} />
+            </>
+          )}
+          <col style={{ width: "12%" }} />
         </colgroup>
         <thead>
           <tr>
             <th>학생</th>
             <th>상태</th>
-            <th>{isPendingVariant ? "최근 발송일" : "결제 완료일"}</th>
-            <th>결제 수단</th>
-            {isPendingVariant ? <th>재발송</th> : null}
+            {isPendingVariant ? (
+              <>
+                <th>발송/예약</th>
+                <th>기한</th>
+                <th>청구 금액</th>
+              </>
+            ) : (
+              <>
+                <th>결제일</th>
+                <th>결제 수단</th>
+              </>
+            )}
+            <th>{isPendingVariant ? "재발송" : "금액"}</th>
           </tr>
         </thead>
         <tbody>
@@ -1349,8 +1386,9 @@ function HistoryTable(props: {
                 })
               : rows
             ).map((row) => {
-              const canResend = row.status === "PENDING" || row.status === "UNPAID" || row.status === "FAILED";
-              const displayStatus = isPendingVariant ? "PENDING" : row.status;
+              const resendEligibleStatus = row.status === "PENDING" || row.status === "UNPAID" || row.status === "FAILED";
+              const canResend = resendEligibleStatus && canResendAfter(row);
+              const displayStatus = row.status;
               return (
             <tr
               key={row.id}
@@ -1364,32 +1402,38 @@ function HistoryTable(props: {
                 <td>
                   <StatusBadge status={displayStatus}>{statusLabel[displayStatus] ?? displayStatus}</StatusBadge>
                 </td>
-              <td>
-                {isPendingVariant
-                  ? resolvePendingSentDate(row)
-                  : row.completedAt
-                    ? formatKoreanDate(row.completedAt, { includeWeekday: false })
-                    : "-"}
-              </td>
-              <td>
-                {getPaymentMethodDisplay(row.paymentMethod, row.paymentType)}
-              </td>
-              {isPendingVariant ? (
-                <td>
-                  <ResendButton
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onResendClick?.(row);
-                    }}
-                    disabled={!canResend}
-                  >
-                    재발송
-                  </ResendButton>
-                </td>
-              ) : null}
-            </tr>
-          );
+                {isPendingVariant ? (
+                  <>
+                    <td>{resolvePendingSentDate(row)}</td>
+                    <td>{renderDueDate(row.dueDate)}</td>
+                    <td>{formatMoney(row.finalAmount)}</td>
+                    <td>
+                      <ResendButton
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onResendClick?.(row);
+                        }}
+                        disabled={!canResend}
+                        title={resendTooltip(row)}
+                      >
+                        재발송
+                      </ResendButton>
+                    </td>
+                  </>
+                ) : (
+                  <>
+                    <td>
+                      {row.completedAt
+                        ? formatKoreanDate(row.completedAt, { includeWeekday: false })
+                        : "-"}
+                    </td>
+                    <td>{getPaymentMethodDisplay(row.paymentMethod, row.paymentType)}</td>
+                    <td>{formatMoney(row.finalAmount)}</td>
+                  </>
+                )}
+              </tr>
+            );
             })
         )}
         </tbody>
@@ -1653,6 +1697,16 @@ useEffect(() => {
     (detail?.info.originalAmount ?? 0) - (detail?.info.finalAmount ?? 0),
   );
   const hasDiscountDetails = Boolean(detail?.info.discountType) || discountAmountValue > 0;
+  const isSentInvoice =
+    isInvoiceVariant &&
+    Boolean(detail?.info.invoiceRequestedAt) &&
+    detail?.info.status !== "UNPAID";
+  const sentAtText = detail?.info.invoiceRequestedAt
+    ? formatKoreanDateTimeKST(detail.info.invoiceRequestedAt, {
+        includeWeekday: true,
+        showSeconds: true,
+      })
+    : null;
   const modalClosable = !isInvoiceVariant || !isEditing;
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -1749,6 +1803,18 @@ useEffect(() => {
               <form onSubmit={handleSubmit}>
                 <DetailStack>
                   <SectionTitle>청구 정보</SectionTitle>
+                {isSentInvoice && sentAtText ? (
+                  <InfoCard data-tone="warning">
+                    <InfoRow>
+                      <span>발송 완료</span>
+                      <strong>{sentAtText}</strong>
+                    </InfoRow>
+                    <InfoRow>
+                      <span>안내</span>
+                      <MetaText>이미 발송된 청구서는 수정할 수 없습니다.</MetaText>
+                    </InfoRow>
+                  </InfoCard>
+                ) : null}
                 {isScheduledPayment ? (
                   <ScheduleNotice>
                     <strong>예약 발송 예정</strong>
@@ -1760,7 +1826,7 @@ useEffect(() => {
                   <Input
                     type="date"
                     value={form.dueDate ?? ""}
-                    disabled={!isEditing}
+                    disabled={!isEditing || isSentInvoice}
                     onChange={(event) =>
                       setForm((prev) => ({ ...prev, dueDate: event.target.value }))
                     }
@@ -1779,7 +1845,7 @@ useEffect(() => {
                             typeof form.amount === "number" ? form.amount : detail.info.originalAmount,
                           )
                     }
-                    disabled={!isEditing}
+                    disabled={!isEditing || isSentInvoice}
                     onChange={(event) =>
                       setForm((prev) => ({
                         ...prev,
@@ -1798,7 +1864,7 @@ useEffect(() => {
                         ? String(form.cycleValue ?? detail.schedule?.cycleValue ?? "")
                         : formatCycleLabelFromSchedule(detail)
                     }
-                    disabled={!isEditing}
+                    disabled={!isEditing || isSentInvoice}
                     onChange={(event) =>
                       setForm((prev) => ({
                         ...prev,
@@ -1822,7 +1888,7 @@ useEffect(() => {
                         discountType={form.discountType ?? undefined}
                         discountValue={form.discountValue}
                         onToggleEnabled={(next) => {
-                          if (!isEditing) return;
+                          if (!isEditing || isSentInvoice) return;
                           setDiscountEnabled(next);
                           setForm((prev) => ({
                             ...prev,
@@ -1831,11 +1897,11 @@ useEffect(() => {
                           }));
                         }}
                         onChangeType={(next) => {
-                          if (!isEditing) return;
+                          if (!isEditing || isSentInvoice) return;
                           setForm((prev) => ({ ...prev, discountType: next }));
                         }}
                         onChangeValue={(value) => {
-                          if (!isEditing) return;
+                          if (!isEditing || isSentInvoice) return;
                           setForm((prev) => ({
                             ...prev,
                             discountValue: typeof value === "number" ? value : undefined,
@@ -1844,7 +1910,7 @@ useEffect(() => {
                         onChangeStartDate={() => {}}
                         onChangeEndDate={() => {}}
                         showPeriod={false}
-                        disabled={!isEditing}
+                        disabled={!isEditing || isSentInvoice}
                         showTitle={false}
                       />
                     </CollapsibleBody>
@@ -1871,7 +1937,7 @@ useEffect(() => {
                         onChangeTextbookFee={handleTextbookFeeChange}
                         onChangeStartDate={handleAdditionalStartChange}
                         onChangeEndDate={handleAdditionalEndChange}
-                        disabled={!isEditing}
+                        disabled={!isEditing || isSentInvoice}
                         showTitle={false}
                       />
                       {additionalFields.enabled ? (
@@ -1887,7 +1953,7 @@ useEffect(() => {
                   메모
                   <Textarea
                     value={resolveMemoValue(form.memo, form.managerMemo)}
-                    disabled={!isEditing}
+                    disabled={!isEditing || isSentInvoice}
                     onChange={(event) => {
                       const nextValue = event.target.value;
                       setForm((prev) => ({ ...prev, memo: nextValue, managerMemo: nextValue }));
@@ -1931,6 +1997,10 @@ useEffect(() => {
                         닫기
                       </GhostButton>
                     </>
+                  ) : isSentInvoice ? (
+                    <GhostButton type="button" onClick={onClose} disabled={saving}>
+                      닫기
+                    </GhostButton>
                   ) : (
                     <>
                       <PrimaryButton
@@ -2629,6 +2699,8 @@ function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number
     ];
   }
   const unsent = typeof unsentOverride === "number" ? unsentOverride : summary.unsentCount;
+  const overdueAmount = summary.overdueAmount ?? 0;
+  const overdueCount = summary.overdueCount ?? 0;
   return [
     {
       label: "이번달 총 결제액",
@@ -2645,10 +2717,10 @@ function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number
     },
     {
       label: "이번달 미납 금액",
-      value: formatMoney((summary as any).overdueAmount ?? 0),
+      value: formatMoney(overdueAmount),
       icon: overdueIcon,
       tone: "danger",
-      hint: `${(summary as any).overdueCount ?? 0}명`,
+      hint: `${overdueCount}명`,
     },
     {
       label: "청구서 대기 인원",
@@ -2658,7 +2730,7 @@ function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number
     },
     {
       label: "미납 인원",
-      value: `${(summary as any).overdueCount ?? 0}명`,
+      value: `${overdueCount}명`,
       icon: warningIcon,
       tone: "danger",
     },

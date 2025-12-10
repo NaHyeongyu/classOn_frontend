@@ -67,7 +67,7 @@ const nextMonth = nextMonthBase;
 const defaultForm = {
   dueDate: dateISO(today),
   periodStart: dateISO(today),
-  periodEnd: dateISO(nextMonth),
+  periodEnd: computePeriodEnd(dateISO(today), 1, "MONTHS"),
   discountStartDate: dateISO(today),
   discountEndDate: dateISO(nextMonth),
   discountEnabled: false,
@@ -112,12 +112,19 @@ function normalizeCycle(value: string | number | undefined): number {
   return Math.max(1, Math.round(Number(num)));
 }
 
-function computePeriodEnd(start: string, months: number): string {
+function computePeriodEnd(start: string, cycleValue: number, unit: BillingCycleUnit): string {
   if (!start) return start;
   const base = new Date(start);
   if (Number.isNaN(base.getTime())) return start;
   const next = new Date(base);
-  next.setMonth(next.getMonth() + months);
+  const value = Number.isFinite(cycleValue) && cycleValue > 0 ? cycleValue : 1;
+  if (unit === "DAYS") {
+    next.setDate(next.getDate() + value);
+  } else if (unit === "WEEKS") {
+    next.setDate(next.getDate() + value * 7);
+  } else {
+    next.setMonth(next.getMonth() + value);
+  }
   return dateISO(next);
 }
 
@@ -150,20 +157,25 @@ export default function PaymentsCreate() {
   const handleDueDateChange = (value: string) => {
     setForm((prev) => {
       const nextStart = value || prev.periodStart;
+      const unit = prev.cycleUnit ?? "MONTHS";
       return {
         ...prev,
         dueDate: value,
         periodStart: nextStart,
-        periodEnd: computePeriodEnd(nextStart, prev.cycleValue),
+        periodEnd: computePeriodEnd(nextStart, prev.cycleValue, unit),
       };
     });
   };
-  const handleCycleValueChange = (raw: string) => {
-    const nextValue = normalizeCycle(raw);
+  const handleCycleOptionChange = (raw: string) => {
+    const [unitToken, valueToken] = raw.split(":");
+    const nextUnit: BillingCycleUnit =
+      unitToken === "D" ? "DAYS" : unitToken === "W" ? "WEEKS" : "MONTHS";
+    const nextValue = normalizeCycle(valueToken);
     setForm((prev) => ({
       ...prev,
       cycleValue: nextValue,
-      periodEnd: computePeriodEnd(prev.periodStart, nextValue),
+      cycleUnit: nextUnit,
+      periodEnd: computePeriodEnd(prev.periodStart, nextValue, nextUnit),
     }));
   };
 
@@ -647,14 +659,16 @@ export default function PaymentsCreate() {
                     <label>
                       결제 주기
                       <SelectLike
-                        value={String(form.cycleValue ?? 1)}
-                        onChange={(event) => handleCycleValueChange(event.target.value)}
+                        value={`${form.cycleUnit === "DAYS" ? "D" : form.cycleUnit === "WEEKS" ? "W" : "M"}:${form.cycleValue ?? 1}`}
+                        onChange={(event) => handleCycleOptionChange(event.target.value)}
                       >
-                        <option value="1">1개월</option>
-                        <option value="2">2개월</option>
-                        <option value="3">3개월</option>
-                        <option value="6">6개월</option>
-                        <option value="12">12개월</option>
+                        <option value="D:1">테스트(1일)</option>
+                        <option value="D:2">테스트(2일)</option>
+                        <option value="M:1">1개월</option>
+                        <option value="M:2">2개월</option>
+                        <option value="M:3">3개월</option>
+                        <option value="M:6">6개월</option>
+                        <option value="M:12">12개월</option>
                       </SelectLike>
                     </label>
                   </FormGrid>
@@ -663,7 +677,16 @@ export default function PaymentsCreate() {
                 <ReceiptSection>
                   <SectionTitle>
                     청구 기간
-                    {form.cycleValue > 0 && <Badge>{form.cycleValue}개월간</Badge>}
+                    {form.cycleValue > 0 && (
+                      <Badge>
+                        {form.cycleValue}
+                        {form.cycleUnit === "DAYS"
+                          ? "일간"
+                          : form.cycleUnit === "WEEKS"
+                            ? "주간"
+                            : "개월간"}
+                      </Badge>
+                    )}
                   </SectionTitle>
                   <PeriodRow>
                     <PeriodValue>

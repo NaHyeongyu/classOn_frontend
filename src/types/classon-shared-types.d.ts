@@ -112,13 +112,22 @@ declare module "@classon/shared-types" {
   export type BillingCycleUnit = "MONTHS" | "WEEKS" | "DAYS" | string;
   export type PaymentMethod = "CARD" | "BANK_TRANSFER" | "CASH" | string;
   export type PaymentType = "ONLINE" | "OFFLINE" | string;
-  export type PaymentStatus = "UNPAID" | "PENDING" | "COMPLETED" | "FAILED" | "CANCELED" | string;
+  export type PaymentStatus =
+    | "UNPAID"
+    | "SCHEDULED"
+    | "PENDING"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELED"
+    | string;
 
   export interface PaymentSummary {
     paidAmount: number;
     unpaidAmount: number;
     unpaidCount: number;
     unsentCount: number;
+    overdueAmount?: number;
+    overdueCount?: number;
     [key: string]: unknown;
   }
 

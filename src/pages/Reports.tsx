@@ -1514,7 +1514,7 @@ const ReportArea = styled.div`
   gap: ${(p) => p.theme.spacing.sm};
 `;
 
-const ReportPaperInner = styled.div`
+const ReportPaperInner = styled.div.attrs({ className: "report-paper-inner" })`
   width: 100%;
   max-width: 794px; /* A4 width approx */
   background: #ffffff;
@@ -1541,7 +1541,7 @@ const ReportPaperInner = styled.div`
   }
 `;
 
-const ReportPaperHeader = styled.div`
+const ReportPaperHeader = styled.div.attrs({ className: "report-paper-header" })`
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -1567,7 +1567,7 @@ const PaperSubtitle = styled.div`
   font-weight: 500;
 `;
 
-const PaperMeta = styled.div`
+const PaperMeta = styled.div.attrs({ className: "paper-meta" })`
   text-align: right;
   dl {
     margin: 0;
@@ -1593,17 +1593,19 @@ const PaperMeta = styled.div`
   }
 `;
 
-const ReportLayout = styled.div`
-  display: grid;
+const ReportLayout = styled.div.attrs({ className: "report-layout" })`
+  display: flex;
+  flex-direction: column;
   gap: 32px;
 `;
 
-const ReportSection = styled.section`
-  display: grid;
+const ReportSection = styled.section.attrs({ className: "report-section" })`
+  display: flex;
+  flex-direction: column;
   gap: 14px;
 `;
 
-const ReportLabel = styled.h4`
+const ReportLabel = styled.h4.attrs({ className: "report-label" })`
   margin: 0;
   font-size: 18px;
   font-weight: 700;
@@ -1659,12 +1661,12 @@ const EmptyHint = styled.div`
   font-size: 14px;
 `;
 
-const AttendanceList = styled.ul`
+const AttendanceList = styled.ul.attrs({ className: "attendance-list" })`
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   width: 100%;
 
@@ -1678,6 +1680,8 @@ const AttendanceList = styled.ul`
     border-radius: 12px;
     padding: 16px;
     transition: all 0.2s ease;
+    width: calc(50% - 6px);
+    min-width: 180px;
     
     &:hover {
       border-color: #cbd5e1;
@@ -1745,7 +1749,7 @@ const GradesChartContainer = styled.div`
   overflow-x: auto;
 `;
 
-const LessonList = styled.ul`
+const LessonList = styled.ul.attrs({ className: "lesson-list" })`
   list-style: none;
   margin: 0;
   padding: 0;
@@ -2197,6 +2201,61 @@ function cloneReportNode(source: HTMLElement): HTMLElement {
   return clone;
 }
 
+// Inline only key layout/typography styles to reduce HTML size while keeping layout fidelity
+function inlineKeyStyles(root: HTMLElement) {
+  const KEY_PROPS = [
+    "padding",
+    "padding-top",
+    "padding-right",
+    "padding-bottom",
+    "padding-left",
+    "margin",
+    "margin-top",
+    "margin-right",
+    "margin-bottom",
+    "margin-left",
+    "width",
+    "min-width",
+    "max-width",
+    "height",
+    "min-height",
+    "max-height",
+    "font-size",
+    "font-weight",
+    "line-height",
+    "letter-spacing",
+    "color",
+    "text-align",
+    "border",
+    "border-radius",
+    "background",
+    "background-color",
+    "box-shadow",
+    "position",
+    "top",
+    "right",
+    "bottom",
+    "left",
+  ];
+
+  const walker = (el: HTMLElement) => {
+    const style = window.getComputedStyle(el);
+    const parts = KEY_PROPS.map((prop) => {
+      const val = style.getPropertyValue(prop);
+      return val ? `${prop}: ${val};` : "";
+    }).filter(Boolean);
+    if (parts.length) {
+      const existing = el.getAttribute("style") || "";
+      el.setAttribute("style", `${existing} ${parts.join(" ")}`.trim());
+    }
+    Array.from(el.children).forEach((child) => {
+      if (child instanceof HTMLElement) walker(child);
+    });
+  };
+
+  walker(root);
+}
+
 function syncFormValues(source: HTMLElement, target: HTMLElement) {
   const sourceTextareas = Array.from(source.querySelectorAll<HTMLTextAreaElement>("textarea"));
   const targetTextareas = Array.from(target.querySelectorAll<HTMLTextAreaElement>("textarea"));
@@ -2228,9 +2287,182 @@ function buildReportHtmlDocument(
   studentName?: string | null,
 ): string {
   const clone = cloneReportNode(node);
+  inlineKeyStyles(clone);
   const styles = collectStyleTagsHtml();
   const title =
     [courseTitle, studentName, "학습 보고서"].filter(Boolean).join(" · ") || "학습 보고서";
+  const pdfCompatStyles = `
+    <style>
+      /* openhtmltopdf가 flex/grid/gap을 지원하지 않아 PDF 렌더용으로 블록/테이블 기반으로 강제 */
+      #report-print-root {
+        width: 210mm !important;
+        min-height: 297mm !important;
+        padding: 12mm !important;
+        box-sizing: border-box !important;
+      }
+
+      .report-paper-inner {
+        width: 100% !important;
+        max-width: none !important;
+        padding: 0 !important;
+        box-sizing: border-box !important;
+      }
+
+      .report-paper-header {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+        border-bottom: 2px solid #111827;
+        padding-bottom: 14px;
+        margin-bottom: 20px;
+      }
+
+      .report-paper-header > div:first-child {
+        display: table-cell;
+        vertical-align: top;
+        width: 60%;
+      }
+
+      .paper-meta {
+        display: table-cell !important;
+        vertical-align: top;
+        width: 40%;
+        text-align: right;
+      }
+
+      .paper-meta dl {
+        margin: 0;
+        padding: 0;
+      }
+
+      .paper-meta dl > div {
+        display: block;
+        margin: 0 0 6px 0;
+        padding: 0;
+      }
+
+      .paper-meta dt {
+        display: inline-block;
+        min-width: 32px;
+      }
+
+      .paper-meta dd {
+        display: inline-block;
+        margin: 0 0 0 6px;
+      }
+
+      .report-layout {
+        display: block !important;
+      }
+
+      .report-section {
+        display: block !important;
+        margin: 0 0 18px 0;
+        padding: 0 0 12px 0;
+        page-break-inside: avoid;
+      }
+
+      .report-section:last-child {
+        margin-bottom: 0;
+      }
+
+      .report-label {
+        display: block !important;
+        padding: 0 0 10px 0;
+        margin: 0 0 12px 0;
+        border-bottom: 2px solid #f1f5f9;
+        line-height: 1.3;
+      }
+
+      .report-label::before {
+        display: inline-block !important;
+        vertical-align: middle;
+        margin-right: 10px;
+      }
+
+      .report-label::after {
+        content: none !important;
+      }
+
+      .attendance-list {
+        display: block;
+        padding: 0;
+        margin: 0;
+      }
+
+      .attendance-list li {
+        display: block;
+        width: 100%;
+        margin: 0 0 8px 0;
+        box-sizing: border-box;
+      }
+
+      .attendance-list li:last-child {
+        margin-bottom: 0;
+      }
+
+      .attendance-list .top {
+        display: block;
+      }
+
+      .attendance-list .status {
+        display: inline-block;
+        margin-top: 4px;
+      }
+
+      .lesson-list {
+        display: block;
+        padding: 0;
+        margin: 0;
+        position: relative;
+      }
+
+      .lesson-list::before {
+        display: none;
+      }
+
+      .lesson-list li {
+        display: block;
+        margin: 0 0 10px 0;
+        padding: 12px;
+        border: 1px solid #f1f5f9;
+        border-radius: 12px;
+        position: relative;
+      }
+
+      .lesson-list li:last-child {
+        margin-bottom: 0;
+      }
+
+      .lesson-list li::after {
+        display: none;
+      }
+
+      .lesson-list .date {
+        display: block;
+        width: auto;
+        text-align: left;
+        margin: 0 0 6px 0;
+        padding: 0;
+      }
+
+      .lesson-list .topic {
+        display: block;
+        padding: 0;
+        background: transparent;
+        border: 0;
+      }
+
+      .report-paper-inner textarea {
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .report-paper-inner svg {
+        max-width: 100%;
+      }
+    </style>
+  `;
   
   // Keep original ID to match browser print styles
   // Apply the exact same styles as browser print (without @media print wrapper)
@@ -2323,6 +2555,7 @@ function buildReportHtmlDocument(
     `<title>${escapeHtml(title)}</title>`,
     styles,
     printStyles,
+    pdfCompatStyles,
     "</head>",
     "<body>",
     clone.outerHTML,

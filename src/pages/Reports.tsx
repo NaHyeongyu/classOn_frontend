@@ -2600,7 +2600,7 @@ function sanitizeFilenamePart(value: string): string {
     value
       .trim()
       .replace(/\s+/g, "-")
-      .replace(/[^0-9A-Za-z가-힣._-]/g, "")
+      .replace(/[^0-9A-Za-z._-]/g, "")
       .replace(/-+/g, "-")
       .replace(/^[-.]+|[-.]+$/g, "") || "file"
   );

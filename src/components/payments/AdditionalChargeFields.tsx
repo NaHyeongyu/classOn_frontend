@@ -56,30 +56,33 @@ export function AdditionalChargeFields({
         </Row>
         <Row>
           <span className="label">항목별 금액</span>
-          <ChargeInputs>
-            <label>
-              재료비
-              <Input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={materialFee ?? ""}
-                onChange={(event) => onChangeMaterialFee(parseNumeric(event.target.value))}
-                disabled={disabled || !enabled}
-              />
-            </label>
-            <label>
-              교재비
-              <Input
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                value={textbookFee ?? ""}
-                onChange={(event) => onChangeTextbookFee(parseNumeric(event.target.value))}
-                disabled={disabled || !enabled}
-              />
-            </label>
-          </ChargeInputs>
+          <div className="input-group">
+            <ChargeInputs>
+              <label>
+                재료비
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={materialFee ?? ""}
+                  onChange={(event) => onChangeMaterialFee(parseNumeric(event.target.value))}
+                  disabled={disabled || !enabled}
+                />
+              </label>
+              <label>
+                교재비
+                <Input
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  value={textbookFee ?? ""}
+                  onChange={(event) => onChangeTextbookFee(parseNumeric(event.target.value))}
+                  disabled={disabled || !enabled}
+                />
+              </label>
+            </ChargeInputs>
+            <Hint>적용 되는 금액을 숫자로만 작성해주세요.</Hint>
+          </div>
         </Row>
         <Row>
           <span className="label">적용 기간</span>
@@ -176,4 +179,10 @@ const Input = styled.input`
   font-size: 14px;
   width: 100%;
   box-sizing: border-box;
+`;
+const Hint = styled.span`
+  display: block;
+  font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
+  margin-top: 4px;
 `;

@@ -154,6 +154,7 @@ export default function PaymentsCreate() {
   const [form, setForm] = useState(defaultForm);
   const [discountOpen, setDiscountOpen] = useState(false);
   const [extraOpen, setExtraOpen] = useState(false);
+  const [isEditingPhone, setIsEditingPhone] = useState(false);
   const handleDueDateChange = (value: string) => {
     setForm((prev) => {
       const nextStart = value || prev.periodStart;
@@ -259,15 +260,20 @@ export default function PaymentsCreate() {
     });
   };
 
+  const filteredStudentIds = useMemo(
+    () => filteredStudents.map((student: Student) => student.id),
+    [filteredStudents],
+  );
+  const allFilteredSelected = filteredStudentIds.length > 0 && filteredStudentIds.every((id) => selectedIds.includes(id));
+
   const handleSelectAll = () => {
-    if (!filteredStudents.length) return;
-    const filteredIds = filteredStudents.map((student: Student) => student.id);
-    const allSelected = filteredIds.every((id: number) => selectedIds.includes(id));
-    if (allSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !filteredIds.includes(id)));
-    } else {
-      setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+    if (!filteredStudentIds.length) return;
+    const filteredSet = new Set(filteredStudentIds);
+    if (allFilteredSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !filteredSet.has(id)));
+      return;
     }
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredStudentIds])));
   };
 
   const defaultAmountForStudent = useCallback((student: Student | undefined) => {
@@ -492,10 +498,10 @@ export default function PaymentsCreate() {
                 <SmallText>이름 / 수강 수업 / 청구 금액을 확인하고 선택하세요.</SmallText>
               </div>
               <GhostButton type="button" onClick={handleSelectAll} disabled={!filteredStudents.length}>
-                전체 선택/해제
+                {allFilteredSelected ? "전체 해제" : "전체 선택"}
               </GhostButton>
             </RightHeader>
-            <label>
+            <SearchLabel>
               학생 검색
               <Input
                 type="text"
@@ -503,15 +509,15 @@ export default function PaymentsCreate() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
-            </label>
+            </SearchLabel>
             <TableWrapper>
               <StyledTable>
                 <colgroup>
                   <col style={{ width: "48px" }} />
-                  <col style={{ width: "22%" }} />
+                  <col style={{ width: "18%" }} />
                   <col style={{ width: "28%" }} />
                   <col style={{ width: "14%" }} />
-                  <col style={{ width: "16%" }} />
+                  <col style={{ width: "22%" }} />
                   <col />
                 </colgroup>
                 <thead>
@@ -627,18 +633,31 @@ export default function PaymentsCreate() {
                     </div>
                     <div className="row">
                       <div className="label">발신 번호</div>
-                      <div className="input-wrap">
-                        <Input
-                          value={formatPhoneKR(form.recipientPhone)}
-                          placeholder="예: 010-1234-5678"
-                          onChange={(e) =>
-                            setForm((prev) => ({
-                              ...prev,
-                              recipientPhone: (e.target.value || "").replace(/[^0-9]/g, ""),
-                            }))
-                          }
-                          style={{ textAlign: "right", padding: "6px 10px" }}
-                        />
+                      <div className="input-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px" }}>
+                        {isEditingPhone ? (
+                          <Input
+                            autoFocus
+                            value={formatPhoneKR(form.recipientPhone)}
+                            placeholder="예: 010-1234-5678"
+                            onChange={(e) =>
+                              setForm((prev) => ({
+                                ...prev,
+                                recipientPhone: (e.target.value || "").replace(/[^0-9]/g, ""),
+                              }))
+                            }
+                            onBlur={() => setIsEditingPhone(false)}
+                            style={{ textAlign: "right", padding: "6px 10px" }}
+                          />
+                        ) : (
+                          <>
+                            <EditButton type="button" onClick={() => setIsEditingPhone(true)}>
+                              수정하기
+                            </EditButton>
+                            <div className="value" style={{ fontWeight: 700 }}>
+                              {formatPhoneKR(form.recipientPhone) || "-"}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   </RepresentativeCard>
@@ -702,7 +721,7 @@ export default function PaymentsCreate() {
                 </ReceiptSection>
 
                 <ReceiptSection>
-                  <SectionTitle>금액 상세</SectionTitle>
+                  <SectionTitle>추가 설정</SectionTitle>
 
                   <AccordionCard>
                     <AccordionHeader>
@@ -750,7 +769,9 @@ export default function PaymentsCreate() {
                           onChangeEndDate={(value) =>
                             setForm((prev) => ({ ...prev, discountEndDate: value }))
                           }
+
                           showPeriod
+                          showTitle={false}
                         />
                       </AccordionBody>
                     )}
@@ -786,6 +807,7 @@ export default function PaymentsCreate() {
                           textbookFee={form.textbookFee}
                           startDate={form.extraStartDate}
                           endDate={form.extraEndDate}
+                          showTitle={false}
                           onToggleEnabled={(next) => {
                             setForm((prev) => ({ ...prev, extraEnabled: next }));
                           }}
@@ -978,6 +1000,7 @@ const PeriodValue = styled.div`
   flex: 1;
   display: grid;
   gap: 4px;
+  text-align: center;
   span {
     font-size: 12px;
     color: ${(p) => p.theme.colors.textMuted};
@@ -1090,6 +1113,28 @@ const SmallText = styled.p`
   margin: 0;
   font-size: 13px;
   color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const EditButton = styled.button`
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
+  text-decoration: underline;
+  cursor: pointer;
+  &:hover {
+    color: ${(p) => p.theme.colors.primary};
+  }
+`;
+
+const SearchLabel = styled.label`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: ${(p) => p.theme.colors.textMuted};
+  margin-bottom: 12px;
 `;
 
 const FormGrid = styled.div`

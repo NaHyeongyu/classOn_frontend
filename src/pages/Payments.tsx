@@ -115,6 +115,19 @@ const paymentTypeLabel: Record<string, string> = {
   OFFLINE: "오프라인",
 };
 
+const formatPhoneKR = (raw?: string | null): string => {
+  if (!raw) return "";
+  const digits = raw.replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  if (digits.length === 11 && digits.startsWith("010")) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10 && digits.startsWith("010")) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return digits;
+};
+
 type StudentStatusFilter = "ALL" | "ENROLLED" | "ON_LEAVE" | "PENDING" | "STOPPED";
 type HistoryFilters = {
   from: string;
@@ -135,6 +148,15 @@ export default function Payments() {
   const [invoiceDateRange, setInvoiceDateRange] = useState(() => createMonthRange());
   const [invoicePage, setInvoicePage] = useState(0);
   const invoicePageSize = 10;
+  const invoiceListFilters = useMemo(
+    () => ({
+      q: invoiceSearch,
+      from: invoiceDateRange.from || undefined,
+      to: invoiceDateRange.to || undefined,
+      studentStatus: invoiceStudentStatus === "ALL" ? undefined : invoiceStudentStatus,
+    }),
+    [invoiceSearch, invoiceDateRange.from, invoiceDateRange.to, invoiceStudentStatus],
+  );
 
   const [historyFilters, setHistoryFilters] = useState<HistoryFilters>(() => ({
     ...createDefaultHistoryFilters(),
@@ -147,6 +169,7 @@ export default function Payments() {
   const completedPlaceholderMessage: string | undefined = undefined;
 
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<number[]>([]);
+  const [invoiceSelectAllLoading, setInvoiceSelectAllLoading] = useState(false);
   const [detailState, setDetailState] = useState<DetailState>({ open: false });
   const [onsiteTarget, setOnsiteTarget] = useState<PaymentHistoryRow | null>(null);
   const [onsiteModalOpen, setOnsiteModalOpen] = useState(false);
@@ -260,6 +283,10 @@ export default function Payments() {
   useEffect(() => {
     setInvoiceSearchInput(invoiceSearch);
   }, [invoiceSearch]);
+
+  useEffect(() => {
+    setSelectedInvoiceIds([]);
+  }, [invoiceSearch, invoiceDateRange.from, invoiceDateRange.to, invoiceStudentStatus]);
 
   useEffect(() => {
     setHistoryCompletedPage(0);
@@ -422,11 +449,9 @@ export default function Payments() {
   const invoiceTotalPages = invoices?.totalPages ?? 0;
   const showInvoicePager = invoiceTotalPages > 1;
 
-  useEffect(() => {
-    const idsOnPage = new Set(invoiceRows.map((item) => item.id));
-    setSelectedInvoiceIds((prev) => prev.filter((id) => idsOnPage.has(id)));
-  }, [invoiceRows]);
   const invoiceTotalElements = invoices?.totalElements ?? invoiceRows.length;
+  const isAllInvoicesSelected =
+    invoiceTotalElements > 0 && selectedInvoiceIds.length >= invoiceTotalElements;
 
   const [onsitePage, setOnsitePage] = useState(0);
   const [onsiteContext, setOnsiteContext] = useState<"invoice" | "history">("invoice");
@@ -496,15 +521,53 @@ export default function Payments() {
     navigate(paths.payments.kakaoSchedule({ ids: idsParam }));
   };
 
-  const handleInvoiceSelectAll = () => {
-    const ids = invoiceRows.map((row) => row.id);
-    const allSelected = ids.every((id) => selectedInvoiceIds.includes(id));
-    if (allSelected) {
-      setSelectedInvoiceIds((prev) => prev.filter((id) => !ids.includes(id)));
-    } else {
-      setSelectedInvoiceIds((prev) => Array.from(new Set([...prev, ...ids])));
+  const handleInvoiceSelectAll = useCallback(async () => {
+    if (invoiceSelectAllLoading) return;
+    if (!invoiceTotalElements) return;
+
+    if (isAllInvoicesSelected) {
+      setSelectedInvoiceIds([]);
+      return;
     }
-  };
+
+    const collected = new Set<number>(selectedInvoiceIds);
+    invoiceRows.forEach((row) => collected.add(row.id));
+
+    if (invoiceTotalPages <= 1) {
+      setSelectedInvoiceIds(Array.from(collected));
+      return;
+    }
+
+    setInvoiceSelectAllLoading(true);
+    try {
+      for (let pageIndex = 0; pageIndex < invoiceTotalPages; pageIndex += 1) {
+        if (pageIndex === invoicePage) continue;
+        const pageResult = await listPaymentInvoices({
+          ...invoiceListFilters,
+          status: invoiceStatusParam,
+          page: pageIndex,
+          size: invoicePageSize,
+        });
+        pageResult.content.forEach((row) => collected.add(row.id));
+      }
+      setSelectedInvoiceIds(Array.from(collected));
+    } catch (err) {
+      toastError(readableError(err, "전체 선택을 완료하지 못했습니다."));
+    } finally {
+      setInvoiceSelectAllLoading(false);
+    }
+  }, [
+    invoiceSelectAllLoading,
+    invoiceTotalElements,
+    isAllInvoicesSelected,
+    selectedInvoiceIds,
+    invoiceRows,
+    invoiceTotalPages,
+    invoicePage,
+    invoiceListFilters,
+    invoicePageSize,
+    toastError,
+  ]);
 
   const handleInvoiceRowClick = (row: PaymentHistoryRow) => {
     loadDetail(row.id, "invoice");
@@ -747,9 +810,13 @@ export default function Payments() {
                 <GhostButton
                   type="button"
                   onClick={handleInvoiceSelectAll}
-                  disabled={!invoiceRows.length}
+                  disabled={!invoiceRows.length || invoiceSelectAllLoading}
                 >
-                  전체 선택
+                  {invoiceSelectAllLoading
+                    ? "선택 중..."
+                    : isAllInvoicesSelected
+                      ? "전체 해제"
+                      : "전체 선택"}
                 </GhostButton>
                 <GhostButton
                   type="button"
@@ -1148,12 +1215,12 @@ function InvoicesTable(props: {
         <colgroup>
           <col style={{ width: "32px" }} />
           <col style={{ width: "68px" }} />
-          <col style={{ width: "22%" }} />
-          <col style={{ width: "24%" }} />
-          <col style={{ width: "14%" }} />
-          <col style={{ width: "12%" }} />
-          <col style={{ width: "14%" }} />
-          <col style={{ width: "14%" }} />
+          <col style={{ width: "20%" }} />
+          <col style={{ width: "25%" }} />
+          <col style={{ width: "10%" }} />
+          <col style={{ width: "15%" }} />
+          <col style={{ width: "15%" }} />
+
         </colgroup>
         <thead>
           <tr>
@@ -1455,6 +1522,7 @@ function DetailModal({
     additionalItems: [],
   });
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingSenderPhone, setIsEditingSenderPhone] = useState(false);
   const saveInFlight = useRef(false);
 const [discountEnabled, setDiscountEnabled] = useState(false);
 const [discountExpanded, setDiscountExpanded] = useState(false);
@@ -1699,28 +1767,44 @@ useEffect(() => {
           <DetailColumn>
             <SectionTitle>학생 정보</SectionTitle>
             {isInvoiceVariant ? (
-              <DetailList>
-                <li>
-                  <span>이름</span>
-                  <strong>{detail.student.name}</strong>
-                </li>
-                <li>
-                  <span>학생 코드</span>
-                  <strong>{detail.student.code ?? "-"}</strong>
-                </li>
-                <li>
-                  <span>연락처</span>
-                  <strong>{detail.student.phoneNumber ?? "-"}</strong>
-                </li>
-                <li>
-                  <span>보호자 연락처</span>
-                  <strong>{detail.student.guardianPhone ?? "-"}</strong>
-                </li>
-                <li>
-                  <span>발송 번호</span>
-                  <strong>{detail.student.recipientPhone ?? "-"}</strong>
-                </li>
-              </DetailList>
+              <StudentInfoCard>
+                <div className="row">
+                  <div className="label">학생 이름</div>
+                  <div className="value">{detail.student.name}</div>
+                </div>
+                <div className="row">
+                  <div className="label">수강 수업</div>
+                  <div className="value">
+                    {courseRows.map((c) => c.title).join(", ") || "-"}
+                  </div>
+                </div>
+                <div className="row">
+                  <div className="label">발신 번호</div>
+                  <div className="input-wrap">
+                    {isEditingSenderPhone ? (
+                      <Input
+                        autoFocus
+                        value={formatPhoneKR(detail.student.recipientPhone ?? "")}
+                        placeholder="예: 010-1234-5678"
+                        onChange={() => {
+                          // Note: This only updates local state for display if we had a setter for detail
+                        }}
+                        onBlur={() => setIsEditingSenderPhone(false)}
+                        style={{ textAlign: "right", padding: "6px 10px" }}
+                      />
+                    ) : (
+                      <>
+                        <EditButton type="button" onClick={() => setIsEditingSenderPhone(true)}>
+                          수정하기
+                        </EditButton>
+                        <div className="value" style={{ fontWeight: 700 }}>
+                          {formatPhoneKR(detail.student.recipientPhone) || "-"}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </StudentInfoCard>
             ) : (
               <InfoCard>
                 <InfoRow>
@@ -1754,7 +1838,7 @@ useEffect(() => {
               </InfoCard>
             )}
             <SectionTitle>수강 과목</SectionTitle>
-            <CourseList>
+            <StyledCourseList>
             {courseRows.map((course: PaymentCourseBrief, index: number) => (
               <li key={`${course.id ?? "course"}-${index}`}>
                   <div className="info">
@@ -1764,7 +1848,7 @@ useEffect(() => {
                   <span className="fee">{formatMoney(Number(course.fee ?? 0))}</span>
                 </li>
               ))}
-            </CourseList>
+            </StyledCourseList>
           </DetailColumn>
           <DetailColumn>
             {isInvoiceVariant ? (
@@ -2659,11 +2743,11 @@ type SummaryStat = {
 function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number): SummaryStat[] {
   if (!summary) {
     return [
-      { label: "이번달 총 결제액", value: "—", icon: paidIcon, tone: "muted" },
-      { label: "이번달 대기 금액", value: "—", icon: unpaidIcon, tone: "muted" },
-      { label: "이번달 미납 금액", value: "—", icon: overdueIcon, tone: "muted" },
-      { label: "청구서 대기 인원", value: "—", icon: peopleIcon, tone: "muted" },
-      { label: "미납 인원", value: "—", icon: warningIcon, tone: "muted" },
+      { label: "이번달 총 결제액", value: "—", icon: paidIcon, tone: "primary" },
+      { label: "이번달 대기 금액", value: "—", icon: unpaidIcon, tone: "primary" },
+      { label: "이번달 미납 금액", value: "—", icon: overdueIcon, tone: "primary" },
+      { label: "청구서 대기 인원", value: "—", icon: peopleIcon, tone: "primary" },
+      { label: "미납 인원", value: "—", icon: warningIcon, tone: "primary" },
     ];
   }
   const unsent = typeof unsentOverride === "number" ? unsentOverride : summary.unsentCount;
@@ -2680,27 +2764,27 @@ function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number
       label: "이번달 대기 금액",
       value: formatMoney(summary.unpaidAmount),
       icon: unpaidIcon,
-      tone: "warning",
+      tone: "primary",
       hint: `${summary.unpaidCount}명`,
     },
     {
       label: "이번달 미납 금액",
       value: formatMoney(overdueAmount),
       icon: overdueIcon,
-      tone: "danger",
+      tone: "primary",
       hint: `${overdueCount}명`,
     },
     {
       label: "청구서 대기 인원",
       value: `${unsent}명`,
       icon: peopleIcon,
-      tone: "warning",
+      tone: "primary",
     },
     {
       label: "미납 인원",
       value: `${overdueCount}명`,
       icon: warningIcon,
-      tone: "danger",
+      tone: "primary",
     },
   ];
 }
@@ -3022,7 +3106,7 @@ const TableWrapper = styled.div`
   width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
 `;
 
 const PagerBar = styled.div`
@@ -3437,29 +3521,91 @@ const ScheduleActions = styled.div`
   }
 `;
 
-const CourseList = styled(DetailList)`
-  li {
-    align-items: center;
-  }
-  .info {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
-  .info .code {
-    font-size: 12px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-  .fee {
-    font-weight: 700;
-    font-size: 14px;
-    color: ${(p) => p.theme.colors.text};
-  }
-`;
 const FilterActions = styled.div`
   display: flex;
   gap: 8px;
   margin-left: auto;
   align-items: flex-end;
   flex-wrap: wrap;
+`;
+const StudentInfoCard = styled.div`
+  margin: 0;
+  padding: 16px;
+  background: ${(p) => p.theme.colors.surfaceAlt};
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.textMuted};
+    flex-shrink: 0;
+  }
+  .value {
+    font-size: 14px;
+    color: ${(p) => p.theme.colors.text};
+    text-align: right;
+    font-weight: 500;
+  }
+  .input-wrap {
+    width: 160px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+`;
+
+const EditButton = styled.button`
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
+  text-decoration: underline;
+  cursor: pointer;
+  &:hover {
+    color: ${(p) => p.theme.colors.primary};
+  }
+`;
+
+const StyledCourseList = styled.ul`
+  margin: 0;
+  padding: 16px;
+  background: ${(p) => p.theme.colors.surfaceAlt};
+  border-radius: 8px;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+  
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+  }
+  .info {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  strong {
+    color: ${(p) => p.theme.colors.text};
+    font-weight: 500;
+  }
+  .code {
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+  .fee {
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
+  }
 `;

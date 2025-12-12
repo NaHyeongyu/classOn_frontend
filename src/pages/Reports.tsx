@@ -2187,8 +2187,8 @@ function collectStyleTagsHtml(): string {
   // 1) Inline 모든 접근 가능한 스타일시트 (link/style 불문)
   Array.from(document.styleSheets).forEach((sheet) => {
     try {
-      const rules = sheet.cssRules || [];
-      const cssText = Array.from(rules)
+      const rules: CSSRule[] = sheet.cssRules ? Array.from(sheet.cssRules) : [];
+      const cssText = rules
         .map((rule) => rule.cssText)
         .join("\n");
       if (cssText.trim()) {

@@ -45,7 +45,14 @@ type SellerSectionProps = {
   loading: boolean;
   data: SellerDetail | null;
   canRegister: boolean;
+  canEdit: boolean;
+  status: string | null;
+  showPendingBadge: boolean;
+  buttonText: string;
   onOpenRegister: () => void;
+  awaitingVerification: boolean;
+  pendingEmail: string | null;
+  pendingTossSellerId: string | null;
 };
 
 type MyAcademyPageViewProps = {
@@ -147,7 +154,14 @@ export function MyAcademyPageView({
     return new Date() <= end;
   }, [academy.data]);
 
-  const sellerNeedsRegistration = requireSeller && (!seller.data || !seller.data.tossSellerId);
+  const hasSeller = Boolean(seller.data?.tossSellerId);
+  const sellerActionDisabled = seller.awaitingVerification
+    ? true
+    : hasSeller
+      ? !seller.canEdit
+      : !seller.canRegister;
+  const showSellerEmptyState =
+    requireSeller && !seller.loading && !hasSeller && !seller.awaitingVerification;
 
   useEffect(() => {
     let alive = true;
@@ -296,10 +310,11 @@ export function MyAcademyPageView({
   }, [shouldTriggerCardRegister, academy.data?.id]);
 
   return (
-    <Container>
-      <Header>
-        <div>
-          <h1>내 학원 정보</h1>
+    <>
+      <Container>
+        <Header>
+          <div>
+            <h1>내 학원 정보</h1>
           <p>계정 및 학원 정보를 확인하고 필요 시 수정하세요.</p>
         </div>
         <HeaderActions>
@@ -481,18 +496,18 @@ export function MyAcademyPageView({
 
       <Card>
         <SectionHeader>
-          <SectionTitle>셀러 등록</SectionTitle>
-          {requireSeller && sellerNeedsRegistration ? (
+          <SectionTitle>
+            셀러 등록
+            {seller.showPendingBadge ? <PendingBadge>인증 대기</PendingBadge> : null}
+          </SectionTitle>
+          {requireSeller && hasSeller ? (
             <SellerHeaderActions>
-              <HeaderHint>
-                셀러 등록을 완료하면 토스페이먼츠에서 결제 금액을 정산받을 수 있습니다.
-              </HeaderHint>
               <SellerRegisterButton
                 type="button"
                 onClick={seller.onOpenRegister}
-                disabled={!seller.canRegister}
+                disabled={sellerActionDisabled}
               >
-                등록하기
+                {seller.buttonText}
               </SellerRegisterButton>
             </SellerHeaderActions>
           ) : null}
@@ -501,8 +516,52 @@ export function MyAcademyPageView({
           <Hint>현재 환경에서는 셀러 등록이 필요하지 않습니다.</Hint>
         ) : seller.loading ? (
           <Hint>불러오는 중...</Hint>
+        ) : seller.awaitingVerification ? (
+          <SellerPendingNotice>
+            <PendingTitle>인증 대기 중</PendingTitle>
+            <PendingDescription>
+              등록한 메일 또는 번호로 토스페이먼츠 인증이 발송되었습니다.
+              <br />
+              본인 인증을 완료하면 자동으로 등록이 마무리됩니다.
+            </PendingDescription>
+            <PendingMeta>
+              <span>등록 이메일: {seller.pendingEmail || "-"}</span>
+              <span>토스 셀러 ID: {seller.pendingTossSellerId || "발급 대기"}</span>
+            </PendingMeta>
+            <PendingHintList>
+              <li>스팸메일함도 함께 확인해 주세요.</li>
+              <li>인증을 완료하면 화면이 자동으로 갱신됩니다.</li>
+              <li>문제가 지속되면 고객센터로 문의해 주세요.</li>
+            </PendingHintList>
+          </SellerPendingNotice>
+        ) : showSellerEmptyState ? (
+          <SellerEmptyState>
+            <EmptyIcon>🏪</EmptyIcon>
+            <EmptyTitle>셀러 등록이 필요합니다</EmptyTitle>
+            <EmptyDescription>
+              토스페이먼츠 셀러 등록을 완료하면 결제 정산 서비스를 이용할 수 있습니다.
+            </EmptyDescription>
+            <SellerRegisterButton
+              type="button"
+              onClick={seller.onOpenRegister}
+              disabled={sellerActionDisabled}
+            >
+              {seller.buttonText}
+            </SellerRegisterButton>
+            {!seller.canRegister && (
+              <Hint danger>학원 정보를 먼저 저장한 후 다시 시도해 주세요.</Hint>
+            )}
+          </SellerEmptyState>
         ) : (
           <>
+            <InfoRow>
+              <Label>상태</Label>
+              <Value>
+                <StatusBadge data-status={seller.status ?? "UNKNOWN"}>
+                  {renderSellerStatus(seller.status)}
+                </StatusBadge>
+              </Value>
+            </InfoRow>
             <InfoRow>
               <Label>셀러 ID</Label>
               <Value>{seller.data?.refSellerId || "-"}</Value>
@@ -515,15 +574,13 @@ export function MyAcademyPageView({
               <Label>정산 계좌</Label>
               <Value>{formatSellerAccount(seller.data?.account)}</Value>
             </InfoRow>
-            {!seller.canRegister && sellerNeedsRegistration ? (
-              <Hint danger>학원 정보를 먼저 저장한 후 다시 시도해 주세요.</Hint>
-            ) : null}
           </>
         )}
       </Card>
 
-      {/* 강사 관리는 상단 탭(강사관리)에서 관리합니다. */}
-    </Container>
+        {/* 강사 관리는 상단 탭(강사관리)에서 관리합니다. */}
+      </Container>
+    </>
   );
 }
 
@@ -736,9 +793,103 @@ const SellerHeaderActions = styled.div`
   min-height: 34px;
 `;
 
-const HeaderHint = styled.span`
-  font-size: ${(p) => p.theme.font.size.xs};
+const SellerEmptyState = styled.div`
+  display: grid;
+  place-items: center;
+  text-align: center;
+  gap: ${(p) => p.theme.spacing.sm};
+  padding: ${(p) => p.theme.spacing.lg} ${(p) => p.theme.spacing.md};
+  border: 1px dashed ${(p) => p.theme.colors.borderMuted};
+  border-radius: ${(p) => p.theme.radii.md};
+  background: ${(p) => p.theme.colors.surfaceAlt};
+`;
+
+const SellerPendingNotice = styled.div`
+  display: grid;
+  gap: ${(p) => p.theme.spacing.md};
+  text-align: center;
+  padding: ${(p) => p.theme.spacing.xl} ${(p) => p.theme.spacing.lg};
+  border-radius: ${(p) => p.theme.radii.lg};
+  border: 1px dashed ${(p) => p.theme.colors.borderMuted};
+  background: ${(p) => p.theme.colors.surfaceAlt};
+`;
+
+const PendingTitle = styled.h3`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.lg};
+  color: ${(p) => p.theme.colors.text};
+`;
+
+const PendingDescription = styled.p`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.sm};
   color: ${(p) => p.theme.colors.textMuted};
+  line-height: 1.6;
+`;
+
+const PendingMeta = styled.div`
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const PendingHintList = styled.ul`
+  margin: 0;
+  padding-left: ${(p) => p.theme.spacing.lg};
+  text-align: left;
+  color: ${(p) => p.theme.colors.textMuted};
+  font-size: ${(p) => p.theme.font.size.sm};
+  display: inline-block;
+  li + li {
+    margin-top: 4px;
+  }
+`;
+
+const EmptyIcon = styled.div`
+  font-size: 32px;
+`;
+
+const EmptyTitle = styled.h3`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.md};
+  color: ${(p) => p.theme.colors.text};
+`;
+
+const EmptyDescription = styled.p`
+  margin: 0;
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const PendingBadge = styled.span`
+  display: inline-flex;
+  padding: 0 10px;
+  margin-left: ${(p) => p.theme.spacing.sm};
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: #fef3c7;
+  color: #b45309;
+`;
+
+const StatusBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  background: #eef2ff;
+  color: #4c1d95;
+  &[data-status="APPROVED"] {
+    background: #ecfdf5;
+    color: #065f46;
+  }
+  &[data-status="REJECTED"] {
+    background: #fef2f2;
+    color: #b91c1c;
+  }
 `;
 
 const ErrorBanner = styled.div`
@@ -950,4 +1101,14 @@ function formatSellerAccount(account?: SellerDetail["account"]) {
   if (account.accountNumber) parts.push(account.accountNumber);
   if (account.holderName) parts.push(`(${account.holderName})`);
   return parts.length > 0 ? parts.join(" ") : "-";
+}
+
+function renderSellerStatus(status?: string | null) {
+  const normalized = (status || "").toUpperCase();
+  if (!normalized) return "미등록";
+  if (normalized === "APPROVAL_REQUIRED" || normalized === "PENDING") return "이메일 확인 중";
+  if (normalized === "APPROVED") return "승인 완료";
+  if (normalized === "REJECTED") return "반려됨";
+  if (normalized === "SUSPENDED") return "중단됨";
+  return normalized;
 }

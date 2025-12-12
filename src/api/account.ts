@@ -54,6 +54,20 @@ export type SellerDetail = {
     phone?: string;
   };
   account?: SellerAccount;
+  metadataJson?: string;
+};
+
+export type SellerRegistrationRequestDto = {
+  tossSellerId: string;
+  status: string;
+  email?: string | null;
+  academyId?: number | null;
+};
+
+export type SellerStatusDto = {
+  status: string;
+  tossSellerId?: string | null;
+  updatedAt?: string | null;
 };
 
 export type SellerUpsertPayload = {
@@ -70,6 +84,7 @@ export type SellerUpsertPayload = {
   bankCode: string;
   accountNumber: string;
   accountHolderName: string;
+  metadataJson?: string;
 };
 
 export async function apiGetMyAcademy(): Promise<AcademyDetail> {
@@ -105,11 +120,15 @@ export async function apiGetMySeller(): Promise<SellerDetail | null> {
   return fetchJSON<SellerDetail | null>("/api/account/seller");
 }
 
-export async function apiRegisterSeller(payload: SellerUpsertPayload): Promise<SellerDetail> {
-  return fetchJSON<SellerDetail>("/api/account/seller", {
+export async function apiRequestSellerRegistration(payload: SellerUpsertPayload): Promise<SellerRegistrationRequestDto> {
+  return fetchJSON<SellerRegistrationRequestDto>("/api/account/seller/request", {
     method: "POST",
     body: JSON.stringify(payload),
   });
+}
+
+export async function apiGetSellerStatus(): Promise<SellerStatusDto> {
+  return fetchJSON<SellerStatusDto>("/api/account/seller/status");
 }
 
 export async function apiUpdateSeller(payload: SellerUpsertPayload): Promise<SellerDetail> {

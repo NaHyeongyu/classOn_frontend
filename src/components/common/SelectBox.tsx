@@ -12,6 +12,7 @@ import styled from "styled-components";
 export type SelectOption = { label: string; value: string };
 
 type Props = {
+  id?: string;
   value: string;
   onChange: (v: string) => void;
   options: SelectOption[];
@@ -23,7 +24,7 @@ type Props = {
   width?: number | string;
 };
 
-export default function SelectBox({ value, onChange, options, placeholder, disabled, ariaLabel, className, style, width }: Props) {
+export default function SelectBox({ id, value, onChange, options, placeholder, disabled, ariaLabel, className, style, width }: Props) {
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState<number>(-1);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -114,7 +115,7 @@ export default function SelectBox({ value, onChange, options, placeholder, disab
 
   return (
     <Wrap ref={ref} className={className} style={{ ...style, ...widthStyle }} aria-label={ariaLabel} data-disabled={disabled || undefined}>
-      <Control type="button" onClick={toggle} disabled={disabled} data-open={open || undefined}>
+      <Control id={id} type="button" onClick={toggle} disabled={disabled} data-open={open || undefined}>
         <span className={(!value && placeholder) ? 'placeholder' : undefined}>
           {(!value && placeholder) ? placeholder : (label || value || '')}
         </span>

@@ -104,13 +104,6 @@ const statusColor: Record<string, string> = {
   CANCELED: "#dc2626",
 };
 
-const studentStatusColor: Record<string, string> = {
-  ENROLLED: "#059669",
-  ON_LEAVE: "#8b5cf6",
-  PENDING: "#f97316",
-  STOPPED: "#dc2626",
-};
-
 const methodLabel: Record<string, string> = {
   CARD: "카드",
   BANK_TRANSFER: "계좌이체",
@@ -123,23 +116,6 @@ const paymentTypeLabel: Record<string, string> = {
 };
 
 type StudentStatusFilter = "ALL" | "ENROLLED" | "ON_LEAVE" | "PENDING" | "STOPPED";
-type HistoryStatusFilter = "ALL" | "UNPAID" | "COMPLETED" | "FAILED" | "CANCELED";
-
-const studentStatusLabel: Record<string, string> = {
-  ENROLLED: "수강중",
-  ON_LEAVE: "휴학",
-  PENDING: "대기중",
-  STOPPED: "퇴원",
-};
-
-const historyStatusLabel: Record<HistoryStatusFilter, string> = {
-  ALL: "전체",
-  UNPAID: "미납",
-  COMPLETED: "완료",
-  FAILED: "실패",
-  CANCELED: "취소",
-};
-
 type HistoryFilters = {
   from: string;
   to: string;
@@ -411,8 +387,6 @@ export default function Payments() {
   );
   const completedTotalPages = completedHistoryQuery.data?.totalPages ?? 0;
   const pendingTotalPages = pendingHistoryQuery.data?.totalPages ?? 0;
-  const pendingTitle = "미납 내역";
-  const pendingDescription = "발송된 청구서 중 아직 결제되지 않은 건";
 
   useEffect(() => {
     const completedRows = completedHistoryQuery.data?.content ?? [];
@@ -1163,12 +1137,6 @@ function InvoicesTable(props: {
     onToggleSelect,
     onRowClick,
   } = props;
-  const renderStudentStatus = (status?: string | null) => {
-    const value = status ?? "";
-    if (!value) return "미정";
-    return studentStatusLabel[value] ?? "미정";
-  };
-
   const renderDueDate = (value?: string | null) => {
     if (!value) return "-";
     const formatted = formatKoreanDate(value, { includeWeekday: false });
@@ -2823,16 +2791,6 @@ const peopleIcon = (
   </svg>
 );
 
-const paperIcon = (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-    <path d="M14 2v6h6" />
-    <path d="M16 13H8" />
-    <path d="M16 17H8" />
-    <path d="M10 9H8" />
-  </svg>
-);
-
 const overdueIcon = (
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
@@ -2942,55 +2900,6 @@ const HistoryFilters = styled.div`
   align-items: flex-end;
   margin-bottom: 16px;
   width: 100%;
-`;
-
-const HistorySplit = styled.div`
-  display: grid;
-  gap: 18px;
-  grid-template-columns: 1fr;
-  grid-template-areas:
-    "completed"
-    "pending";
-  @media (min-width: 960px) {
-    grid-template-columns: minmax(320px, 1.1fr) minmax(320px, 0.9fr);
-    grid-template-areas: "pending completed";
-    align-items: flex-start;
-  }
-`;
-
-const HistoryColumn = styled.div`
-  display: grid;
-  gap: 12px;
-  grid-area: pending;
-`;
-
-const HistoryColumnSticky = styled.div<{ ["data-hidden"]?: boolean }>`
-  display: grid;
-  gap: 12px;
-  grid-area: completed;
-  position: sticky;
-  top: var(--sticky-top, 0px);
-  align-self: flex-start;
-  &[data-hidden="true"] {
-    position: static;
-  }
-`;
-
-const HistoryColumnHeader = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  small {
-    color: ${(p) => p.theme.colors.textMuted};
-    font-size: 12px;
-  }
-`;
-
-const ColumnTitle = styled.h4`
-  margin: 0;
-  font-size: 15px;
-  font-weight: 700;
-  color: ${(p) => p.theme.colors.text};
 `;
 
 const KakaoButton = styled.button`
@@ -3398,18 +3307,6 @@ const StatusBadge = styled.span<{ status: string }>`
   font-weight: 600;
   background: ${({ status }) => (statusColor[status] ?? "#d1d5db")}1A;
   color: ${({ status }) => statusColor[status] ?? "#52525b"};
-`;
-
-const StudentStatusBadge = styled.span<{ "data-status"?: string }>`
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
-  background: ${({ "data-status": status }) =>
-    (studentStatusColor[status ?? ""] ?? "#94a3b8")}1A;
-  color: ${({ "data-status": status }) => studentStatusColor[status ?? ""] ?? "#475569"};
 `;
 
 const MetaText = styled.span`

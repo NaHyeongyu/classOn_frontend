@@ -256,12 +256,15 @@ export default function InvoicePreview({
           widgetClientKey,
           checkoutQuery.data.customerKey ?? checkoutQuery.data.orderId,
         );
+        const methodsSelector = `#${widgetPaymentMethodsId}`;
+        const agreementSelector = `#${widgetAgreementId}`;
+        // Toss widget typings accept only HTMLElement, but runtime also supports CSS selectors.
         widget.renderPaymentMethods(
-          container,
+          methodsSelector as unknown as HTMLElement,
           { value: checkoutQuery.data.amount },
           { variantKey: "DEFAULT" },
         );
-        widget.renderAgreement(agreement, { variantKey: "AGREEMENT" });
+        widget.renderAgreement(agreementSelector as unknown as HTMLElement, { variantKey: "AGREEMENT" });
         widgetInstanceRef.current = widget;
         if (!canceled) {
           setWidgetReady(true);

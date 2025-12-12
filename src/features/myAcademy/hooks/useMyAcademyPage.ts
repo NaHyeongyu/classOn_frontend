@@ -13,7 +13,8 @@ import {
   apiChangePassword,
   apiGetMyAcademy,
   apiGetMySeller,
-  apiRegisterSeller,
+  apiGetSellerStatus,
+  apiRequestSellerRegistration,
   apiUpdateMyAcademy,
   apiUpdateMyProfile,
   type AcademyDetail,
@@ -34,6 +35,7 @@ import {
 } from "@/features/myAcademy/utils";
 import { createTeacher, listTeachers, type TeacherListItem } from "@/api/teachers";
 import { paths } from "@/routes";
+import type { AuthUser } from "@/lib/auth";
 
 // Teacher menus are fixed on the backend; no per-user selection needed.
 
@@ -175,8 +177,21 @@ export type SellerModalState = {
 type SellerViewState = {
   loading: boolean;
   data: SellerDetail | null;
+  status: string | null;
   canRegister: boolean;
+  canEdit: boolean;
+  showPendingBadge: boolean;
+  buttonText: string;
+  modalMode: "create" | "edit";
   onOpenRegister: () => void;
+  awaitingVerification: boolean;
+  pendingEmail: string | null;
+  pendingTossSellerId: string | null;
+};
+
+type PendingSellerInfo = {
+  email: string;
+  tossSellerId: string | null;
 };
 
 type TeacherCreateFormState = {
@@ -247,16 +262,63 @@ function createAcademyForm(detail: AcademyDetail | null): AcademyFormState {
   };
 }
 
-function buildRefSellerId(detail: AcademyDetail | null) {
-  if (detail?.id) {
-    const padded = detail.id.toString().padStart(4, "0");
-    return `seller-${padded}`;
+const SELLER_ID_PREFIX = "SR";
+const SELLER_ID_TEMP_PREFIX = "SRX";
+
+function randomToken(length: number) {
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  let result = "";
+  for (let i = 0; i < length; i += 1) {
+    const index = Math.floor(Math.random() * chars.length);
+    result += chars[index];
   }
-  const random = Math.random().toString(36).slice(2, 8);
-  return `seller-temp-${random}`;
+  return result;
 }
 
-function createSellerForm(academy: AcademyDetail | null, seller: SellerDetail | null): SellerFormState {
+function encodeAcademyId(id: number) {
+  return id.toString(36).toUpperCase();
+}
+
+function buildRefSellerId(detail: AcademyDetail | null) {
+  const nowToken = Date.now().toString(36).toUpperCase().slice(-5);
+  if (detail?.id) {
+    return `${SELLER_ID_PREFIX}${encodeAcademyId(detail.id)}_${nowToken}`;
+  }
+  return `${SELLER_ID_TEMP_PREFIX}${nowToken}_${randomToken(3)}`;
+}
+
+function buildSellerMetadata(academy: AcademyDetail | null, user: AuthUser | null): string {
+  const metadata: Record<string, string> = {
+    registrationDate: new Date().toISOString().split("T")[0],
+  };
+  const platformUserId =
+    user?.id != null
+      ? String(user.id)
+      : user?.username
+        ? String(user.username)
+        : null;
+  if (platformUserId) {
+    metadata.platformUserId = platformUserId;
+  }
+  if (academy?.id != null) {
+    metadata.academyId = String(academy.id);
+  }
+  if (academy?.name) {
+    metadata.academyName = academy.name;
+  }
+  if (user?.name) {
+    metadata.registeredBy = user.name;
+  }
+  return JSON.stringify(metadata);
+}
+
+const PENDING_SELLER_STORAGE_KEY = "seller-registration-pending";
+
+function createSellerForm(
+  academy: AcademyDetail | null,
+  seller: SellerDetail | null,
+  user: AuthUser | null,
+): SellerFormState {
   const company = seller?.company;
   const account = seller?.account;
   const individual = seller?.individual;
@@ -279,6 +341,7 @@ function createSellerForm(academy: AcademyDetail | null, seller: SellerDetail | 
       company?.representativeName ??
       academy?.representativeName ??
       "",
+    metadataJson: seller?.metadataJson ?? buildSellerMetadata(academy, user),
   };
 }
 
@@ -326,23 +389,37 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const [academyModalSubmitting, setAcademyModalSubmitting] = useState(false);
   const queryClient = useQueryClient();
   const sellerQueryKey = useMemo(() => ["seller"] as const, []);
-  const sellerQuery = useQuery({
+  const sellerQuery = useQuery<SellerDetail | null>({
     queryKey: sellerQueryKey,
     queryFn: apiGetMySeller,
     staleTime: 5 * 60 * 1000,
     gcTime: 10 * 60 * 1000,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: (query: { state: { data?: SellerDetail | null } }) =>
+      !query.state.data?.tossSellerId,
     refetchOnReconnect: false,
     refetchOnMount: false,
+    refetchInterval: (query: { state: { data?: SellerDetail | null } }) =>
+      !query.state.data?.tossSellerId ? 15000 : false,
+    refetchIntervalInBackground: true,
   });
   const seller = sellerQuery.data ?? null;
   const sellerLoading = sellerQuery.isLoading;
   const [sellerModalOpen, setSellerModalOpen] = useState(false);
   const [sellerModalForm, setSellerModalForm] = useState<SellerFormState>(() =>
-    createSellerForm(null, null),
+    createSellerForm(null, null, user ?? null),
   );
   const [sellerModalSubmitting, setSellerModalSubmitting] = useState(false);
   const [sellerModalError, setSellerModalError] = useState<string | null>(null);
+  const [pendingSellerInfo, setPendingSellerInfo] = useState<PendingSellerInfo | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = window.localStorage.getItem(PENDING_SELLER_STORAGE_KEY);
+      if (!raw) return null;
+      return JSON.parse(raw) as PendingSellerInfo;
+    } catch {
+      return null;
+    }
+  });
   const [teacherList, setTeacherList] = useState<TeacherListItem[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(true);
   const [teachersError, setTeachersError] = useState<string | null>(null);
@@ -553,8 +630,8 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
 
   useEffect(() => {
     if (sellerModalOpen) return;
-    setSellerModalForm(createSellerForm(academy, seller));
-  }, [academy, seller, sellerModalOpen]);
+    setSellerModalForm(createSellerForm(academy, seller, user ?? null));
+  }, [academy, seller, sellerModalOpen, user]);
 
   useEffect(() => {
     let alive = true;
@@ -869,11 +946,11 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
       toast.warning("학원 정보를 먼저 등록해 주세요.");
       return;
     }
-    setSellerModalForm(createSellerForm(academy, seller));
+    setSellerModalForm(createSellerForm(academy, seller, user ?? null));
     setSellerModalError(null);
     setSellerModalSubmitting(false);
     setSellerModalOpen(true);
-  }, [academy, seller, toast]);
+  }, [academy, seller, toast, user]);
 
   const closeSellerModal = useCallback(() => {
     setSellerModalOpen(false);
@@ -960,8 +1037,10 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         }
       }
       setSellerModalSubmitting(true);
+      const metadataJson =
+        sellerModalForm.metadataJson ?? buildSellerMetadata(academy, user ?? null);
       try {
-        const registered = await apiRegisterSeller({
+        const response = await apiRequestSellerRegistration({
           refSellerId,
           businessType: sellerModalForm.businessType,
           companyName,
@@ -982,18 +1061,109 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
           bankCode,
           accountNumber: accountNumberDigits,
           accountHolderName: holderName,
+          metadataJson,
         });
-        queryClient.setQueryData(sellerQueryKey, registered);
-        toast.success("토스 셀러가 등록되었습니다.");
+        const pendingEmail =
+          sellerModalForm.businessType === "INDIVIDUAL"
+            ? sellerModalForm.individualEmail.trim()
+            : companyEmail;
+        setPendingSellerInfo({
+          email: pendingEmail || companyEmail,
+          tossSellerId: response.tossSellerId ?? null,
+        });
+        toast.show("토스 이메일 인증을 완료해 주세요.");
         closeSellerModal();
       } catch (err) {
-        setSellerModalError(toErrorMessage(err, "셀러 등록에 실패했습니다."));
+        setSellerModalError(toErrorMessage(err, "셀러 등록 요청에 실패했습니다."));
       } finally {
         setSellerModalSubmitting(false);
       }
     },
-    [academy?.id, closeSellerModal, queryClient, seller, sellerModalForm, sellerQueryKey, toast],
+    [academy, closeSellerModal, seller, sellerModalForm, toast, user],
   );
+
+  useEffect(() => {
+    if (!pendingSellerInfo) return;
+    if (seller?.tossSellerId) {
+      setPendingSellerInfo(null);
+    }
+  }, [pendingSellerInfo, seller?.tossSellerId]);
+
+  useEffect(() => {
+    if (!pendingSellerInfo) {
+      return;
+    }
+    setSellerModalOpen(false);
+    setSellerModalSubmitting(false);
+    setSellerModalError(null);
+  }, [pendingSellerInfo]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (pendingSellerInfo) {
+      window.localStorage.setItem(
+        PENDING_SELLER_STORAGE_KEY,
+        JSON.stringify(pendingSellerInfo),
+      );
+    } else {
+      window.localStorage.removeItem(PENDING_SELLER_STORAGE_KEY);
+    }
+  }, [pendingSellerInfo]);
+
+  useEffect(() => {
+    if (!pendingSellerInfo || seller?.tossSellerId || typeof window === "undefined") {
+      return;
+    }
+    let alive = true;
+    let timeoutId: number | null = null;
+    let totalElapsed = 0;
+    const INITIAL_DELAY = 3000;
+    const SLOW_DELAY = 10000;
+    const SLOW_THRESHOLD = 60_000;
+    const STOP_AFTER = 180_000;
+
+    const schedule = (delay: number) => {
+      if (!alive) return;
+      timeoutId = window.setTimeout(() => {
+        void pollStatus();
+      }, delay);
+    };
+
+    const pollStatus = async () => {
+      if (!alive) return;
+      try {
+        const result = await apiGetSellerStatus();
+        if (!alive) return;
+        if (result.tossSellerId) {
+          setPendingSellerInfo(null);
+          queryClient.invalidateQueries({ queryKey: sellerQueryKey }).catch((): void => undefined);
+          if ((result.status ?? "").toUpperCase() === "APPROVED") {
+            toast.success("셀러 등록이 완료되었습니다.");
+          }
+          return;
+        }
+      } catch {
+        if (!alive) return;
+      }
+      const delay = totalElapsed >= SLOW_THRESHOLD ? SLOW_DELAY : INITIAL_DELAY;
+      totalElapsed += delay;
+      if (totalElapsed > STOP_AFTER) {
+        return;
+      }
+      schedule(delay);
+    };
+
+    void pollStatus();
+
+    return () => {
+      alive = false;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+  }, [pendingSellerInfo, queryClient, seller?.tossSellerId, sellerQueryKey, toast]);
 
   const submitAcademyModal = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -1094,11 +1264,23 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     },
   };
 
+  const hasSeller = Boolean(seller?.tossSellerId);
+  const isPendingStatus =
+    seller?.status === "PENDING" || seller?.status === "APPROVAL_REQUIRED";
+  const awaitingVerification = Boolean(pendingSellerInfo && !hasSeller);
   const sellerView: SellerViewState = {
     loading: sellerLoading,
     data: seller,
-    canRegister: Boolean(academy?.id) && (!seller || !seller.tossSellerId),
+    status: seller?.status ?? null,
+    canRegister: Boolean(academy?.id) && !hasSeller && !awaitingVerification,
+    canEdit: hasSeller,
+    showPendingBadge: isPendingStatus || awaitingVerification,
+    buttonText: hasSeller ? "셀러 정보 수정" : "셀러 등록",
+    modalMode: hasSeller ? "edit" : "create",
     onOpenRegister: openSellerModal,
+    awaitingVerification,
+    pendingEmail: awaitingVerification ? pendingSellerInfo?.email ?? null : null,
+    pendingTossSellerId: awaitingVerification ? pendingSellerInfo?.tossSellerId ?? null : null,
   };
 
   const profileModal: ProfileModalState = {

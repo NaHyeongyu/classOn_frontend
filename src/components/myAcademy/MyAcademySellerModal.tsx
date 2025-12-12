@@ -8,7 +8,6 @@ import {
   ModalInput,
   ModalLabel,
   ModalPrimaryButton,
-  ModalSelect,
 } from "@/components/myAcademy/MyAcademyModalStyles";
 import { BANK_OPTIONS } from "@/features/myAcademy/banks";
 import type { SellerModalState } from "@/features/myAcademy/hooks/useMyAcademyPage";
@@ -16,6 +15,7 @@ import styled from "styled-components";
 import { apiSyncSeller } from "@/api/account";
 import { useToast } from "@/components/common/Toast";
 import { useState } from "react";
+import SelectBox from "@/components/common/SelectBox";
 
 type Props = {
   modal: SellerModalState;
@@ -55,13 +55,16 @@ export function MyAcademySellerModal({ modal }: Props) {
     <Modal
       open={modal.open}
       onClose={modal.closeModal}
-      title={modal.creating ? "셀러 등록" : "셀러 정보"}
+      title={modal.creating ? "셀러 등록" : "셀러 정보 수정"}
+      blockOutsideClose
     >
       <ModalForm onSubmit={modal.submit}>
-        {profileLocked ? (
-          <ModalHint>정산 계좌만 수정할 수 있습니다. 다른 정보 수정은 관리자에게 문의해주세요.</ModalHint>
-        ) : null}
-        
+        <Notice tone={profileLocked ? "warning" : "info"}>
+          {profileLocked
+            ? "사업자 정보는 등록 후 수정할 수 없습니다. 정산 계좌만 변경할 수 있어요."
+            : "셀러 등록 요청 시 입력한 사업자·계좌 정보가 토스페이먼츠에 전달됩니다."}
+        </Notice>
+
         {/* refSellerId is now auto-generated, so we can hide it or show it as read-only system ID */}
         <ModalLabel htmlFor="seller-ref-id">셀러 ID (시스템 자동생성)</ModalLabel>
         <ModalInput
@@ -92,20 +95,17 @@ export function MyAcademySellerModal({ modal }: Props) {
         ) : null}
 
         <ModalLabel htmlFor="seller-business-type">사업자 유형</ModalLabel>
-        <ModalSelect
+        <SelectBox
           id="seller-business-type"
+          ariaLabel="사업자 유형"
           value={modal.form.businessType}
           disabled={disableProfileField}
-          onChange={(event) =>
-            modal.updateField("businessType", event.target.value as SellerModalState["form"]["businessType"])
+          placeholder="사업자 유형 선택"
+          onChange={(value) =>
+            modal.updateField("businessType", value as SellerModalState["form"]["businessType"])
           }
-        >
-          {BUSINESS_TYPES.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </ModalSelect>
+          options={BUSINESS_TYPES}
+        />
 
         <ModalLabel htmlFor="seller-company-name">사업자명</ModalLabel>
         <ModalInput
@@ -221,15 +221,6 @@ export function MyAcademySellerModal({ modal }: Props) {
           onChange={(event) => modal.updateField("accountHolderName", event.target.value)}
           placeholder="예금주명을 입력하세요"
         />
-        <ModalLabel htmlFor="seller-metadata">추가 메모 (선택)</ModalLabel>
-        <ModalInput
-          id="seller-metadata"
-          value={modal.form.metadataJson ?? ""}
-          disabled={disableProfileField}
-          onChange={(event) => modal.updateField("metadataJson", event.target.value)}
-          placeholder="토스 등록 시 참고할 메모(JSON)"
-        />
-
         {modal.error ? <ModalError>{modal.error}</ModalError> : null}
 
         <ModalActions>
@@ -268,4 +259,15 @@ const BankButton = styled.button`
     color: #fff;
     border-color: transparent;
   }
+`;
+
+const Notice = styled.div<{ tone: "info" | "warning" }>`
+  margin-bottom: 12px;
+  padding: 12px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+  background: ${({ tone }) => (tone === "warning" ? "#fef3c7" : "#eef2ff")};
+  color: ${({ tone }) => (tone === "warning" ? "#b45309" : "#3730a3")};
+  border: 1px solid ${({ tone }) => (tone === "warning" ? "#fcd34d" : "#c7d2fe")};
 `;

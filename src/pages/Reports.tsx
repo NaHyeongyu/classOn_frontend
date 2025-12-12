@@ -2194,7 +2194,7 @@ function collectStyleTagsHtml(): string {
       if (cssText.trim()) {
         inlineBlocks.push(`<style data-inline-from-sheet="true">${cssText}</style>`);
       }
-    } catch (err) {
+    } catch {
       // CORS 차단 등의 이유로 읽지 못하는 경우 건너뜀
     }
   });

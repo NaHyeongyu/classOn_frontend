@@ -2182,17 +2182,27 @@ async function fetchAttendanceDailyRange(from: string, to: string): Promise<Atte
 }
 
 function collectStyleTagsHtml(): string {
-  const origin = window.location.origin;
-  return Array.from(document.querySelectorAll("style, link[rel='stylesheet']"))
-    .map((node) => {
-      if (node.tagName.toLowerCase() === "link") {
-        const href = node.getAttribute("href") || "";
-        const abs = href.startsWith("http") ? href : `${origin}${href}`;
-        return `<link rel="stylesheet" href="${abs}">`;
+  const inlineBlocks: string[] = [];
+
+  // 1) Inline 모든 접근 가능한 스타일시트 (link/style 불문)
+  Array.from(document.styleSheets).forEach((sheet) => {
+    try {
+      const rules = sheet.cssRules || [];
+      const cssText = Array.from(rules)
+        .map((rule) => rule.cssText)
+        .join("\n");
+      if (cssText.trim()) {
+        inlineBlocks.push(`<style data-inline-from-sheet="true">${cssText}</style>`);
       }
-      return node.outerHTML;
-    })
-    .join("\n");
+    } catch (err) {
+      // CORS 차단 등의 이유로 읽지 못하는 경우 건너뜀
+    }
+  });
+
+  // 2) 이미 존재하는 <style> 태그 보존 (styled-components 등)
+  const existingStyles = Array.from(document.querySelectorAll("style")).map((node) => node.outerHTML);
+
+  return [...inlineBlocks, ...existingStyles].join("\n");
 }
 
 function cloneReportNode(source: HTMLElement): HTMLElement {

@@ -16,6 +16,22 @@ import { useToast } from "@/components/common/Toast";
 import { DiscountFields } from "@/components/payments/DiscountFields";
 import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
 import {
+  ReceiptCard,
+  ReceiptHeader,
+  ReceiptSection,
+  SectionTitle,
+  Badge,
+  RepresentativeCard,
+  FormGrid,
+  SelectLike,
+  EmptyReceipt,
+  PeriodRow,
+  PeriodValue,
+  AccordionCard,
+  AccordionHeader,
+  AccordionBody,
+} from "@/components/payments/InvoiceLayout";
+import {
   createPaymentInvoice,
   listPaymentHistory,
   type PaymentInvoicePayload,
@@ -83,7 +99,7 @@ const defaultForm = {
   textbookFee: undefined as number | undefined,
   extraStartDate: dateISO(today),
   extraEndDate: dateISO(nextMonth),
-  recipientPhone: "",
+  recipientPhone: "" as string | null,
 };
 
 const studentStatusLabels: Record<StudentStatus | "UNKNOWN" | undefined, string> = {
@@ -343,7 +359,7 @@ export default function PaymentsCreate() {
         ? override?.discountEndDate ?? form.discountEndDate
         : undefined,
       additionalItems: additionalItems.length ? additionalItems : undefined,
-      recipientPhone: form.recipientPhone,
+      recipientPhone: form.recipientPhone || null,
     };
   };
 
@@ -460,7 +476,7 @@ export default function PaymentsCreate() {
   }, [primaryStudent]);
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, recipientPhone: primaryRecipientPhone }));
+    setForm((prev) => ({ ...prev, recipientPhone: primaryRecipientPhone || null }));
   }, [primaryRecipientPhone]);
 
   useEffect(() => {
@@ -635,19 +651,20 @@ export default function PaymentsCreate() {
                       <div className="label">발신 번호</div>
                       <div className="input-wrap" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "8px" }}>
                         {isEditingPhone ? (
-                          <Input
-                            autoFocus
-                            value={formatPhoneKR(form.recipientPhone)}
-                            placeholder="예: 010-1234-5678"
-                            onChange={(e) =>
-                              setForm((prev) => ({
-                                ...prev,
-                                recipientPhone: (e.target.value || "").replace(/[^0-9]/g, ""),
-                              }))
-                            }
-                            onBlur={() => setIsEditingPhone(false)}
-                            style={{ textAlign: "right", padding: "6px 10px" }}
-                          />
+                            <Input
+                              autoFocus
+                              value={formatPhoneKR(form.recipientPhone)}
+                              placeholder="예: 010-1234-5678"
+                              onChange={(e) => {
+                                const digits = (e.target.value || "").replace(/[^0-9]/g, "");
+                                setForm((prev) => ({
+                                  ...prev,
+                                  recipientPhone: digits ? digits : null,
+                                }));
+                              }}
+                              onBlur={() => setIsEditingPhone(false)}
+                              style={{ textAlign: "right", padding: "6px 10px" }}
+                            />
                         ) : (
                           <>
                             <EditButton type="button" onClick={() => setIsEditingPhone(true)}>
@@ -906,112 +923,6 @@ const RightColumn = styled.div`
   }
 `;
 
-const ReceiptCard = styled(SectionCard)`
-  border: 1px solid ${(p) => p.theme.colors.border};
-  box-shadow: ${(p) => p.theme.shadow.medium};
-  padding: 0;
-  overflow: hidden;
-  background: #fff;
-`;
-
-const ReceiptHeader = styled.div`
-  background: ${(p) => p.theme.colors.surfaceAlt};
-  padding: 20px 24px;
-  border-bottom: 1px dashed ${(p) => p.theme.colors.border};
-  h3 {
-    margin: 0 0 4px;
-    font-size: 18px;
-    font-weight: 700;
-  }
-  p {
-    margin: 0;
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-`;
-
-const ReceiptSection = styled.div`
-  padding: 20px 24px;
-  border-bottom: 1px solid ${(p) => p.theme.colors.borderMuted};
-`;
-
-const SectionTitle = styled.h4`
-  margin: 0 0 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: ${(p) => p.theme.colors.text};
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-`;
-
-const Badge = styled.span`
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: ${(p) => p.theme.colors.primarySurface};
-  color: ${(p) => p.theme.colors.primary};
-  font-size: 11px;
-  font-weight: 600;
-`;
-
-const RepresentativeCard = styled.div`
-  margin: 20px 24px 0;
-  padding: 16px;
-  background: ${(p) => p.theme.colors.surfaceAlt};
-  border-radius: 8px;
-  display: grid;
-  gap: 12px;
-
-  .row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-  }
-  .label {
-    font-size: 13px;
-    font-weight: 600;
-    color: ${(p) => p.theme.colors.textMuted};
-    flex-shrink: 0;
-  }
-  .value {
-    font-size: 14px;
-    color: ${(p) => p.theme.colors.text};
-    text-align: right;
-    font-weight: 500;
-  }
-  .input-wrap {
-    width: 160px;
-  }
-`;
-
-const PeriodRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  .arrow {
-    color: ${(p) => p.theme.colors.textMuted};
-    font-size: 14px;
-  }
-`;
-
-const PeriodValue = styled.div`
-  flex: 1;
-  display: grid;
-  gap: 4px;
-  text-align: center;
-  span {
-    font-size: 12px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-  strong {
-    font-size: 14px;
-    font-weight: 600;
-    color: ${(p) => p.theme.colors.text};
-  }
-`;
-
 const TotalAmountSection = styled.div`
   padding: 24px;
   background: ${(p) => p.theme.colors.primarySurface};
@@ -1033,51 +944,6 @@ const TotalAmountSection = styled.div`
     font-size: 12px;
     color: ${(p) => p.theme.colors.textMuted};
     opacity: 0.8;
-  }
-`;
-
-const AccordionCard = styled.div`
-  margin: 12px 0 8px;
-  padding: 0;
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: ${(p) => p.theme.radii.md};
-  background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
-`;
-
-const AccordionHeader = styled.div`
-  width: 100%;
-  padding: 10px 12px;
-  border: none;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  cursor: default;
-  span {
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.text};
-    font-weight: 600;
-  }
-`;
-
-const AccordionBody = styled.div`
-  border-top: 1px solid ${(p) => p.theme.colors.borderMuted};
-  padding: 12px;
-`;
-
-const EmptyReceipt = styled.div`
-  padding: 60px 24px;
-  text-align: center;
-  color: ${(p) => p.theme.colors.textMuted};
-  .icon {
-    font-size: 48px;
-    margin-bottom: 16px;
-    opacity: 0.5;
-  }
-  p {
-    margin: 0;
-    line-height: 1.5;
-    font-size: 14px;
   }
 `;
 
@@ -1135,30 +1001,6 @@ const SearchLabel = styled.label`
   font-size: 13px;
   color: ${(p) => p.theme.colors.textMuted};
   margin-bottom: 12px;
-`;
-
-const FormGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  margin-bottom: 12px;
-  label {
-    display: grid;
-    gap: 6px;
-    font-size: 13px;
-    color: ${(p) => p.theme.colors.textMuted};
-    text-align: left;
-  }
-`;
-
-const SelectLike = styled.select`
-  border: 1px solid ${(p) => p.theme.colors.border};
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-size: 14px;
-  width: 100%;
-  box-sizing: border-box;
-  background: #fff;
 `;
 
 const Input = styled.input`

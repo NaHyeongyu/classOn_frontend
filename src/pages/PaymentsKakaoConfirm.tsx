@@ -122,7 +122,7 @@ const statusLabelMap: Record<string, string> = {
 };
 
 const statusColor: Record<string, string> = {
-  UNPAID: "#f97316",
+  UNPAID: "#4b5563",
   PENDING: "#2563EB",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
@@ -531,8 +531,12 @@ export function PaymentsKakaoSchedulePage() {
 
 function buildDefaultScheduleParts(): ScheduleParts {
   const base = new Date();
-  base.setDate(base.getDate() + 1);
-  base.setHours(10, 0, 0, 0);
+  base.setMinutes(base.getMinutes() + 10);
+  base.setSeconds(0, 0);
+  const remainder = base.getMinutes() % 5;
+  if (remainder !== 0) {
+    base.setMinutes(base.getMinutes() + (5 - remainder));
+  }
   return {
     date: formatDateInput(base),
     hour: String(base.getHours()).padStart(2, "0"),

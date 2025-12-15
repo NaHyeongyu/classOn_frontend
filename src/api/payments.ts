@@ -49,7 +49,7 @@ export type PaymentInvoicePayload = {
   discountStartDate?: string;
   discountEndDate?: string;
   additionalItems?: PaymentAdditionalItemPayload[];
-  recipientPhone?: string;
+  recipientPhone?: string | null;
 };
 
 export type PaymentInvoiceUpdatePayload = {
@@ -65,7 +65,7 @@ export type PaymentInvoiceUpdatePayload = {
   cycleValue?: number;
   cycleUnit?: BillingCycleUnit;
   additionalItems?: PaymentAdditionalItemPayload[];
-  recipientPhone?: string;
+  recipientPhone?: string | null;
 };
 
 export type PaymentOnsitePayload = {
@@ -175,6 +175,19 @@ export async function updatePaymentInvoice(id: number, payload: PaymentInvoiceUp
     `/api/payments/${id}`,
   ]);
   return res;
+}
+
+export async function deletePaymentInvoice(id: number): Promise<void> {
+  await fetchJSON<void>(`/api/payments/${id}`, {
+    method: "DELETE",
+  });
+  invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    "/api/payments/history/pending",
+    `/api/payments/${id}`,
+  ]);
 }
 
 export async function sendPaymentInvoices(payload: {

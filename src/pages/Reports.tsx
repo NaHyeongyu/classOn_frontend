@@ -1257,7 +1257,9 @@ const CourseListWrap = styled.div`
 const CourseList = styled.div`
   height: 100%;
   overflow-y: auto;
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 `;
 
 const CourseRow = styled.button`

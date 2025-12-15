@@ -197,6 +197,7 @@ declare module "@classon/shared-types" {
     periodEnd?: string | null;
     memo?: string | null;
     managerMemo?: string | null;
+    recipientPhone?: string | null;
     completedAt?: string | null;
     canceledAt?: string | null;
     discountType?: DiscountType | null;

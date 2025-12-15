@@ -469,6 +469,37 @@ export default function MyAcademyPlanPage() {
       setSellerModalSubmitting(true);
       setSellerModalError(null);
       try {
+        const bankOk = sellerModalForm.accountBankCode.trim().length > 0;
+        const accountNumberDigits = digitsOnly(sellerModalForm.accountNumber);
+        const accountOk = accountNumberDigits.length > 0;
+        const holderOk = sellerModalForm.accountHolderName.trim().length > 0;
+        if (!bankOk || !accountOk || !holderOk) {
+          setSellerModalError("정산 계좌(은행/계좌번호/예금주명)를 모두 입력해 주세요.");
+          return;
+        }
+
+        const businessType = sellerModalForm.businessType;
+        if (businessType === "INDIVIDUAL") {
+          const nameOk = sellerModalForm.individualName.trim().length > 0;
+          const emailOk = sellerModalForm.individualEmail.trim().length > 0;
+          const phoneOk = digitsOnly(sellerModalForm.individualPhone).length > 0;
+          if (!nameOk || !emailOk || !phoneOk) {
+            setSellerModalError("개인 정산 정보(이름/이메일/연락처)를 모두 입력해 주세요.");
+            return;
+          }
+        } else {
+          const companyOk = sellerModalForm.companyName.trim().length > 0;
+          const repOk = sellerModalForm.representativeName.trim().length > 0;
+          const emailOk = sellerModalForm.companyEmail.trim().length > 0;
+          const phoneOk = digitsOnly(sellerModalForm.companyPhone).length > 0;
+          const bizDigits = digitsOnly(sellerModalForm.businessRegistrationNumber);
+          const bizOk = bizDigits.length === 10;
+          if (!companyOk || !repOk || !emailOk || !phoneOk || !bizOk) {
+            setSellerModalError("사업자 정산 정보(사업자명/대표자명/사업자등록번호 10자리/이메일/연락처)를 모두 입력해 주세요.");
+            return;
+          }
+        }
+
         const payload = {
           refSellerId: sellerModalForm.refSellerId,
           businessType: sellerModalForm.businessType,
@@ -490,7 +521,7 @@ export default function MyAcademyPlanPage() {
               ? digitsOnly(sellerModalForm.individualPhone) || undefined
               : undefined,
           bankCode: sellerModalForm.accountBankCode,
-          accountNumber: digitsOnly(sellerModalForm.accountNumber),
+          accountNumber: accountNumberDigits,
           accountHolderName: sellerModalForm.accountHolderName.trim(),
           metadataJson: sellerModalForm.metadataJson,
         };

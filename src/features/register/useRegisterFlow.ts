@@ -369,7 +369,7 @@ export function useRegisterFlow(): UseRegisterFlowResult {
   }, []);
 
   const setUsername = useCallback((value: string) => {
-    const filtered = value.replace(/[^A-Za-z]/g, "");
+    const filtered = value.replace(/[^A-Za-z0-9]/g, "");
     setUsernameValue(filtered);
     setUsernameAvailable(null);
   }, []);

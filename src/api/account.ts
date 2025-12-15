@@ -62,6 +62,7 @@ export type SellerRegistrationRequestDto = {
   status: string;
   email?: string | null;
   academyId?: number | null;
+  refSellerId?: string | null;
 };
 
 export type SellerStatusDto = {

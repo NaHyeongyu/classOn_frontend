@@ -16,6 +16,7 @@ import {
   apiGetSellerStatus,
   apiSyncSeller,
   apiRequestSellerRegistration,
+  apiUpdateSeller,
   apiUpdateMyAcademy,
   apiUpdateMyProfile,
   type AcademyDetail,
@@ -1030,10 +1031,6 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         setSellerModalError("학원 정보를 먼저 등록해 주세요.");
         return;
       }
-      if (seller?.tossSellerId) {
-        setSellerModalError("이미 등록된 셀러가 있습니다.");
-        return;
-      }
       const refSellerId = sellerModalForm.refSellerId.trim();
       if (!refSellerId) {
         setSellerModalError("셀러 ID가 올바르지 않습니다.");
@@ -1045,43 +1042,27 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         setSellerModalError("정산 받을 은행과 계좌번호를 입력해 주세요.");
         return;
       }
+      const normalizedIndividualPhone = sellerModalForm.individualPhone.replace(/\D/g, "");
+      const companyName = sellerModalForm.companyName.trim() || undefined;
+      const representativeName = sellerModalForm.representativeName.trim() || undefined;
+      const companyEmail = sellerModalForm.companyEmail.trim() || undefined;
+      const companyPhoneDigits = sellerModalForm.companyPhone.replace(/\D/g, "");
+      const companyPhone = companyPhoneDigits || undefined;
+      const bizNumberDigits = sellerModalForm.businessRegistrationNumber.replace(/\D/g, "");
+
       const holderName =
         sellerModalForm.accountHolderName.trim() ||
         sellerModalForm.representativeName.trim() ||
-        sellerModalForm.companyName.trim();
+        sellerModalForm.companyName.trim() ||
+        sellerModalForm.individualName.trim();
       if (!holderName) {
         setSellerModalError("예금주명을 입력해 주세요.");
         return;
       }
-      const companyName = sellerModalForm.companyName.trim();
-      const representativeName = sellerModalForm.representativeName.trim();
-      const companyEmail = sellerModalForm.companyEmail.trim();
-      const companyPhoneDigits = sellerModalForm.companyPhone.replace(/\D/g, "");
-      const bizNumberDigits = sellerModalForm.businessRegistrationNumber.replace(/\D/g, "");
-      if (!companyName) {
-        setSellerModalError("사업자명을 입력해 주세요.");
-        return;
-      }
-      if (!representativeName) {
-        setSellerModalError("대표자명을 입력해 주세요.");
-        return;
-      }
-      if (!companyEmail) {
-        setSellerModalError("사업자 이메일을 입력해 주세요.");
-        return;
-      }
-      if (!companyPhoneDigits) {
-        setSellerModalError("사업자 연락처를 숫자만 입력해 주세요.");
-        return;
-      }
-      if (sellerModalForm.businessType !== "INDIVIDUAL" && bizNumberDigits.length !== 10) {
-        setSellerModalError("사업자등록번호 10자리를 입력해 주세요.");
-        return;
-      }
-      const normalizedIndividualPhone = sellerModalForm.individualPhone.replace(/\D/g, "");
+
       if (sellerModalForm.businessType === "INDIVIDUAL") {
         if (!sellerModalForm.individualName.trim()) {
-          setSellerModalError("개인 사업자명(담당자 이름)을 입력해 주세요.");
+          setSellerModalError("개인 이름을 입력해 주세요.");
           return;
         }
         if (!sellerModalForm.individualEmail.trim()) {
@@ -1092,19 +1073,45 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
           setSellerModalError("개인 연락처를 숫자만 입력해 주세요.");
           return;
         }
+        if (bizNumberDigits.length > 0 && bizNumberDigits.length !== 10) {
+          setSellerModalError("사업자등록번호는 10자리 숫자만 입력해 주세요.");
+          return;
+        }
+      } else {
+        if (!companyName) {
+          setSellerModalError("사업자명을 입력해 주세요.");
+          return;
+        }
+        if (!representativeName) {
+          setSellerModalError("대표자명을 입력해 주세요.");
+          return;
+        }
+        if (!companyEmail) {
+          setSellerModalError("사업자 이메일을 입력해 주세요.");
+          return;
+        }
+        if (!companyPhoneDigits) {
+          setSellerModalError("사업자 연락처를 숫자만 입력해 주세요.");
+          return;
+        }
+        if (bizNumberDigits.length !== 10) {
+          setSellerModalError("사업자등록번호 10자리를 입력해 주세요.");
+          return;
+        }
       }
+
       setSellerModalSubmitting(true);
       const metadataJson =
         sellerModalForm.metadataJson ?? buildSellerMetadata(academy, user ?? null);
       try {
-        const response = await apiRequestSellerRegistration({
+        const payload = {
           refSellerId,
           businessType: sellerModalForm.businessType,
           companyName,
           representativeName,
           businessRegistrationNumber: bizNumberDigits || undefined,
           companyEmail,
-          companyPhone: companyPhoneDigits,
+          companyPhone,
           individualName:
             sellerModalForm.businessType === "INDIVIDUAL"
               ? sellerModalForm.individualName.trim()
@@ -1119,13 +1126,23 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
           accountNumber: accountNumberDigits,
           accountHolderName: holderName,
           metadataJson,
-        });
+        } satisfies Parameters<typeof apiRequestSellerRegistration>[0];
+
+        if (seller?.tossSellerId) {
+          await apiUpdateSeller(payload);
+          toast.success("정산 계좌 정보가 저장되었습니다.");
+          queryClient.invalidateQueries({ queryKey: sellerQueryKey }).catch((): void => undefined);
+          closeSellerModal();
+          return;
+        }
+
+        const response = await apiRequestSellerRegistration(payload);
         const pendingEmail =
           sellerModalForm.businessType === "INDIVIDUAL"
             ? sellerModalForm.individualEmail.trim()
-            : companyEmail;
+            : companyEmail ?? sellerModalForm.companyEmail.trim();
         setPendingSellerInfo({
-          email: pendingEmail || companyEmail,
+          email: pendingEmail || null,
           tossSellerId: response.tossSellerId ?? null,
         });
         toast.show("토스 이메일 인증을 완료해 주세요.");

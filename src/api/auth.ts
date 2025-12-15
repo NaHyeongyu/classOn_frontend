@@ -213,16 +213,48 @@ export async function apiOnboardComplete(payload: {
   settlementIndividualName?: string;
   settlementIndividualEmail?: string;
   settlementIndividualPhone?: string;
-}): Promise<{ success: boolean; settlementRegistration?: { tossSellerId: string; status: string; email?: string | null; academyId?: number | null } | null }> {
+}): Promise<{
+  success: boolean;
+  settlementRegistration?: {
+    tossSellerId: string | null;
+    status: string;
+    email?: string | null;
+    academyId?: number | null;
+    refSellerId?: string | null;
+  } | null;
+}> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(300);
     return { success: true };
   }
-  const res = await fetchJSON<{ success: boolean; settlementRegistration?: { tossSellerId: string; status: string; email?: string | null; academyId?: number | null } | null }>("/api/onboard/complete", {
+  const res = await fetchJSON<{
+    success: boolean;
+    settlementRegistration?: {
+      tossSellerId: string | null;
+      status: string;
+      email?: string | null;
+      academyId?: number | null;
+      refSellerId?: string | null;
+    } | null;
+  }>("/api/onboard/complete", {
     method: "POST",
     body: JSON.stringify(payload),
   });
   return res;
+}
+
+export async function apiGetOnboardSettlementStatus(
+  academyId: number,
+  refSellerId: string,
+): Promise<{
+  academyId: number;
+  refSellerId: string;
+  tossSellerId: string | null;
+  status: string;
+  approved: boolean;
+}> {
+  const q = `?academyId=${encodeURIComponent(String(academyId))}&refSellerId=${encodeURIComponent(refSellerId)}`;
+  return await fetchJSON(`/api/onboard/settlement-status${q}`, { timeoutMs: 8000 });
 }
 
 export async function apiFindUsernames(phone: string, code: string): Promise<FindUsernameResponse> {

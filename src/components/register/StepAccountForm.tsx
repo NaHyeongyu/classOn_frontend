@@ -87,6 +87,7 @@ export function StepAccountForm({ flow, onSubmit }: StepAccountFormProps) {
           aria-invalid={Boolean(username) && usernameAvailable === false}
           required
         />
+        <Hint>아이디는 영문(a-z, A-Z)만 입력할 수 있어요.</Hint>
         {usernameAvailable === true && <Hint success>사용 가능한 아이디입니다.</Hint>}
         {usernameAvailable === false && <Hint danger>이미 사용중인 아이디입니다.</Hint>}
 

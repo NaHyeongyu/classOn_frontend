@@ -17,6 +17,7 @@ import { useToast } from "@/components/common/Toast";
 import {
   cancelPayment,
   cancelScheduledAlert,
+  deletePaymentInvoice,
   getPaymentDetail,
   getPaymentSummary,
   listPaymentHistory,
@@ -55,6 +56,7 @@ type DetailState =
       open: true;
       id: number;
       variant: "invoice" | "history";
+      context?: "invoices" | "pending" | "completed";
       loading: boolean;
       data: PaymentDetail | null;
     }
@@ -128,6 +130,11 @@ const formatPhoneKR = (raw?: string | null): string => {
   }
   return digits;
 };
+const normalizePhoneDigits = (raw?: string | null): string | undefined => {
+  if (!raw) return undefined;
+  const digits = raw.replace(/[^0-9]/g, "");
+  return digits || undefined;
+};
 
 type StudentStatusFilter = "ALL" | "ENROLLED" | "ON_LEAVE" | "PENDING" | "STOPPED";
 type HistoryFilters = {
@@ -183,6 +190,10 @@ export default function Payments() {
     detail: PaymentDetail | null;
     reason: string;
   }>({ open: false, detail: null, reason: "" });
+  const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; row: PaymentHistoryRow | null }>({
+    open: false,
+    row: null,
+  });
   const [resendPrompt, setResendPrompt] = useState<{
     open: boolean;
     row: PaymentHistoryRow | null;
@@ -281,6 +292,7 @@ export default function Payments() {
     setInvoicePage(0);
   }, [invoiceDateRange.from, invoiceDateRange.to, invoiceStudentStatus]);
 
+
   useEffect(() => {
     setInvoiceSearchInput(invoiceSearch);
   }, [invoiceSearch]);
@@ -305,6 +317,9 @@ export default function Payments() {
       invalidatePaymentsQueries(queryClient);
     },
     onError: (err: unknown) => toastError(readableError(err, "청구서 수정에 실패했습니다.")),
+  });
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: (id: number) => deletePaymentInvoice(id),
   });
 
   const onsiteMutation = useMutation({
@@ -370,11 +385,15 @@ export default function Payments() {
     onError: (err: unknown) => toastError(readableError(err, "즉시 발송 전환에 실패했습니다.")),
   });
 
-  const loadDetail = useCallback(async (id: number, variant: "invoice" | "history") => {
-    setDetailState({ open: true, id, variant, loading: true, data: null });
+  const loadDetail = useCallback(async (
+    id: number,
+    variant: "invoice" | "history",
+    context?: "invoices" | "pending" | "completed",
+  ) => {
+    setDetailState({ open: true, id, variant, context, loading: true, data: null });
     try {
       const detail = await getPaymentDetail(id);
-      setDetailState({ open: true, id, variant, loading: false, data: detail });
+      setDetailState({ open: true, id, variant, context, loading: false, data: detail });
     } catch (err) {
       setDetailState({ open: false });
       toastError(readableError(err, "결제 상세를 불러오지 못했습니다."));
@@ -451,6 +470,8 @@ export default function Payments() {
   const showInvoicePager = invoiceTotalPages > 1;
 
   const invoiceTotalElements = invoices?.totalElements ?? invoiceRows.length;
+  const deleteInProgress = deleteInvoiceMutation.isPending;
+  const deletingInvoiceId = deleteInProgress ? deletePrompt.row?.id ?? null : null;
   const isAllInvoicesSelected =
     invoiceTotalElements > 0 && selectedInvoiceIds.length >= invoiceTotalElements;
 
@@ -571,12 +592,45 @@ export default function Payments() {
   ]);
 
   const handleInvoiceRowClick = (row: PaymentHistoryRow) => {
-    loadDetail(row.id, "invoice");
+    loadDetail(row.id, "invoice", "invoices");
   };
 
-  const handleHistoryRowClick = (row: PaymentHistoryRow) => {
+  const handleRequestDeleteInvoice = useCallback(
+    (row: PaymentHistoryRow) => {
+      setDeletePrompt({ open: true, row });
+    },
+    [],
+  );
+
+  const handleCloseDeletePrompt = useCallback(() => {
+    if (deleteInProgress) return;
+    setDeletePrompt({ open: false, row: null });
+  }, [deleteInProgress]);
+
+  const handleConfirmDeleteInvoice = useCallback(async () => {
+    if (!deletePrompt.row) return;
+    const targetId = deletePrompt.row.id;
+    try {
+      await deleteInvoiceMutation.mutateAsync(targetId);
+      success("청구서를 삭제했습니다.");
+      setSelectedInvoiceIds((prev) => prev.filter((id) => id !== targetId));
+      setDeletePrompt({ open: false, row: null });
+      invalidatePaymentsQueries(queryClient);
+    } catch (err) {
+      toastError(readableError(err, "청구서 삭제에 실패했습니다."));
+    }
+  }, [
+    deletePrompt.row,
+    deleteInvoiceMutation,
+    success,
+    setSelectedInvoiceIds,
+    queryClient,
+    toastError,
+  ]);
+
+  const handleHistoryRowClick = (row: PaymentHistoryRow, source: "pending" | "completed" = "completed") => {
     setActiveHistoryId(row.id);
-    loadDetail(row.id, "history");
+    loadDetail(row.id, "history", source);
   };
 
   const handleHistoryResend = (row: PaymentHistoryRow) => {
@@ -669,6 +723,12 @@ export default function Payments() {
   };
 
   const [activeSection, setActiveSection] = useState<"invoice" | "pending" | "history">("invoice");
+
+  useEffect(() => {
+    if (activeSection === "invoice") {
+      setInvoicePage(0);
+    }
+  }, [activeSection]);
 
   const handleOnsiteSubmit = async (payload: PaymentOnsitePayload) => {
     if (!onsiteTarget) return;
@@ -932,6 +992,8 @@ export default function Payments() {
                   )
                 }
                 onRowClick={handleInvoiceRowClick}
+                onDelete={handleRequestDeleteInvoice}
+                deletingId={deletingInvoiceId}
               />
             </>
           ) : activeSection === "pending" ? (
@@ -980,7 +1042,7 @@ export default function Payments() {
                 size={historyPageSize}
                 totalPages={pendingTotalPages}
                 onChangePage={setHistoryPendingPage}
-                onRowClick={handleHistoryRowClick}
+                onRowClick={(row) => handleHistoryRowClick(row, "pending")}
                 activeId={activeHistoryId}
                 variant="pending"
                 onResendClick={handleHistoryResend}
@@ -1033,7 +1095,7 @@ export default function Payments() {
                 size={historyPageSize}
                 totalPages={completedTotalPages}
                 onChangePage={setHistoryCompletedPage}
-                onRowClick={handleHistoryRowClick}
+                onRowClick={(row) => handleHistoryRowClick(row, "completed")}
                 activeId={activeHistoryId}
                 variant="completed"
                 emptyMessage={completedPlaceholderMessage}
@@ -1109,6 +1171,36 @@ export default function Payments() {
             카카오톡 재발송
           </PrimaryButton>
         </ModalActions>
+      </Modal>
+
+      <Modal
+        open={deletePrompt.open}
+        onClose={handleCloseDeletePrompt}
+        title="청구서 삭제"
+        maxWidth={420}
+      >
+        {deletePrompt.row ? (
+          <>
+            <ConfirmIntro>
+              <p>
+                <strong>{deletePrompt.row.student.name}</strong> 학생의 청구서를 삭제합니다.
+              </p>
+              <p>삭제된 청구서는 복구할 수 없으며, 이미 발송된 청구서는 삭제할 수 없습니다.</p>
+            </ConfirmIntro>
+            <ModalActions>
+              <GhostButton type="button" onClick={handleCloseDeletePrompt} disabled={deleteInProgress}>
+                취소
+              </GhostButton>
+              <PrimaryButton
+                type="button"
+                onClick={handleConfirmDeleteInvoice}
+                disabled={deleteInProgress}
+              >
+                {deleteInProgress ? "삭제 중..." : "삭제"}
+              </PrimaryButton>
+            </ModalActions>
+          </>
+        ) : null}
       </Modal>
 
       <OnsiteCandidateModal
@@ -1207,6 +1299,8 @@ function InvoicesTable(props: {
   selected: number[];
   onToggleSelect: (id: number) => void;
   onRowClick: (row: PaymentHistoryRow) => void;
+  onDelete?: (row: PaymentHistoryRow) => void;
+  deletingId?: number | null;
 }) {
   const {
     rows,
@@ -1219,6 +1313,8 @@ function InvoicesTable(props: {
     selected,
     onToggleSelect,
     onRowClick,
+    onDelete,
+    deletingId,
   } = props;
   const renderDueDate = (value?: string | null) => {
     if (!value) return "-";
@@ -1236,6 +1332,7 @@ function InvoicesTable(props: {
           <col style={{ width: "10%" }} />
           <col style={{ width: "15%" }} />
           <col style={{ width: "15%" }} />
+          <col style={{ width: "90px" }} />
 
         </colgroup>
         <thead>
@@ -1247,6 +1344,7 @@ function InvoicesTable(props: {
             <th>상태</th>
             <th>총 결제금액</th>
             <th>결제 예정일</th>
+            <th>관리</th>
           </tr>
         </thead>
         <tbody>
@@ -1265,6 +1363,11 @@ function InvoicesTable(props: {
           ) : (
             rows.map((row, index) => {
               const courseInfo = buildCourseDisplay(row);
+              const canDelete =
+                Boolean(onDelete) &&
+                !row.invoiceRequestedAt &&
+                (row.status === "UNPAID" || row.status === "SCHEDULED");
+              const deleteInProgress = deletingId != null && deletingId === row.id;
               return (
                 <tr key={row.id} onClick={() => onRowClick(row)}>
                 <td onClick={(event) => event.stopPropagation()}>
@@ -1294,6 +1397,22 @@ function InvoicesTable(props: {
                 </td>
                 <td>{formatMoney(row.finalAmount)}</td>
                 <td>{renderDueDate(row.dueDate)}</td>
+                <td>
+                  {canDelete ? (
+                    <DeleteButton
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onDelete?.(row);
+                      }}
+                      disabled={deleteInProgress}
+                    >
+                      {deleteInProgress ? "삭제 중..." : "삭제"}
+                    </DeleteButton>
+                  ) : (
+                    <MetaText>-</MetaText>
+                  )}
+                </td>
               </tr>
               );
             })
@@ -1526,6 +1645,7 @@ function DetailModal({
   const isOpen = state.open;
   const detail = state.open ? state.data : null;
   const variant = state.open ? state.variant : "invoice";
+  const context = state.open ? state.context : undefined;
   const [form, setForm] = useState<PaymentInvoiceUpdatePayload>({
     dueDate: "",
     amount: undefined,
@@ -1536,6 +1656,7 @@ function DetailModal({
     cycleValue: undefined,
     cycleUnit: undefined,
     additionalItems: [],
+    recipientPhone: undefined,
   });
   const [isEditing, setIsEditing] = useState(false);
   const [isEditingSenderPhone, setIsEditingSenderPhone] = useState(false);
@@ -1624,6 +1745,19 @@ const handleAdditionalEndChange = (value: string) => {
 useEffect(() => {
   if (!detail) return;
   if (variant === "invoice") {
+    const resolveInitialRecipient = () => {
+      if (!detail) return undefined;
+      const guardianDigits = normalizePhoneDigits(detail.student.guardianPhone ?? undefined);
+      if (context === "pending") {
+        return guardianDigits ?? normalizePhoneDigits(detail.student.recipientPhone ?? undefined) ??
+          normalizePhoneDigits(detail.info.recipientPhone ?? undefined) ??
+          undefined;
+      }
+      return normalizePhoneDigits(detail.info.recipientPhone ?? undefined) ??
+        normalizePhoneDigits(detail.student.recipientPhone ?? undefined) ??
+        guardianDigits ??
+        undefined;
+    };
     setForm({
       dueDate: detail.info.dueDate ?? "",
       amount: detail.info.originalAmount ?? undefined,
@@ -1642,6 +1776,7 @@ useEffect(() => {
         appliedStart: item?.appliedStart ?? undefined,
         appliedEnd: item?.appliedEnd ?? undefined,
       })) ?? [],
+      recipientPhone: resolveInitialRecipient(),
     });
     setDiscountEnabled(Boolean(detail.info.discountType));
   }
@@ -1678,10 +1813,11 @@ useEffect(() => {
       additionalItems: buildAdditionalItemsPayload(mappedFields),
     }));
   }
-}, [detail, variant, buildAdditionalItemsPayload]);
+}, [detail, variant, context, buildAdditionalItemsPayload]);
 
   useEffect(() => {
     setIsEditing(false);
+    setIsEditingSenderPhone(false);
   }, [detail?.info.id, variant]);
 
   useEffect(() => {
@@ -1697,7 +1833,8 @@ useEffect(() => {
   }, [isEditing]);
 
   useEffect(() => {
-    if (!isEditing) {
+    const editingActive = isEditing || isEditingSenderPhone;
+    if (!editingActive) {
       saveInFlight.current = false;
       return;
     }
@@ -1708,8 +1845,9 @@ useEffect(() => {
     if (!saving && saveInFlight.current) {
       saveInFlight.current = false;
       setIsEditing(false);
+      setIsEditingSenderPhone(false);
     }
-  }, [saving, isEditing]);
+  }, [saving, isEditing, isEditingSenderPhone]);
 
   if (!isOpen) return null;
 
@@ -1759,7 +1897,13 @@ useEffect(() => {
         showSeconds: true,
       })
     : null;
-  const modalClosable = !isInvoiceVariant || !isEditing;
+  const editingActive = isEditing || isEditingSenderPhone;
+  const modalClosable = !editingActive;
+  const isFinalizedStatus =
+    detail?.info.status === "COMPLETED" || detail?.info.status === "CANCELED";
+  const canEditSenderPhone =
+    !isFinalizedStatus &&
+    ((isInvoiceVariant && !isSentInvoice) || context === "pending");
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -1768,10 +1912,10 @@ useEffect(() => {
   };
 
   return (
-    <Modal
-      open={isOpen}
-      onClose={modalClosable ? onClose : undefined}
-      blockOutsideClose={isInvoiceVariant && isEditing}
+      <Modal
+        open={isOpen}
+        onClose={modalClosable ? onClose : undefined}
+        blockOutsideClose={editingActive}
       title={isInvoiceVariant ? "청구서 상세" : "결제 상세"}
       maxWidth={720}
     >
@@ -1782,77 +1926,81 @@ useEffect(() => {
         <DetailLayout>
           <DetailColumn>
             <SectionTitle>학생 정보</SectionTitle>
-            {isInvoiceVariant ? (
-              <StudentInfoCard>
-                <div className="row">
-                  <div className="label">학생 이름</div>
-                  <div className="value">{detail.student.name}</div>
-                </div>
-                <div className="row">
-                  <div className="label">수강 수업</div>
-                  <div className="value">
-                    {courseRows.map((c) => c.title).join(", ") || "-"}
+            {(() => {
+              const guardianPhoneRaw = detail.student.guardianPhone ?? "";
+              const fallbackRecipientPhone =
+                context === "pending"
+                  ? guardianPhoneRaw ||
+                    detail.student.recipientPhone ||
+                    detail.info.recipientPhone ||
+                    ""
+                  : detail.info.recipientPhone ??
+                    detail.student.recipientPhone ??
+                    guardianPhoneRaw ??
+                    "";
+              const editingValueRaw =
+                form.recipientPhone === null ? "" : form.recipientPhone ?? fallbackRecipientPhone;
+              const displayRecipientPhone = formatPhoneKR(
+                form.recipientPhone === null ? fallbackRecipientPhone : editingValueRaw,
+              );
+              const inputRecipientValue = formatPhoneKR(editingValueRaw);
+              return (
+                <StudentInfoCard>
+                  <div className="row">
+                    <div className="label">학생 이름</div>
+                    <div className="value">{detail.student.name}</div>
                   </div>
-                </div>
-                <div className="row">
-                  <div className="label">발신 번호</div>
-                  <div className="input-wrap">
-                    {isEditingSenderPhone ? (
-                      <Input
-                        autoFocus
-                        value={formatPhoneKR(detail.student.recipientPhone ?? "")}
-                        placeholder="예: 010-1234-5678"
-                        onChange={() => {
-                          // Note: This only updates local state for display if we had a setter for detail
-                        }}
-                        onBlur={() => setIsEditingSenderPhone(false)}
-                        style={{ textAlign: "right", padding: "6px 10px" }}
-                      />
-                    ) : (
-                      <>
-                        <EditButton type="button" onClick={() => setIsEditingSenderPhone(true)}>
-                          수정하기
-                        </EditButton>
-                        <div className="value" style={{ fontWeight: 700 }}>
-                          {formatPhoneKR(detail.student.recipientPhone) || "-"}
-                        </div>
-                      </>
-                    )}
+                  <div className="row">
+                    <div className="label">학생 코드</div>
+                    <div className="value">{detail.student.code ?? "-"}</div>
                   </div>
-                </div>
-              </StudentInfoCard>
-            ) : (
-              <InfoCard>
-                <InfoRow>
-                  <span>이름</span>
-                  <strong>{detail.student.name}</strong>
-                </InfoRow>
-                <InfoRow>
-                  <span>코드</span>
-                  <strong>{detail.student.code ?? "-"}</strong>
-                </InfoRow>
-                <InfoRow>
-                  <span>등록일</span>
-                  <strong>
-                    {detail.student.joinedDate
-                      ? formatKoreanDate(detail.student.joinedDate, { includeWeekday: false })
-                      : "-"}
-                  </strong>
-                </InfoRow>
-                <InfoRow>
-                  <span>연락처</span>
-                  <strong>{detail.student.phoneNumber ?? "-"}</strong>
-                </InfoRow>
-                <InfoRow>
-                  <span>학부모 연락처</span>
-                  <strong>{detail.student.guardianPhone ?? "-"}</strong>
-                </InfoRow>
-                <InfoRow>
-                  <span>발송 번호</span>
-                  <strong>{detail.student.recipientPhone ?? "-"}</strong>
-                </InfoRow>
-              </InfoCard>
-            )}
+                  <div className="row">
+                    <div className="label">수강 수업</div>
+                    <div className="value">
+                      {courseRows.map((c) => c.title).join(", ") || "-"}
+                    </div>
+                  </div>
+                  <div className="row">
+                    <div className="label">발신 번호</div>
+                    <div className="input-wrap">
+                      {isEditingSenderPhone && canEditSenderPhone ? (
+                        <Input
+                          autoFocus
+                          value={inputRecipientValue}
+                          placeholder="예: 010-1234-5678"
+                          onChange={(event) => {
+                            if (!canEditSenderPhone) return;
+                            const digits = event.target.value.replace(/[^0-9]/g, "");
+                            setForm((prev) => ({
+                              ...prev,
+                              recipientPhone: digits ? digits : null,
+                            }));
+                          }}
+                          style={{ textAlign: "right", padding: "6px 10px" }}
+                        />
+                      ) : (
+                        <>
+                          {canEditSenderPhone ? (
+                            <EditButton
+                              type="button"
+                              onClick={() => {
+                                if (!canEditSenderPhone) return;
+                                setIsEditingSenderPhone(true);
+                              }}
+                            >
+                              수정하기
+                            </EditButton>
+                          ) : null}
+                          <div className="value" style={{ fontWeight: 700 }}>
+                            {displayRecipientPhone || "-"}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </StudentInfoCard>
+              );
+            })()}
             <SectionTitle>수강 과목</SectionTitle>
             <StyledCourseList>
             {courseRows.map((course: PaymentCourseBrief, index: number) => (
@@ -2056,34 +2204,40 @@ useEffect(() => {
                   </ScheduleActions>
                 ) : null}
                 <ModalActions>
-                  {isEditing ? (
+                  {editingActive ? (
                     <>
                       <PrimaryButton type="submit" disabled={saving}>
                         {saving ? "저장 중..." : "저장"}
                       </PrimaryButton>
-                      <GhostButton type="button" onClick={onClose} disabled={isEditing || saving}>
+                      <GhostButton type="button" onClick={onClose} disabled={editingActive || saving}>
                         닫기
                       </GhostButton>
                     </>
-                  ) : isSentInvoice ? (
-                    <GhostButton type="button" onClick={onClose} disabled={saving}>
-                      닫기
-                    </GhostButton>
-                  ) : (
-                    <>
-                      <PrimaryButton
-                        type="button"
-                        onClick={(event) => {
-                          event.preventDefault();
-                          setIsEditing(true);
-                        }}
-                      >
-                        수정
-                      </PrimaryButton>
+                  ) : isInvoiceVariant ? (
+                    isSentInvoice ? (
                       <GhostButton type="button" onClick={onClose} disabled={saving}>
                         닫기
                       </GhostButton>
-                    </>
+                    ) : (
+                      <>
+                        <PrimaryButton
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault();
+                            setIsEditing(true);
+                          }}
+                        >
+                          수정
+                        </PrimaryButton>
+                        <GhostButton type="button" onClick={onClose} disabled={saving}>
+                          닫기
+                        </GhostButton>
+                      </>
+                    )
+                  ) : (
+                    <GhostButton type="button" onClick={onClose} disabled={saving}>
+                      닫기
+                    </GhostButton>
                   )}
                 </ModalActions>
                 </DetailStack>
@@ -3139,6 +3293,24 @@ const SelectButton = styled(PrimaryButton)`
   height: 32px;
   padding: 0 12px;
   font-size: 13px;
+`;
+
+const DeleteButton = styled.button`
+  border: 1px solid #f87171;
+  background: transparent;
+  color: #dc2626;
+  padding: 4px 10px;
+  border-radius: ${(p) => p.theme.radii.sm};
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  &:hover:not(:disabled) {
+    background: rgba(220, 38, 38, 0.08);
+  }
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 `;
 
 const ResendButton = styled(PrimaryButton)`

@@ -4,9 +4,10 @@ import Modal from "@/components/common/Modal";
 import { GhostButton, PrimaryButton, Skeleton } from "@/components/common/UI";
 import { getPaymentDetail } from "@/api/payments";
 import type { PaymentDetail } from "@classon/shared-types";
-import { formatMoney, formatKoreanDate, formatKoreanDateTimeKST } from "@/lib/format";
+import { formatMoney, formatKoreanDateTimeKST } from "@/lib/format";
 import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
+import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
 import {
     resolveCourseRows,
     computeNextDueDateLabel,
@@ -64,6 +65,43 @@ export function PaymentDetailModal({
     }, [open, paymentId, toastError, onClose]);
 
     const canCancel = variant === "history" && detail?.info.status === "COMPLETED" && onCancelPayment;
+    const courseRows = detail ? resolveCourseRows(detail) : [];
+    const courseTitles = courseRows
+        .map((course) => course?.title ?? null)
+        .filter((title): title is string => Boolean(title && title.trim()))
+        .join(", ");
+    const recipientPhoneDisplay = detail
+        ? formatPhoneKR(
+              detail.info.recipientPhone ??
+                  detail.student.recipientPhone ??
+                  detail.student.guardianPhone ??
+                  "",
+          ) || "-"
+        : "-";
+    const additionalSnapshot = detail
+        ? mapAdditionalFieldsFromDetail(detail)
+        : createEmptyAdditionalSnapshot();
+    const additionalTotalAmount =
+        (additionalSnapshot.materialFee ?? 0) + (additionalSnapshot.textbookFee ?? 0);
+    const [additionExpanded, setAdditionExpanded] = useState(false);
+    const [discountExpanded, setDiscountExpanded] = useState(false);
+
+    useEffect(() => {
+        setAdditionExpanded(additionalSnapshot.enabled);
+    }, [detail?.info.id, additionalSnapshot.enabled]);
+
+    const discountAmount = detail
+        ? Math.max(
+              0,
+              (detail.info.originalAmount ?? 0) - (detail.info.finalAmount ?? 0),
+          )
+        : 0;
+    const hasDiscountDetails =
+        Boolean(detail?.info.discountType) || discountAmount > 0;
+
+    useEffect(() => {
+        setDiscountExpanded(hasDiscountDetails);
+    }, [detail?.info.id, hasDiscountDetails]);
 
     if (!open) return null;
 
@@ -77,30 +115,26 @@ export function PaymentDetailModal({
                         <SectionHeading>학생 정보</SectionHeading>
                         <InfoCard>
                             <InfoRow>
-                                <span>이름</span>
+                                <span>학생 이름</span>
                                 <strong>{detail.student.name}</strong>
                             </InfoRow>
                             <InfoRow>
-                                <span>코드</span>
+                                <span>학생 코드</span>
                                 <strong>{detail.student.code ?? "-"}</strong>
                             </InfoRow>
                             <InfoRow>
-                                <span>등록일</span>
-                                <strong>
-                                    {detail.student.joinedDate
-                                        ? formatKoreanDate(detail.student.joinedDate, { includeWeekday: false })
-                                        : "-"}
-                                </strong>
+                                <span>수강 수업</span>
+                                <strong>{courseTitles || "-"}</strong>
                             </InfoRow>
                             <InfoRow>
-                                <span>연락처</span>
-                                <strong>{detail.student.phoneNumber ?? "-"}</strong>
+                                <span>발신 번호</span>
+                                <strong>{recipientPhoneDisplay}</strong>
                             </InfoRow>
                         </InfoCard>
 
                         <SectionHeading>수강 과목</SectionHeading>
                         <CourseList>
-                            {resolveCourseRows(detail).map((course, index) => (
+                            {courseRows.map((course, index) => (
                                 <li key={`${course?.id ?? "course"}-${index}`}>
                                     <div className="info">
                                         <strong>{course?.title ?? "-"}</strong>
@@ -189,6 +223,80 @@ export function PaymentDetailModal({
                                 </li>
                             </DetailInfoRows>
                         </DetailInfoCard>
+
+                        {hasDiscountDetails ? (
+                            <CollapsibleCard>
+                                <CollapsibleHeader
+                                    type="button"
+                                    onClick={() => setDiscountExpanded((prev) => !prev)}
+                                >
+                                    <span>할인 설정</span>
+                                    <CaretIcon $open={discountExpanded} />
+                                </CollapsibleHeader>
+                                {discountExpanded ? (
+                                    <CollapsibleBody>
+                                        <DetailList>
+                                            <li>
+                                                <span>유형</span>
+                                                <strong>
+                                                    {detail.info.discountType === "PERCENT"
+                                                        ? "비율 할인"
+                                                        : "금액 할인"}
+                                                </strong>
+                                            </li>
+                                            <li>
+                                                <span>할인 값</span>
+                                                <strong>
+                                                    {detail.info.discountType === "PERCENT"
+                                                        ? `${detail.info.discountValue ?? 0}%`
+                                                        : formatMoney(
+                                                              Number(detail.info.discountValue ?? 0),
+                                                          )}
+                                                </strong>
+                                            </li>
+                                            <li>
+                                                <span>적용된 할인 금액</span>
+                                                <strong>{discountAmount ? formatMoney(discountAmount) : "—"}</strong>
+                                            </li>
+                                        </DetailList>
+                                    </CollapsibleBody>
+                                ) : null}
+                            </CollapsibleCard>
+                        ) : null}
+
+                        <CollapsibleCard>
+                            <CollapsibleHeader
+                                type="button"
+                                onClick={() => setAdditionExpanded((prev) => !prev)}
+                            >
+                                <span>추가 금액 설정</span>
+                                <CaretIcon $open={additionExpanded} />
+                            </CollapsibleHeader>
+                            {additionExpanded ? (
+                                <CollapsibleBody>
+                                    <AdditionalChargeFields
+                                        enabled={additionalSnapshot.enabled}
+                                        materialFee={additionalSnapshot.materialFee}
+                                        textbookFee={additionalSnapshot.textbookFee}
+                                        startDate={additionalSnapshot.startDate}
+                                        endDate={additionalSnapshot.endDate}
+                                        onToggleEnabled={() => {}}
+                                        onChangeMaterialFee={() => {}}
+                                        onChangeTextbookFee={() => {}}
+                                        onChangeStartDate={() => {}}
+                                        onChangeEndDate={() => {}}
+                                        disabled
+                                        showTitle={false}
+                                    />
+                                    {additionalSnapshot.enabled ? (
+                                        <AdditionalFooter>
+                                            <span>추가 금액 합계</span>
+                                            <strong>{formatMoney(additionalTotalAmount)}</strong>
+                                        </AdditionalFooter>
+                                    ) : null}
+                                </CollapsibleBody>
+                            ) : null}
+                        </CollapsibleCard>
 
                         <SectionHeading>메모</SectionHeading>
                         <Paragraph>
@@ -325,6 +433,25 @@ const DetailInfoRows = styled.ul`
     }
 `;
 
+const DetailList = styled.ul`
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+    li {
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+    }
+    span {
+        color: ${(p) => p.theme.colors.textMuted};
+    }
+    strong {
+        color: ${(p) => p.theme.colors.text};
+    }
+`;
+
 const Paragraph = styled.p`
     border: 1px solid ${(p) => p.theme.colors.border};
     border-radius: ${(p) => p.theme.radii.md};
@@ -338,8 +465,114 @@ const Paragraph = styled.p`
     margin: 0;
 `;
 
+const AdditionalFooter = styled.div`
+    margin-top: 8px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
+`;
+
 const ModalActions = styled.div`
     display: flex;
     gap: 8px;
     justify-content: flex-end;
 `;
+
+const CollapsibleCard = styled.div`
+    border: 1px solid ${(p) => p.theme.colors.border};
+    border-radius: ${(p) => p.theme.radii.md};
+    margin-bottom: 12px;
+    overflow: hidden;
+`;
+
+const CollapsibleHeader = styled.button<{ type?: string }>`
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+    background: ${(p) => p.theme.colors.surface};
+    border: none;
+    font-size: 14px;
+    font-weight: 600;
+    color: ${(p) => p.theme.colors.text};
+    cursor: pointer;
+`;
+
+const CollapsibleBody = styled.div`
+    border-top: 1px solid ${(p) => p.theme.colors.borderMuted};
+    padding: 12px 16px;
+    background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
+`;
+
+const CaretIcon = styled.span<{ $open: boolean }>`
+    border: solid currentColor;
+    border-width: 0 2px 2px 0;
+    display: inline-block;
+    padding: 4px;
+    transform: rotate(${(p) => (p.$open ? "45deg" : "-45deg")});
+    transition: transform 120ms ease;
+`;
+
+type AdditionalSnapshot = {
+    enabled: boolean;
+    materialFee?: number;
+    textbookFee?: number;
+    startDate?: string;
+    endDate?: string;
+};
+
+function createEmptyAdditionalSnapshot(): AdditionalSnapshot {
+    return {
+        enabled: false,
+        materialFee: undefined,
+        textbookFee: undefined,
+        startDate: undefined,
+        endDate: undefined,
+    };
+}
+
+function mapAdditionalFieldsFromDetail(detail: PaymentDetail): AdditionalSnapshot {
+    const materialItem = detail.additionalItems?.find((item) => item?.type === "MATERIAL");
+    const textbookItem = detail.additionalItems?.find((item) => item?.type === "TEXTBOOK");
+    const materialFeeValue =
+        typeof materialItem?.unitPrice === "number" ? materialItem.unitPrice : undefined;
+    const textbookFeeValue =
+        typeof textbookItem?.unitPrice === "number" ? textbookItem.unitPrice : undefined;
+    const startDateValue =
+        materialItem?.appliedStart ??
+        textbookItem?.appliedStart ??
+        detail.info.dueDate ??
+        "";
+    const endDateValue =
+        materialItem?.appliedEnd ??
+        textbookItem?.appliedEnd ??
+        detail.info.dueDate ??
+        "";
+    const enabled = Boolean(
+        (materialFeeValue && materialFeeValue > 0) || (textbookFeeValue && textbookFeeValue > 0),
+    );
+    return {
+        enabled,
+        materialFee: materialFeeValue,
+        textbookFee: textbookFeeValue,
+        startDate: startDateValue || undefined,
+        endDate: endDateValue || undefined,
+    };
+}
+
+function formatPhoneKR(raw?: string | null): string {
+    if (!raw) return "";
+    const digits = raw.replace(/[^0-9]/g, "");
+    if (!digits) return "";
+    if (digits.length === 11 && digits.startsWith("010")) {
+        return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+    }
+    if (digits.length === 10 && digits.startsWith("010")) {
+        return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    }
+    return digits;
+}

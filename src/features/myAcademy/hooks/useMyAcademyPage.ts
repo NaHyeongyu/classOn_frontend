@@ -318,6 +318,30 @@ function buildSellerMetadata(academy: AcademyDetail | null, user: AuthUser | nul
 
 const PENDING_SELLER_STORAGE_KEY = "seller-registration-pending";
 
+function buildPendingSellerStorageKey(
+  academyId: number | null,
+  userId: string | number | null,
+): string | null {
+  if (academyId != null) {
+    return `${PENDING_SELLER_STORAGE_KEY}:academy-${academyId}`;
+  }
+  if (userId != null) {
+    return `${PENDING_SELLER_STORAGE_KEY}:user-${userId}`;
+  }
+  return null;
+}
+
+function readPendingSellerInfoFromStorage(key: string | null): PendingSellerInfo | null {
+  if (!key || typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as PendingSellerInfo;
+  } catch {
+    return null;
+  }
+}
+
 function createSellerForm(
   academy: AcademyDetail | null,
   seller: SellerDetail | null,
@@ -391,6 +415,19 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const [subscriptionLoading, setSubscriptionLoading] = useState(true);
   const [academyModalError, setAcademyModalError] = useState<string | null>(null);
   const [academyModalSubmitting, setAcademyModalSubmitting] = useState(false);
+  const stableUserKey = useMemo(() => {
+    if (user?.id != null) {
+      return user.id;
+    }
+    if (user?.username) {
+      return user.username;
+    }
+    return null;
+  }, [user?.id, user?.username]);
+  const pendingSellerStorageKey = useMemo(
+    () => buildPendingSellerStorageKey(academy?.id ?? null, stableUserKey),
+    [academy?.id, stableUserKey],
+  );
   const queryClient = useQueryClient();
   const sellerQueryKey = useMemo(() => ["seller"] as const, []);
   const sellerQuery = useQuery<SellerDetail | null>({
@@ -415,16 +452,9 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   const [sellerModalSubmitting, setSellerModalSubmitting] = useState(false);
   const [sellerModalError, setSellerModalError] = useState<string | null>(null);
   const [sellerSyncing, setSellerSyncing] = useState(false);
-  const [pendingSellerInfo, setPendingSellerInfo] = useState<PendingSellerInfo | null>(() => {
-    if (typeof window === "undefined") return null;
-    try {
-      const raw = window.localStorage.getItem(PENDING_SELLER_STORAGE_KEY);
-      if (!raw) return null;
-      return JSON.parse(raw) as PendingSellerInfo;
-    } catch {
-      return null;
-    }
-  });
+  const [pendingSellerInfo, setPendingSellerInfo] = useState<PendingSellerInfo | null>(() =>
+    readPendingSellerInfoFromStorage(pendingSellerStorageKey),
+  );
   const [teacherList, setTeacherList] = useState<TeacherListItem[]>([]);
   const [teachersLoading, setTeachersLoading] = useState(true);
   const [teachersError, setTeachersError] = useState<string | null>(null);
@@ -457,6 +487,28 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     setName(user?.name ?? "");
     setPhone(user?.phone ?? "");
   }, [user?.name, user?.phone]);
+
+  useEffect(() => {
+    if (!pendingSellerStorageKey) {
+      setPendingSellerInfo(null);
+      return;
+    }
+    const stored = readPendingSellerInfoFromStorage(pendingSellerStorageKey);
+    setPendingSellerInfo((prev) => {
+      if (
+        prev?.email === stored?.email &&
+        prev?.tossSellerId === stored?.tossSellerId
+      ) {
+        return prev;
+      }
+      return stored;
+    });
+  }, [pendingSellerStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.removeItem(PENDING_SELLER_STORAGE_KEY);
+  }, []);
 
   const loadTeachers = useCallback(async () => {
     setTeachersLoading(true);
@@ -1101,15 +1153,19 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     if (typeof window === "undefined") {
       return;
     }
+    if (!pendingSellerStorageKey) {
+      window.localStorage.removeItem(PENDING_SELLER_STORAGE_KEY);
+      return;
+    }
     if (pendingSellerInfo) {
       window.localStorage.setItem(
-        PENDING_SELLER_STORAGE_KEY,
+        pendingSellerStorageKey,
         JSON.stringify(pendingSellerInfo),
       );
     } else {
-      window.localStorage.removeItem(PENDING_SELLER_STORAGE_KEY);
+      window.localStorage.removeItem(pendingSellerStorageKey);
     }
-  }, [pendingSellerInfo]);
+  }, [pendingSellerInfo, pendingSellerStorageKey]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;

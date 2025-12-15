@@ -14,6 +14,7 @@ import {
   apiGetMyAcademy,
   apiGetMySeller,
   apiGetSellerStatus,
+  apiSyncSeller,
   apiRequestSellerRegistration,
   apiUpdateMyAcademy,
   apiUpdateMyProfile,
@@ -181,6 +182,9 @@ type SellerViewState = {
   canRegister: boolean;
   canEdit: boolean;
   showPendingBadge: boolean;
+  verificationPending: boolean;
+  syncing: boolean;
+  syncStatus: () => Promise<void>;
   buttonText: string;
   modalMode: "create" | "edit";
   onOpenRegister: () => void;
@@ -410,6 +414,7 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   );
   const [sellerModalSubmitting, setSellerModalSubmitting] = useState(false);
   const [sellerModalError, setSellerModalError] = useState<string | null>(null);
+  const [sellerSyncing, setSellerSyncing] = useState(false);
   const [pendingSellerInfo, setPendingSellerInfo] = useState<PendingSellerInfo | null>(() => {
     if (typeof window === "undefined") return null;
     try {
@@ -1072,22 +1077,16 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
           tossSellerId: response.tossSellerId ?? null,
         });
         toast.show("토스 이메일 인증을 완료해 주세요.");
+        queryClient.invalidateQueries({ queryKey: sellerQueryKey }).catch((): void => undefined);
         closeSellerModal();
       } catch (err) {
-        setSellerModalError(toErrorMessage(err, "셀러 등록 요청에 실패했습니다."));
+        setSellerModalError(toErrorMessage(err, "정산 계좌 등록 요청에 실패했습니다."));
       } finally {
         setSellerModalSubmitting(false);
       }
     },
-    [academy, closeSellerModal, seller, sellerModalForm, toast, user],
+    [academy, closeSellerModal, queryClient, seller, sellerModalForm, sellerQueryKey, toast, user],
   );
-
-  useEffect(() => {
-    if (!pendingSellerInfo) return;
-    if (seller?.tossSellerId) {
-      setPendingSellerInfo(null);
-    }
-  }, [pendingSellerInfo, seller?.tossSellerId]);
 
   useEffect(() => {
     if (!pendingSellerInfo) {
@@ -1113,9 +1112,18 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   }, [pendingSellerInfo]);
 
   useEffect(() => {
-    if (!pendingSellerInfo || seller?.tossSellerId || typeof window === "undefined") {
+    if (typeof window === "undefined") return;
+    if (!seller?.tossSellerId) return;
+
+    const status = (seller?.status ?? "").toUpperCase();
+    const pending = status === "PENDING" || status === "APPROVAL_REQUIRED";
+    if (!pending) {
+      if (status === "APPROVED" || status === "REJECTED" || status === "SUSPENDED") {
+        setPendingSellerInfo(null);
+      }
       return;
     }
+
     let alive = true;
     let timeoutId: number | null = null;
     let totalElapsed = 0;
@@ -1134,14 +1142,19 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
     const pollStatus = async () => {
       if (!alive) return;
       try {
-        const result = await apiGetSellerStatus();
+        // In local/dev, webhook may not arrive. Sync via Toss API.
+        const updated = await apiSyncSeller();
         if (!alive) return;
-        if (result.tossSellerId) {
+        queryClient.setQueryData(sellerQueryKey, updated);
+        const nextStatus = (updated.status ?? "").toUpperCase();
+        if (nextStatus === "APPROVED") {
           setPendingSellerInfo(null);
-          queryClient.invalidateQueries({ queryKey: sellerQueryKey }).catch((): void => undefined);
-          if ((result.status ?? "").toUpperCase() === "APPROVED") {
-            toast.success("셀러 등록이 완료되었습니다.");
-          }
+          toast.success("정산 계좌 등록이 완료되었습니다.");
+          return;
+        }
+        if (nextStatus === "REJECTED" || nextStatus === "SUSPENDED") {
+          setPendingSellerInfo(null);
+          toast.warning("정산 계좌 인증이 완료되지 않았습니다. 상태를 확인해 주세요.");
           return;
         }
       } catch {
@@ -1163,7 +1176,45 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
         window.clearTimeout(timeoutId);
       }
     };
-  }, [pendingSellerInfo, queryClient, seller?.tossSellerId, sellerQueryKey, toast]);
+  }, [queryClient, seller?.status, seller?.tossSellerId, sellerQueryKey, toast]);
+
+  const syncSellerStatus = useCallback(async () => {
+    if (sellerSyncing) return;
+    setSellerSyncing(true);
+    try {
+      if (!seller?.tossSellerId) {
+        // Seller registration request may be pending before seller query reflects tossSellerId.
+        try {
+          const status = await apiGetSellerStatus();
+          const tossSellerId = status.tossSellerId ?? null;
+          if (tossSellerId) {
+            queryClient.invalidateQueries({ queryKey: sellerQueryKey }).catch((): void => undefined);
+          } else {
+            toast.show("토스 셀러 ID 발급 대기 중입니다. 잠시 후 다시 시도해 주세요.");
+            return;
+          }
+        } catch {
+          toast.warning("정산 계좌 상태를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+          return;
+        }
+      }
+      const updated = await apiSyncSeller();
+      queryClient.setQueryData(sellerQueryKey, updated);
+      const status = (updated.status ?? "").toUpperCase();
+      if (status === "APPROVED") {
+        setPendingSellerInfo(null);
+        toast.success("정산 계좌 등록이 완료되었습니다.");
+      } else if (status === "REJECTED" || status === "SUSPENDED") {
+        toast.warning("정산 계좌 인증 상태를 확인해 주세요.");
+      } else {
+        toast.show("아직 인증 대기 상태입니다.");
+      }
+    } catch {
+      toast.error("동기화에 실패했습니다.");
+    } finally {
+      setSellerSyncing(false);
+    }
+  }, [queryClient, seller?.tossSellerId, sellerQueryKey, sellerSyncing, toast]);
 
   const submitAcademyModal = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -1265,22 +1316,32 @@ export function useMyAcademyPage(): UseMyAcademyPageResult {
   };
 
   const hasSeller = Boolean(seller?.tossSellerId);
+  const normalizedSellerStatus = (seller?.status ?? "").toUpperCase();
   const isPendingStatus =
-    seller?.status === "PENDING" || seller?.status === "APPROVAL_REQUIRED";
+    normalizedSellerStatus === "PENDING" || normalizedSellerStatus === "APPROVAL_REQUIRED";
   const awaitingVerification = Boolean(pendingSellerInfo && !hasSeller);
+  const verificationPending = Boolean(pendingSellerInfo) || isPendingStatus;
+  const derivedEmail =
+    seller?.businessType === "INDIVIDUAL"
+      ? seller?.individual?.email
+      : seller?.company?.email;
   const sellerView: SellerViewState = {
     loading: sellerLoading,
     data: seller,
     status: seller?.status ?? null,
     canRegister: Boolean(academy?.id) && !hasSeller && !awaitingVerification,
     canEdit: hasSeller,
-    showPendingBadge: isPendingStatus || awaitingVerification,
-    buttonText: hasSeller ? "셀러 정보 수정" : "셀러 등록",
+    showPendingBadge: verificationPending,
+    verificationPending,
+    syncing: sellerSyncing,
+    syncStatus: syncSellerStatus,
+    buttonText: hasSeller ? "정산 계좌 정보 수정" : "정산 계좌 등록",
     modalMode: hasSeller ? "edit" : "create",
     onOpenRegister: openSellerModal,
     awaitingVerification,
-    pendingEmail: awaitingVerification ? pendingSellerInfo?.email ?? null : null,
-    pendingTossSellerId: awaitingVerification ? pendingSellerInfo?.tossSellerId ?? null : null,
+    pendingEmail: verificationPending ? derivedEmail ?? pendingSellerInfo?.email ?? null : null,
+    pendingTossSellerId:
+      verificationPending ? seller?.tossSellerId ?? pendingSellerInfo?.tossSellerId ?? null : null,
   };
 
   const profileModal: ProfileModalState = {

@@ -46,6 +46,7 @@ import { routes, paths } from "@/routes";
 import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
 import { DiscountFields } from "@/components/payments/DiscountFields";
 import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
+import { PgFeeGuideModal } from "@/components/payments/PgFeeGuideModal";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 import Pagination from "@/components/common/Pagination";
 
@@ -657,6 +658,8 @@ export default function Payments() {
         ? "발송된 청구서 중 결제가 완료되지 않은 내역입니다."
         : "완료·취소된 결제 내역을 확인하세요.";
 
+  const [pgFeeGuideOpen, setPgFeeGuideOpen] = useState(false);
+
   if (!paymentEnabled) {
     return (
       <Page>
@@ -664,6 +667,11 @@ export default function Payments() {
           <div>
             <h2>결제 관리</h2>
             <p>현재 요금제로 이용할 수 없습니다.</p>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <GhostButton type="button" onClick={() => setPgFeeGuideOpen(true)}>
+              PG 수수료 안내
+            </GhostButton>
           </div>
         </PageHeader>
         <SectionCard>
@@ -674,6 +682,7 @@ export default function Payments() {
             </PrimaryButton>
           </EmptyState>
         </SectionCard>
+        <PgFeeGuideModal open={pgFeeGuideOpen} onClose={() => setPgFeeGuideOpen(false)} />
       </Page>
     );
   }
@@ -684,6 +693,11 @@ export default function Payments() {
         <div>
           <h2>결제 관리</h2>
           <p>학원의 결제 업무를 한눈에 관리하세요.</p>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+          <GhostButton type="button" onClick={() => setPgFeeGuideOpen(true)}>
+            PG 수수료 안내
+          </GhostButton>
         </div>
       </PageHeader>
 
@@ -961,6 +975,8 @@ export default function Payments() {
           )}
         </SectionCard>
       </Panels>
+
+      <PgFeeGuideModal open={pgFeeGuideOpen} onClose={() => setPgFeeGuideOpen(false)} />
 
       <DetailModal
         state={detailState}

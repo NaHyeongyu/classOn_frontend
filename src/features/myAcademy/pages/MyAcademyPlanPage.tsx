@@ -1,7 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { apiGetSubscription, apiUpsertSubscription, apiGetTossClientKey, type SubscriptionDto } from "@/api/billing";
-import { apiGetMyAcademy, apiGetPlanUsage, type PlanUsage } from "@/api/account";
+import {
+  apiGetMyAcademy,
+  apiGetMySeller,
+  apiGetPlanUsage,
+  apiRequestSellerRegistration,
+  apiSyncSeller,
+  apiUpdateSeller,
+  type AcademyDetail,
+  type PlanUsage,
+  type SellerDetail,
+} from "@/api/account";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/components/common/Toast";
 import { routes } from "@/routes";
@@ -28,6 +38,8 @@ import styled from "styled-components";
 import { useAuth } from "@/hooks/useAuth";
 import { loadTossPayments } from "@/lib/tossPayments";
 import { PrimaryButton, GhostButton } from "@/components/common/UI";
+import { MyAcademySellerModal } from "@/components/myAcademy/MyAcademySellerModal";
+import type { SellerModalState } from "@/features/myAcademy/hooks/useMyAcademyPage";
 
 type BillingPlanConfig = {
   id: string;
@@ -191,6 +203,39 @@ function getPlanById(id: string | null | undefined): BillingPlanConfig | null {
   return PLANS.find((p) => p.id === id) ?? null;
 }
 
+function buildRefSellerId(academy: AcademyDetail | null) {
+  const token = Date.now().toString(36).toUpperCase().slice(-8);
+  if (academy?.id) return `SELLER_${academy.id}_${token}`;
+  return `SELLER_TEMP_${token}`;
+}
+
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
+
+function createSellerForm(academy: AcademyDetail | null, seller: SellerDetail | null): SellerModalState["form"] {
+  const company = seller?.company;
+  const account = seller?.account;
+  const individual = seller?.individual;
+  return {
+    businessType: seller?.businessType ?? "INDIVIDUAL_BUSINESS",
+    refSellerId: seller?.refSellerId ?? buildRefSellerId(academy),
+    tossSellerId: seller?.tossSellerId,
+    companyName: company?.name ?? academy?.name ?? "",
+    representativeName: company?.representativeName ?? academy?.representativeName ?? "",
+    businessRegistrationNumber: company?.businessRegistrationNumber ?? academy?.bizNo ?? "",
+    companyEmail: company?.email ?? academy?.billingEmail ?? "",
+    companyPhone: company?.phone ?? academy?.phone ?? "",
+    individualName: individual?.name ?? "",
+    individualEmail: individual?.email ?? "",
+    individualPhone: individual?.phone ?? "",
+    accountBankCode: account?.bankCode ?? "",
+    accountNumber: account?.accountNumber ?? "",
+    accountHolderName: account?.holderName ?? company?.representativeName ?? academy?.representativeName ?? "",
+    metadataJson: seller?.metadataJson,
+  };
+}
+
 const CUSTOMER_KEY_PREFIX = "billing:customerKey:";
 type PlanPageLocationState = { reason?: string } | null;
 function getOrCreateCustomerKey(academyId?: number | null) {
@@ -212,6 +257,10 @@ export default function MyAcademyPlanPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [studentScale, setStudentScale] = useState<StudentScaleOption>("UNDER_50");
   const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
+  const [academy, setAcademy] = useState<AcademyDetail | null>(null);
+  const [seller, setSeller] = useState<SellerDetail | null>(null);
+  const [requireSeller, setRequireSeller] = useState(false);
+  const [sellerSyncing, setSellerSyncing] = useState(false);
   const { success, error } = useToast();
   const { logout } = useAuth();
   const navigate = useNavigate();
@@ -221,14 +270,46 @@ export default function MyAcademyPlanPage() {
   const [academyId, setAcademyId] = useState<number | null>(null);
   const customerKeyRef = useRef<string | null>(null);
 
+  const copyToClipboard = async (label: string, value: string) => {
+    const text = (value ?? "").toString();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      success(`${label}을(를) 복사했습니다.`);
+    } catch {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        success(`${label}을(를) 복사했습니다.`);
+      } catch {
+        error("복사에 실패했습니다. 직접 선택해 복사해 주세요.");
+      }
+    }
+  };
+
+  const [sellerModalOpen, setSellerModalOpen] = useState(false);
+  const [sellerModalSubmitting, setSellerModalSubmitting] = useState(false);
+  const [sellerModalError, setSellerModalError] = useState<string | null>(null);
+  const [sellerModalForm, setSellerModalForm] = useState<SellerModalState["form"]>(() =>
+    createSellerForm(null, null),
+  );
+
   useEffect(() => {
     let alive = true;
     (async () => {
       try {
-        const [academy, usage, sub, ck] = await Promise.all([
+        const [academy, seller, usage, sub, ck] = await Promise.all([
           apiGetMyAcademy().catch(
             (): Awaited<ReturnType<typeof apiGetMyAcademy>> | null => null,
           ),
+          apiGetMySeller().catch((): SellerDetail | null => null),
           apiGetPlanUsage().catch((): PlanUsage | null => null),
           apiGetSubscription().catch(
             (): Awaited<ReturnType<typeof apiGetSubscription>> | null => null,
@@ -239,9 +320,12 @@ export default function MyAcademyPlanPage() {
         ]);
         if (!alive) return;
         setClientKey(ck?.clientKey || null);
+        setRequireSeller(Boolean(ck?.requireSeller));
         if (academy) {
+          setAcademy(academy);
           setAcademyId(academy.id);
         }
+        setSeller(seller);
         if (usage) setPlanUsage(usage);
         if (sub?.id) {
           setSubscription(sub);
@@ -256,6 +340,8 @@ export default function MyAcademyPlanPage() {
       } catch {
         if (!alive) return;
         setClientKey(null);
+        setAcademy(null);
+        setSeller(null);
         setStudentScale("UNDER_50");
         setSelectedPlanId(null);
       } finally {
@@ -287,9 +373,178 @@ export default function MyAcademyPlanPage() {
     [selectedPlanId],
   );
 
+  const selectedPlanNeedsPayments = Boolean(selectedPlan?.paymentIncluded);
+  const sellerStatusUpper = (seller?.status ?? "").toUpperCase();
+  const sellerVerificationPending =
+    selectedPlanNeedsPayments &&
+    requireSeller &&
+    Boolean(seller?.tossSellerId) &&
+    (sellerStatusUpper === "PENDING" || sellerStatusUpper === "APPROVAL_REQUIRED");
+  const sellerApproved = sellerStatusUpper === "APPROVED";
+
+  const syncSellerStatus = async () => {
+    if (sellerSyncing) return;
+    if (!seller?.tossSellerId) {
+      error("토스 셀러 ID가 없어 동기화할 수 없습니다.");
+      return;
+    }
+    setSellerSyncing(true);
+    try {
+      const updated = await apiSyncSeller();
+      setSeller(updated);
+      const status = (updated.status ?? "").toUpperCase();
+      if (status === "APPROVED") {
+        success("정산 계좌 인증이 완료되었습니다.");
+      } else if (status === "REJECTED" || status === "SUSPENDED") {
+        error("정산 계좌 인증이 완료되지 않았습니다. 상태를 확인해 주세요.");
+      } else {
+        success("정산 계좌 인증 상태를 확인했습니다. (인증 대기)");
+      }
+    } catch (err) {
+      error(err instanceof Error ? err.message : "정산 계좌 상태 동기화에 실패했습니다.");
+    } finally {
+      setSellerSyncing(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!sellerVerificationPending) return;
+    let alive = true;
+    let timeoutId: number | null = null;
+    let totalElapsed = 0;
+    const INITIAL_DELAY = 3000;
+    const SLOW_DELAY = 10000;
+    const SLOW_THRESHOLD = 60_000;
+    const STOP_AFTER = 180_000;
+
+    const schedule = (delay: number) => {
+      timeoutId = window.setTimeout(() => {
+        void poll();
+      }, delay);
+    };
+
+    const poll = async () => {
+      if (!alive) return;
+      try {
+        const updated = await apiSyncSeller();
+        if (!alive) return;
+        setSeller(updated);
+        const status = (updated.status ?? "").toUpperCase();
+        if (status === "APPROVED" || status === "REJECTED" || status === "SUSPENDED") {
+          return;
+        }
+      } catch {
+        if (!alive) return;
+      }
+      const delay = totalElapsed >= SLOW_THRESHOLD ? SLOW_DELAY : INITIAL_DELAY;
+      totalElapsed += delay;
+      if (totalElapsed > STOP_AFTER) return;
+      schedule(delay);
+    };
+
+    void poll();
+    return () => {
+      alive = false;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+    };
+  }, [sellerVerificationPending]);
+
+  const sellerModal: SellerModalState = {
+    open: sellerModalOpen,
+    creating: !seller?.tossSellerId,
+    submitting: sellerModalSubmitting,
+    error: sellerModalError,
+    form: sellerModalForm,
+    updateField: (field, value) => {
+      setSellerModalForm((prev) => ({ ...prev, [field]: value }));
+    },
+    closeModal: () => {
+      setSellerModalOpen(false);
+      setSellerModalSubmitting(false);
+      setSellerModalError(null);
+    },
+    submit: async (event) => {
+      event.preventDefault();
+      if (sellerModalSubmitting) return;
+      setSellerModalSubmitting(true);
+      setSellerModalError(null);
+      try {
+        const payload = {
+          refSellerId: sellerModalForm.refSellerId,
+          businessType: sellerModalForm.businessType,
+          companyName: sellerModalForm.companyName.trim() || undefined,
+          representativeName: sellerModalForm.representativeName.trim() || undefined,
+          businessRegistrationNumber: digitsOnly(sellerModalForm.businessRegistrationNumber) || undefined,
+          companyEmail: sellerModalForm.companyEmail.trim() || undefined,
+          companyPhone: digitsOnly(sellerModalForm.companyPhone) || undefined,
+          individualName:
+            sellerModalForm.businessType === "INDIVIDUAL"
+              ? sellerModalForm.individualName.trim() || undefined
+              : undefined,
+          individualEmail:
+            sellerModalForm.businessType === "INDIVIDUAL"
+              ? sellerModalForm.individualEmail.trim() || undefined
+              : undefined,
+          individualPhone:
+            sellerModalForm.businessType === "INDIVIDUAL"
+              ? digitsOnly(sellerModalForm.individualPhone) || undefined
+              : undefined,
+          bankCode: sellerModalForm.accountBankCode,
+          accountNumber: digitsOnly(sellerModalForm.accountNumber),
+          accountHolderName: sellerModalForm.accountHolderName.trim(),
+          metadataJson: sellerModalForm.metadataJson,
+        };
+
+        if (seller?.tossSellerId) {
+          await apiUpdateSeller(payload);
+          success("정산 계좌 정보가 저장되었습니다.");
+        } else {
+          await apiRequestSellerRegistration(payload);
+          success("토스 이메일/문자 인증을 완료해 주세요.");
+        }
+        const refreshed = await apiGetMySeller().catch((): SellerDetail | null => null);
+        setSeller(refreshed);
+        setSellerModalOpen(false);
+      } catch (err) {
+        setSellerModalError(err instanceof Error ? err.message : "정산 계좌 등록에 실패했습니다.");
+      } finally {
+        setSellerModalSubmitting(false);
+      }
+    },
+  };
+
+  const openSettlementRegistration = () => {
+    setSellerModalError(null);
+    setSellerModalForm(createSellerForm(academy, seller));
+    setSellerModalOpen(true);
+  };
+
+  const ensureSettlementAccountBeforeProceed = () => {
+    if (!selectedPlan?.paymentIncluded) return true;
+    if (seller?.tossSellerId) return true;
+    error("Plus 요금제를 이용하려면 정산 계좌 등록이 필요합니다.");
+    openSettlementRegistration();
+    return false;
+  };
+
+  const ensureSellerVerifiedBeforeProceed = () => {
+    if (!selectedPlan?.paymentIncluded) return true;
+    if (!requireSeller) return true;
+    if (!seller?.tossSellerId) return true;
+    if (sellerApproved) return true;
+    error("정산 계좌 인증이 완료되지 않았습니다. 인증 완료 후 다시 시도해 주세요.");
+    return false;
+  };
+
   const handleCardRegister = async () => {
     if (!selectedPlan) {
       error("요금제를 선택해 주세요.");
+      return;
+    }
+    if (!ensureSettlementAccountBeforeProceed()) {
+      return;
+    }
+    if (!ensureSellerVerifiedBeforeProceed()) {
       return;
     }
     if (!clientKey) {
@@ -327,6 +582,12 @@ export default function MyAcademyPlanPage() {
 
   const handleSubmit = async () => {
     if (!selectedPlan) return;
+    if (!ensureSettlementAccountBeforeProceed()) {
+      return;
+    }
+    if (!ensureSellerVerifiedBeforeProceed()) {
+      return;
+    }
     if (billingBlocked) {
       await handleCardRegister();
       return;
@@ -528,6 +789,57 @@ export default function MyAcademyPlanPage() {
                   })
                 )}
               </PlanGrid>
+              {sellerVerificationPending ? (
+                <SellerVerifyNotice>
+                  <div className="head">
+                    <div className="icon" aria-hidden>
+                      ⏳
+                    </div>
+                    <div className="text">
+                      <div className="title">정산 계좌 인증 대기</div>
+                      <div className="desc">
+                        토스페이먼츠 인증을 완료해야 결제 기능을 시작할 수 있습니다.
+                      </div>
+                    </div>
+                    <div className="chip">인증 대기</div>
+                  </div>
+
+                  <ol className="steps" aria-label="인증 진행 순서">
+                    <li>
+                      <b>1</b> 토스에서 발송된 인증을 완료해 주세요.
+                    </li>
+                    <li>
+                      <b>2</b> 인증이 끝나면 “상태 동기화”로 반영해 주세요.
+                    </li>
+                  </ol>
+
+                  <div className="meta">
+                    <div className="metaRow">
+                      <span className="metaLabel">상태</span>
+                      <span className="metaValue">{seller?.status || "PENDING"}</span>
+                    </div>
+                    <div className="metaRow">
+                      <span className="metaLabel">토스 셀러 ID</span>
+                      <span className="metaValue" title={seller?.tossSellerId || undefined}>
+                        {seller?.tossSellerId || "-"}
+                      </span>
+                      <button
+                        type="button"
+                        className="copy"
+                        disabled={!seller?.tossSellerId}
+                        onClick={() => void copyToClipboard("토스 셀러 ID", seller?.tossSellerId || "")}
+                      >
+                        복사
+                      </button>
+                    </div>
+                  </div>
+                  <div className="actions">
+                    <GhostButton type="button" onClick={syncSellerStatus} disabled={sellerSyncing}>
+                      {sellerSyncing ? "동기화 중..." : "상태 동기화"}
+                    </GhostButton>
+                  </div>
+                </SellerVerifyNotice>
+              ) : null}
               <Actions>
                 <GhostButton type="button" onClick={handleCancel} disabled={saving}>
                   취소
@@ -535,7 +847,7 @@ export default function MyAcademyPlanPage() {
                 <PrimaryButton
                   type="button"
                   onClick={handleSubmit}
-                  disabled={saving || !selectedPlan}
+                  disabled={saving || !selectedPlan || sellerVerificationPending}
                 >
                   {saving
                     ? "진행 중..."
@@ -548,6 +860,7 @@ export default function MyAcademyPlanPage() {
           )}
         </PageContainer>
       </PlanCardShell>
+      <MyAcademySellerModal modal={sellerModal} />
     </PageWrapper>
   );
 }
@@ -719,6 +1032,136 @@ const Value = styled.span`
 `;
 
 const PlanCard = styled(RegisterPlanCard)``;
+
+const SellerVerifyNotice = styled.div`
+  margin-top: 14px;
+  border-radius: ${(p) => p.theme.radii.lg};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: ${(p) => p.theme.colors.surfaceAlt};
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+
+  .head {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 10px;
+    align-items: start;
+  }
+
+  .icon {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #eef2ff;
+    color: #3730a3;
+    font-size: 15px;
+  }
+
+  .text {
+    display: grid;
+    gap: 4px;
+  }
+
+  .title {
+    font-size: 14px;
+    font-weight: 800;
+    color: ${(p) => p.theme.colors.text};
+  }
+  .desc {
+    font-size: 13px;
+    color: ${(p) => p.theme.colors.textMuted};
+    line-height: 1.55;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 26px;
+    padding: 0 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fcd34d;
+  }
+
+  .steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+    color: ${(p) => p.theme.colors.textMuted};
+    b {
+      display: inline-grid;
+      place-items: center;
+      width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      background: ${(p) => p.theme.colors.border};
+      color: ${(p) => p.theme.colors.text};
+      font-size: 12px;
+      margin-right: 8px;
+    }
+  }
+
+  .meta {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    border-radius: ${(p) => p.theme.radii.md};
+    background: ${(p) => p.theme.colors.surface};
+    border: 1px solid ${(p) => p.theme.colors.border};
+  }
+
+  .metaRow {
+    display: grid;
+    grid-template-columns: 88px 1fr auto;
+    gap: 10px;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .metaLabel {
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+  }
+
+  .metaValue {
+    font-size: 13px;
+    color: ${(p) => p.theme.colors.text};
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .copy {
+    height: 30px;
+    border: 1px solid ${(p) => p.theme.colors.borderMuted};
+    border-radius: 999px;
+    padding: 0 10px;
+    background: ${(p) => p.theme.colors.surfaceAlt};
+    color: ${(p) => p.theme.colors.text};
+    font-size: 12px;
+    cursor: pointer;
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+  }
+
+  .actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+`;
 
 const Actions = styled.div`
   margin-top: 16px;

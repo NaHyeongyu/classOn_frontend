@@ -200,12 +200,25 @@ export async function apiOnboardComplete(payload: {
   category2?: string; // 세부 카테고리
   categoryEtc?: string; // 기타 텍스트
   referral?: string; // 가입 경로
-}): Promise<{ success: boolean }> {
+  // Optional: settlement account registration (required for payment-included plans)
+  settlementBusinessType?: string;
+  settlementBankCode?: string;
+  settlementAccountNumber?: string;
+  settlementAccountHolderName?: string;
+  settlementCompanyName?: string;
+  settlementRepresentativeName?: string;
+  settlementBusinessRegistrationNumber?: string;
+  settlementCompanyEmail?: string;
+  settlementCompanyPhone?: string;
+  settlementIndividualName?: string;
+  settlementIndividualEmail?: string;
+  settlementIndividualPhone?: string;
+}): Promise<{ success: boolean; settlementRegistration?: { tossSellerId: string; status: string; email?: string | null; academyId?: number | null } | null }> {
   if (import.meta.env.VITE_USE_MOCK === "1") {
     await delay(300);
     return { success: true };
   }
-  const res = await fetchJSON<{ success: boolean }>("/api/onboard/complete", {
+  const res = await fetchJSON<{ success: boolean; settlementRegistration?: { tossSellerId: string; status: string; email?: string | null; academyId?: number | null } | null }>("/api/onboard/complete", {
     method: "POST",
     body: JSON.stringify(payload),
   });

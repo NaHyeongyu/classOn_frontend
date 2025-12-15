@@ -9,6 +9,7 @@ import "./index.css";
 import "@/styles/reset.css";
 import App from "@/App.tsx";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
+import { ScrollToTop } from "@/components/common/ScrollToTop";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -25,6 +26,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ScrollToTop />
         <AuthProvider>
           <ThemeProvider theme={defaultTheme}>
             <ErrorBoundary>

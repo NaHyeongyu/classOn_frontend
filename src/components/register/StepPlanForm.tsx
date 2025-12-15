@@ -311,6 +311,11 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
   const [showPolicy, setShowPolicy] = useState(false);
 
   const availablePlans = useMemo(() => PLAN_MAPPING[studentScale] ?? [], [studentScale]);
+  const requiresSettlementAccount = useMemo(() => {
+    if (!selectedPlan) return false;
+    return Boolean(PLANS[selectedPlan as PlanId]?.paymentIncluded);
+  }, [selectedPlan]);
+  const submitLabel = requiresSettlementAccount ? "정산 계좌 등록하기" : "완료";
 
   useEffect(() => {
     if (availablePlans.length === 0) {
@@ -325,8 +330,6 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
   return (
     <>
       <Sub>원생 규모와 요금제를 선택해 주세요.</Sub>
-      <Hint>지금 가입 시 Small 요금제는 2월 1일까지 무료 혜택을 누려보세요.</Hint>
-      <Hint>300명 플랜은 1개월, 500명 플랜은 14일 무료 체험 후 도입을 고려해보세요.</Hint>
       <Form onSubmit={onSubmit} style={{ maxWidth: '100%' }}>
         <PlanLabel>
           원생 규모<span>*</span>
@@ -418,7 +421,6 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
             })}
           </PlanGrid>
         )}
-        {availablePlans.length > 0 && selectedPlan === "" && <Hint>결제 없이 선택만 진행됩니다. 원하는 요금제를 눌러 주세요.</Hint>}
 
         {error && <ErrorText>{error}</ErrorText>}
 
@@ -463,7 +465,7 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
             이전
           </BackButton>
           <UIPrimaryBtn type="submit" disabled={!canSubmitStep3}>
-            {loading ? "완료 중..." : "완료"}
+            {loading ? "완료 중..." : submitLabel}
           </UIPrimaryBtn>
         </ActionRow>
       </Form>

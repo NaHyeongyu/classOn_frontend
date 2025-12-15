@@ -9,6 +9,7 @@ import { apiIssueBillingKey, apiGetTossClientKey } from "@/api/billing";
 import { formatMoney } from "@/lib/format";
 import { loadTossPayments } from "@/lib/tossPayments";
 import { useToast } from "@/components/common/Toast";
+import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { routes } from "@/routes";
 
 type AccountSectionProps = {
@@ -48,6 +49,9 @@ type SellerSectionProps = {
   canEdit: boolean;
   status: string | null;
   showPendingBadge: boolean;
+  verificationPending: boolean;
+  syncing: boolean;
+  syncStatus: () => Promise<void>;
   buttonText: string;
   onOpenRegister: () => void;
   awaitingVerification: boolean;
@@ -85,12 +89,16 @@ export function MyAcademyPageView({
   const navigate = useNavigate();
   const { success, error: showError, warning } = useToast();
   const [clientKey, setClientKey] = useState<string | null>(null);
-  const [requireSeller, setRequireSeller] = useState(true);
   const billingBlockState = locationState;
   const selectedPlanFromState = billingBlockState?.selectedPlanId;
   const shouldTriggerCardRegister = billingBlockState?.triggerCardRegister;
   const lastCustomerKeyRef = useRef<string | null>(null);
   const processedAuthKeyRef = useRef<string | null>(null);
+
+  const requireSeller = useMemo(() => {
+    const planId = (billing.data?.planId || academy.data?.billingSubscriptionId || "").toLowerCase();
+    return planId.endsWith("-pay") || planId === "enterprise";
+  }, [academy.data?.billingSubscriptionId, billing.data?.planId]);
 
   const academyCategory = useMemo(() => {
     if (!academy.data) return "미설정";
@@ -121,6 +129,19 @@ export function MyAcademyPageView({
     if (!endRaw) return "-";
     return new Date(endRaw).toLocaleString("ko-KR");
   }, [academy.data]);
+
+  const serviceUsableUntil = useMemo(() => {
+    const lastCharge = billing.data?.lastChargeAt ? new Date(billing.data.lastChargeAt) : null;
+    if (!lastCharge || Number.isNaN(lastCharge.getTime())) return null;
+    const until = new Date(lastCharge.getTime());
+    until.setDate(until.getDate() + 30);
+    return until;
+  }, [billing.data?.lastChargeAt]);
+
+  const serviceUsableUntilLabel = useMemo(() => {
+    if (!serviceUsableUntil) return null;
+    return serviceUsableUntil.toLocaleDateString("ko-KR");
+  }, [serviceUsableUntil]);
 
   const currentPlanLabel = useMemo(() => {
     if (billing.data) {
@@ -163,6 +184,30 @@ export function MyAcademyPageView({
   const showSellerEmptyState =
     requireSeller && !seller.loading && !hasSeller && !seller.awaitingVerification;
 
+  const copyToClipboard = async (label: string, value: string) => {
+    const text = (value ?? "").toString();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      success(`${label}을(를) 복사했습니다.`);
+    } catch {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+        success(`${label}을(를) 복사했습니다.`);
+      } catch {
+        warning("복사에 실패했습니다. 직접 선택해 복사해 주세요.");
+      }
+    }
+  };
+
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -170,11 +215,9 @@ export function MyAcademyPageView({
         const res = await apiGetTossClientKey();
         if (!alive) return;
         setClientKey(res?.clientKey || null);
-        setRequireSeller(res?.requireSeller ?? false);
       } catch {
         if (!alive) return;
         setClientKey(null);
-        setRequireSeller(false);
       }
     })();
     return () => {
@@ -189,6 +232,12 @@ export function MyAcademyPageView({
     }
     if (!clientKey) {
       showError("결제 연동 키를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+      return;
+    }
+    const plan = getPlanById(selectedPlanId);
+    if (plan.id.toLowerCase().endsWith("-pay") && !seller.data?.tossSellerId) {
+      warning("Plus 요금제를 이용하려면 정산 계좌 등록이 필요합니다.");
+      seller.onOpenRegister();
       return;
     }
     const academyId = academy.data?.id ?? null;
@@ -211,12 +260,34 @@ export function MyAcademyPageView({
     }
   };
 
-  const handleCancel = async () => {
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [canceling, setCanceling] = useState(false);
+
+  const canCancelSubscription = useMemo(() => {
+    const status = billing.data?.status?.toUpperCase() || null;
+    return Boolean(billing.data && status && status !== "CANCELED");
+  }, [billing.data]);
+
+  const openCancelDialog = () => {
+    if (!canCancelSubscription) return;
+    setCancelDialogOpen(true);
+  };
+
+  const confirmCancelSubscription = async () => {
+    if (!canCancelSubscription) return;
+    setCanceling(true);
     try {
       await billing.cancel();
-      success("자동결제가 해지되었습니다. 현재 결제 주기 종료일까지는 이용이 유지됩니다.");
+      if (serviceUsableUntilLabel) {
+        success(`서비스가 해지되었습니다. 마지막 이용 가능일: ${serviceUsableUntilLabel}`);
+      } else {
+        success("서비스가 해지되었습니다. 마지막 이용 가능일까지는 이용이 유지됩니다.");
+      }
+      setCancelDialogOpen(false);
     } catch (err) {
-      showError(err instanceof Error ? err.message : "자동결제 해지에 실패했습니다.");
+      showError(err instanceof Error ? err.message : "서비스 해지에 실패했습니다.");
+    } finally {
+      setCanceling(false);
     }
   };
 
@@ -458,13 +529,33 @@ export function MyAcademyPageView({
                     <InlineButton type="button" onClick={handleRegisterOrChangeCard} disabled={billing.loading}>
                       카드 {billing.data ? "변경" : "등록"}
                     </InlineButton>
-                    <DangerInlineButton type="button" onClick={handleCancel} disabled={billing.loading}>
-                      해지
-                    </DangerInlineButton>
                   </div>
                 </ValueRow>
               </InfoRow>
             )}
+
+            {!isTrialing ? (
+              <InfoRow>
+                <Label>서비스 해지</Label>
+                <Value>
+                  <ValueRow>
+                    <span>{canCancelSubscription ? "자동결제를 중단합니다." : "해지됨"}</span>
+                    {canCancelSubscription ? (
+                      <DangerInlineButton type="button" onClick={openCancelDialog} disabled={billing.loading || canceling}>
+                        서비스 해지하기
+                      </DangerInlineButton>
+                    ) : null}
+                  </ValueRow>
+                  {serviceUsableUntilLabel ? (
+                    <Hint>
+                      해지 후 <b>{serviceUsableUntilLabel}</b>까지 이용할 수 있어요. (마지막 결제 + 30일)
+                    </Hint>
+                  ) : (
+                    <Hint>해지 후 마지막 결제일 + 30일까지 이용할 수 있어요.</Hint>
+                  )}
+                </Value>
+              </InfoRow>
+            ) : null}
           </>
         ) : (
           <>
@@ -497,7 +588,7 @@ export function MyAcademyPageView({
       <Card>
         <SectionHeader>
           <SectionTitle>
-            셀러 등록
+            정산 계좌 등록
             {seller.showPendingBadge ? <PendingBadge>인증 대기</PendingBadge> : null}
           </SectionTitle>
           {requireSeller && hasSeller ? (
@@ -513,33 +604,92 @@ export function MyAcademyPageView({
           ) : null}
         </SectionHeader>
         {!requireSeller ? (
-          <Hint>현재 환경에서는 셀러 등록이 필요하지 않습니다.</Hint>
+          <Hint>현재 요금제에서는 정산 계좌 등록이 필요하지 않습니다.</Hint>
         ) : seller.loading ? (
           <Hint>불러오는 중...</Hint>
-        ) : seller.awaitingVerification ? (
+        ) : seller.verificationPending ? (
           <SellerPendingNotice>
-            <PendingTitle>인증 대기 중</PendingTitle>
-            <PendingDescription>
-              등록한 메일 또는 번호로 토스페이먼츠 인증이 발송되었습니다.
-              <br />
-              본인 인증을 완료하면 자동으로 등록이 마무리됩니다.
-            </PendingDescription>
-            <PendingMeta>
-              <span>등록 이메일: {seller.pendingEmail || "-"}</span>
-              <span>토스 셀러 ID: {seller.pendingTossSellerId || "발급 대기"}</span>
-            </PendingMeta>
-            <PendingHintList>
-              <li>스팸메일함도 함께 확인해 주세요.</li>
-              <li>인증을 완료하면 화면이 자동으로 갱신됩니다.</li>
-              <li>문제가 지속되면 고객센터로 문의해 주세요.</li>
-            </PendingHintList>
+            <PendingHeader>
+              <PendingIcon aria-hidden>⏳</PendingIcon>
+              <PendingHeaderText>
+                <PendingTitle>정산 계좌 인증을 완료해 주세요</PendingTitle>
+                <PendingDescription>
+                  토스페이먼츠에서 발송된 인증을 완료하면 결제/정산 기능이 활성화됩니다.
+                </PendingDescription>
+              </PendingHeaderText>
+              <PendingChip>인증 대기</PendingChip>
+            </PendingHeader>
+
+            <PendingGrid>
+              <PendingSteps aria-label="인증 진행 순서">
+                <StepItem>
+                  <StepNo>1</StepNo>
+                  <StepText>메일/문자에서 인증 요청을 확인해 주세요.</StepText>
+                </StepItem>
+                <StepItem>
+                  <StepNo>2</StepNo>
+                  <StepText>인증을 완료한 뒤, 이 화면으로 돌아와 주세요.</StepText>
+                </StepItem>
+                <StepItem>
+                  <StepNo>3</StepNo>
+                  <StepText>“상태 동기화”를 눌러 승인 상태를 반영해 주세요.</StepText>
+                </StepItem>
+              </PendingSteps>
+
+              <PendingInfo>
+                <MetaRow>
+                  <MetaLabel>등록 이메일</MetaLabel>
+                  <MetaValue title={seller.pendingEmail || undefined}>
+                    {seller.pendingEmail || "-"}
+                  </MetaValue>
+                  <CopyButton
+                    type="button"
+                    onClick={() => void copyToClipboard("등록 이메일", seller.pendingEmail || "")}
+                    disabled={!seller.pendingEmail}
+                  >
+                    복사
+                  </CopyButton>
+                </MetaRow>
+                <MetaRow>
+                  <MetaLabel>토스 셀러 ID</MetaLabel>
+                  <MetaValue title={seller.pendingTossSellerId || undefined}>
+                    {seller.pendingTossSellerId || "발급 대기"}
+                  </MetaValue>
+                  <CopyButton
+                    type="button"
+                    onClick={() =>
+                      void copyToClipboard("토스 셀러 ID", seller.pendingTossSellerId || "")
+                    }
+                    disabled={!seller.pendingTossSellerId}
+                  >
+                    복사
+                  </CopyButton>
+                </MetaRow>
+
+                <PendingHintList>
+                  <li>스팸메일함도 함께 확인해 주세요.</li>
+                  <li>인증 후에도 반영이 안 되면 “상태 동기화”를 눌러 주세요.</li>
+                </PendingHintList>
+              </PendingInfo>
+            </PendingGrid>
+
+            <PendingActions>
+              <SellerRegisterButton
+                type="button"
+                onClick={() => void seller.syncStatus()}
+                disabled={seller.syncing || !seller.pendingTossSellerId}
+                title={!seller.pendingTossSellerId ? "토스 셀러 ID 발급 후 사용할 수 있어요." : undefined}
+              >
+                {seller.syncing ? "동기화 중..." : "상태 동기화"}
+              </SellerRegisterButton>
+            </PendingActions>
           </SellerPendingNotice>
         ) : showSellerEmptyState ? (
           <SellerEmptyState>
             <EmptyIcon>🏪</EmptyIcon>
-            <EmptyTitle>셀러 등록이 필요합니다</EmptyTitle>
+            <EmptyTitle>정산 계좌 등록이 필요합니다</EmptyTitle>
             <EmptyDescription>
-              토스페이먼츠 셀러 등록을 완료하면 결제 정산 서비스를 이용할 수 있습니다.
+              토스페이먼츠 정산 계좌 등록을 완료하면 결제 정산 서비스를 이용할 수 있습니다.
             </EmptyDescription>
             <SellerRegisterButton
               type="button"
@@ -577,6 +727,26 @@ export function MyAcademyPageView({
           </>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={cancelDialogOpen}
+        title="서비스를 해지할까요?"
+        tone="danger"
+        confirmLabel="해지하기"
+        cancelLabel="닫기"
+        busy={canceling}
+        onCancel={() => (!canceling ? setCancelDialogOpen(false) : undefined)}
+        onConfirm={confirmCancelSubscription}
+        message={
+          <div>
+            자동결제가 중단되며, 이후 결제는 진행되지 않습니다.
+            {"\n"}
+            {serviceUsableUntilLabel
+              ? `마지막 이용 가능일: ${serviceUsableUntilLabel} (마지막 결제 + 30일)`
+              : "마지막 이용 가능일: 마지막 결제일 + 30일"}
+          </div>
+        }
+      />
 
         {/* 강사 관리는 상단 탭(강사관리)에서 관리합니다. */}
       </Container>
@@ -807,11 +977,33 @@ const SellerEmptyState = styled.div`
 const SellerPendingNotice = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.md};
-  text-align: center;
   padding: ${(p) => p.theme.spacing.xl} ${(p) => p.theme.spacing.lg};
   border-radius: ${(p) => p.theme.radii.lg};
   border: 1px dashed ${(p) => p.theme.colors.borderMuted};
   background: ${(p) => p.theme.colors.surfaceAlt};
+`;
+
+const PendingHeader = styled.div`
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: ${(p) => p.theme.spacing.sm};
+  align-items: start;
+`;
+
+const PendingIcon = styled.div`
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 15px;
+`;
+
+const PendingHeaderText = styled.div`
+  display: grid;
+  gap: 4px;
 `;
 
 const PendingTitle = styled.h3`
@@ -827,11 +1019,23 @@ const PendingDescription = styled.p`
   line-height: 1.6;
 `;
 
-const PendingMeta = styled.div`
-  display: grid;
-  gap: 4px;
-  font-size: 13px;
-  color: ${(p) => p.theme.colors.textMuted};
+const PendingChip = styled.span`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+`;
+
+const PendingActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
 `;
 
 const PendingHintList = styled.ul`
@@ -840,9 +1044,96 @@ const PendingHintList = styled.ul`
   text-align: left;
   color: ${(p) => p.theme.colors.textMuted};
   font-size: ${(p) => p.theme.font.size.sm};
-  display: inline-block;
   li + li {
     margin-top: 4px;
+  }
+`;
+
+const PendingGrid = styled.div`
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: ${(p) => p.theme.spacing.lg};
+  align-items: start;
+  @media (max-width: 720px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const PendingSteps = styled.ol`
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 10px;
+`;
+
+const StepItem = styled.li`
+  display: grid;
+  grid-template-columns: 22px 1fr;
+  gap: 10px;
+  align-items: start;
+`;
+
+const StepNo = styled.div`
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  background: #e2e8f0;
+  color: #0f172a;
+`;
+
+const StepText = styled.div`
+  font-size: ${(p) => p.theme.font.size.sm};
+  color: ${(p) => p.theme.colors.textMuted};
+  line-height: 1.55;
+`;
+
+const PendingInfo = styled.div`
+  display: grid;
+  gap: ${(p) => p.theme.spacing.sm};
+  padding: ${(p) => p.theme.spacing.md};
+  border-radius: ${(p) => p.theme.radii.md};
+  border: 1px solid ${(p) => p.theme.colors.borderMuted};
+  background: ${(p) => p.theme.colors.surface};
+`;
+
+const MetaRow = styled.div`
+  display: grid;
+  grid-template-columns: 90px 1fr auto;
+  gap: 10px;
+  align-items: center;
+`;
+
+const MetaLabel = styled.span`
+  font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
+`;
+
+const MetaValue = styled.span`
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  color: ${(p) => p.theme.colors.text};
+`;
+
+const CopyButton = styled.button`
+  height: 30px;
+  border: 1px solid ${(p) => p.theme.colors.borderMuted};
+  border-radius: 999px;
+  padding: 0 10px;
+  background: ${(p) => p.theme.colors.surfaceAlt};
+  color: ${(p) => p.theme.colors.text};
+  font-size: 12px;
+  cursor: pointer;
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 `;
 
@@ -1106,7 +1397,7 @@ function formatSellerAccount(account?: SellerDetail["account"]) {
 function renderSellerStatus(status?: string | null) {
   const normalized = (status || "").toUpperCase();
   if (!normalized) return "미등록";
-  if (normalized === "APPROVAL_REQUIRED" || normalized === "PENDING") return "이메일 확인 중";
+  if (normalized === "APPROVAL_REQUIRED" || normalized === "PENDING") return "인증 대기";
   if (normalized === "APPROVED") return "승인 완료";
   if (normalized === "REJECTED") return "반려됨";
   if (normalized === "SUSPENDED") return "중단됨";

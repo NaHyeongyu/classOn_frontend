@@ -3,8 +3,6 @@ import {
   apiCheckBizNo,
   apiCheckUsername,
   apiOnboardComplete,
-  apiRequestPhoneCode,
-  apiVerifyPhoneCode,
 } from "@/api/auth";
 import {
   maskBizNo,
@@ -13,7 +11,14 @@ import {
   toErrorMessage,
 } from "./utils";
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5 | 6;
+
+type SettlementRegistration = {
+  tossSellerId: string;
+  status: string;
+  email?: string | null;
+  academyId?: number | null;
+};
 
 export type StudentScaleOption =
   | ""
@@ -33,6 +38,21 @@ export type PlanSelection =
   | "plan-500-basic"
   | "plan-500-pay"
   | "enterprise";
+
+export type SettlementForm = {
+  businessType: "INDIVIDUAL" | "INDIVIDUAL_BUSINESS" | "CORPORATE";
+  companyName: string;
+  representativeName: string;
+  businessRegistrationNumber: string;
+  companyEmail: string;
+  companyPhone: string;
+  individualName: string;
+  individualEmail: string;
+  individualPhone: string;
+  bankCode: string;
+  accountNumber: string;
+  accountHolderName: string;
+};
 
 export type UseRegisterFlowResult = {
   step: Step;
@@ -99,6 +119,15 @@ export type UseRegisterFlowResult = {
   completeRegistration: (event: React.FormEvent) => Promise<boolean>;
   setError: (value: string | null) => void;
   canSubmitStep3: boolean;
+  requiresSettlementAccount: boolean;
+  settlementForm: SettlementForm;
+  settlementRegistration: SettlementRegistration | null;
+  updateSettlementField: <K extends keyof SettlementForm>(
+    field: K,
+    value: SettlementForm[K],
+  ) => void;
+  backToPlan: () => void;
+  canSubmitSettlement: boolean;
   maskBizNo: typeof maskBizNo;
   normalizeMobile: typeof normalizeMobile;
   secondCategories: typeof secondCategories;
@@ -137,10 +166,59 @@ export function useRegisterFlow(): UseRegisterFlowResult {
   const [agree, setAgree] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const [showPrivacy, setShowPrivacy] = useState(false);
+  const [settlementForm, setSettlementForm] = useState<SettlementForm>({
+    businessType: "INDIVIDUAL_BUSINESS",
+    companyName: "",
+    representativeName: "",
+    businessRegistrationNumber: "",
+    companyEmail: "",
+    companyPhone: "",
+    individualName: "",
+    individualEmail: "",
+    individualPhone: "",
+    bankCode: "",
+    accountNumber: "",
+    accountHolderName: "",
+  });
+  const [settlementRegistration, setSettlementRegistration] =
+    useState<SettlementRegistration | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step1Err, setStep1Err] = useState<{ phone?: string }>({});
   const [step2Err, setStep2Err] = useState<{ code?: string }>({});
+
+  const requiresSettlementAccount = useMemo(() => {
+    const plan = (selectedPlan || "").toLowerCase();
+    return plan.endsWith("-pay") || plan === "enterprise";
+  }, [selectedPlan]);
+
+  const updateSettlementField = useCallback(
+    <K extends keyof SettlementForm>(
+      field: K,
+      value: SettlementForm[K],
+    ) => {
+      setSettlementForm((prev) => ({ ...prev, [field]: value }));
+    },
+    [],
+  );
+
+  const backToPlan = useCallback(() => {
+    setError(null);
+    setStep(4);
+  }, []);
+
+  useEffect(() => {
+    if (step !== 5) return;
+    setSettlementForm((prev) => ({
+      ...prev,
+      companyName: prev.companyName || academyName,
+      representativeName: prev.representativeName || representative,
+      businessRegistrationNumber: prev.businessRegistrationNumber || maskBizNo(bizNo).raw,
+      companyEmail: prev.companyEmail || billingEmail,
+      companyPhone: prev.companyPhone || academyPhone || phoneValue,
+      accountHolderName: prev.accountHolderName || representative || academyName,
+    }));
+  }, [academyName, academyPhone, billingEmail, bizNo, phoneValue, representative, step]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -201,22 +279,12 @@ export function useRegisterFlow(): UseRegisterFlowResult {
       const safePhone = normalizedPhone!;
       setResendCooldown(0);
       setDevCodeHint(null);
-      try {
-        const res = await apiRequestPhoneCode(safePhone);
-        if (!res.success) {
-          setError("인증번호 발송에 실패했습니다.");
-          return;
-        }
-        if (res.code) {
-          setDevCodeHint(res.code);
-        }
-        setPhone(safePhone);
-        setCodeValue("");
-        setResendCooldown(60);
-        setStep(2);
-      } catch (err) {
-        setError(toErrorMessage(err, "인증번호 발송에 실패했습니다."));
-      }
+      setPhone(safePhone);
+      setCodeValue("");
+
+      // TEMP: SMS 인증 흐름 비활성화(전화번호 중복 가입 허용 목적).
+      // NOTE: revert by restoring apiRequestPhoneCode/apiVerifyPhoneCode flow and step=2.
+      setStep(3);
     },
     [phoneValue, setPhone]
   );
@@ -225,54 +293,26 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     async (event: React.FormEvent) => {
       event.preventDefault();
       setError(null);
-      const trimmed = codeValue.trim();
-      const nextErr: { code?: string } = {};
-      if (trimmed.length !== 6) {
-        nextErr.code = "인증번호 6자리를 입력해 주세요.";
-      }
-      setStep2Err(nextErr);
-      if (Object.keys(nextErr).length > 0) return;
       const normalizedPhone = normalizeMobile(phoneValue);
       if (!normalizedPhone) {
         setError("휴대폰 번호 형식을 다시 확인해 주세요.");
         return;
       }
-      try {
-        const res = await apiVerifyPhoneCode(normalizedPhone, trimmed);
-        if (!res.success) {
-          setStep2Err({ code: "인증번호가 올바르지 않습니다." });
-          return;
-        }
-        setStep(3);
-      } catch (err) {
-        setError(toErrorMessage(err, "인증번호 확인에 실패했습니다."));
-      }
+      setPhone(normalizedPhone);
+      setStep2Err({});
+
+      // TEMP: SMS 인증 흐름 비활성화(verify step가 노출되더라도 진행 가능).
+      setStep(3);
     },
-    [codeValue, phoneValue]
+    [phoneValue, setPhone]
   );
 
   const handleResendCode = useCallback(async () => {
     setError(null);
     setStep2Err({});
-    const normalizedPhone = normalizeMobile(phoneValue);
-    if (!normalizedPhone) {
-      setError("휴대폰 번호 형식을 다시 확인해 주세요.");
-      return;
-    }
-    try {
-      const res = await apiRequestPhoneCode(normalizedPhone);
-      if (!res.success) {
-        setError("인증번호 발송에 실패했습니다.");
-        return;
-      }
-      if (res.code) {
-        setDevCodeHint(res.code);
-      }
-      setResendCooldown(60);
-    } catch (err) {
-      setError(toErrorMessage(err, "인증번호 발송에 실패했습니다."));
-    }
-  }, [phoneValue]);
+    // TEMP: SMS 인증 비활성화.
+    setError("현재 휴대폰 문자인증이 비활성화되어 있습니다.");
+  }, []);
 
   const backToStep1 = useCallback(() => {
     setStep(1);
@@ -339,10 +379,33 @@ export function useRegisterFlow(): UseRegisterFlowResult {
         setError("원생 규모, 요금제 선택 및 약관 동의를 완료해 주세요.");
         return false;
       }
+      if (step === 4 && requiresSettlementAccount) {
+        setStep(5);
+        return false;
+      }
+      if (step === 5) {
+        const bankOk = settlementForm.bankCode.trim().length > 0;
+        const accountOk = settlementForm.accountNumber.replace(/\D/g, "").length > 0;
+        const holderOk = settlementForm.accountHolderName.trim().length > 0;
+        const baseOk = bankOk && accountOk && holderOk;
+        const detailOk =
+          settlementForm.businessType === "INDIVIDUAL"
+            ? settlementForm.individualName.trim().length > 0 &&
+              settlementForm.individualEmail.trim().length > 0 &&
+              settlementForm.individualPhone.replace(/\D/g, "").length > 0
+            : settlementForm.companyName.trim().length > 0 &&
+              settlementForm.representativeName.trim().length > 0 &&
+              settlementForm.companyEmail.trim().length > 0 &&
+              settlementForm.companyPhone.replace(/\D/g, "").length > 0;
+        if (!baseOk || !detailOk) {
+          setError("정산 계좌 등록 정보를 모두 입력해 주세요.");
+          return false;
+        }
+      }
       const { raw } = maskBizNo(bizNo);
       setLoading(true);
       try {
-        await apiOnboardComplete({
+        const res = await apiOnboardComplete({
           name: name || undefined,
           phone: normalizedPhone,
           username: usernameValue,
@@ -361,7 +424,25 @@ export function useRegisterFlow(): UseRegisterFlowResult {
           representativeName: representative || undefined,
           academyPhone: academyPhone || undefined,
           billingEmail: billingEmail || undefined,
+          settlementBusinessType: step === 5 ? settlementForm.businessType : undefined,
+          settlementBankCode: step === 5 ? settlementForm.bankCode : undefined,
+          settlementAccountNumber: step === 5 ? settlementForm.accountNumber : undefined,
+          settlementAccountHolderName: step === 5 ? settlementForm.accountHolderName : undefined,
+          settlementCompanyName: step === 5 ? settlementForm.companyName : undefined,
+          settlementRepresentativeName: step === 5 ? settlementForm.representativeName : undefined,
+          settlementBusinessRegistrationNumber: step === 5 ? settlementForm.businessRegistrationNumber : undefined,
+          settlementCompanyEmail: step === 5 ? settlementForm.companyEmail : undefined,
+          settlementCompanyPhone: step === 5 ? settlementForm.companyPhone : undefined,
+          settlementIndividualName: step === 5 ? settlementForm.individualName : undefined,
+          settlementIndividualEmail: step === 5 ? settlementForm.individualEmail : undefined,
+          settlementIndividualPhone: step === 5 ? settlementForm.individualPhone : undefined,
         });
+        setSettlementRegistration(res.settlementRegistration ?? null);
+        const sellerStatus = (res.settlementRegistration?.status ?? "").toUpperCase();
+        if (requiresSettlementAccount && res.settlementRegistration && sellerStatus !== "APPROVED") {
+          setStep(6);
+          return false;
+        }
         return true;
       } catch (err) {
         setError(toErrorMessage(err, "가입에 실패했습니다."));
@@ -383,10 +464,13 @@ export function useRegisterFlow(): UseRegisterFlowResult {
       password,
       phoneValue,
       selectedPlan,
+      settlementForm,
+      requiresSettlementAccount,
       agree,
       referral,
       representative,
       studentScale,
+      step,
       usernameValue,
     ]
   );
@@ -470,6 +554,28 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     usernameValue,
   ]);
 
+  const canSubmitSettlement = useMemo(() => {
+    if (!requiresSettlementAccount) return true;
+    if (loading) return false;
+    const bankOk = settlementForm.bankCode.trim().length > 0;
+    const accountOk = settlementForm.accountNumber.replace(/\D/g, "").length > 0;
+    const holderOk = settlementForm.accountHolderName.trim().length > 0;
+    if (!bankOk || !accountOk || !holderOk) return false;
+    if (settlementForm.businessType === "INDIVIDUAL") {
+      return (
+        settlementForm.individualName.trim().length > 0 &&
+        settlementForm.individualEmail.trim().length > 0 &&
+        settlementForm.individualPhone.replace(/\D/g, "").length > 0
+      );
+    }
+    return (
+      settlementForm.companyName.trim().length > 0 &&
+      settlementForm.representativeName.trim().length > 0 &&
+      settlementForm.companyEmail.trim().length > 0 &&
+      settlementForm.companyPhone.replace(/\D/g, "").length > 0
+    );
+  }, [loading, requiresSettlementAccount, settlementForm]);
+
   return {
     step,
     error,
@@ -535,8 +641,14 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     completeRegistration,
     setError,
     canSubmitStep3,
+    requiresSettlementAccount,
+    settlementForm,
+    updateSettlementField,
+    backToPlan,
+    canSubmitSettlement,
     maskBizNo,
     normalizeMobile,
     secondCategories,
+    settlementRegistration,
   };
 }

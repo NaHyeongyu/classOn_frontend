@@ -82,6 +82,7 @@ const DEFAULT_TIMEOUT_MS = Number(import.meta.env.VITE_FETCH_TIMEOUT_MS ?? 10000
 // real-time updates (mobile/manual attendance, edited class times, KPI refresh).
 // We still keep caching for other endpoints to reduce traffic.
 const NO_CACHE_PREFIXES = [
+  "/api/onboard/settlement-status",
   "/api/dashboard/summary",
   "/api/dashboard/attendance-today",
   "/api/calendar/classes",           // calendar daily view should refresh immediately

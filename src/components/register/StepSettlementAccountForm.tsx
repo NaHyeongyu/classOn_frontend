@@ -117,6 +117,7 @@ export function StepSettlementAccountForm({ flow, onSubmit, onBack }: StepSettle
               value={settlementForm.businessRegistrationNumber}
               onChange={(event) => updateSettlementField("businessRegistrationNumber", event.target.value)}
               placeholder="숫자만 입력"
+              required
             />
 
             <Label>
@@ -214,4 +215,3 @@ const Select = styled.select`
     background: transparent;
   }
 `;
-

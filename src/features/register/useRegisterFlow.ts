@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   apiCheckBizNo,
   apiCheckUsername,
+  apiGetOnboardSettlementStatus,
   apiOnboardComplete,
 } from "@/api/auth";
 import {
@@ -14,11 +15,16 @@ import {
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 
 type SettlementRegistration = {
-  tossSellerId: string;
+  tossSellerId: string | null;
   status: string;
   email?: string | null;
   academyId?: number | null;
+  refSellerId?: string | null;
 };
+
+function digitsOnly(value: string) {
+  return value.replace(/\D/g, "");
+}
 
 export type StudentScaleOption =
   | ""
@@ -122,6 +128,10 @@ export type UseRegisterFlowResult = {
   requiresSettlementAccount: boolean;
   settlementForm: SettlementForm;
   settlementRegistration: SettlementRegistration | null;
+  settlementPolling: boolean;
+  settlementLastCheckedAt: number | null;
+  settlementPollingError: string | null;
+  refreshSettlementStatus: () => Promise<void>;
   updateSettlementField: <K extends keyof SettlementForm>(
     field: K,
     value: SettlementForm[K],
@@ -182,6 +192,9 @@ export function useRegisterFlow(): UseRegisterFlowResult {
   });
   const [settlementRegistration, setSettlementRegistration] =
     useState<SettlementRegistration | null>(null);
+  const [settlementPolling, setSettlementPolling] = useState(false);
+  const [settlementLastCheckedAt, setSettlementLastCheckedAt] = useState<number | null>(null);
+  const [settlementPollingError, setSettlementPollingError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step1Err, setStep1Err] = useState<{ phone?: string }>({});
@@ -191,6 +204,105 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     const plan = (selectedPlan || "").toLowerCase();
     return plan.endsWith("-pay") || plan === "enterprise";
   }, [selectedPlan]);
+
+	  const refreshSettlementStatus = useCallback(async () => {
+	    const academyId = settlementRegistration?.academyId ?? null;
+	    const refSellerId = settlementRegistration?.refSellerId ?? null;
+	    if (!academyId || !refSellerId) return;
+	    try {
+	      setSettlementPollingError(null);
+	      const res = await apiGetOnboardSettlementStatus(academyId, refSellerId);
+	      setSettlementRegistration((prev) => {
+	        const next: SettlementRegistration = {
+	          tossSellerId: res.tossSellerId ?? prev?.tossSellerId ?? null,
+	          status: res.status ?? prev?.status ?? "PENDING",
+	          email: prev?.email ?? null,
+	          academyId: res.academyId ?? prev?.academyId ?? null,
+	          refSellerId: res.refSellerId ?? prev?.refSellerId ?? null,
+	        };
+	        if (!prev) return next;
+	        const unchanged =
+	          (prev.tossSellerId ?? null) === (next.tossSellerId ?? null) &&
+	          prev.status === next.status &&
+	          (prev.email ?? null) === (next.email ?? null) &&
+	          (prev.academyId ?? null) === (next.academyId ?? null) &&
+	          (prev.refSellerId ?? null) === (next.refSellerId ?? null);
+	        return unchanged ? prev : next;
+	      });
+	      setSettlementLastCheckedAt(Date.now());
+	    } catch (err) {
+	      setSettlementPollingError(toErrorMessage(err, "정산 계좌 상태 확인에 실패했습니다."));
+	    }
+	  }, [settlementRegistration?.academyId, settlementRegistration?.refSellerId]);
+
+  useEffect(() => {
+    if (step !== 6) {
+      setSettlementPolling(false);
+      return;
+    }
+    const academyId = settlementRegistration?.academyId ?? null;
+	    const refSellerId = settlementRegistration?.refSellerId ?? null;
+	    if (!academyId || !refSellerId) {
+	      setSettlementPolling(false);
+	      return;
+	    }
+
+	    let alive = true;
+	    let timeoutId: number | null = null;
+	    let delayMs = 3000;
+    let totalElapsedMs = 0;
+    const STOP_AFTER_MS = 10 * 60 * 1000;
+
+    setSettlementPolling(true);
+    setSettlementPollingError(null);
+
+    const poll = async () => {
+      if (!alive) return;
+	      try {
+	        const res = await apiGetOnboardSettlementStatus(academyId, refSellerId);
+	        if (!alive) return;
+	        setSettlementRegistration((prev) => {
+	          const next: SettlementRegistration = {
+	            tossSellerId: res.tossSellerId ?? prev?.tossSellerId ?? null,
+	            status: res.status ?? prev?.status ?? "PENDING",
+	            email: prev?.email ?? null,
+	            academyId: res.academyId ?? prev?.academyId ?? null,
+	            refSellerId: res.refSellerId ?? prev?.refSellerId ?? null,
+	          };
+	          if (!prev) return next;
+	          const unchanged =
+	            (prev.tossSellerId ?? null) === (next.tossSellerId ?? null) &&
+	            prev.status === next.status &&
+	            (prev.email ?? null) === (next.email ?? null) &&
+	            (prev.academyId ?? null) === (next.academyId ?? null) &&
+	            (prev.refSellerId ?? null) === (next.refSellerId ?? null);
+	          return unchanged ? prev : next;
+	        });
+	        setSettlementLastCheckedAt(Date.now());
+	        if (res.approved) {
+	          setSettlementPolling(false);
+	          return;
+        }
+      } catch (err) {
+        setSettlementPollingError(toErrorMessage(err, "정산 계좌 상태 확인에 실패했습니다."));
+      }
+      totalElapsedMs += delayMs;
+      if (!alive) return;
+      if (totalElapsedMs >= STOP_AFTER_MS) {
+        setSettlementPolling(false);
+        return;
+      }
+      delayMs = Math.min(15000, delayMs + 2000);
+      timeoutId = window.setTimeout(poll, delayMs);
+    };
+
+    void poll();
+    return () => {
+      alive = false;
+      if (timeoutId !== null) window.clearTimeout(timeoutId);
+      setSettlementPolling(false);
+    };
+  }, [step, settlementRegistration?.academyId, settlementRegistration?.refSellerId]);
 
   const updateSettlementField = useCallback(
     <K extends keyof SettlementForm>(
@@ -385,19 +497,22 @@ export function useRegisterFlow(): UseRegisterFlowResult {
       }
       if (step === 5) {
         const bankOk = settlementForm.bankCode.trim().length > 0;
-        const accountOk = settlementForm.accountNumber.replace(/\D/g, "").length > 0;
+        const accountOk = digitsOnly(settlementForm.accountNumber).length > 0;
         const holderOk = settlementForm.accountHolderName.trim().length > 0;
         const baseOk = bankOk && accountOk && holderOk;
         const detailOk =
           settlementForm.businessType === "INDIVIDUAL"
             ? settlementForm.individualName.trim().length > 0 &&
               settlementForm.individualEmail.trim().length > 0 &&
-              settlementForm.individualPhone.replace(/\D/g, "").length > 0
+              digitsOnly(settlementForm.individualPhone).length > 0
             : settlementForm.companyName.trim().length > 0 &&
               settlementForm.representativeName.trim().length > 0 &&
               settlementForm.companyEmail.trim().length > 0 &&
-              settlementForm.companyPhone.replace(/\D/g, "").length > 0;
-        if (!baseOk || !detailOk) {
+              digitsOnly(settlementForm.companyPhone).length > 0;
+        const bizOk =
+          settlementForm.businessType === "INDIVIDUAL" ||
+          digitsOnly(settlementForm.businessRegistrationNumber).length === 10;
+        if (!baseOk || !detailOk || !bizOk) {
           setError("정산 계좌 등록 정보를 모두 입력해 주세요.");
           return false;
         }
@@ -425,17 +540,28 @@ export function useRegisterFlow(): UseRegisterFlowResult {
           academyPhone: academyPhone || undefined,
           billingEmail: billingEmail || undefined,
           settlementBusinessType: step === 5 ? settlementForm.businessType : undefined,
-          settlementBankCode: step === 5 ? settlementForm.bankCode : undefined,
-          settlementAccountNumber: step === 5 ? settlementForm.accountNumber : undefined,
-          settlementAccountHolderName: step === 5 ? settlementForm.accountHolderName : undefined,
-          settlementCompanyName: step === 5 ? settlementForm.companyName : undefined,
-          settlementRepresentativeName: step === 5 ? settlementForm.representativeName : undefined,
-          settlementBusinessRegistrationNumber: step === 5 ? settlementForm.businessRegistrationNumber : undefined,
-          settlementCompanyEmail: step === 5 ? settlementForm.companyEmail : undefined,
-          settlementCompanyPhone: step === 5 ? settlementForm.companyPhone : undefined,
-          settlementIndividualName: step === 5 ? settlementForm.individualName : undefined,
-          settlementIndividualEmail: step === 5 ? settlementForm.individualEmail : undefined,
-          settlementIndividualPhone: step === 5 ? settlementForm.individualPhone : undefined,
+          settlementBankCode: step === 5 ? settlementForm.bankCode.trim() : undefined,
+          settlementAccountNumber: step === 5 ? digitsOnly(settlementForm.accountNumber) : undefined,
+          settlementAccountHolderName:
+            step === 5 ? settlementForm.accountHolderName.trim() : undefined,
+          settlementCompanyName:
+            step === 5 ? settlementForm.companyName.trim() || undefined : undefined,
+          settlementRepresentativeName:
+            step === 5 ? settlementForm.representativeName.trim() || undefined : undefined,
+          settlementBusinessRegistrationNumber:
+            step === 5
+              ? digitsOnly(settlementForm.businessRegistrationNumber) || undefined
+              : undefined,
+          settlementCompanyEmail:
+            step === 5 ? settlementForm.companyEmail.trim() || undefined : undefined,
+          settlementCompanyPhone:
+            step === 5 ? digitsOnly(settlementForm.companyPhone) || undefined : undefined,
+          settlementIndividualName:
+            step === 5 ? settlementForm.individualName.trim() || undefined : undefined,
+          settlementIndividualEmail:
+            step === 5 ? settlementForm.individualEmail.trim() || undefined : undefined,
+          settlementIndividualPhone:
+            step === 5 ? digitsOnly(settlementForm.individualPhone) || undefined : undefined,
         });
         setSettlementRegistration(res.settlementRegistration ?? null);
         const sellerStatus = (res.settlementRegistration?.status ?? "").toUpperCase();
@@ -558,21 +684,22 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     if (!requiresSettlementAccount) return true;
     if (loading) return false;
     const bankOk = settlementForm.bankCode.trim().length > 0;
-    const accountOk = settlementForm.accountNumber.replace(/\D/g, "").length > 0;
+    const accountOk = digitsOnly(settlementForm.accountNumber).length > 0;
     const holderOk = settlementForm.accountHolderName.trim().length > 0;
     if (!bankOk || !accountOk || !holderOk) return false;
     if (settlementForm.businessType === "INDIVIDUAL") {
       return (
         settlementForm.individualName.trim().length > 0 &&
         settlementForm.individualEmail.trim().length > 0 &&
-        settlementForm.individualPhone.replace(/\D/g, "").length > 0
+        digitsOnly(settlementForm.individualPhone).length > 0
       );
     }
     return (
       settlementForm.companyName.trim().length > 0 &&
       settlementForm.representativeName.trim().length > 0 &&
+      digitsOnly(settlementForm.businessRegistrationNumber).length === 10 &&
       settlementForm.companyEmail.trim().length > 0 &&
-      settlementForm.companyPhone.replace(/\D/g, "").length > 0
+      digitsOnly(settlementForm.companyPhone).length > 0
     );
   }, [loading, requiresSettlementAccount, settlementForm]);
 
@@ -643,12 +770,16 @@ export function useRegisterFlow(): UseRegisterFlowResult {
     canSubmitStep3,
     requiresSettlementAccount,
     settlementForm,
+    settlementRegistration,
+    settlementPolling,
+    settlementLastCheckedAt,
+    settlementPollingError,
+    refreshSettlementStatus,
     updateSettlementField,
     backToPlan,
     canSubmitSettlement,
     maskBizNo,
     normalizeMobile,
     secondCategories,
-    settlementRegistration,
   };
 }

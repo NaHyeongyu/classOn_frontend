@@ -1,5 +1,6 @@
 import styled from "styled-components";
 import { buttonVariants } from "@/components/common/UI";
+import BackButtonBase from "@/components/common/BackButton";
 
 export const Sub = styled.p`
   margin: 0 0 24px;
@@ -342,13 +343,13 @@ export const ActionRow = styled.div`
   margin-top: 32px;
 `;
 
-export const BackButton = styled.button`
-  ${buttonVariants.outline};
-  height: 48px;
+export const BackButton = styled(BackButtonBase).attrs({
+  size: "lg",
+  fullWidth: true,
+  showIcon: false,
+})`
   border-radius: ${(p) => p.theme.radii.md};
   font-weight: 700;
-  padding: 0 20px;
-  width: 100%;
 `;
 
 export const PlanGrid = styled.div`
@@ -421,6 +422,22 @@ export const PlanPriceWrapper = styled.div`
   gap: 6px;
   margin-top: 16px;
   margin-bottom: 8px;
+`;
+
+export const PlanTrialBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  color: ${(p) => p.theme.colors.primary};
+  background: ${(p) => p.theme.colors.primarySurface};
+  border: 1px solid ${(p) => p.theme.colors.border};
+  margin-top: 4px;
 `;
 
 export const PlanOriginalPrice = styled.div`

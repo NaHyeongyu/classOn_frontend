@@ -2,7 +2,7 @@ import styled from "styled-components";
 import type { TeacherDetail } from "@/api/teachers";
 import type { TeacherCourseBrief } from "@/api/teachers";
 import { TeacherCoursesTable } from "@/components/myAcademy/TeacherCoursesTable";
-import BackButton from "@/components/common/BackButton";
+import PageTopBar from "@/components/common/PageTopBar";
 import { Page, GhostButton } from "@/components/common/UI";
 import { Card as StuCard, SectionTitle as StuSectionTitle, Divider as StuDivider } from "@/components/studentDetail/StudentDetailStyles";
 
@@ -34,12 +34,7 @@ export function TeacherDetailPageView({
   if (loading) {
     return (
       <Page>
-        <TopBar>
-          <TopLeft>
-            <BackButton onClick={onBack} label="뒤로" />
-            <h2>강사 상세</h2>
-          </TopLeft>
-        </TopBar>
+        <PageTopBar align="left" title="강사 상세" onBack={onBack} backLabel="뒤로" />
         <StuCard>강사 정보를 불러오는 중입니다…</StuCard>
       </Page>
     );
@@ -48,12 +43,7 @@ export function TeacherDetailPageView({
   if (error || !detail) {
     return (
       <Page>
-        <TopBar>
-          <TopLeft>
-            <BackButton onClick={onBack} label="뒤로" />
-            <h2>강사 상세</h2>
-          </TopLeft>
-        </TopBar>
+        <PageTopBar align="left" title="강사 상세" onBack={onBack} backLabel="뒤로" />
         <StuCard role="alert">{error ?? "강사 정보를 찾을 수 없습니다."}</StuCard>
       </Page>
     );
@@ -63,17 +53,19 @@ export function TeacherDetailPageView({
 
   return (
     <Page>
-      <TopBar>
-        <TopLeft>
-          <BackButton label="뒤로" onClick={onBack} />
-          <h2>강사 상세</h2>
-        </TopLeft>
-        {canDeleteTeacher ? (
-          <GhostButton data-variant="danger" type="button" onClick={onRequestDelete}>
-            강사 삭제
-          </GhostButton>
-        ) : null}
-      </TopBar>
+      <PageTopBar
+        align="left"
+        title="강사 상세"
+        onBack={onBack}
+        backLabel="뒤로"
+        actions={
+          canDeleteTeacher ? (
+            <GhostButton data-variant="danger" type="button" onClick={onRequestDelete}>
+              강사 삭제
+            </GhostButton>
+          ) : null
+        }
+      />
 
       <Columns>
         <Left>
@@ -111,21 +103,6 @@ export function TeacherDetailPageView({
     </Page>
   );
 }
-
-const TopBar = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 2px;
-  h2 { margin: 0; font-size: 20px; color: #0f172a; }
-`;
-
-const TopLeft = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-`;
 
 const HeaderRow = styled.div`
   display: flex;

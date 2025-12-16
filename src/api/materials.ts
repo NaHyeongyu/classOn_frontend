@@ -1,4 +1,5 @@
 import { fetchJSON } from "@/lib/fetcher";
+import type { PageResult } from "@/types/paging";
 
 export type MaterialItem = {
   id: number;
@@ -13,11 +14,18 @@ export type MaterialItem = {
   downloadUrl?: string | null;
 };
 
-export async function listMaterials(params?: { courseId?: number; presign?: boolean }): Promise<MaterialItem[]> {
+export async function listMaterials(params?: {
+  courseId?: number;
+  presign?: boolean;
+  page?: number;
+  size?: number;
+}): Promise<PageResult<MaterialItem>> {
   const sp = new URLSearchParams();
   if (params?.courseId) sp.set("courseId", String(params.courseId));
   if (params?.presign !== undefined) sp.set("presign", params.presign ? "true" : "false");
+  if (typeof params?.page === "number") sp.set("page", String(params.page));
+  if (typeof params?.size === "number") sp.set("size", String(params.size));
   const qs = sp.toString();
   const url = qs ? `/api/materials?${qs}` : "/api/materials";
-  return await fetchJSON<MaterialItem[]>(url);
+  return await fetchJSON<PageResult<MaterialItem>>(url);
 }

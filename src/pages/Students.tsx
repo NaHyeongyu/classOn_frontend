@@ -1,11 +1,11 @@
-import { Page as BasePage, PageHeader, PrimaryBtn, GhostButton } from "@/components/common/UI";
+import { Page as BasePage, PageHeader, PrimaryButton, GhostBtnSmall, GhostButton } from "@/components/common/UI";
 import StudentsStats from "@/components/students/StudentsStats";
 import StudentsFilters from "@/components/students/StudentsFilters";
 import StudentsTable from "@/components/students/StudentsTable";
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import styled from "styled-components";
 import { SectionCard as Section } from "@/components/common/UI";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import {
   downloadStudentsExcel,
@@ -17,6 +17,7 @@ import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { useDashboardSummary } from "@/hooks/useDashboardSummary";
+import { routes } from "@/routes";
 
 type ImportPreviewRow = {
   row?: number;
@@ -90,6 +91,7 @@ function toImportPreview(source: PreviewApiResponse): ImportPreview {
 export default function Students() {
   const { show, success, error: showError } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isTeacher = (user?.role ?? "").toString().toUpperCase() === "TEACHER";
   const summary = useDashboardSummary();
   const studentLimit = summary.data?.studentLimit ?? null;
@@ -98,6 +100,10 @@ export default function Students() {
     (studentLimit != null && summary.data?.totalStudents != null
       ? Math.max(0, studentLimit - summary.data.totalStudents)
       : null);
+  const studentReached =
+    studentLimit != null && summary.data?.totalStudents != null
+      ? summary.data.totalStudents >= studentLimit
+      : false;
   const quotaError = summary.status === "error";
   const [searchParams, setSearchParams] = useSearchParams();
   const [filters, setFilters] = useState(() => ({
@@ -175,7 +181,19 @@ export default function Students() {
             <ActionsRow>
               {!isTeacher && (
                 <AddWrap>
-                  <PrimaryBtn to="/students/new">원생 추가</PrimaryBtn>
+                  <PrimaryButton
+                    type="button"
+                    onClick={() => navigate("/students/new")}
+                    disabled={studentReached}
+                    title={studentReached ? "현재 요금제의 원생 한도에 도달했습니다." : undefined}
+                  >
+                    원생 추가
+                  </PrimaryButton>
+                  {studentReached ? (
+                    <GhostBtnSmall to={routes.myAcademyPlan} title="요금제를 변경해 한도를 늘릴 수 있습니다.">
+                      요금제 변경
+                    </GhostBtnSmall>
+                  ) : null}
                   <QuotaBadge title="요금제별 등록 가능 잔여 인원">
                     {studentLimit != null
                       ? `잔여 ${Math.max(0, studentRemaining ?? 0)} / ${studentLimit}명`

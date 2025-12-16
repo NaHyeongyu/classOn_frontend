@@ -10,24 +10,6 @@ export const Page = styled(PageWrap)`
   gap: ${(p) => p.theme.spacing.lg};
 `;
 
-export const Header = styled.div`
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: ${(p) => p.theme.spacing.md};
-  align-items: center;
-  @media (max-width: 720px) {
-    grid-template-columns: 1fr;
-    gap: ${(p) => p.theme.spacing.sm};
-  }
-`;
-
-export const Actions = styled.div`
-  display: inline-flex;
-  gap: ${(p) => p.theme.spacing.sm};
-  flex-wrap: wrap;
-  justify-content: flex-end;
-`;
-
 export const Form = styled.form`
   display: grid;
   gap: ${(p) => p.theme.spacing.xl};
@@ -131,17 +113,6 @@ export const PrimaryAction = styled.button`
   padding: 0 ${(p) => p.theme.spacing.xl};
   font-size: ${(p) => p.theme.font.size.md};
   font-weight: 700;
-`;
-
-export const BackButton = styled.button`
-  ${buttonVariants.outline};
-  height: 40px;
-  padding: 0 ${(p) => p.theme.spacing.lg};
-  font-weight: 600;
-  font-size: ${(p) => p.theme.font.size.md};
-  display: inline-flex;
-  align-items: center;
-  gap: ${(p) => p.theme.spacing.xs};
 `;
 
 const shimmer = keyframes`

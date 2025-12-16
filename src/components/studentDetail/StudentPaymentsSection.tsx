@@ -9,23 +9,27 @@ import {
     Skeleton,
 } from "@/components/common/UI";
 import Modal from "@/components/common/Modal";
+import ConfirmModal from "@/components/common/ConfirmModal";
 import { useToast } from "@/components/common/Toast";
 import { DiscountFields } from "@/components/payments/DiscountFields";
 import { AdditionalChargeFields } from "@/components/payments/AdditionalChargeFields";
 import { PaymentDetailModal } from "@/components/payments/PaymentDetailModal";
+import { StudentPaymentTemplatesPanel } from "@/components/studentDetail/StudentPaymentTemplatesPanel";
 import {
     cancelPayment,
     getPaymentDetail,
+    deletePaymentInvoice,
     updatePaymentInvoice,
     type PaymentInvoiceUpdatePayload,
     type PaymentAdditionalItemPayload,
 } from "@/api/payments";
-import type { StudentPaymentInfo } from "@/api/students";
+import { getStudentPaymentInfo, type StudentPaymentInfo } from "@/api/students";
 import type { PaymentDetail, DiscountType, PaymentMethod, PaymentType } from "@classon/shared-types";
 import { formatMoney, formatKoreanDate, formatKoreanDateTimeKST } from "@/lib/format";
 import { readableError } from "@/lib/errors";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
+import type { PageResult } from "@/types/paging";
 
 type DetailState =
     | { open: false }
@@ -71,16 +75,16 @@ const createEmptyInvoiceForm = (): PaymentInvoiceUpdatePayload => ({
 });
 
 const statusLabel: Record<string, string> = {
-    UNPAID: "미납",
-    PENDING: "대기",
+    UNPAID: "대기",
+    PENDING: "미납",
     COMPLETED: "완료",
     FAILED: "실패",
     CANCELED: "취소",
 };
 
 const statusColor: Record<string, string> = {
-    UNPAID: "#f97316",
-    PENDING: "#2563EB",
+    UNPAID: "#2563EB",
+    PENDING: "#f97316",
     COMPLETED: "#059669",
     FAILED: "#dc2626",
     CANCELED: "#dc2626",
@@ -99,8 +103,37 @@ export function StudentPaymentsSection({
     const { success, error: toastError } = useToast();
     const queryClient = useQueryClient();
     const invoice = payments?.invoice ?? null;
-    const history = payments?.history ?? [];
-    const completedHistory = history.filter(
+    const initialHistoryPage = payments?.history ?? null;
+    const [historyRows, setHistoryRows] = useState(() => (initialHistoryPage?.content ? initialHistoryPage.content : []));
+    const [historyMeta, setHistoryMeta] = useState<Pick<PageResult<unknown>, "page" | "size" | "totalPages" | "last"> | null>(
+        initialHistoryPage
+            ? { page: initialHistoryPage.page, size: initialHistoryPage.size, totalPages: initialHistoryPage.totalPages, last: initialHistoryPage.last }
+            : null,
+    );
+    const [loadingMore, setLoadingMore] = useState(false);
+    useEffect(() => {
+        if (!studentId) {
+            setHistoryRows([]);
+            setHistoryMeta(null);
+            return;
+        }
+        if (!initialHistoryPage) {
+            setHistoryRows([]);
+            setHistoryMeta(null);
+            return;
+        }
+        if (initialHistoryPage.page === 0) {
+            setHistoryRows(initialHistoryPage.content || []);
+            setHistoryMeta({
+                page: initialHistoryPage.page,
+                size: initialHistoryPage.size,
+                totalPages: initialHistoryPage.totalPages,
+                last: initialHistoryPage.last,
+            });
+        }
+    }, [studentId, initialHistoryPage]);
+
+    const completedHistory = historyRows.filter(
         (row) => row.status === "COMPLETED" || row.status === "CANCELED",
     );
     const normalizedCourseIds = useMemo(() => {
@@ -121,8 +154,7 @@ export function StudentPaymentsSection({
     const normalizedRecommendedAmount = Math.max(0, Math.round(recommendedAmount ?? 0));
     const normalizedInvoiceAmount = Math.max(0, Math.round(invoice?.info?.originalAmount ?? 0));
     const invoiceStatus = invoice?.info?.status ?? "";
-    const invoiceEditable =
-        invoiceStatus === "UNPAID" || invoiceStatus === "PENDING" || invoiceStatus === "SCHEDULED";
+    const invoiceEditable = invoiceStatus === "UNPAID" && !invoice?.info?.invoiceRequestedAt;
     const courseSignature = useMemo(() => {
         if (!invoice?.courses?.length) return null;
         return invoice.courses
@@ -143,11 +175,13 @@ export function StudentPaymentsSection({
         open: false,
         message: "",
     });
-    const [internalView, setInternalView] = useState<"invoice" | "history">("invoice");
+    type ViewMode = "invoice" | "history" | "templates";
+    const [internalView, setInternalView] = useState<ViewMode>("invoice");
     const hasInvoice = Boolean(invoice);
     const hasHistory = completedHistory.length > 0;
     useEffect(() => {
         if (view) return;
+        if (internalView === "templates") return;
         if (internalView === "invoice" && !hasInvoice && hasHistory) {
             setInternalView("history");
         }
@@ -182,9 +216,53 @@ export function StudentPaymentsSection({
         createEmptyAdditionalFields(),
     );
 
+    const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; id: number | null }>({
+        open: false,
+        id: null,
+    });
+
+    const deleteInvoiceMutation = useMutation({
+        mutationFn: (id: number) => deletePaymentInvoice(id),
+        onSuccess: () => {
+            success("청구서를 삭제했습니다.");
+            setDeletePrompt({ open: false, id: null });
+            invalidatePaymentsQueries(queryClient);
+            onRefresh();
+        },
+        onError: (err: unknown) => toastError(readableError(err, "청구서 삭제에 실패했습니다.")),
+    });
+
     // View mode expanded states
     const [viewDiscountExpanded, setViewDiscountExpanded] = useState(false);
     const [viewAdditionExpanded, setViewAdditionExpanded] = useState(false);
+
+    const canLoadMoreHistory = Boolean(historyMeta && !historyMeta.last);
+    const loadMoreHistory = useCallback(async () => {
+        if (!studentId) return;
+        if (!historyMeta || historyMeta.last) return;
+        if (loadingMore) return;
+        setLoadingMore(true);
+        try {
+            const nextPage = historyMeta.page + 1;
+            const res = await getStudentPaymentInfo(studentId, { page: nextPage, size: historyMeta.size });
+            const next = res.history;
+            setHistoryRows((prev) => {
+                const merged = [...prev, ...(next.content || [])];
+                const seen = new Set<number>();
+                return merged.filter((it) => {
+                    if (!it || typeof it.id !== "number") return false;
+                    if (seen.has(it.id)) return false;
+                    seen.add(it.id);
+                    return true;
+                });
+            });
+            setHistoryMeta({ page: next.page, size: next.size, totalPages: next.totalPages, last: next.last });
+        } catch (e) {
+            toastError(readableError(e, "결제 내역을 더 불러오지 못했습니다."));
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [historyMeta, loadingMore, studentId, toastError]);
 
     const buildAdditionalItemsPayload = useCallback(
         (fields: AdditionalFieldState): PaymentAdditionalItemPayload[] | undefined => {
@@ -487,11 +565,24 @@ export function StudentPaymentsSection({
 
     const handleSave = () => {
         if (!detailState.open || detailState.variant !== "invoice") return;
-        updateMutation.mutate({ id: detailState.id, payload: form });
+        const normalizeDate = (value?: string) => (value && value.trim() ? value : undefined);
+        const payload: PaymentInvoiceUpdatePayload = {
+            ...form,
+            dueDate: normalizeDate(form.dueDate),
+            periodStart: normalizeDate(form.periodStart),
+            periodEnd: normalizeDate(form.periodEnd),
+            cycleValue: undefined,
+            cycleUnit: undefined,
+        };
+        updateMutation.mutate({ id: detailState.id, payload });
     };
 
     const openInvoiceEditModal = () => {
         if (!invoice) return;
+        if (!invoiceEditable) {
+            toastError("발송 전 대기 청구서만 수정할 수 있습니다.");
+            return;
+        }
         setInvoiceEditState({ open: true, loading: true, data: null });
         getPaymentDetail(invoice.info.id)
             .then((detail) => {
@@ -525,8 +616,6 @@ export function StudentPaymentsSection({
             managerMemo: invoiceEditForm.managerMemo ?? "",
             discountType: invoiceDiscountEnabled ? invoiceEditForm.discountType : undefined,
             discountValue: invoiceDiscountEnabled ? invoiceEditForm.discountValue : undefined,
-            cycleValue: invoiceEditForm.cycleValue,
-            cycleUnit: invoiceEditForm.cycleUnit ?? invoiceEditData?.schedule?.cycleUnit ?? "MONTHS",
             additionalItems: invoiceEditForm.additionalItems,
         };
         updateMutation.mutate({ id: invoice.info.id, payload });
@@ -554,8 +643,10 @@ export function StudentPaymentsSection({
         invoiceDiscountEnabled ? invoiceEditForm.discountType : undefined,
         invoiceDiscountEnabled ? invoiceEditForm.discountValue : undefined,
     );
-    const resolvedView = view ?? internalView;
+    const resolvedView: ViewMode = view ?? internalView;
     const viewingInvoice = resolvedView === "invoice";
+    const viewingHistory = resolvedView === "history";
+    const viewingTemplates = resolvedView === "templates";
 
     const changeView = (next: "invoice" | "history") => {
         if (!view) {
@@ -575,34 +666,64 @@ export function StudentPaymentsSection({
                 </TabButton>
                 <TabButton
                     type="button"
-                    data-active={!viewingInvoice}
+                    data-active={viewingHistory}
                     onClick={() => changeView("history")}
                 >
                     결제 내역
                 </TabButton>
             </Tabs>
-            {viewingInvoice && invoice ? (
-                <PrimaryButton type="button" onClick={openInvoiceEditModal}>
-                    수정
-                </PrimaryButton>
-            ) : null}
+            <HeaderActions>
+                {!view ? (
+                    <TemplateButton
+                        type="button"
+                        data-active={viewingTemplates}
+                        onClick={() => setInternalView("templates")}
+                    >
+                        템플릿
+                    </TemplateButton>
+                ) : null}
+                {viewingInvoice && invoice ? (
+                    <>
+                        <GhostButton
+                            type="button"
+                            onClick={() => {
+                                if (!invoiceEditable) return;
+                                setDeletePrompt({ open: true, id: invoice.info.id });
+                            }}
+                            disabled={!invoiceEditable || deleteInvoiceMutation.isPending}
+                            style={{ borderColor: "#ef4444", color: "#ef4444" }}
+                        >
+                            {deleteInvoiceMutation.isPending ? "삭제 중..." : "삭제"}
+                        </GhostButton>
+                        <PrimaryButton type="button" onClick={openInvoiceEditModal} disabled={!invoiceEditable}>
+                            수정
+                        </PrimaryButton>
+                    </>
+                ) : null}
+            </HeaderActions>
         </HeaderRow>
     ) : viewingInvoice && invoice ? (
         <HeaderRow>
             <span />
-            <PrimaryButton type="button" onClick={openInvoiceEditModal}>
+            <PrimaryButton type="button" onClick={openInvoiceEditModal} disabled={!invoiceEditable}>
                 수정
             </PrimaryButton>
         </HeaderRow>
     ) : null;
 
-    const bodyContent = viewingInvoice ? (
-                <InvoiceColumn>
-                    {!loading && error ? <ErrorText>{error}</ErrorText> : null}
-                    {loading ? (
-                        <Skeleton h={160} />
-                    ) : invoice ? (
-                        <InvoiceForm>
+    const bodyContent = viewingTemplates ? (
+        <InvoiceColumn>
+            <SeparatedPanel>
+                <StudentPaymentTemplatesPanel studentId={studentId} />
+            </SeparatedPanel>
+        </InvoiceColumn>
+    ) : viewingInvoice ? (
+        <InvoiceColumn>
+            {!loading && error ? <ErrorText>{error}</ErrorText> : null}
+            {loading ? (
+                <Skeleton h={160} />
+            ) : invoice ? (
+                <InvoiceForm>
                             <label>
                                 <span>결제 예정일</span>
                                 <input type="date" value={invoice.info.dueDate ?? ""} disabled />
@@ -690,21 +811,21 @@ export function StudentPaymentsSection({
                                 <span>메모</span>
                                 <textarea value={combineMemoValues(invoice.info.memo, invoice.info.managerMemo)} disabled />
                             </label>
-                        </InvoiceForm>
-                    ) : (
-                        <EmptyState>진행 중인 청구서가 없습니다.</EmptyState>
-                    )}
-                </InvoiceColumn>
+                </InvoiceForm>
             ) : (
-                <HistoryColumn>
+                <EmptyState>진행 중인 청구서가 없습니다.</EmptyState>
+            )}
+        </InvoiceColumn>
+    ) : (
+        <HistoryColumn>
                     {error ? <ErrorText>{error}</ErrorText> : null}
                     {loading ? (
                         <Skeleton h={160} />
                     ) : completedHistory.length === 0 ? (
                         <EmptyState>결제 내역이 없습니다.</EmptyState>
-                    ) : (
-                        <TableWrapper>
-                            <HistoryTable>
+		                    ) : (
+		                        <TableWrapper>
+		                            <HistoryTable>
                                 <colgroup>
                                     <col style={{ width: "15%" }} />
                                     <col style={{ width: "25%" }} />
@@ -737,17 +858,40 @@ export function StudentPaymentsSection({
                                         <td>{getPaymentMethodDisplay(row.paymentMethod, row.paymentType)}</td>
                                     </tr>
                                 ))}
-                                </tbody>
-                            </HistoryTable>
-                        </TableWrapper>
-                    )}
-                </HistoryColumn>
-            );
+	                                </tbody>
+	                            </HistoryTable>
+	                            {canLoadMoreHistory ? (
+	                                <MoreRow>
+	                                    <MoreButton type="button" onClick={loadMoreHistory} disabled={loadingMore}>
+	                                        {loadingMore ? "불러오는 중..." : "더 보기"}
+	                                    </MoreButton>
+	                                </MoreRow>
+	                            ) : null}
+	                        </TableWrapper>
+	                    )}
+        </HistoryColumn>
+    );
 
     const content = (
         <>
             {headerNode}
             {bodyContent}
+            <ConfirmModal
+                open={deletePrompt.open}
+                title="청구서 삭제"
+                description="미발송(대기) 청구서를 삭제할까요? 삭제 후 복구할 수 없습니다."
+                confirmText="삭제"
+                loading={deleteInvoiceMutation.isPending}
+                onClose={() => {
+                    if (deleteInvoiceMutation.isPending) return;
+                    setDeletePrompt({ open: false, id: null });
+                }}
+                onConfirm={() => {
+                    if (deleteInvoiceMutation.isPending) return;
+                    if (!deletePrompt.id) return;
+                    deleteInvoiceMutation.mutate(deletePrompt.id);
+                }}
+            />
 
             {resolvedDetailVariant === "invoice" ? (
                 <Modal
@@ -850,7 +994,7 @@ export function StudentPaymentsSection({
                                                         const nextStart = event.target.value;
                                                         setForm((prev) => {
                                                             const activeCycle =
-                                                                prev.cycleValue ?? detailData.schedule?.cycleValue ?? null;
+                                                                detailData.schedule?.cycleValue ?? null;
                                                             const nextPeriodEnd = computePeriodEndByCycle(nextStart, activeCycle);
                                                             return {
                                                                 ...prev,
@@ -894,36 +1038,11 @@ export function StudentPaymentsSection({
                                                 />
                                             </label>
                                             <label>
-                                                결제 주기 (개월)
+                                                결제 주기
                                                 <Input
-                                                    type={isEditing ? "number" : "text"}
-                                                    min={1}
-                                                    disabled={!isEditing}
-                                                    value={
-                                                        isEditing
-                                                            ? String(
-                                                                form.cycleValue ??
-                                                                detailData.schedule?.cycleValue ??
-                                                                "",
-                                                            )
-                                                            : formatCycleLabelFromSchedule(detailData)
-                                                    }
-                                                    onChange={(event) => {
-                                                        const nextCycle = parseCycleInput(event.target.value);
-                                                        setForm((prev) => {
-                                                            const baseStart =
-                                                                prev.periodStart ??
-                                                                detailData.info.periodStart ??
-                                                                "";
-                                                            const nextPeriodEnd =
-                                                                nextCycle && baseStart ? computePeriodEndByCycle(baseStart, nextCycle) : undefined;
-                                                            return {
-                                                                ...prev,
-                                                                cycleValue: nextCycle,
-                                                                periodEnd: nextPeriodEnd ?? prev.periodEnd,
-                                                            };
-                                                        });
-                                                    }}
+                                                    type="text"
+                                                    disabled
+                                                    value={formatCycleLabelFromSchedule(detailData)}
                                                 />
                                             </label>
                                         </div>
@@ -1144,9 +1263,7 @@ export function StudentPaymentsSection({
                                             const nextStart = event.target.value;
                                             setInvoiceEditForm((prev) => {
                                                 const activeCycle =
-                                                    prev.cycleValue ??
-                                                    invoiceEditData.schedule?.cycleValue ??
-                                                    null;
+                                                    invoiceEditData.schedule?.cycleValue ?? null;
                                                 const nextPeriodEnd = computePeriodEndByCycle(nextStart, activeCycle);
                                                 return {
                                                     ...prev,
@@ -1188,33 +1305,11 @@ export function StudentPaymentsSection({
                                     />
                                 </label>
                                 <label>
-                                    결제 주기 (개월)
+                                    결제 주기
                                     <Input
-                                        type="number"
-                                        min={1}
-                                        value={
-                                            invoiceEditForm.cycleValue ??
-                                            invoiceEditData.schedule?.cycleValue ??
-                                            ""
-                                        }
-                                        onChange={(event) => {
-                                            const nextCycle = parseCycleInput(event.target.value);
-                                            setInvoiceEditForm((prev) => {
-                                                const baseStart =
-                                                    prev.periodStart ??
-                                                    invoiceEditData.info.periodStart ??
-                                                    "";
-                                                const nextPeriodEnd =
-                                                    nextCycle && baseStart
-                                                        ? computePeriodEndByCycle(baseStart, nextCycle)
-                                                        : undefined;
-                                                return {
-                                                    ...prev,
-                                                    cycleValue: nextCycle,
-                                                    periodEnd: nextPeriodEnd ?? prev.periodEnd,
-                                                };
-                                            });
-                                        }}
+                                        type="text"
+                                        disabled
+                                        value={formatCycleLabelFromSchedule(invoiceEditData)}
                                     />
                                 </label>
                             </div>
@@ -1589,13 +1684,6 @@ function formatAsDateInput(date: Date): string {
     return local.toISOString().slice(0, 10);
 }
 
-function parseCycleInput(raw: string): number | undefined {
-    if (!raw) return undefined;
-    const numeric = Number(raw);
-    if (!Number.isFinite(numeric) || numeric <= 0) return undefined;
-    return Math.max(1, Math.round(numeric));
-}
-
 const InvoiceColumn = styled.div`
   display: grid;
   gap: 12px;
@@ -1760,6 +1848,43 @@ const HeaderRow = styled.div`
   flex-wrap: wrap;
 `;
 
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+`;
+
+const TemplateButton = styled.button`
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: ${(p) => p.theme.colors.surface};
+  color: ${(p) => p.theme.colors.text};
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+
+  &[data-active="true"] {
+    border-color: ${(p) => p.theme.colors.primary};
+    background: ${(p) => p.theme.colors.primarySurface};
+    color: ${(p) => p.theme.colors.primary};
+  }
+
+  &:hover {
+    border-color: ${(p) => p.theme.colors.primary};
+    color: ${(p) => p.theme.colors.primary};
+  }
+`;
+
+const SeparatedPanel = styled.div`
+  border: 1px solid ${(p) => p.theme.colors.borderMuted ?? p.theme.colors.border};
+  border-radius: ${(p) => p.theme.radii.md};
+  padding: 10px;
+  background: ${(p) => p.theme.colors.surfaceAlt ?? "#f9fafb"};
+`;
+
 const InvoiceForm = styled.div`
   display: grid;
   gap: 12px;
@@ -1803,6 +1928,29 @@ const HistoryTable = styled(TableBase)`
   }
   tbody td {
     vertical-align: middle;
+  }
+`;
+
+const MoreRow = styled.div`
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 6px;
+`;
+
+const MoreButton = styled.button`
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: ${(p) => p.theme.colors.surface ?? "#ffffff"};
+  color: ${(p) => p.theme.colors.text};
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  cursor: pointer;
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  &:hover:not(:disabled) {
+    background: ${(p) => p.theme.colors.surfaceAlt ?? "#f8fafc"};
   }
 `;
 

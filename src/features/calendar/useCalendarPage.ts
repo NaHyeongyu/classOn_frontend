@@ -6,10 +6,9 @@ import { useTodoEvents } from "@/features/todos/useTodoEvents";
 import { useCounselEvents } from "@/features/counsels/useCounselEvents";
 import { usePaymentEvents } from "@/features/calendar/usePaymentEvents";
 import {
-  buildMonthMatrix,
   formatYMD,
 } from "@/features/calendar/dateUtils";
-import { getClassesRange } from "@/api/calendar";
+import { getClassesMonth } from "@/api/calendar";
 
 export function useCalendarPage() {
   const navigate = useNavigate();
@@ -24,18 +23,11 @@ export function useCalendarPage() {
   const paymentEvents = usePaymentEvents();
 
   useEffect(() => {
-    function rangeForMonth(d: Date) {
-      const mat = buildMonthMatrix(d);
-      const first = mat[0];
-      const last = mat[mat.length - 1];
-      return { from: formatYMD(first), to: formatYMD(last) };
-    }
     const prev = new Date(viewDate.getFullYear(), viewDate.getMonth() - 1, 1);
     const next = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 1);
-    const rp = rangeForMonth(prev);
-    const rn = rangeForMonth(next);
-    void getClassesRange(rp.from, rp.to);
-    void getClassesRange(rn.from, rn.to);
+    const ymOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    void getClassesMonth(ymOf(prev));
+    void getClassesMonth(ymOf(next));
   }, [viewDate]);
 
   useEffect(() => {

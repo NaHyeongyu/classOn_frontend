@@ -5,7 +5,6 @@ import styled from "styled-components";
 import {
   GhostBtn as UIGhostBtn,
   GhostBtnSmall as UIGhostBtnSmall,
-  buttonVariants,
   GhostButton as UIGhostButton,
   PrimaryButton as UIPrimaryButton,
 } from "@/components/common/UI";
@@ -41,6 +40,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Modal from "@/components/common/Modal";
 import { toHHMM, toHHMMSS } from "@/features/courseRecord/utils";
 import SelectBox from "@/components/common/SelectBox";
+import PageTopBar from "@/components/common/PageTopBar";
 import {
   HOUR_OPTIONS,
   MINUTE_OPTIONS,
@@ -744,40 +744,40 @@ export default function CourseDetail() {
 
   return (
     <Wrap>
-      <Head>
-        <BackBtn type="button" onClick={() => navigate("/classes")}>
-          {leftIcon} 뒤로
-        </BackBtn>
-        <h2>{course?.title || "수업 상세"}</h2>
-        <Actions>
-          {!isTeacher && (
-            <UIGhostBtn
-              to={`/classes/${numericId || ""}/edit-students`}
-              title="수강생 관리"
-              data-variant="edit"
-            >
-              수강생 관리
-            </UIGhostBtn>
-          )}
-          {!isTeacher && (
-            <UIGhostBtn
-              to={`/classes/${numericId || ""}/edit`}
-              title="기본 정보 수정"
-              data-variant="edit"
-            >
-              기본정보 수정
-            </UIGhostBtn>
-          )}
-          {numericId && !isTeacher && (
-            <UIGhostButton
-              type="button"
-              onClick={() => setConfirmDeleteOpen(true)}
-            >
-              삭제
-            </UIGhostButton>
-          )}
-        </Actions>
-      </Head>
+      <PageTopBar
+        align="center"
+        title={course?.title || "수업 상세"}
+        onBack={() => navigate("/classes")}
+        backLabel="뒤로"
+        backSize="md"
+        actions={
+          <>
+            {!isTeacher && (
+              <UIGhostBtn
+                to={`/classes/${numericId || ""}/edit-students`}
+                title="수강생 관리"
+                data-variant="edit"
+              >
+                수강생 관리
+              </UIGhostBtn>
+            )}
+            {!isTeacher && (
+              <UIGhostBtn
+                to={`/classes/${numericId || ""}/edit`}
+                title="기본 정보 수정"
+                data-variant="edit"
+              >
+                기본정보 수정
+              </UIGhostBtn>
+            )}
+            {numericId && !isTeacher && (
+              <UIGhostButton type="button" onClick={() => setConfirmDeleteOpen(true)}>
+                삭제
+              </UIGhostButton>
+            )}
+          </>
+        }
+      />
       {/* Breadcrumb removed per request */}
       {confirmDangerDialog}
       <ConfirmDialog
@@ -1172,23 +1172,6 @@ const Wrap = styled.div`
   display: grid;
   gap: 12px;
 `;
-const Head = styled.div`
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
-  align-items: center;
-  h2 {
-    margin: 0;
-    font-size: ${(p) => p.theme.font.size.display};
-    color: ${(p) => p.theme.colors.text};
-    font-weight: ${(p) => p.theme.font.weight.bold};
-    letter-spacing: -0.01em;
-  }
-`;
-const Actions = styled.div`
-  display: inline-flex;
-  gap: 12px;
-`;
 const Label = styled.div`
   color: #6b7280;
   font-size: 12px;
@@ -1234,27 +1217,6 @@ const Muted = styled.div`
   color: #6b7280;
   font-size: 12px;
 `;
-const BackBtn = styled.button`
-  ${buttonVariants.outline};
-  height: 40px;
-  padding: 0 16px;
-  font-weight: 600;
-  font-size: 14px;
-`;
-const leftIcon = (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="15 18 9 12 15 6" />
-  </svg>
-);
 // Breadcrumb removed
 
 // new layout styles

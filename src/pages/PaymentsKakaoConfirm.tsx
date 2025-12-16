@@ -122,8 +122,8 @@ const statusLabelMap: Record<string, string> = {
 };
 
 const statusColor: Record<string, string> = {
-  UNPAID: "#f97316",
-  PENDING: "#2563EB",
+  UNPAID: "#2563EB",
+  PENDING: "#f97316",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
   CANCELED: "#dc2626",

@@ -267,9 +267,7 @@ export function MyAcademySellerModal({ modal }: Props) {
         {modal.error ? <ErrorText>{modal.error}</ErrorText> : null}
 
         <ActionRow>
-          <BackButton type="button" onClick={modal.closeModal}>
-            취소
-          </BackButton>
+          <BackButton label="취소" onClick={modal.closeModal} />
           <PrimaryButtonLg type="submit" disabled={!validation.canSubmit}>
             {modal.submitting ? "저장 중..." : modal.creating ? "등록하기" : "수정하기"}
           </PrimaryButtonLg>

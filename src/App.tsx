@@ -31,7 +31,7 @@ const StudentDetail = lazy(() => import("@/pages/StudentDetail"));
 const StudentForm = lazy(() => import("@/pages/StudentForm"));
 const DevTools = lazy(() => import("@/pages/DevTools"));
 const Marketing = lazy(() => import("@/pages/Marketing"));
-const Payments = lazy(() => import("@/pages/Payments"));
+const Payments = lazy(() => import("@/features/payments/pages/PaymentsPage"));
 const PaymentsCreate = lazy(() => import("@/pages/PaymentsCreate"));
 const PaymentsKakaoConfirm = lazy(() => import("@/pages/PaymentsKakaoConfirm"));
 const PaymentsKakaoSchedule = lazy(() => import("@/pages/PaymentsKakaoSchedule"));

@@ -1,4 +1,5 @@
 import ConfirmDialog from "@/components/common/ConfirmDialog";
+import BackButton from "@/components/common/BackButton";
 import { Page, GhostButtonSmall, PrimaryButtonSm } from "@/components/common/UI";
 import type { UseMarketingPreviewReturn } from "@/features/marketing/preview/types";
 import {
@@ -142,9 +143,7 @@ export function MarketingPreviewPageView({
       </Layout>
 
       <Footer>
-        <GhostButtonSmall as="button" onClick={() => window.history.back()}>
-          ← 이전
-        </GhostButtonSmall>
+        <BackButton size="md" label="이전" />
         <ActionButton type="button" onClick={handleNext} disabled={!items.length}>
           다음 단계
         </ActionButton>

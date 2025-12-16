@@ -12,6 +12,7 @@ import { useStudentAttendance } from "@/features/studentDetail/useStudentAttenda
 import { useStudentGrades } from "@/features/studentDetail/useStudentGrades";
 import { useStudentReports } from "@/features/studentDetail/useStudentReports";
 import { useStudentCounsels } from "@/features/studentDetail/useStudentCounsels";
+import { apiGetPlanUsage } from "@/api/account";
 
 export type TabKey = "courses" | "attendance" | "counsels" | "grades" | "invoice" | "paymentHistory" | "reports";
 
@@ -109,9 +110,18 @@ export function useStudentDetailPage(): StudentDetailPageState {
     enabled: activeTab === "grades",
   });
 
+  const planUsageQuery = useQuery({
+    queryKey: ["account", "plan-usage"],
+    queryFn: apiGetPlanUsage,
+    enabled: true,
+    staleTime: 60_000,
+  });
+  const planId = (planUsageQuery.data?.planId ?? "").toLowerCase();
+  const paymentEnabled = planId === "enterprise" || planId.endsWith("-pay");
+
   const reports = useStudentReports({
     studentId: numericId,
-    enabled: activeTab === "reports",
+    enabled: activeTab === "reports" && paymentEnabled,
   });
 
   const counsels = useStudentCounsels({
@@ -123,10 +133,10 @@ export function useStudentDetailPage(): StudentDetailPageState {
 
   const paymentsQuery = useQuery({
     queryKey: ["students", numericId, "payments"],
-    enabled: Boolean(numericId),
+    enabled: Boolean(numericId) && paymentEnabled && (activeTab === "invoice" || activeTab === "paymentHistory"),
     queryFn: () => {
       if (!numericId) throw new Error("학생 ID가 필요합니다.");
-      return getStudentPaymentInfo(numericId);
+      return getStudentPaymentInfo(numericId, { page: 0, size: 20 });
     },
     staleTime: 30_000,
   });
@@ -171,14 +181,15 @@ export function useStudentDetailPage(): StudentDetailPageState {
   const counselTabError =
     counsels.listError || counsels.editState.formError || null;
 
-  const paymentError =
-    paymentsQuery.error && numericId
+  const paymentError = !paymentEnabled && (activeTab === "invoice" || activeTab === "paymentHistory")
+    ? "결제 기능은 결제 기능이 포함된 요금제(Plus)에서 이용할 수 있습니다."
+    : paymentsQuery.error && numericId
       ? paymentsQuery.error instanceof Error
         ? paymentsQuery.error.message
         : "결제 정보를 불러오지 못했습니다."
       : null;
 
-  const paymentsLoading = paymentsQuery.status === "pending" && Boolean(numericId);
+  const paymentsLoading = paymentEnabled && paymentsQuery.status === "pending" && Boolean(numericId);
 
   return {
     numericId,
@@ -202,14 +213,23 @@ export function useStudentDetailPage(): StudentDetailPageState {
       handleProtectedCloseAddModal,
     },
     payments: {
-      data: paymentsQuery.data ?? null,
+      data: paymentEnabled ? (paymentsQuery.data ?? null) : null,
       loading: paymentsLoading,
       error: paymentError,
       refresh: () => {
+        if (!paymentEnabled) return;
         void paymentsQuery.refetch();
       },
     },
-    reports,
+    reports: paymentEnabled
+      ? reports
+      : {
+          ...reports,
+          error:
+            activeTab === "reports"
+              ? "보고서 기능은 결제 기능이 포함된 요금제(Plus)에서 이용할 수 있습니다."
+              : null,
+        },
     deleteConfirmDialog,
   };
 }

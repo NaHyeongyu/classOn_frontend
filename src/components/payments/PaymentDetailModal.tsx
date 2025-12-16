@@ -24,8 +24,8 @@ type Props = {
 };
 
 const statusLabel: Record<string, string> = {
-    UNPAID: "미납",
-    PENDING: "대기",
+    UNPAID: "대기",
+    PENDING: "미납",
     COMPLETED: "완료",
     FAILED: "실패",
     CANCELED: "취소",

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { CalendarEvent } from "../../types/calendar";
 import type { ClassItem } from "../../types/calendarDetail";
 import { formatYMD } from "./dateUtils";
-import { getClassesRange } from "../../api/calendar";
+import { getClassesMonth } from "../../api/calendar";
 import { peekCache } from "../../lib/fetcher";
 import { readableError } from "@/lib/errors";
 
@@ -44,6 +44,36 @@ function minmaxFromMatrix(matrix?: Date[][] | null) {
   return { from: ys[0], to: ys[ys.length - 1] };
 }
 
+function pickYearMonth(dates: Date[] | Date[][] | undefined): string {
+  if (!dates) {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }
+  const flat = (
+    Array.isArray(dates) && Array.isArray((dates as unknown[])[0])
+      ? (dates as Date[][]).flat()
+      : (dates as Date[])
+  ).filter((d) => d instanceof Date && Number.isFinite(d.getTime()));
+  if (!flat.length) {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  }
+  const counts = new Map<string, number>();
+  for (const d of flat) {
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    counts.set(ym, (counts.get(ym) ?? 0) + 1);
+  }
+  let best = "";
+  let bestCount = -1;
+  for (const [ym, count] of counts.entries()) {
+    if (count > bestCount) {
+      best = ym;
+      bestCount = count;
+    }
+  }
+  return best;
+}
+
 export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
   const datesMatrix = opts?.dates;
   const [byYmd, setByYmd] = useState<Record<string, ClassItem[]>>({});
@@ -51,6 +81,7 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
   const [error, setError] = useState<string | null>(null);
 
   const range = useMemo(() => {
+    const ym = pickYearMonth(datesMatrix);
     if (Array.isArray(datesMatrix)) {
       let mm: { from: Date; to: Date } | null = null;
       const first = (datesMatrix as unknown[])[0];
@@ -60,10 +91,10 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
         const arr = (datesMatrix as Date[]).slice().sort((a,b)=>a.getTime()-b.getTime());
         if (arr.length) mm = { from: arr[0], to: arr[arr.length-1] };
       }
-      if (mm) return { from: formatYMD(mm.from), to: formatYMD(mm.to) };
+      if (mm) return { ym, from: formatYMD(mm.from), to: formatYMD(mm.to) };
     }
     const y = formatYMD(new Date());
-    return { from: y, to: y };
+    return { ym, from: y, to: y };
   }, [datesMatrix]);
 
   useEffect(() => {
@@ -73,7 +104,7 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
       setError(null);
       // Seed from cache for instant UI, then revalidate in background
       try {
-        const sp = new URLSearchParams({ from: range.from, to: range.to });
+        const sp = new URLSearchParams({ ym: range.ym });
         const key = `/api/calendar/classes-range?${sp.toString()}`;
         const cached = peekCache<RangeRow[]>(key);
         if (cached.data && !cancelled) {
@@ -92,7 +123,7 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
         setLoading(true);
       }
       try {
-        const rows = await getClassesRange(range.from, range.to, { signal: controller.signal }) as RangeRow[];
+        const rows = await getClassesMonth(range.ym, { signal: controller.signal }) as RangeRow[];
         if (cancelled) return;
         const grouped: Record<string, ClassItem[]> = {};
         for (const r of (rows || [])) {
@@ -107,7 +138,7 @@ export function useCoursesCalendar(opts?: { dates?: Date[] | Date[][] }) {
     }
     void loadRange();
     return () => { cancelled = true; controller.abort(); };
-  }, [range.from, range.to]);
+  }, [range.ym, range.from, range.to]);
 
   const classesForDate = useCallback((d: Date): ClassItem[] => {
     const ymd = formatYMD(d);

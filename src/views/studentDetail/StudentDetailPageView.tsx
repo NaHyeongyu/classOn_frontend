@@ -1,5 +1,5 @@
 import styled, { keyframes } from "styled-components";
-import BackButton from "@/components/common/BackButton";
+import PageTopBar from "@/components/common/PageTopBar";
 import {
   Badge,
   Card,
@@ -71,10 +71,13 @@ export function StudentDetailPageView({
 }: StudentDetailPageViewProps) {
   return (
     <Page>
-      <TopBar>
-        <BackButton to="/students" label="뒤로" />
-        <h2>원생 상세</h2>
-      </TopBar>
+      <PageTopBar
+        align="left"
+        title="원생 상세"
+        to="/students"
+        backLabel="뒤로"
+        backSize="sm"
+      />
 
       {loading ? <StudentDetailSkeleton /> : null}
       {studentError ? <Error>{studentError}</Error> : null}
@@ -330,20 +333,6 @@ function StudentDetailSkeleton() {
 const Page = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.lg};
-`;
-
-const TopBar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${(p) => p.theme.spacing.sm};
-  justify-content: flex-start;
-  h2 {
-    margin: 0;
-    font-size: ${(p) => p.theme.font.size.display};
-    color: ${(p) => p.theme.colors.text};
-    display: flex;
-    align-items: center;
-  }
 `;
 
 const Columns = styled.div`

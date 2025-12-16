@@ -4,15 +4,15 @@ import { listCourses, type Course, listCourseStudents, listCourseRecords, type C
 import { getDailyAttendance, type AttendanceDailySummary } from "@/api/attendance";
 import { listExams, listExamResults, type Exam, type ExamResult } from "@/api/exams";
 import type { Student, StudentReport } from "@/api/students";
-import { renderStudentReport, sendStudentReportAlert } from "@/api/students";
+import { renderStudentReport } from "@/api/students";
 import { readableError } from "@/lib/errors";
 import { useToast } from "@/components/common/Toast";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import styled, { css } from "styled-components";
+import styled from "styled-components";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
-import { routes } from "@/routes";
+import { routes, paths } from "@/routes";
 import { numericFromLetter } from "@/features/courseRecord/utils";
 
 type CourseListItem = {
@@ -33,6 +33,12 @@ const EMPTY_DRAFT: ReportDraft = {
   grades: "",
   lessons: "",
   comment: "",
+};
+
+type SaveQueueItem = {
+  studentId: number;
+  resolve: (reportId: number) => void;
+  reject: (error: Error) => void;
 };
 
 export default function Reports() {
@@ -57,7 +63,7 @@ export default function Reports() {
   const [to, setTo] = useState<string>(() => defaultTo());
   const [autoLoading, setAutoLoading] = useState(false);
   const [autoError, setAutoError] = useState<string | null>(null);
-  const { warning, error: showError, success: showSuccess } = useToast();
+  const { show, warning, error: showError, success: showSuccess } = useToast();
   const [autoDetails, setAutoDetails] = useState<Record<number, AutoDetails>>({});
   const [savingReport, setSavingReport] = useState(false);
   const [notifying, setNotifying] = useState(false);
@@ -68,10 +74,18 @@ export default function Reports() {
   const [showGradesSection, setShowGradesSection] = useState(true);
   const [showLessonsSection, setShowLessonsSection] = useState(true);
   const [showFeedbackSection, setShowFeedbackSection] = useState(true);
+  const [previewSelectedIds, setPreviewSelectedIds] = useState<number[]>([]);
+  const [saveQueue, setSaveQueue] = useState<SaveQueueItem[]>([]);
   const hasProgress = useMemo(() => {
     return Object.keys(drafts).length > 0 || selectedStudentIds.length > 0 || mode === "edit";
   }, [drafts, selectedStudentIds.length, mode]);
   const progressRef = useRef(false);
+  const progressMapRef = useRef(progressMap);
+
+  useEffect(() => {
+    progressMapRef.current = progressMap;
+  }, [progressMap]);
+
   useEffect(() => {
     progressRef.current = hasProgress;
   }, [hasProgress]);
@@ -197,6 +211,7 @@ export default function Reports() {
     };
   }, [hasProgress, navigate]);
 
+
   const filteredCourses = useMemo(() => {
     const q = courseQuery.trim();
     if (!q) return courses;
@@ -207,6 +222,16 @@ export default function Reports() {
     () => students.filter((s) => selectedStudentIds.includes(s.id)),
     [students, selectedStudentIds],
   );
+
+  useEffect(() => {
+    setPreviewSelectedIds((prev) => prev.filter((id) => selectedStudentIds.includes(id)));
+  }, [selectedStudentIds]);
+
+  useEffect(() => {
+    if (mode === "select") {
+      setPreviewSelectedIds([]);
+    }
+  }, [mode]);
 
   const toggleStudent = (id: number) => {
     setSelectedStudentIds((prev) =>
@@ -224,6 +249,44 @@ export default function Reports() {
     }
   };
 
+  const handleTogglePreviewSelectAll = () => {
+    if (previewSelectedIds.length === selectedStudentIds.length) {
+      setPreviewSelectedIds([]);
+    } else {
+      setPreviewSelectedIds([...selectedStudentIds]);
+    }
+  };
+
+  const handleTogglePreviewSelection = (id: number) => {
+    setPreviewSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id],
+    );
+  };
+
+  const handleSelectPreviewStudent = (id: number) => {
+    setActiveStudentId(id);
+    setPreviewSelectedIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const enqueueSaveRequest = (studentId: number) =>
+    new Promise<number>((resolve, reject) => {
+      setSaveQueue((prev) => [...prev, { studentId, resolve, reject }]);
+    });
+
+  const ensureReportsSaved = async (ids: number[]): Promise<Record<number, number>> => {
+    const saved: Record<number, number> = {};
+    for (const id of ids) {
+      const existing = progressMapRef.current[id]?.reportId;
+      if (existing) {
+        saved[id] = existing;
+        continue;
+      }
+      const reportId = await enqueueSaveRequest(id);
+      saved[id] = reportId;
+    }
+    return saved;
+  };
+
   const handleCreateReports = async () => {
     if (!selectedCourseId || selectedStudentIds.length === 0) return;
     if (!from || !to) {
@@ -236,6 +299,7 @@ export default function Reports() {
     }
     const courseId = selectedCourseId;
     const studentIds = [...selectedStudentIds];
+    show("선택한 학생의 보고서를 생성 중입니다.", { kind: "info", ttlMs: 5000 });
     setAutoLoading(true);
     setAutoError(null);
     try {
@@ -270,6 +334,7 @@ export default function Reports() {
         return next;
       });
     } finally {
+      setPreviewSelectedIds(studentIds);
       setActiveStudentId(studentIds[0] ?? null);
       setMode("edit");
       setAutoLoading(false);
@@ -284,6 +349,37 @@ export default function Reports() {
     activeStudentId != null ? selectedStudents.find((s) => s.id === activeStudentId) || null : null;
   const activeDraft = activeStudentId != null ? drafts[activeStudentId] ?? EMPTY_DRAFT : EMPTY_DRAFT;
   const activeDetail = activeStudentId != null ? autoDetails[activeStudentId] : undefined;
+  const activeIndex = activeStudent ? selectedStudents.findIndex((s) => s.id === activeStudent.id) : -1;
+  const showStudentNav = selectedStudents.length > 1;
+  const canGoPrev = activeIndex > 0;
+  const canGoNext = activeIndex >= 0 && activeIndex < selectedStudents.length - 1;
+  const previewAllSelected =
+    selectedStudents.length > 0 && previewSelectedIds.length === selectedStudents.length;
+
+  const goToStudentAt = (index: number) => {
+    const next = selectedStudents[index];
+    if (next) setActiveStudentId(next.id);
+  };
+
+  const handlePrevStudent = () => {
+    if (!selectedStudents.length) return;
+    if (activeIndex === -1) {
+      goToStudentAt(0);
+      return;
+    }
+    if (activeIndex <= 0) return;
+    goToStudentAt(activeIndex - 1);
+  };
+
+  const handleNextStudent = () => {
+    if (!selectedStudents.length) return;
+    if (activeIndex === -1) {
+      goToStudentAt(0);
+      return;
+    }
+    if (activeIndex >= selectedStudents.length - 1) return;
+    goToStudentAt(activeIndex + 1);
+  };
 
   const handleChangeDraft = (field: keyof ReportDraft, value: string) => {
     if (activeStudentId == null) return;
@@ -299,80 +395,137 @@ export default function Reports() {
     });
   };
 
-  const handleSaveReport = async (): Promise<StudentReport | null> => {
-    if (!activeStudent) {
-      warning("학생을 선택한 후 저장하세요.");
-      return null;
+  const handleBackNavigate = () => {
+    if (mode === "edit") {
+      setMode("select");
+      setActiveStudentId(null);
+      return;
     }
-    const node = document.getElementById("report-print-root");
-    if (!node) {
-      showError("보고서 미리보기가 준비되지 않았습니다.");
-      return null;
-    }
-    setSavingReport(true);
-    try {
-      const html = buildReportHtmlDocument(node, selectedCourse?.title, activeStudent.name);
-      const filename = buildReportFilename(selectedCourse?.title, activeStudent.name);
-      const saved = await renderStudentReport(activeStudent.id, {
-        html,
-        filename,
-        format: "pdf",
-        courseId: selectedCourseId,
-        periodFrom: from,
-        periodTo: to,
-        width: Math.ceil(node.getBoundingClientRect().width || 900),
-        height: Math.ceil(node.scrollHeight || 1400),
-      });
-      setProgressMap((prev) => ({
-        ...prev,
-        [activeStudent.id]: {
-          ...(prev[activeStudent.id] ?? {}),
-          saved: true,
-          reportId: saved.id,
-        },
-      }));
-      showSuccess("학생 상세 > 보고서 탭에 저장했습니다.");
-      return saved;
-    } catch (error) {
-      console.error(error);
-      showError("보고서를 저장하지 못했습니다. 다시 시도해주세요.");
-      return null;
-    } finally {
-      setSavingReport(false);
-    }
+    navigate(-1);
   };
 
-  const handleSaveAndNotify = async () => {
-    if (!activeStudent) {
-      warning("학생을 선택한 후 저장하세요.");
+  const handleSaveReport = useCallback(
+    async (options?: { silent?: boolean }): Promise<StudentReport | null> => {
+      if (!activeStudent) {
+        warning("학생을 선택한 후 저장하세요.");
+        return null;
+      }
+      const node = document.getElementById("report-print-root");
+      if (!node) {
+        showError("보고서 미리보기가 준비되지 않았습니다.");
+        return null;
+      }
+      setSavingReport(true);
+      try {
+        const html = buildReportHtmlDocument(node, selectedCourse?.title, activeStudent.name);
+        const filename = buildReportFilename(selectedCourse?.title, activeStudent.name);
+        const saved = await renderStudentReport(activeStudent.id, {
+          html,
+          filename,
+          format: "pdf",
+          courseId: selectedCourseId,
+          periodFrom: from,
+          periodTo: to,
+          width: Math.ceil(node.getBoundingClientRect().width || 900),
+          height: Math.ceil(node.scrollHeight || 1400),
+        });
+        setProgressMap((prev) => ({
+          ...prev,
+          [activeStudent.id]: {
+            ...(prev[activeStudent.id] ?? {}),
+            saved: true,
+            reportId: saved.id,
+          },
+        }));
+        if (!options?.silent) {
+          showSuccess("학생 상세 > 보고서 탭에 저장했습니다.");
+        }
+        return saved;
+      } catch (error) {
+        console.error(error);
+        showError("보고서를 저장하지 못했습니다. 다시 시도해주세요.");
+        return null;
+      } finally {
+        setSavingReport(false);
+      }
+    },
+    [
+      activeStudent,
+      from,
+      selectedCourse?.title,
+      selectedCourseId,
+      showError,
+      showSuccess,
+      to,
+      warning,
+    ],
+  );
+
+  useEffect(() => {
+    if (!saveQueue.length) return;
+    const current = saveQueue[0];
+    if (activeStudentId !== current.studentId) {
+      setActiveStudentId(current.studentId);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const saved = await handleSaveReport({ silent: true });
+        if (!saved) {
+          throw new Error("보고서를 저장하지 못했습니다.");
+        }
+        if (!cancelled) {
+          current.resolve(saved.id);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          current.reject(error instanceof Error ? error : new Error("보고서를 저장하지 못했습니다."));
+        }
+      } finally {
+        if (!cancelled) {
+          setSaveQueue((prev) => prev.slice(1));
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [saveQueue, activeStudentId, handleSaveReport]);
+
+  const handleSaveAndNotify = async (overrideIds?: number[]) => {
+    const targetIds =
+      overrideIds || (previewSelectedIds.length > 0 ? previewSelectedIds : selectedStudentIds);
+    if (!targetIds.length) {
+      warning("알림톡을 전송할 학생을 선택하세요.");
       return;
     }
     setNotifying(true);
+    const previousActiveId = activeStudentId;
     try {
-      const saved = await handleSaveReport();
-      if (!saved) return;
-      const res = await sendStudentReportAlert(activeStudent.id, saved.id, 86400);
-      setProgressMap((prev) => ({
-        ...prev,
-        [activeStudent.id]: {
-          ...(prev[activeStudent.id] ?? {}),
-          saved: true,
-          notified: res.status !== "FAILED",
-          reportId: saved.id,
-        },
-      }));
-      if (res.status === "FAILED") {
-        showError(res.message || "알림톡 발송에 실패했습니다.");
-      } else if (res.status === "PENDING") {
-        warning(res.message || "알림톡 발송 대기 상태입니다. 잠시 후 상태를 확인해주세요.");
-      } else {
-        showSuccess("보고서를 저장하고 알림톡을 발송했습니다.");
+      const savedReports = await ensureReportsSaved(targetIds);
+      const selectionPairs = targetIds
+        .map((id) => {
+          const reportId = savedReports[id] ?? progressMapRef.current[id]?.reportId;
+          return reportId ? { studentId: id, reportId } : null;
+        })
+        .filter((pair): pair is { studentId: number; reportId: number } => pair != null);
+      if (!selectionPairs.length) {
+        showError("저장된 보고서가 있는 학생이 없습니다.");
+        return;
       }
+      navigate(
+        paths.reports.kakaoConfirm({
+          selection: selectionPairs,
+          courseName: selectedCourse?.title,
+        }),
+      );
     } catch (error) {
       console.error(error);
-      showError(readableError(error, "알림톡 발송에 실패했습니다."));
+      showError(readableError(error, "보고서를 저장하지 못했습니다."));
     } finally {
       setNotifying(false);
+      setActiveStudentId(previousActiveId ?? targetIds[0] ?? null);
     }
   };
 
@@ -396,7 +549,7 @@ export default function Reports() {
         <HeaderWrap>
           <PageHeader>
             <div>
-              <h2>보고서</h2>
+              <h2>보고서 미리보기</h2>
               <p>현재 요금제로 이용할 수 없습니다.</p>
             </div>
           </PageHeader>
@@ -472,9 +625,9 @@ export default function Reports() {
       <HeaderWrap>
         <PageHeader>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <BackButton label="뒤로" />
+            <BackButton label="뒤로" onClick={handleBackNavigate} />
             <div>
-              <h2 style={{ marginBottom: 6 }}>보고서</h2>
+              <h2 style={{ marginBottom: 6 }}>{mode === "select" ? "보고서" : "보고서 미리보기"}</h2>
               <p style={{ margin: 0 }}>
                 {mode === "select"
                   ? "좌측에서 수업을 선택하고, 우측에서 보고서를 생성할 학생을 선택하세요."
@@ -613,8 +766,8 @@ export default function Reports() {
               </PeriodRow>
               {studentsLoading && <HintText>학생 목록을 불러오는 중입니다…</HintText>}
               {studentsError && <ErrorText>{studentsError}</ErrorText>}
-              <StudentsListWrap $tall>
-                <StudentsList role="list" aria-label="학생 목록" $tall>
+              <StudentsListWrap>
+                <StudentsList role="list" aria-label="학생 목록">
                   {students.map((student) => {
                     const checked = selectedStudentIds.includes(student.id);
                     const progress = progressMap[student.id];
@@ -656,7 +809,16 @@ export default function Reports() {
             <SectionCard>
               <LeftHeader>
                 <div>
-                  <LeftTitle>선택한 학생</LeftTitle>
+                  <LeftTitleRow>
+                    <LeftTitle>선택한 학생</LeftTitle>
+                    <GhostButtonSmall
+                      type="button"
+                      onClick={handleTogglePreviewSelectAll}
+                      disabled={!selectedStudents.length}
+                    >
+                      {previewAllSelected ? "전체 해제" : "전체 선택"}
+                    </GhostButtonSmall>
+                  </LeftTitleRow>
                   <LeftSubtitle>
                     {selectedCourse
                       ? `${selectedCourse.title} 수업에서 선택한 학생 목록입니다.`
@@ -668,14 +830,21 @@ export default function Reports() {
                 <StudentsList role="list" aria-label="선택한 학생 목록">
                   {selectedStudents.map((student) => {
                     const isActive = activeStudentId === student.id;
+                    const isSelected = previewSelectedIds.includes(student.id);
                     const progress = progressMap[student.id];
                     return (
                       <StudentRow
                         key={student.id}
                         role="listitem"
                         data-selected={isActive || undefined}
-                        onClick={() => setActiveStudentId(student.id)}
+                        onClick={() => handleSelectPreviewStudent(student.id)}
                       >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => handleTogglePreviewSelection(student.id)}
+                          onClick={(event) => event.stopPropagation()}
+                        />
                         <div className="info">
                           <div className="name">{student.name}</div>
                           {student.code && <div className="meta">{student.code}</div>}
@@ -697,14 +866,36 @@ export default function Reports() {
           <RightColumn>
             <SectionCard>
               <RightHeader>
-                <div>
-                  <RightTitle>보고서 미리보기 / 수정</RightTitle>
+                <RightHeaderInfo>
+                  <RightTitleRow>
+                    <RightTitle>보고서 미리보기 / 수정</RightTitle>
+                    {showStudentNav ? (
+                      <NavButtons>
+                        <NavButton
+                          type="button"
+                          onClick={handlePrevStudent}
+                          disabled={!canGoPrev}
+                          aria-label="이전 학생으로 이동"
+                        >
+                          ‹
+                        </NavButton>
+                        <NavButton
+                          type="button"
+                          onClick={handleNextStudent}
+                          disabled={!canGoNext}
+                          aria-label="다음 학생으로 이동"
+                        >
+                          ›
+                        </NavButton>
+                      </NavButtons>
+                    ) : null}
+                  </RightTitleRow>
                   <RightSubtitle>
                     {activeStudent && selectedCourse
                       ? `${selectedCourse.title} · ${activeStudent.name} 학생의 보고서 초안입니다.`
                       : "학생을 선택하면 보고서를 미리보고 수정할 수 있습니다."}
                   </RightSubtitle>
-                </div>
+                </RightHeaderInfo>
                 <RightActions>
                   <PrimaryButton
                     type="button"
@@ -723,7 +914,7 @@ export default function Reports() {
                     disabled={!activeStudent || savingReport || notifying}
                   >
                     <img src="/logo/kakaotalk_sharing_btn_small.png" alt="카카오톡" width="20" height="20" />
-                    {notifying ? "발송 중..." : "저장 후 알림톡 발송"}
+                    {notifying ? "저장 중..." : "저장 후 알림톡 발송"}
                   </KakaoButton>
                   <OutlineButton
                     type="button"
@@ -1197,6 +1388,12 @@ const LeftHeader = styled.div`
   margin-bottom: ${(p) => p.theme.spacing.sm};
 `;
 
+const LeftTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+`;
+
 const LeftTitle = styled.h3`
   margin: 0;
   font-size: 18px;
@@ -1309,6 +1506,18 @@ const RightHeader = styled.div`
   }
 `;
 
+const RightHeaderInfo = styled.div`
+  display: grid;
+  gap: 6px;
+`;
+
+const RightTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+`;
+
 const RightTitle = styled.h3`
   margin: 0 0 6px;
   font-size: 18px;
@@ -1323,6 +1532,31 @@ const RightSubtitle = styled.p`
   color: ${({ theme }) => theme.colors.textMuted};
 `;
 
+const NavButtons = styled.div`
+  display: inline-flex;
+  gap: 4px;
+`;
+
+const NavButton = styled.button`
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: #ffffff;
+  font-size: 18px;
+  color: ${({ theme }) => theme.colors.text};
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.primarySurface};
+    color: ${({ theme }) => theme.colors.primary};
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
 const RightActions = styled.div`
   display: inline-flex;
   gap: ${(p) => p.theme.spacing.sm};
@@ -1334,31 +1568,18 @@ const RightActions = styled.div`
   }
 `;
 
-const StudentsListWrap = styled.div<{ $tall?: boolean }>`
+const StudentsListWrap = styled.div`
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: ${(p) => p.theme.radii.md};
+  height: 600px;
   overflow: hidden;
-  ${({ $tall }) =>
-    $tall
-      ? css`
-          height: 600px;
-        `
-      : css`
-          max-height: 420px;
-        `}
 `;
 
-const StudentsList = styled.div<{ $tall?: boolean }>`
+const StudentsList = styled.div`
+  height: 100%;
   overflow-y: auto;
-  display: grid;
-  ${({ $tall }) =>
-    $tall
-      ? css`
-          height: 100%;
-        `
-      : css`
-          max-height: 420px;
-        `}
+  display: flex;
+  flex-direction: column;
 `;
 
 const InlineInfoBar = styled.div`

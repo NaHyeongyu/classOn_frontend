@@ -292,7 +292,7 @@ export default function Payments() {
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: PaymentInvoiceUpdatePayload }) =>
       updatePaymentInvoice(id, payload),
-    onSuccess: (detail: PaymentDetail) => {
+    onSuccess: () => {
       success("청구서를 업데이트했습니다.");
       setDetailState({ open: false });
       invalidatePaymentsQueries(queryClient);

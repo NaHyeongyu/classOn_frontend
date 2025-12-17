@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import styled from "styled-components";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { formatKoreanDate, formatKoreanDateTimeKST, formatMoney } from "@/lib/format";
+import {
+  formatKoreanDate,
+  formatKoreanDateTimeKST,
+  formatMoney,
+} from "@/lib/format";
 import {
   getPublicPaymentReceipt,
   refreshPublicPaymentReceipt,
@@ -62,9 +66,12 @@ export default function PaymentReceipt() {
   }, []);
 
   const receiptError = (receiptQuery.error as ApiError | null) ?? null;
-  const receiptErrorCode = receiptError?.code ? String(receiptError.code) : undefined;
+  const receiptErrorCode = receiptError?.code
+    ? String(receiptError.code)
+    : undefined;
   const isExpired = receiptErrorCode === "PAYMENT_RECEIPT_EXPIRED";
-  const isPendingCompletion = receiptErrorCode === "PAYMENT_RECEIPT_NOT_COMPLETED";
+  const isPendingCompletion =
+    receiptErrorCode === "PAYMENT_RECEIPT_NOT_COMPLETED";
 
   const handleRefreshLink = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -84,23 +91,33 @@ export default function PaymentReceipt() {
           setActiveToken(nextToken);
         } else {
           queryClient.setQueryData(["public-receipt", nextToken], refreshed);
-          void queryClient.invalidateQueries({ queryKey: ["public-receipt", nextToken] });
+          void queryClient.invalidateQueries({
+            queryKey: ["public-receipt", nextToken],
+          });
         }
       } catch (err) {
-        const message = err instanceof Error ? err.message : "새 링크를 요청하지 못했습니다.";
+        const message =
+          err instanceof Error ? err.message : "새 링크를 요청하지 못했습니다.";
         setRefreshError(message);
       } finally {
         setRefreshing(false);
       }
     },
-    [activeToken, queryClient],
+    [activeToken, queryClient]
   );
 
   useEffect(() => {
-    if (!isExpired || !activeToken || autoRefreshAttempted || refreshing) return;
+    if (!isExpired || !activeToken || autoRefreshAttempted || refreshing)
+      return;
     setAutoRefreshAttempted(true);
     void handleRefreshLink({ silent: true });
-  }, [isExpired, activeToken, autoRefreshAttempted, refreshing, handleRefreshLink]);
+  }, [
+    isExpired,
+    activeToken,
+    autoRefreshAttempted,
+    refreshing,
+    handleRefreshLink,
+  ]);
 
   useEffect(() => {
     if (!isPendingCompletion) {
@@ -141,18 +158,24 @@ export default function PaymentReceipt() {
       <Shell>
         <Card>
           <h1>영수증 정보를 찾을 수 없습니다.</h1>
-          <p>링크 정보가 확인되지 않습니다. 학원에 문의해 새 링크를 받아 주세요.</p>
+          <p>
+            링크 정보가 확인되지 않습니다. 학원에 문의해 새 링크를 받아 주세요.
+          </p>
         </Card>
       </Shell>
     );
   }
 
   const data = receiptQuery.data;
-  const showRefreshedBadge = refreshSuccess && !receiptQuery.isError && Boolean(data);
+  const showRefreshedBadge =
+    refreshSuccess && !receiptQuery.isError && Boolean(data);
   const isDetachedReceipt = receiptErrorCode === "PAYMENT_RECEIPT_NOT_FOUND";
   const isInvalidToken = receiptErrorCode === "PAYMENT_RECEIPT_INVALID_TOKEN";
   const shouldShowGeneralError =
-    receiptQuery.isError && !isExpired && !isPendingCompletion && !isDetachedReceipt;
+    receiptQuery.isError &&
+    !isExpired &&
+    !isPendingCompletion &&
+    !isDetachedReceipt;
   const generalError = shouldShowGeneralError ? receiptError?.message : null;
   const generalErrorMessage = generalError
     ? isInvalidToken
@@ -168,27 +191,37 @@ export default function PaymentReceipt() {
       <Card>
         <Header>
           <div>
-          <h1>결제 영수증</h1>
-          <p>{data?.academyName ?? "클래스온"}</p>
-        </div>
-        <div className="badge-group">
-          {showRefreshedBadge ? <span className="badge success">새 링크로 갱신했습니다</span> : null}
-          {receiptQuery.isFetching ? <span className="badge">갱신 중...</span> : null}
-        </div>
-      </Header>
+            <h1>결제 영수증</h1>
+            <p>{data?.academyName ?? "클래스온"}</p>
+          </div>
+          <div className="badge-group">
+            {showRefreshedBadge ? (
+              <span className="badge success">새 링크로 갱신했습니다</span>
+            ) : null}
+            {receiptQuery.isFetching ? (
+              <span className="badge">갱신 중...</span>
+            ) : null}
+          </div>
+        </Header>
         {receiptQuery.isLoading && !receiptQuery.data ? (
           <Placeholder>영수증 정보를 불러오는 중입니다...</Placeholder>
         ) : null}
         {isExpired ? (
           <Notice>
-            <NoticeTitle>링크가 만료되어 영수증을 확인할 수 없습니다.</NoticeTitle>
+            <NoticeTitle>
+              링크가 만료되어 영수증을 확인할 수 없습니다.
+            </NoticeTitle>
             <NoticeBody>
-              학교에 재전송을 요청했습니다. 잠시 후 다시 시도해 주세요. 자동으로 새 링크를 발급하거나,
-              아래 버튼으로 직접 요청할 수 있습니다.
+              학교에 재전송을 요청했습니다. 잠시 후 다시 시도해 주세요. 자동으로
+              새 링크를 발급하거나, 아래 버튼으로 직접 요청할 수 있습니다.
             </NoticeBody>
             {refreshError ? <AlertText>{refreshError}</AlertText> : null}
             <ActionRow>
-              <ActionButton type="button" onClick={() => handleRefreshLink()} disabled={refreshing}>
+              <ActionButton
+                type="button"
+                onClick={() => handleRefreshLink()}
+                disabled={refreshing}
+              >
                 {refreshing ? "새 링크 요청 중..." : "새 링크 요청하기"}
               </ActionButton>
             </ActionRow>
@@ -198,24 +231,30 @@ export default function PaymentReceipt() {
           <Notice>
             <NoticeTitle>결제가 아직 완료되지 않았습니다.</NoticeTitle>
             <NoticeBody>
-              결제가 완료되면 학부모님께 새 링크가 자동 발송됩니다. 현재 {retryCount}/{AUTO_RETRY_MAX}
-              회 재시도했습니다. 최대 60초 간격으로 다시 시도하며, 필요하면 아래 버튼으로 즉시 확인할 수
-              있습니다.
+              결제가 완료되면 학부모님께 새 링크가 자동 발송됩니다. 현재{" "}
+              {retryCount}/{AUTO_RETRY_MAX}회 재시도했습니다. 최대 60초 간격으로
+              다시 시도하며, 필요하면 아래 버튼으로 즉시 확인할 수 있습니다.
             </NoticeBody>
             <ActionRow>
-              <ActionButton type="button" onClick={() => refetch()} disabled={receiptQuery.isFetching}>
+              <ActionButton
+                type="button"
+                onClick={() => refetch()}
+                disabled={receiptQuery.isFetching}
+              >
                 {receiptQuery.isFetching ? "다시 확인 중..." : "지금 다시 확인"}
               </ActionButton>
             </ActionRow>
-            <SmallNote>“결제가 완료되면 학부모님께 새 링크가 자동 발송됩니다.”</SmallNote>
+            <SmallNote>
+              “결제가 완료되면 학부모님께 새 링크가 자동 발송됩니다.”
+            </SmallNote>
           </Notice>
         ) : null}
         {isDetachedReceipt ? (
           <Notice variant="warning">
             <NoticeTitle>영수증을 확인할 수 없습니다.</NoticeTitle>
             <NoticeBody>
-              학원에서 해당 결제 내역을 삭제했거나 연결을 해제했습니다. 정확한 내역을 확인하려면 학원에
-              직접 문의해 주세요.
+              학원에서 해당 결제 내역을 삭제했거나 연결을 해제했습니다. 정확한
+              내역을 확인하려면 학원에 직접 문의해 주세요.
             </NoticeBody>
           </Notice>
         ) : null}
@@ -228,11 +267,14 @@ export default function PaymentReceipt() {
         {data && (isReceiptCanceled || isReceiptFailed) ? (
           <Notice variant="warning">
             <NoticeTitle>
-              {isReceiptCanceled ? "결제가 취소된 내역입니다." : "결제가 실패한 내역입니다."}
+              {isReceiptCanceled
+                ? "결제가 취소된 내역입니다."
+                : "결제가 실패한 내역입니다."}
             </NoticeTitle>
             <NoticeBody>
-              해당 영수증은 참고용으로만 제공되며, 정확한 처리 과정은 학원에 문의해 주세요. 추가 환불이나
-              정정이 필요한 경우 학원이 안내해 드립니다.
+              해당 영수증은 참고용으로만 제공되며, 정확한 처리 과정은 학원에
+              문의해 주세요. 추가 환불이나 정정이 필요한 경우 학원이 안내해
+              드립니다.
             </NoticeBody>
           </Notice>
         ) : null}
@@ -245,26 +287,40 @@ export default function PaymentReceipt() {
 function ReceiptLayout({ data }: { data: PublicPaymentReceipt }) {
   const info = data.info;
   const student = data.student;
-  const discountAmount = Math.max(0, (info.originalAmount ?? 0) - (info.finalAmount ?? 0));
+  const discountAmount = Math.max(
+    0,
+    (info.originalAmount ?? 0) - (info.finalAmount ?? 0)
+  );
   const discountDisplay = discountAmount ? formatMoney(discountAmount) : "—";
   const paymentMethod =
     (typeof data.methodDetail === "string" && data.methodDetail.trim()
       ? data.methodDetail.trim()
-      : null) || getPaymentMethodDisplay(info.paymentMethod, info.paymentType);
+      : null) ||
+    getPaymentMethodDisplay(
+      (info.paymentMethod ??
+        (info as unknown as { method?: unknown }).method) as never,
+      info.paymentType
+    );
   const completedText = info.completedAt
-    ? formatKoreanDateTimeKST(info.completedAt, { includeWeekday: true, showSeconds: true })
+    ? formatKoreanDateTimeKST(info.completedAt, {
+        includeWeekday: true,
+        showSeconds: true,
+      })
     : "-";
   const canceledText = info.canceledAt
-    ? formatKoreanDateTimeKST(info.canceledAt, { includeWeekday: true, showSeconds: true })
+    ? formatKoreanDateTimeKST(info.canceledAt, {
+        includeWeekday: true,
+        showSeconds: true,
+      })
     : "-";
   const statusLabel =
     info.status === "COMPLETED"
       ? "결제 완료"
       : info.status === "FAILED"
-        ? "결제 실패"
-        : info.status === "CANCELED"
-          ? "결제 취소"
-          : "결제 대기";
+      ? "결제 실패"
+      : info.status === "CANCELED"
+      ? "결제 취소"
+      : "결제 대기";
   const nextDueText = computeNextDueDateLabel(data);
   const memo = info.memo?.trim() || info.managerMemo?.trim() || "";
 
@@ -294,15 +350,24 @@ function ReceiptLayout({ data }: { data: PublicPaymentReceipt }) {
         <SectionTitle>수강 과목</SectionTitle>
         <CourseList>
           {data.courses && data.courses.length > 0 ? (
-            data.courses.map((course: PaymentCourseBrief | null | undefined, index: number) => (
-              <li key={`${course?.id ?? "course"}-${index}`}>
-                <div className="info">
-                  <strong>{course?.title ?? "-"}</strong>
-                  {course?.code ? <span className="code">{course.code}</span> : null}
-                </div>
-                <span className="fee">{formatMoney(Number(course?.fee ?? 0))}</span>
-              </li>
-            ))
+            data.courses.map(
+              (
+                course: PaymentCourseBrief | null | undefined,
+                index: number
+              ) => (
+                <li key={`${course?.id ?? "course"}-${index}`}>
+                  <div className="info">
+                    <strong>{course?.title ?? "-"}</strong>
+                    {course?.code ? (
+                      <span className="code">{course.code}</span>
+                    ) : null}
+                  </div>
+                  <span className="fee">
+                    {formatMoney(Number(course?.fee ?? 0))}
+                  </span>
+                </li>
+              )
+            )
           ) : (
             <Empty>등록된 수강 과목이 없습니다.</Empty>
           )}
@@ -365,7 +430,7 @@ function ReceiptLayout({ data }: { data: PublicPaymentReceipt }) {
 
 function getPaymentMethodDisplay(
   method?: PublicPaymentReceipt["info"]["paymentMethod"],
-  type?: PublicPaymentReceipt["info"]["paymentType"],
+  type?: PublicPaymentReceipt["info"]["paymentType"]
 ): string {
   const methodLabel = (() => {
     switch (method) {
@@ -396,7 +461,14 @@ function getPaymentMethodDisplay(
 function formatCycleLabel(data: PublicPaymentReceipt): string {
   if (data.schedule?.cycleValue) {
     const unit = data.schedule.cycleUnit ?? "MONTHS";
-    const unitLabel = unit === "MONTHS" ? "개월" : unit === "WEEKS" ? "주" : unit === "DAYS" ? "일" : "";
+    const unitLabel =
+      unit === "MONTHS"
+        ? "개월"
+        : unit === "WEEKS"
+        ? "주"
+        : unit === "DAYS"
+        ? "일"
+        : "";
     return `${data.schedule.cycleValue}${unitLabel}`;
   }
   return (
@@ -407,11 +479,13 @@ function formatCycleLabel(data: PublicPaymentReceipt): string {
 
 function formatCycleLabelFromPeriod(
   start?: PublicPaymentReceipt["info"]["periodStart"],
-  end?: PublicPaymentReceipt["info"]["periodEnd"],
+  end?: PublicPaymentReceipt["info"]["periodEnd"]
 ): string | null {
   if (!start && !end) return null;
   if (start && end) {
-    return `${formatKoreanDate(start, { includeWeekday: false })} ~ ${formatKoreanDate(end, { includeWeekday: false })}`;
+    return `${formatKoreanDate(start, {
+      includeWeekday: false,
+    })} ~ ${formatKoreanDate(end, { includeWeekday: false })}`;
   }
   if (start) return `${formatKoreanDate(start, { includeWeekday: false })}부터`;
   if (end) return `${formatKoreanDate(end, { includeWeekday: false })}까지`;
@@ -420,7 +494,9 @@ function formatCycleLabelFromPeriod(
 
 function computeNextDueDateLabel(data: PublicPaymentReceipt): string {
   if (data.schedule?.nextDueDate) {
-    return formatKoreanDate(data.schedule.nextDueDate, { includeWeekday: true });
+    return formatKoreanDate(data.schedule.nextDueDate, {
+      includeWeekday: true,
+    });
   }
   if (data.info.dueDate) {
     return formatKoreanDate(data.info.dueDate, { includeWeekday: true });
@@ -599,8 +675,10 @@ const MemoBox = styled.div`
 `;
 
 const Notice = styled.div<{ variant?: "default" | "warning" }>`
-  border: 1px solid ${({ variant }) => (variant === "warning" ? "#fee2e2" : "#f1f5f9")};
-  background: ${({ variant }) => (variant === "warning" ? "#fef2f2" : "#f8fafc")};
+  border: 1px solid
+    ${({ variant }) => (variant === "warning" ? "#fee2e2" : "#f1f5f9")};
+  background: ${({ variant }) =>
+    variant === "warning" ? "#fef2f2" : "#f8fafc"};
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 20px;

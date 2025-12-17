@@ -23,7 +23,14 @@ export function combineMemoValues(memo?: string | null, managerMemo?: string | n
   const parts = [memo, managerMemo]
     .map((value) => (typeof value === "string" ? value.trim() : ""))
     .filter((value) => value.length);
-  return parts.join("\n");
+  const seen = new Set<string>();
+  const unique: string[] = [];
+  for (const value of parts) {
+    if (seen.has(value)) continue;
+    seen.add(value);
+    unique.push(value);
+  }
+  return unique.join("\n");
 }
 
 export function resolveMemoValue(memo?: string | null, managerMemo?: string | null): string {
@@ -125,4 +132,3 @@ export function computeNextDueDateLabel(detail: PaymentDetail): string {
   }
   return formatKoreanDate(next, { includeWeekday: false });
 }
-

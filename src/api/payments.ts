@@ -82,6 +82,8 @@ export type PaymentTemplateSetup = {
   originalAmount: number;
   discountType?: DiscountType | null;
   discountValue?: number | null;
+  discountStartDate?: string | null;
+  discountEndDate?: string | null;
   finalAmount: number;
   memo?: string | null;
   managerMemo?: string | null;
@@ -121,6 +123,7 @@ export async function listPaymentInvoices(params?: {
   from?: string;
   to?: string;
   studentStatus?: string;
+  studentId?: number;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
   const statusParam = params?.status?.trim() || "UNPAID,PENDING";
@@ -131,6 +134,7 @@ export async function listPaymentInvoices(params?: {
   if (params?.from) sp.set("from", params.from);
   if (params?.to) sp.set("to", params.to);
   if (params?.studentStatus && params.studentStatus !== "ALL") sp.set("studentStatus", params.studentStatus);
+  if (typeof params?.studentId === "number") sp.set("studentId", String(params.studentId));
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/invoices${q}`);
 }
@@ -142,6 +146,7 @@ export async function listPaymentHistory(params?: {
   q?: string;
   page?: number;
   size?: number;
+  studentId?: number;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
   if (params?.from) sp.set("from", params.from);
@@ -150,6 +155,7 @@ export async function listPaymentHistory(params?: {
   if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
+  if (typeof params?.studentId === "number") sp.set("studentId", String(params.studentId));
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/history${q}`);
 }
@@ -161,6 +167,7 @@ export async function listPendingHistory(params?: {
   page?: number;
   size?: number;
   status?: string;
+  studentId?: number;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
   if (params?.from) sp.set("from", params.from);
@@ -169,6 +176,7 @@ export async function listPendingHistory(params?: {
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
   if (params?.status && params.status.trim()) sp.set("status", params.status.trim());
+  if (typeof params?.studentId === "number") sp.set("studentId", String(params.studentId));
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/history/pending${q}`);
 }
@@ -219,6 +227,17 @@ export async function updatePaymentTemplate(templateId: number, payload: Payment
     "/api/payments/history/pending",
   ]);
   return res;
+}
+
+export async function deletePaymentTemplate(templateId: number): Promise<void> {
+  await fetchJSON<void>(`/api/payments/templates/${templateId}`, { method: "DELETE" });
+  invalidateCacheByPrefix([
+    "/api/payments/templates",
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    "/api/payments/history/pending",
+  ]);
 }
 
 export async function listPaymentTemplates(params?: { studentId?: number }): Promise<PaymentTemplateSetup[]> {

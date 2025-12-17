@@ -346,10 +346,7 @@ export const ActionRow = styled.div`
 export const BackButton = styled(BackButtonBase).attrs({
   size: "lg",
   fullWidth: true,
-  showIcon: false,
 })`
-  border-radius: ${(p) => p.theme.radii.md};
-  font-weight: 700;
 `;
 
 export const PlanGrid = styled.div`

@@ -143,7 +143,7 @@ export function MarketingPreviewPageView({
       </Layout>
 
       <Footer>
-        <BackButton size="md" label="이전" />
+        <BackButton size="md" label="뒤로" />
         <ActionButton type="button" onClick={handleNext} disabled={!items.length}>
           다음 단계
         </ActionButton>

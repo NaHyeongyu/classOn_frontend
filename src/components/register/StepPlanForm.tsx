@@ -450,7 +450,7 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
         </AgreeRow>
 
         <ActionRow>
-          <BackButton label="이전" onClick={onBack} />
+          <BackButton label="뒤로" onClick={onBack} />
           <UIPrimaryBtn type="submit" disabled={!canSubmitStep3}>
             {loading ? "완료 중..." : submitLabel}
           </UIPrimaryBtn>

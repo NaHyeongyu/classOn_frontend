@@ -292,7 +292,7 @@ export default function Payments() {
   const updateMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number; payload: PaymentInvoiceUpdatePayload }) =>
       updatePaymentInvoice(id, payload),
-    onSuccess: (detail: PaymentDetail) => {
+    onSuccess: () => {
       success("청구서를 업데이트했습니다.");
       setDetailState({ open: false });
       invalidatePaymentsQueries(queryClient);
@@ -510,8 +510,8 @@ export default function Payments() {
   const onsiteTotalPages = onsiteCandidatesQuery.data?.totalPages ?? 0;
 
   const summaryStats = useMemo(
-    () => extractSummary(summary, invoiceRows.length),
-    [summary, invoiceRows.length],
+    () => extractSummary(summary),
+    [summary],
   );
 
   const handleSendSelected = () => {
@@ -1418,44 +1418,30 @@ type SummaryStat = {
   tone: "primary" | "success" | "warning" | "danger" | "muted";
 };
 
-function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number): SummaryStat[] {
+function extractSummary(summary?: PaymentSummary | null): SummaryStat[] {
   if (!summary) {
     return [
-      { label: "이번달 총 결제액", value: "—", icon: paidIcon, tone: "primary" },
-      { label: "이번달 대기 금액", value: "—", icon: unpaidIcon, tone: "primary" },
-      { label: "이번달 미납 금액", value: "—", icon: overdueIcon, tone: "primary" },
-      { label: "청구서 대기 인원", value: "—", icon: peopleIcon, tone: "primary" },
+      { label: "미발송인원", value: "—", icon: peopleIcon, tone: "primary" },
+      { label: "미발송 금액", value: "—", icon: unpaidIcon, tone: "primary" },
       { label: "미납 인원", value: "—", icon: warningIcon, tone: "primary" },
+      { label: "미납 금액", value: "—", icon: overdueIcon, tone: "primary" },
+      { label: "결제완료인원", value: "—", icon: peopleIcon, tone: "primary" },
+      { label: "결제 금액", value: "—", icon: paidIcon, tone: "primary" },
     ];
   }
-  const unsent = typeof unsentOverride === "number" ? unsentOverride : summary.unsentCount;
   const overdueAmount = summary.overdueAmount ?? 0;
   const overdueCount = summary.overdueCount ?? 0;
   return [
     {
-      label: "이번달 총 결제액",
-      value: formatMoney(summary.paidAmount),
-      icon: paidIcon,
-      tone: "primary",
-    },
-    {
-      label: "이번달 대기 금액",
-      value: formatMoney(summary.unpaidAmount),
-      icon: unpaidIcon,
-      tone: "primary",
-      hint: `${summary.unpaidCount}명`,
-    },
-    {
-      label: "이번달 미납 금액",
-      value: formatMoney(overdueAmount),
-      icon: overdueIcon,
-      tone: "primary",
-      hint: `${overdueCount}명`,
-    },
-    {
-      label: "청구서 대기 인원",
-      value: `${unsent}명`,
+      label: "미발송인원",
+      value: `${summary.unsentCount}명`,
       icon: peopleIcon,
+      tone: "primary",
+    },
+    {
+      label: "미발송 금액",
+      value: formatMoney(summary.unsentAmount),
+      icon: unpaidIcon,
       tone: "primary",
     },
     {
@@ -1464,13 +1450,32 @@ function extractSummary(summary?: PaymentSummary | null, unsentOverride?: number
       icon: warningIcon,
       tone: "primary",
     },
+    {
+      label: "미납 금액",
+      value: formatMoney(overdueAmount),
+      icon: overdueIcon,
+      tone: "primary",
+    },
+    {
+      label: "결제완료인원",
+      value: `${summary.paidCount}명`,
+      icon: peopleIcon,
+      tone: "primary",
+    },
+    {
+      label: "결제 금액",
+      value: formatMoney(summary.paidAmount),
+      icon: paidIcon,
+      tone: "primary",
+    },
   ];
 }
 
 const StatsRow = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  display: flex;
   gap: 14px;
+  overflow-x: auto;
+  padding-bottom: 4px;
   margin-bottom: 16px;
 `;
 
@@ -1482,6 +1487,7 @@ const StatCard = styled.article`
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex: 0 0 220px;
   box-shadow: ${(p) => p.theme.shadow?.low ?? "0 4px 12px rgba(15, 23, 42, 0.06)"};
 `;
 

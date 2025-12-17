@@ -123,11 +123,13 @@ declare module "@classon/shared-types" {
 
   export interface PaymentSummary {
     paidAmount: number;
+    paidCount: number;
     unpaidAmount: number;
     unpaidCount: number;
     unsentCount: number;
-    overdueAmount?: number;
-    overdueCount?: number;
+    unsentAmount: number;
+    overdueAmount: number;
+    overdueCount: number;
     [key: string]: unknown;
   }
 

@@ -4,7 +4,7 @@ import { LoginResetPasswordModal } from "@/components/auth/LoginResetPasswordMod
 import type { UseLoginPageResult } from "@/features/auth/hooks/useLoginPage";
 import { Link } from "react-router-dom";
 import styled from "styled-components";
-import { PrimaryButtonLg } from "@/components/common/UI";
+import { PrimaryButtonLg, ToggleSwitch } from "@/components/common/UI";
 import { Input as BaseInput, Label } from "@/components/common/Input";
 
 export function LoginPageView({ form, dialog, findIdModal, resetModal }: UseLoginPageResult) {
@@ -45,6 +45,18 @@ export function LoginPageView({ form, dialog, findIdModal, resetModal }: UseLogi
               aria-invalid={form.submitted && !form.password.trim()}
             />
           </Field>
+          <OptionsRow>
+            <ToggleSwitch>
+              <input
+                type="checkbox"
+                checked={form.rememberId}
+                onChange={(event) => form.setRememberId(event.currentTarget.checked)}
+                disabled={form.loading}
+              />
+              <span className="switch" aria-hidden="true" />
+              <span className="text">아이디 저장</span>
+            </ToggleSwitch>
+          </OptionsRow>
           <LoginButton type="submit" disabled={form.loading}>
             {form.loading ? "로그인 중..." : "로그인"}
           </LoginButton>
@@ -166,6 +178,13 @@ const LoginButton = styled(PrimaryButtonLg)`
   width: 100%;
   margin-top: 12px;
   border-radius: ${(p) => p.theme.radii.lg};
+`;
+
+const OptionsRow = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-top: 2px;
 `;
 
 const Footer = styled.div`

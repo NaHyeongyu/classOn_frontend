@@ -19,7 +19,7 @@ type Props = {
 
 export default function BackButton({
   to,
-  label = "뒤로가기",
+  label = "뒤로",
   className,
   backSteps = 1,
   icon,

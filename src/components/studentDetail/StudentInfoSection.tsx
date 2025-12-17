@@ -103,7 +103,7 @@ export function StudentInfoSection({
 
       <Card>
         <CardHead>
-          <SectionTitle>부모님 정보</SectionTitle>
+          <SectionTitle>보호자 정보</SectionTitle>
         </CardHead>
         {student ? (
           <InfoList>
@@ -117,7 +117,7 @@ export function StudentInfoSection({
             />
           </InfoList>
         ) : (
-          <Muted>부모님 정보를 찾을 수 없습니다.</Muted>
+          <Muted>보호자 정보를 찾을 수 없습니다.</Muted>
         )}
       </Card>
     </>

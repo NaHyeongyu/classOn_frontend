@@ -65,7 +65,7 @@ export function MarketingSummaryPageView({
   return (
     <Page>
       <ResultTopBar>
-        <BackButton backSteps={1} label="뒤로가기" />
+        <BackButton backSteps={1} label="뒤로" />
         <ButtonRow>
           <GhostButtonSmall as="button" onClick={onCopyBody}>
             본문 복사

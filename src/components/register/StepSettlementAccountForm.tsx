@@ -186,7 +186,7 @@ export function StepSettlementAccountForm({ flow, onSubmit, onBack }: StepSettle
         {error && <ErrorText>{error}</ErrorText>}
 
         <ActionRow>
-          <BackButton label="이전" onClick={onBack} />
+          <BackButton label="뒤로" onClick={onBack} />
           <UIPrimaryBtn type="submit" disabled={!canSubmitSettlement}>
             {loading ? "완료 중..." : "가입 완료"}
           </UIPrimaryBtn>

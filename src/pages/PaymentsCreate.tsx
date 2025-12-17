@@ -19,6 +19,8 @@ import {
   createPaymentTemplateInvoice,
   type PaymentInvoicePayload,
   type PaymentAdditionalItemPayload,
+  listPaymentTemplates,
+  type PaymentTemplateSetup,
 } from "@/api/payments";
 import { listStudents, type Student } from "@/api/students";
 import type {
@@ -61,15 +63,13 @@ function computeNextDueDateFromDay(dueDay: number, base: Date): string {
 const defaultForm = {
   dueDay: clampDueDay(today.getDate()),
   dueDate: computeNextDueDateFromDay(clampDueDay(today.getDate()), today),
-  periodStart: computeNextDueDateFromDay(clampDueDay(today.getDate()), today),
-  periodEnd: computePeriodEnd(computeNextDueDateFromDay(clampDueDay(today.getDate()), today), 1, "MONTHS"),
   discountStartDate: dateISO(today),
   discountEndDate: dateISO(nextMonth),
   discountEnabled: false,
   discountType: "AMOUNT" as DiscountType,
   discountValue: undefined as number | undefined,
   memo: "",
-  managerMemo: "",
+  managerMemo: undefined as string | undefined,
   cycleValue: 1,
   cycleUnit: "MONTHS" as BillingCycleUnit,
   autoGenerate: true,
@@ -106,22 +106,6 @@ function normalizeCycle(value: string | number | undefined): number {
   return Math.max(1, Math.round(Number(num)));
 }
 
-function computePeriodEnd(start: string, cycleValue: number, unit: BillingCycleUnit): string {
-  if (!start) return start;
-  const base = new Date(start);
-  if (Number.isNaN(base.getTime())) return start;
-  const next = new Date(base);
-  const value = Number.isFinite(cycleValue) && cycleValue > 0 ? cycleValue : 1;
-  if (unit === "DAYS") {
-    next.setDate(next.getDate() + value);
-  } else if (unit === "WEEKS") {
-    next.setDate(next.getDate() + value * 7);
-  } else {
-    next.setMonth(next.getMonth() + value);
-  }
-  return dateISO(next);
-}
-
 export default function PaymentsCreate() {
   const navigate = useNavigate();
   const { success, error: toastError } = useToast();
@@ -136,17 +120,11 @@ export default function PaymentsCreate() {
   const handleDueDayChange = (raw: string) => {
     const nextDay = clampDueDay(raw);
     const nextDueDate = computeNextDueDateFromDay(nextDay, new Date());
-    setForm((prev) => {
-      const nextStart = nextDueDate || prev.periodStart;
-      const unit = prev.cycleUnit ?? "MONTHS";
-      return {
-        ...prev,
-        dueDay: nextDay,
-        dueDate: nextDueDate,
-        periodStart: nextStart,
-        periodEnd: computePeriodEnd(nextStart, prev.cycleValue, unit),
-      };
-    });
+    setForm((prev) => ({
+      ...prev,
+      dueDay: nextDay,
+      dueDate: nextDueDate,
+    }));
   };
   const handleCycleOptionChange = (raw: string) => {
     const [unitToken, valueToken] = raw.split(":");
@@ -157,29 +135,60 @@ export default function PaymentsCreate() {
       ...prev,
       cycleValue: nextValue,
       cycleUnit: nextUnit,
-      periodEnd: computePeriodEnd(prev.periodStart, nextValue, nextUnit),
     }));
   };
 
   const studentsQuery = useQuery({
     queryKey: ["payments-create", "students"],
     queryFn: () => listStudents({ size: 200 }),
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+  });
+
+  const templatesQuery = useQuery<PaymentTemplateSetup[]>({
+    queryKey: ["payments-create", "templates"],
+    queryFn: () => listPaymentTemplates(),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   const students = useMemo(() => studentsQuery.data?.content ?? [], [studentsQuery.data]);
+  const templateStudentIds = useMemo(() => {
+    const rows = templatesQuery.data ?? [];
+    return new Set(rows.map((t: PaymentTemplateSetup) => t.studentId));
+  }, [templatesQuery.data]);
+
+  const eligibleStudents: Student[] = useMemo(
+    () =>
+      students.filter(
+        (student: Student) =>
+          typeof student.id === "number" &&
+          Array.isArray(student.courses) &&
+          student.courses.some((course) => Boolean(course)),
+      ),
+    [students],
+  );
+
+  const studentsWithoutTemplates: Student[] = useMemo(
+    () => eligibleStudents.filter((student: Student) => !templateStudentIds.has(student.id)),
+    [eligibleStudents, templateStudentIds],
+  );
+
+  const excludedTemplatesCount = useMemo(
+    () => eligibleStudents.length - studentsWithoutTemplates.length,
+    [eligibleStudents.length, studentsWithoutTemplates.length],
+  );
 
   const filteredStudents: Student[] = useMemo(() => {
-    const base = students.filter(
-      (student: Student) =>
-        typeof student.id === "number" &&
-        Array.isArray(student.courses) &&
-        student.courses.some((course) => Boolean(course)),
-    );
-    if (!search.trim()) return base;
+    if (!search.trim()) return studentsWithoutTemplates;
     const keyword = search.trim().toLowerCase();
-    return base.filter((student: Student) => student.name?.toLowerCase().includes(keyword));
-  }, [students, search]);
+    return studentsWithoutTemplates.filter((student: Student) => student.name?.toLowerCase().includes(keyword));
+  }, [studentsWithoutTemplates, search]);
+
+  useEffect(() => {
+    if (templatesQuery.isLoading || templatesQuery.isError) return;
+    setSelectedIds((prev) => prev.filter((id) => !templateStudentIds.has(id)));
+  }, [templateStudentIds, templatesQuery.isError, templatesQuery.isLoading]);
 
   useEffect(() => {
     setStudentPage(0);
@@ -268,13 +277,10 @@ export default function PaymentsCreate() {
     return {
       studentId: student.id,
       dueDate: form.dueDate,
-      periodStart: form.periodStart,
-      periodEnd: form.periodEnd,
       amount: baseAmount,
       discountType: discountEnabled ? discountType : undefined,
       discountValue: discountEnabled ? discountValue : undefined,
       memo: memoValue,
-      managerMemo: form.managerMemo,
       autoGenerate: form.autoGenerate,
       cycleUnit: form.cycleUnit,
       cycleValue: form.cycleValue,
@@ -291,6 +297,12 @@ export default function PaymentsCreate() {
 
   const createMutation = useMutation({
     mutationFn: async () => {
+      if (templatesQuery.isLoading) {
+        throw new Error("템플릿 목록을 불러오는 중입니다. 잠시 후 다시 시도해 주세요.");
+      }
+      if (templatesQuery.isError) {
+        throw new Error("템플릿 목록을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.");
+      }
       if (!selectedIds.length) {
         throw new Error("학생을 선택해 주세요.");
       }
@@ -299,6 +311,12 @@ export default function PaymentsCreate() {
         .filter((student): student is Student => Boolean(student));
       if (!selectedStudents.length) {
         throw new Error("선택한 학생 정보를 찾을 수 없습니다.");
+      }
+      const existingTemplateStudents = selectedStudents.filter((student) => templateStudentIds.has(student.id));
+      if (existingTemplateStudents.length) {
+        throw new Error(
+          "이미 템플릿이 있는 학생이 포함되어 있어 저장할 수 없습니다.\n템플릿 수정은 결제 관리 > 템플릿 관리 또는 원생 상세 > 청구서 템플릿에서 해주세요.",
+        );
       }
       // 간단한 클라이언트 측 검증: 보호자 연락처/금액 0원인 대상은 생성 시도 전에 막습니다.
       const invalidContacts = selectedStudents.filter((student) => {
@@ -339,6 +357,8 @@ export default function PaymentsCreate() {
       success("청구서 템플릿을 저장했습니다. 결제일에 결제건이 자동 생성됩니다.");
       invalidatePaymentsQueries(queryClient);
       queryClient.invalidateQueries({ queryKey: ["payments", "templates"] }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ["payments-create", "templates"] }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ["payments-create", "students"] }).catch(() => {});
       setSelectedIds([]);
     },
     onError: (err: unknown) => {
@@ -419,9 +439,13 @@ export default function PaymentsCreate() {
             <RightHeader>
               <div>
                 <h3>학생 목록</h3>
-                <SmallText>이름 / 수강 수업 / 청구 금액을 확인하고 선택하세요.</SmallText>
+                <SmallText>템플릿이 없는 학생만 표시됩니다.</SmallText>
               </div>
-              <GhostButton type="button" onClick={handleSelectAll} disabled={!filteredStudents.length}>
+              <GhostButton
+                type="button"
+                onClick={handleSelectAll}
+                disabled={!filteredStudents.length || studentsQuery.isLoading || templatesQuery.isLoading}
+              >
                 {allFilteredSelected ? "전체 해제" : "전체 선택"}
               </GhostButton>
             </RightHeader>
@@ -434,6 +458,12 @@ export default function PaymentsCreate() {
                 onChange={(event) => setSearch(event.target.value)}
               />
             </SearchLabel>
+            <div style={{ margin: "-4px 0 12px" }}>
+              <HintText>
+                이미 템플릿이 있는 학생은 목록에서 제외됩니다
+                {excludedTemplatesCount > 0 ? ` (숨김 ${excludedTemplatesCount}명)` : ""}.
+              </HintText>
+            </div>
             <TableWrapper>
               <StyledTable>
                 <colgroup>
@@ -453,7 +483,7 @@ export default function PaymentsCreate() {
                   </tr>
                 </thead>
                 <tbody>
-                  {studentsQuery.isLoading ? (
+                  {studentsQuery.isLoading || templatesQuery.isLoading ? (
                     <tr>
                       <td colSpan={5}>
                         <Skeleton h={36} />
@@ -575,33 +605,7 @@ export default function PaymentsCreate() {
                       </SelectLike>
                     </label>
                   </FormGrid>
-                </ReceiptSection>
-
-                <ReceiptSection>
-                  <SectionTitle>
-                    청구 기간
-                    {form.cycleValue > 0 && (
-                      <Badge>
-                        {form.cycleValue}
-                        {form.cycleUnit === "DAYS"
-                          ? "일간"
-                          : form.cycleUnit === "WEEKS"
-                            ? "주간"
-                            : "개월간"}
-                      </Badge>
-                    )}
-                  </SectionTitle>
-                  <PeriodRow>
-                    <PeriodValue>
-                      <span>시작일</span>
-                      <strong>{form.periodStart || "-"}</strong>
-                    </PeriodValue>
-                    <span className="arrow">→</span>
-                    <PeriodValue>
-                      <span>종료일</span>
-                      <strong>{form.periodEnd || "-"}</strong>
-                    </PeriodValue>
-                  </PeriodRow>
+                  <SmallText>청구 기간은 결제일/주기에 따라 결제건 생성 시 자동으로 적용됩니다.</SmallText>
                 </ReceiptSection>
 
                 <ReceiptSection>
@@ -726,7 +730,7 @@ export default function PaymentsCreate() {
                     value={form.memo}
                     onChange={(event) => {
                       const nextValue = event.target.value;
-                      setForm((prev) => ({ ...prev, memo: nextValue, managerMemo: nextValue }));
+                      setForm((prev) => ({ ...prev, memo: nextValue }));
                     }}
                   />
                 </ReceiptSection>
@@ -830,16 +834,6 @@ const SectionTitle = styled.h4`
   justify-content: space-between;
 `;
 
-const Badge = styled.span`
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: ${(p) => p.theme.colors.primarySurface};
-  color: ${(p) => p.theme.colors.primary};
-  font-size: 11px;
-  font-weight: 600;
-`;
-
 const RepresentativeCard = styled.div`
   margin: 20px 24px 0;
   padding: 16px;
@@ -868,32 +862,6 @@ const RepresentativeCard = styled.div`
   }
   .input-wrap {
     width: 160px;
-  }
-`;
-
-const PeriodRow = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  .arrow {
-    color: ${(p) => p.theme.colors.textMuted};
-    font-size: 14px;
-  }
-`;
-
-const PeriodValue = styled.div`
-  flex: 1;
-  display: grid;
-  gap: 4px;
-  text-align: center;
-  span {
-    font-size: 12px;
-    color: ${(p) => p.theme.colors.textMuted};
-  }
-  strong {
-    font-size: 14px;
-    font-weight: 600;
-    color: ${(p) => p.theme.colors.text};
   }
 `;
 
@@ -990,6 +958,11 @@ const SearchLabel = styled.label`
   font-size: 13px;
   color: ${(p) => p.theme.colors.textMuted};
   margin-bottom: 12px;
+`;
+
+const HintText = styled.span`
+  font-size: 12px;
+  color: ${(p) => p.theme.colors.textMuted};
 `;
 
 const FormGrid = styled.div`

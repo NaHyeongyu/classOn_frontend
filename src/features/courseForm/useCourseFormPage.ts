@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { createCourse, getCourse, updateCourse } from "@/api/courses";
 import { listStudents } from "@/api/students";
 import { listTeachers, getInstructorCourseCounts } from "@/api/teachers";
 import { getErrorMessage } from "@/lib/errors";
+import { invalidatePaymentsQueries } from "@/lib/paymentsCache";
 import { useAuth } from "@/hooks/useAuth";
 import {
   DEFAULT_FORM,
@@ -58,6 +60,7 @@ type UseCourseFormPageResult = {
 
 export function useCourseFormPage(): UseCourseFormPageResult {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
   const roleValue = (user?.role ?? "").toString().toUpperCase();
   const isTeacher = roleValue === "TEACHER";
@@ -452,6 +455,9 @@ export function useCourseFormPage(): UseCourseFormPageResult {
           const feeChanged = (normalizedInitial ?? null) !== (updatedFee ?? null);
           setInitialFee(updatedFee ?? null);
           if (feeChanged) {
+            invalidatePaymentsQueries(queryClient);
+            queryClient.invalidateQueries({ queryKey: ["students"] }).catch(() => {});
+            queryClient.invalidateQueries({ queryKey: ["payments-create"] }).catch(() => {});
             setFeeChangeNotice("수강료가 변경되어 학생 청구서에 자동으로 반영되었습니다.\n청구서 발송 전에 금액을 다시 확인해 주세요.");
             setPendingNavigation(paths.classes.detail(courseId));
           } else {
@@ -469,7 +475,7 @@ export function useCourseFormPage(): UseCourseFormPageResult {
         setSaving(false);
       }
     },
-    [courseId, form, initialFee, isEdit, isIndividual, navigate, recurring],
+    [courseId, form, initialFee, isEdit, isIndividual, navigate, queryClient, recurring],
   );
 
   const closeFeeNotice = useCallback(() => {

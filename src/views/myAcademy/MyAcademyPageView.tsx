@@ -184,30 +184,6 @@ export function MyAcademyPageView({
   const showSellerEmptyState =
     requireSeller && !seller.loading && !hasSeller && !seller.awaitingVerification;
 
-  const copyToClipboard = async (label: string, value: string) => {
-    const text = (value ?? "").toString();
-    if (!text) return;
-    try {
-      await navigator.clipboard.writeText(text);
-      success(`${label}을(를) 복사했습니다.`);
-    } catch {
-      try {
-        const textarea = document.createElement("textarea");
-        textarea.value = text;
-        textarea.style.position = "fixed";
-        textarea.style.opacity = "0";
-        document.body.appendChild(textarea);
-        textarea.focus();
-        textarea.select();
-        document.execCommand("copy");
-        document.body.removeChild(textarea);
-        success(`${label}을(를) 복사했습니다.`);
-      } catch {
-        warning("복사에 실패했습니다. 직접 선택해 복사해 주세요.");
-      }
-    }
-  };
-
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -609,80 +585,12 @@ export function MyAcademyPageView({
           <Hint>불러오는 중...</Hint>
         ) : seller.verificationPending ? (
           <SellerPendingNotice>
-            <PendingHeader>
-              <PendingIcon aria-hidden>⏳</PendingIcon>
-              <PendingHeaderText>
-                <PendingTitle>정산 계좌 인증을 완료해 주세요</PendingTitle>
-                <PendingDescription>
-                  토스페이먼츠에서 발송된 인증을 완료하면 결제/정산 기능이 활성화됩니다.
-                </PendingDescription>
-              </PendingHeaderText>
-              <PendingChip>인증 대기</PendingChip>
-            </PendingHeader>
-
-            <PendingGrid>
-              <PendingSteps aria-label="인증 진행 순서">
-                <StepItem>
-                  <StepNo>1</StepNo>
-                  <StepText>메일/문자에서 인증 요청을 확인해 주세요.</StepText>
-                </StepItem>
-                <StepItem>
-                  <StepNo>2</StepNo>
-                  <StepText>인증을 완료한 뒤, 이 화면으로 돌아와 주세요.</StepText>
-                </StepItem>
-                <StepItem>
-                  <StepNo>3</StepNo>
-                  <StepText>“상태 동기화”를 눌러 승인 상태를 반영해 주세요.</StepText>
-                </StepItem>
-              </PendingSteps>
-
-              <PendingInfo>
-                <MetaRow>
-                  <MetaLabel>등록 이메일</MetaLabel>
-                  <MetaValue title={seller.pendingEmail || undefined}>
-                    {seller.pendingEmail || "-"}
-                  </MetaValue>
-                  <CopyButton
-                    type="button"
-                    onClick={() => void copyToClipboard("등록 이메일", seller.pendingEmail || "")}
-                    disabled={!seller.pendingEmail}
-                  >
-                    복사
-                  </CopyButton>
-                </MetaRow>
-                <MetaRow>
-                  <MetaLabel>토스 셀러 ID</MetaLabel>
-                  <MetaValue title={seller.pendingTossSellerId || undefined}>
-                    {seller.pendingTossSellerId || "발급 대기"}
-                  </MetaValue>
-                  <CopyButton
-                    type="button"
-                    onClick={() =>
-                      void copyToClipboard("토스 셀러 ID", seller.pendingTossSellerId || "")
-                    }
-                    disabled={!seller.pendingTossSellerId}
-                  >
-                    복사
-                  </CopyButton>
-                </MetaRow>
-
-                <PendingHintList>
-                  <li>스팸메일함도 함께 확인해 주세요.</li>
-                  <li>인증 후에도 반영이 안 되면 “상태 동기화”를 눌러 주세요.</li>
-                </PendingHintList>
-              </PendingInfo>
-            </PendingGrid>
-
-            <PendingActions>
-              <SellerRegisterButton
-                type="button"
-                onClick={() => void seller.syncStatus()}
-                disabled={seller.syncing || !seller.pendingTossSellerId}
-                title={!seller.pendingTossSellerId ? "토스 셀러 ID 발급 후 사용할 수 있어요." : undefined}
-              >
-                {seller.syncing ? "동기화 중..." : "상태 동기화"}
-              </SellerRegisterButton>
-            </PendingActions>
+            <PendingTitle>인증 대기</PendingTitle>
+            <PendingDescription>
+              토스페이먼츠에서 인증(카톡/이메일)을 요청했어요.
+              <br />
+              인증 후 새로고침 시 정상 등록됩니다!
+            </PendingDescription>
           </SellerPendingNotice>
         ) : showSellerEmptyState ? (
           <SellerEmptyState>
@@ -981,29 +889,7 @@ const SellerPendingNotice = styled.div`
   border-radius: ${(p) => p.theme.radii.lg};
   border: 1px dashed ${(p) => p.theme.colors.borderMuted};
   background: ${(p) => p.theme.colors.surfaceAlt};
-`;
-
-const PendingHeader = styled.div`
-  display: grid;
-  grid-template-columns: 28px 1fr auto;
-  gap: ${(p) => p.theme.spacing.sm};
-  align-items: start;
-`;
-
-const PendingIcon = styled.div`
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border-radius: 10px;
-  background: #eef2ff;
-  color: #3730a3;
-  font-size: 15px;
-`;
-
-const PendingHeaderText = styled.div`
-  display: grid;
-  gap: 4px;
+  text-align: center;
 `;
 
 const PendingTitle = styled.h3`
@@ -1017,124 +903,6 @@ const PendingDescription = styled.p`
   font-size: ${(p) => p.theme.font.size.sm};
   color: ${(p) => p.theme.colors.textMuted};
   line-height: 1.6;
-`;
-
-const PendingChip = styled.span`
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  background: #fef3c7;
-  color: #b45309;
-  border: 1px solid #fcd34d;
-`;
-
-const PendingActions = styled.div`
-  display: flex;
-  justify-content: flex-end;
-`;
-
-const PendingHintList = styled.ul`
-  margin: 0;
-  padding-left: ${(p) => p.theme.spacing.lg};
-  text-align: left;
-  color: ${(p) => p.theme.colors.textMuted};
-  font-size: ${(p) => p.theme.font.size.sm};
-  li + li {
-    margin-top: 4px;
-  }
-`;
-
-const PendingGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  gap: ${(p) => p.theme.spacing.lg};
-  align-items: start;
-  @media (max-width: 720px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const PendingSteps = styled.ol`
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 10px;
-`;
-
-const StepItem = styled.li`
-  display: grid;
-  grid-template-columns: 22px 1fr;
-  gap: 10px;
-  align-items: start;
-`;
-
-const StepNo = styled.div`
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 800;
-  background: #e2e8f0;
-  color: #0f172a;
-`;
-
-const StepText = styled.div`
-  font-size: ${(p) => p.theme.font.size.sm};
-  color: ${(p) => p.theme.colors.textMuted};
-  line-height: 1.55;
-`;
-
-const PendingInfo = styled.div`
-  display: grid;
-  gap: ${(p) => p.theme.spacing.sm};
-  padding: ${(p) => p.theme.spacing.md};
-  border-radius: ${(p) => p.theme.radii.md};
-  border: 1px solid ${(p) => p.theme.colors.borderMuted};
-  background: ${(p) => p.theme.colors.surface};
-`;
-
-const MetaRow = styled.div`
-  display: grid;
-  grid-template-columns: 90px 1fr auto;
-  gap: 10px;
-  align-items: center;
-`;
-
-const MetaLabel = styled.span`
-  font-size: 12px;
-  color: ${(p) => p.theme.colors.textMuted};
-`;
-
-const MetaValue = styled.span`
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 13px;
-  color: ${(p) => p.theme.colors.text};
-`;
-
-const CopyButton = styled.button`
-  height: 30px;
-  border: 1px solid ${(p) => p.theme.colors.borderMuted};
-  border-radius: 999px;
-  padding: 0 10px;
-  background: ${(p) => p.theme.colors.surfaceAlt};
-  color: ${(p) => p.theme.colors.text};
-  font-size: 12px;
-  cursor: pointer;
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 `;
 
 const EmptyIcon = styled.div`

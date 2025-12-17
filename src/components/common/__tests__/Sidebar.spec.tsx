@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router-dom";
 import Sidebar from "../Sidebar";
 import { vi } from "vitest";
@@ -19,10 +20,15 @@ vi.mock("@/hooks/useAuth", () => ({
 
 describe("Sidebar teacher view", () => {
   it("renders only teacher-allowed navigation items", () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     render(
-      <MemoryRouter>
-        <Sidebar />
-      </MemoryRouter>,
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <Sidebar />
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(screen.getByText("대시보드")).toBeInTheDocument();

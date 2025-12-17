@@ -1,14 +1,13 @@
 import styled from "styled-components";
 import type { FormEvent } from "react";
 import Modal from "@/components/common/Modal";
+import PageTopBar from "@/components/common/PageTopBar";
 import { GhostButton } from "@/components/common/UI";
 import {
   AlertError,
   AlertOk,
-  BackButton,
   CourseFormSkeleton,
   Form as FormRoot,
-  Header,
   NavButton,
   Page,
   PrimaryAction,
@@ -32,21 +31,6 @@ import {
   formatNumberKR,
   hasDay,
 } from "@/components/courseForm/courseFormHelpers";
-
-const leftIcon = (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <polyline points="15 18 9 12 15 6" />
-  </svg>
-);
 
 type CourseFormPageViewProps = {
   isEdit: boolean;
@@ -151,12 +135,13 @@ export function CourseFormPageView({
           </GhostButton>
         </FeeModalActions>
       </Modal>
-      <Header>
-        <BackButton type="button" onClick={onBack}>
-          {leftIcon} 뒤로
-        </BackButton>
-        <h2>{isEdit ? "수업 수정" : "수업 추가하기"}</h2>
-      </Header>
+      <PageTopBar
+        align="center"
+        title={isEdit ? "수업 수정" : "수업 추가하기"}
+        onBack={onBack}
+        backLabel="뒤로"
+        backSize="md"
+      />
       {error ? <AlertError>{error}</AlertError> : null}
       {success ? <AlertOk>{success}</AlertOk> : null}
       {loading ? (

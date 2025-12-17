@@ -1,5 +1,5 @@
 import styled, { keyframes } from "styled-components";
-import BackButton from "@/components/common/BackButton";
+import PageTopBar from "@/components/common/PageTopBar";
 import {
   Badge,
   Card,
@@ -16,6 +16,7 @@ import { StudentGradesTab } from "@/components/studentDetail/StudentGradesTab";
 import { StudentCounselTab } from "@/components/studentDetail/StudentCounselTab";
 import { StudentCounselAddModal } from "@/components/studentDetail/StudentCounselAddModal";
 import { StudentPaymentsSection } from "@/components/studentDetail/StudentPaymentsSection";
+import { StudentPaymentTemplatesPanel } from "@/components/studentDetail/StudentPaymentTemplatesPanel";
 import { StudentReportsTab } from "@/components/studentDetail/StudentReportsTab";
 import {
   courseStatusLabel,
@@ -42,8 +43,8 @@ type StudentDetailPageViewProps = {
   attendance: StudentDetailPageState["attendance"];
   grades: StudentDetailPageState["grades"];
   counsels: StudentDetailPageState["counsels"];
-  payments: StudentDetailPageState["payments"];
   reports: StudentDetailPageState["reports"];
+  payments: StudentDetailPageState["payments"];
   deleteConfirmDialog?: React.ReactNode;
   onOpenCourse: (courseId: number) => void;
 };
@@ -64,17 +65,20 @@ export function StudentDetailPageView({
   attendance,
   grades,
   counsels,
-  payments,
   reports,
+  payments,
   deleteConfirmDialog,
   onOpenCourse,
 }: StudentDetailPageViewProps) {
   return (
     <Page>
-      <TopBar>
-        <BackButton to="/students" label="뒤로" />
-        <h2>원생 상세</h2>
-      </TopBar>
+      <PageTopBar
+        align="left"
+        title="원생 상세"
+        to="/students"
+        backLabel="뒤로"
+        backSize="sm"
+      />
 
       {loading ? <StudentDetailSkeleton /> : null}
       {studentError ? <Error>{studentError}</Error> : null}
@@ -142,16 +146,16 @@ export function StudentDetailPageView({
                     상담기록
                   </TabButton>
                   <TabButton
-                    data-active={activeTab === "invoice"}
-                    onClick={() => onSelectTab("invoice")}
+                    data-active={activeTab === "payments"}
+                    onClick={() => onSelectTab("payments")}
                   >
-                    청구서
+                    결제내역
                   </TabButton>
                   <TabButton
-                    data-active={activeTab === "paymentHistory"}
-                    onClick={() => onSelectTab("paymentHistory")}
+                    data-active={activeTab === "templates"}
+                    onClick={() => onSelectTab("templates")}
                   >
-                    결제 내역
+                    청구서 템플릿
                   </TabButton>
                 </Tabs>
               </MiniHead>
@@ -232,33 +236,19 @@ export function StudentDetailPageView({
                 </SectionBody>
               ) : null}
 
-              {activeTab === "invoice" ? (
+              {activeTab === "payments" ? (
                 <SectionBody>
                   <StudentPaymentsSection
                     studentId={student?.id ?? null}
-                    payments={payments.data}
-                    loading={payments.loading}
                     error={payments.error}
-                    onRefresh={payments.refresh}
-                    view="invoice"
-                    showTabs={false}
-                    withinCard={false}
+                    enabled={payments.enabled}
                   />
                 </SectionBody>
               ) : null}
 
-              {activeTab === "paymentHistory" ? (
+              {activeTab === "templates" ? (
                 <SectionBody>
-                  <StudentPaymentsSection
-                    studentId={student?.id ?? null}
-                    payments={payments.data}
-                    loading={payments.loading}
-                    error={payments.error}
-                    onRefresh={payments.refresh}
-                    view="history"
-                    showTabs={false}
-                    withinCard={false}
-                  />
+                  <StudentPaymentTemplatesPanel studentId={student?.id ?? null} />
                 </SectionBody>
               ) : null}
 
@@ -299,7 +289,7 @@ function StudentDetailSkeleton() {
           <SkField />
         </Card>
         <Card>
-          <SectionTitle>부모님 정보</SectionTitle>
+          <SectionTitle>보호자 정보</SectionTitle>
           <SkField />
           <SkField />
         </Card>
@@ -313,6 +303,7 @@ function StudentDetailSkeleton() {
               </TabButton>
               <TabButton>출석현황</TabButton>
               <TabButton>성적</TabButton>
+              <TabButton>결제내역</TabButton>
               <TabButton>상담기록</TabButton>
             </Tabs>
           </MiniHead>
@@ -330,20 +321,6 @@ function StudentDetailSkeleton() {
 const Page = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.lg};
-`;
-
-const TopBar = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${(p) => p.theme.spacing.sm};
-  justify-content: flex-start;
-  h2 {
-    margin: 0;
-    font-size: ${(p) => p.theme.font.size.display};
-    color: ${(p) => p.theme.colors.text};
-    display: flex;
-    align-items: center;
-  }
 `;
 
 const Columns = styled.div`

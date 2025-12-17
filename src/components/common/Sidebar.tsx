@@ -2,8 +2,10 @@
 import { useMemo, useCallback } from "react";
 import styled from "styled-components";
 import { NavLink, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/useAuth";
 import { routes } from "@/routes";
+import { apiGetPlanUsage } from "@/api/account";
 
 type SidebarProps = {
   onNavigate?: () => void;
@@ -15,6 +17,8 @@ type NavItem = {
   sub: string;
   to: string;
   menuKey?: string | null;
+  locked?: boolean;
+  lockTitle?: string;
 };
 
 export default function Sidebar({ onNavigate }: SidebarProps) {
@@ -24,6 +28,17 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
   const roleValue = (user?.role ?? "").toString().toUpperCase();
   const isTeacher = roleValue.includes("TEACHER");
   const isOwnerOrAdmin = roleValue === "OWNER" || roleValue === "ADMIN";
+
+  const planUsageQuery = useQuery({
+    queryKey: ["account", "plan-usage"],
+    queryFn: apiGetPlanUsage,
+    enabled: Boolean(user && !isTeacher),
+    staleTime: 60_000,
+  });
+  const planId = (planUsageQuery.data?.planId ?? "").toLowerCase();
+  const planResolved = Boolean(planId);
+  const paymentFeatureEnabled = planId === "enterprise" || planId.endsWith("-pay");
+  const teacherManageEnabled = planId !== "free" && planId.length > 0;
   const items = useMemo<NavItem[]>(() => {
     const normalize = (key: unknown) =>
       typeof key === "string" ? key.trim().toUpperCase() : String(key || "").trim().toUpperCase();
@@ -69,17 +84,34 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
       { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
       { key: "materials", label: "자료실", sub: "Materials", to: routes.materials, menuKey: "MATERIALS" },
-      { key: "payments", label: "결제관리", sub: "Payments", to: routes.payments, menuKey: "PAYMENTS" },
+      {
+        key: "payments",
+        label: "결제관리",
+        sub: "Payments",
+        to: routes.payments,
+        menuKey: "PAYMENTS",
+        locked: planResolved ? !paymentFeatureEnabled : false,
+        lockTitle: "결제 기능 포함 요금제(Plus)에서 이용할 수 있습니다.",
+      },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing, menuKey: "MARKETING" },
       { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
     ];
     if (isOwnerOrAdmin) {
-      const reportsEntry: NavItem = { key: "reports", label: "보고서", sub: "Reports", to: routes.reports };
+      const reportsEntry: NavItem = {
+        key: "reports",
+        label: "보고서",
+        sub: "Reports",
+        to: routes.reports,
+        locked: planResolved ? !paymentFeatureEnabled : false,
+        lockTitle: "보고서 기능은 결제 기능 포함 요금제(Plus)에서 이용할 수 있습니다.",
+      };
       const teachersEntry: NavItem = {
         key: "teachers-manage",
         label: "강사관리",
         sub: "Teacher Management",
         to: routes.teachersManage,
+        locked: planResolved ? !teacherManageEnabled : false,
+        lockTitle: "강사 관리 기능은 유료 요금제에서 이용할 수 있습니다.",
       };
       const attendanceIndex = base.findIndex((i) => i.key === "attendance");
       if (attendanceIndex >= 0) {
@@ -101,7 +133,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       if (!allowedMenus || !item.menuKey) return true;
       return allowedMenus.has(item.menuKey);
     });
-  }, [enableFeedback, isTeacher, isOwnerOrAdmin, user?.menus]);
+  }, [enableFeedback, isTeacher, isOwnerOrAdmin, paymentFeatureEnabled, planResolved, teacherManageEnabled, user?.menus]);
 
   // Display only academy name in the bottom user box
   const academyName = user?.academy?.name && user.academy.name.trim() ? user.academy.name.trim() : undefined;
@@ -146,12 +178,40 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
                 to={item.to}
                 end={item.to === "/"}
                 onClick={() => onNavigate?.()}
+                data-locked={item.locked ? "true" : undefined}
               >
                 <Icon aria-hidden>{renderIcon(item.key)}</Icon>
                 <Labels>
                   <span>{item.label}</span>
                   <em>{item.sub}</em>
                 </Labels>
+                {item.locked ? (
+                  <LockPill title={item.lockTitle ?? "현재 요금제로 이용할 수 없습니다."} aria-label="잠김">
+                    <LockIcon aria-hidden viewBox="0 0 24 24">
+                      <path
+                        d="M7 11V8a5 5 0 0 1 10 0v3"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                      <rect
+                        x="6"
+                        y="11"
+                        width="12"
+                        height="10"
+                        rx="2"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </LockIcon>
+                    잠김
+                  </LockPill>
+                ) : null}
               </NavLinkStyled>
             </li>
           ))}
@@ -476,6 +536,10 @@ const NavLinkStyled = styled(NavLink)`
   user-select: none;
   position: relative;
 
+  &[data-locked="true"] {
+    opacity: 0.82;
+  }
+
   &:hover {
     background: #f5f5f5;
     color: #111827;
@@ -537,6 +601,28 @@ const Labels = styled.span`
     overflow: hidden;
     text-overflow: ellipsis;
   }
+`;
+
+const LockPill = styled.span`
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 11px;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+`;
+
+const LockIcon = styled.svg`
+  width: 14px;
+  height: 14px;
+  flex: none;
 `;
 
 const BottomInfo = styled.div`

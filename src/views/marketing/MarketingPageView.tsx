@@ -31,6 +31,9 @@ export function MarketingPageView({
   const remaining =
     summary.data?.marketingRemaining ??
     (limit != null && used != null ? Math.max(0, limit - used) : null);
+  const quotaRemaining =
+    remaining ?? (limit != null && used != null ? Math.max(0, limit - used) : null);
+  const quotaExhausted = limit != null && quotaRemaining != null ? quotaRemaining <= 0 : false;
   const loading = summary.status === "loading" && !summary.data;
   const quotaError = summary.status === "error";
   const quotaText = loading
@@ -76,9 +79,9 @@ export function MarketingPageView({
             <PrimaryButton 
               type="button" 
               onClick={periodSelectorProps.onSubmit} 
-              disabled={periodSelectorProps.loading}
+              disabled={periodSelectorProps.loading || quotaExhausted}
             >
-              {periodSelectorProps.loading ? "조회 중..." : "조회하기"}
+              {periodSelectorProps.loading ? "조회 중..." : quotaExhausted ? "한도 초과" : "조회하기"}
             </PrimaryButton>
             <GhostButtonSmall 
               as="button" 

@@ -204,14 +204,6 @@ export const BulkFooter = styled.div`
   color: #475569;
 `;
 
-export const BackBtn = styled.button`
-  ${buttonVariants.outline};
-  height: 40px;
-  padding: 0 16px;
-  font-weight: 600;
-  font-size: 14px;
-`;
-
 export const DateBadge = styled.span`
   display: inline-flex;
   align-items: center;

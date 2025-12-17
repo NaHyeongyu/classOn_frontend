@@ -1,9 +1,11 @@
+import { useEffect, useState } from "react";
 import styled from "styled-components";
+import { apiGetPlanUsage, type PlanUsage } from "@/api/account";
 import { useMyAcademyPage } from "@/features/myAcademy/hooks/useMyAcademyPage";
 import { useNavigate } from "react-router-dom";
 import { routes } from "@/routes";
 import { TeacherCreateModal } from "@/components/myAcademy/TeacherCreateModal";
-import { Page, PageHeader, SectionCard, Scroller, TableBase as Table, PrimaryButton, EmptyState } from "@/components/common/UI";
+import { Page, PageHeader, SectionCard, Scroller, TableBase as Table, PrimaryButton, GhostBtnSmall, EmptyState } from "@/components/common/UI";
 import { formatKoreanDate } from "@/lib/format";
 
 export default function Teachers() {
@@ -12,27 +14,26 @@ export default function Teachers() {
   const navigate = useNavigate();
 
   const isFree = academy.isFreePlan;
+  const [planUsage, setPlanUsage] = useState<PlanUsage | null>(null);
 
-  if (isFree) {
-    return (
-      <Page>
-        <PageHeader>
-          <div>
-            <h2>강사관리</h2>
-            <p>현재 요금제로 이용할 수 없습니다.</p>
-          </div>
-        </PageHeader>
-        <SectionCard>
-          <EmptyState>
-            <div>현재 요금제로 이용할 수 없습니다. 업그레이드 후 이용해보세요!</div>
-            <UpgradeButton type="button" onClick={() => state.handleLogout /* placeholder to avoid unused */}>
-              요금제 변경하기
-            </UpgradeButton>
-          </EmptyState>
-        </SectionCard>
-      </Page>
-    );
-  }
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const usage = await apiGetPlanUsage();
+        if (!cancelled) setPlanUsage(usage);
+      } catch {
+        if (!cancelled) setPlanUsage(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [academy.data?.id]);
+
+  const teacherLimitValue = planUsage?.teacherLimit;
+  const teacherLimitLabel = planUsage ? (teacherLimitValue == null ? "무제한" : String(teacherLimitValue)) : "—";
+  const teacherReached = teacherLimitValue != null && teachers.teachers.length >= teacherLimitValue;
 
   if (isFree) {
     return (
@@ -63,10 +64,13 @@ export default function Teachers() {
           <p>강사 계정을 추가하고 권한/담당 수업을 관리합니다.</p>
         </div>
         <HeaderActions>
-          <CountBadge aria-label="등록된 강사 수">등록 {teachers.teachers.length}/3</CountBadge>
-          <PrimaryButton type="button" onClick={teachers.onOpenCreate} disabled={teachers.teachers.length >= 3}>
+          <CountBadge aria-label="등록된 강사 수">
+            등록 {teachers.teachers.length}/{teacherLimitLabel}
+          </CountBadge>
+          <PrimaryButton type="button" onClick={teachers.onOpenCreate} disabled={teacherReached}>
             강사 추가
           </PrimaryButton>
+          {teacherReached ? <GhostBtnSmall to={routes.myAcademyPlan}>요금제 변경</GhostBtnSmall> : null}
         </HeaderActions>
       </PageHeader>
 
@@ -75,7 +79,7 @@ export default function Teachers() {
           <CardHead>
             <div>
               <strong>강사 목록</strong>
-              <Muted>총 0명 / 최대 3명</Muted>
+              <Muted>{`총 0명 / 최대 ${teacherLimitLabel}`}</Muted>
             </div>
           </CardHead>
           강사 정보를 불러오는 중입니다…
@@ -85,7 +89,7 @@ export default function Teachers() {
           <CardHead>
             <div>
               <strong>강사 목록</strong>
-              <Muted>총 0명 / 최대 3명</Muted>
+              <Muted>{`총 0명 / 최대 ${teacherLimitLabel}`}</Muted>
             </div>
           </CardHead>
           {teachers.error}
@@ -95,7 +99,7 @@ export default function Teachers() {
           <CardHead>
             <div>
               <strong>강사 목록</strong>
-              <Muted>총 0명 / 최대 3명</Muted>
+              <Muted>{`총 0명 / 최대 ${teacherLimitLabel}`}</Muted>
             </div>
           </CardHead>
           <EmptyState>
@@ -112,7 +116,7 @@ export default function Teachers() {
           <CardHead>
             <div>
               <strong>강사 목록</strong>
-              <Muted>{`총 ${teachers.teachers.length}명 / 최대 3명`}</Muted>
+              <Muted>{`총 ${teachers.teachers.length}명 / 최대 ${teacherLimitLabel}`}</Muted>
             </div>
           </CardHead>
           <Scroller>

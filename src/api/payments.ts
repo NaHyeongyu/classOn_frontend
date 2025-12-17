@@ -49,7 +49,7 @@ export type PaymentInvoicePayload = {
   discountStartDate?: string;
   discountEndDate?: string;
   additionalItems?: PaymentAdditionalItemPayload[];
-  recipientPhone?: string | null;
+  recipientPhone?: string;
 };
 
 export type PaymentInvoiceUpdatePayload = {
@@ -59,13 +59,47 @@ export type PaymentInvoiceUpdatePayload = {
   amount?: number;
   discountType?: DiscountType;
   discountValue?: number;
+  discountEnabled?: boolean;
+  discountStartDate?: string;
+  discountEndDate?: string;
   memo?: string;
   managerMemo?: string;
   courseId?: number;
   cycleValue?: number;
   cycleUnit?: BillingCycleUnit;
   additionalItems?: PaymentAdditionalItemPayload[];
-  recipientPhone?: string | null;
+  recipientPhone?: string;
+};
+
+export type PaymentTemplateSetup = {
+  templateId: number;
+  studentId: number;
+  courseId?: number | null;
+  courseCodeSnapshot?: string | null;
+  courseTitleSnapshot?: string | null;
+  cycleUnit: BillingCycleUnit;
+  cycleValue: number;
+  graceDays: number;
+  nextDueDate: string;
+  autoGenerate: boolean;
+  originalAmount: number;
+  discountType?: DiscountType | null;
+  discountValue?: number | null;
+  discountStartDate?: string | null;
+  discountEndDate?: string | null;
+  finalAmount: number;
+  memo?: string | null;
+  managerMemo?: string | null;
+  additionalItems?: {
+    id?: number;
+    type: "MATERIAL" | "TEXTBOOK" | "OTHER";
+    label: string;
+    quantity?: number | null;
+    unitPrice?: number | null;
+    totalPrice?: number | null;
+    appliedStart?: string | null;
+    appliedEnd?: string | null;
+  }[];
 };
 
 export type PaymentOnsitePayload = {
@@ -92,6 +126,7 @@ export async function listPaymentInvoices(params?: {
   from?: string;
   to?: string;
   studentStatus?: string;
+  studentId?: number;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
   const statusParam = params?.status?.trim() || "UNPAID,PENDING";
@@ -102,6 +137,7 @@ export async function listPaymentInvoices(params?: {
   if (params?.from) sp.set("from", params.from);
   if (params?.to) sp.set("to", params.to);
   if (params?.studentStatus && params.studentStatus !== "ALL") sp.set("studentStatus", params.studentStatus);
+  if (typeof params?.studentId === "number") sp.set("studentId", String(params.studentId));
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/invoices${q}`);
 }
@@ -113,6 +149,7 @@ export async function listPaymentHistory(params?: {
   q?: string;
   page?: number;
   size?: number;
+  studentId?: number;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
   if (params?.from) sp.set("from", params.from);
@@ -121,6 +158,7 @@ export async function listPaymentHistory(params?: {
   if (params?.q && params.q.trim()) sp.set("q", params.q.trim());
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
+  if (typeof params?.studentId === "number") sp.set("studentId", String(params.studentId));
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/history${q}`);
 }
@@ -132,6 +170,7 @@ export async function listPendingHistory(params?: {
   page?: number;
   size?: number;
   status?: string;
+  studentId?: number;
 }): Promise<PageResult<PaymentHistoryRow>> {
   const sp = new URLSearchParams();
   if (params?.from) sp.set("from", params.from);
@@ -140,6 +179,7 @@ export async function listPendingHistory(params?: {
   if (typeof params?.page === "number") sp.set("page", String(params.page));
   if (typeof params?.size === "number") sp.set("size", String(params.size));
   if (params?.status && params.status.trim()) sp.set("status", params.status.trim());
+  if (typeof params?.studentId === "number") sp.set("studentId", String(params.studentId));
   const q = sp.toString() ? `?${sp.toString()}` : "";
   return await fetchJSON<PageResult<PaymentHistoryRow>>(`/api/payments/history/pending${q}`);
 }
@@ -154,6 +194,69 @@ export async function createPaymentInvoice(payload: PaymentInvoicePayload): Prom
     body: JSON.stringify(payload),
   });
   invalidateCacheByPrefix([
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    "/api/payments/history/pending",
+  ]);
+  return res;
+}
+
+export async function createPaymentTemplateInvoice(payload: PaymentInvoicePayload): Promise<PaymentTemplateSetup> {
+  const res = await fetchJSON<PaymentTemplateSetup>(`/api/payments/templates`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  invalidateCacheByPrefix([
+    "/api/payments/templates",
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    "/api/payments/history/pending",
+  ]);
+  return res;
+}
+
+export async function updatePaymentTemplate(templateId: number, payload: PaymentInvoicePayload): Promise<PaymentTemplateSetup> {
+  const res = await fetchJSON<PaymentTemplateSetup>(`/api/payments/templates/${templateId}`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+  invalidateCacheByPrefix([
+    "/api/payments/templates",
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    "/api/payments/history/pending",
+  ]);
+  return res;
+}
+
+export async function deletePaymentTemplate(templateId: number): Promise<void> {
+  await fetchJSON<void>(`/api/payments/templates/${templateId}`, { method: "DELETE" });
+  invalidateCacheByPrefix([
+    "/api/payments/templates",
+    "/api/payments/summary",
+    "/api/payments/invoices",
+    "/api/payments/history",
+    "/api/payments/history/pending",
+  ]);
+}
+
+export async function listPaymentTemplates(params?: { studentId?: number }): Promise<PaymentTemplateSetup[]> {
+  const sp = new URLSearchParams();
+  if (typeof params?.studentId === "number") sp.set("studentId", String(params.studentId));
+  const q = sp.toString() ? `?${sp.toString()}` : "";
+  return await fetchJSON<PaymentTemplateSetup[]>(`/api/payments/templates${q}`);
+}
+
+export async function updatePaymentTemplateAutoGenerate(templateId: number, autoGenerate: boolean): Promise<PaymentTemplateSetup> {
+  const res = await fetchJSON<PaymentTemplateSetup>(`/api/payments/templates/${templateId}/auto-generate`, {
+    method: "PATCH",
+    body: JSON.stringify({ autoGenerate }),
+  });
+  invalidateCacheByPrefix([
+    "/api/payments/templates",
     "/api/payments/summary",
     "/api/payments/invoices",
     "/api/payments/history",
@@ -178,9 +281,7 @@ export async function updatePaymentInvoice(id: number, payload: PaymentInvoiceUp
 }
 
 export async function deletePaymentInvoice(id: number): Promise<void> {
-  await fetchJSON<void>(`/api/payments/${id}`, {
-    method: "DELETE",
-  });
+  await fetchJSON<void>(`/api/payments/${id}`, { method: "DELETE" });
   invalidateCacheByPrefix([
     "/api/payments/summary",
     "/api/payments/invoices",

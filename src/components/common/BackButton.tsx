@@ -1,7 +1,9 @@
 import { useNavigate } from "react-router-dom";
-import styled from "styled-components";
+import styled, { css } from "styled-components";
 import { GhostButtonSmall } from "./UI";
 import type { ReactNode } from "react";
+
+type BackButtonSize = "sm" | "md" | "lg";
 
 type Props = {
   to?: string;
@@ -9,15 +11,21 @@ type Props = {
   className?: string;
   backSteps?: number; // defaults to 1
   icon?: ReactNode;
+  showIcon?: boolean;
+  size?: BackButtonSize;
+  fullWidth?: boolean;
   onClick?: () => void;
 };
 
 export default function BackButton({
   to,
-  label = "뒤로가기",
+  label = "뒤로",
   className,
   backSteps = 1,
   icon,
+  showIcon = true,
+  size = "sm",
+  fullWidth = false,
   onClick,
 }: Props) {
   const navigate = useNavigate();
@@ -27,25 +35,50 @@ export default function BackButton({
     else navigate(-Math.abs(backSteps));
   };
   return (
-    <Btn as="button" type="button" onClick={goBack} className={className}>
-      <Icon aria-hidden>{icon ?? leftIcon}</Icon>
+    <Btn
+      as="button"
+      type="button"
+      onClick={goBack}
+      className={className}
+      $size={size}
+      $fullWidth={fullWidth}
+    >
+      {showIcon ? <Icon aria-hidden>{icon ?? leftIcon}</Icon> : null}
       {label}
     </Btn>
   );
 }
 
-const Btn = styled(GhostButtonSmall)`
-  /* Make back button compact like other pages */
-  height: 32px;
-  padding: 0 12px;
-  font-size: ${(p) => p.theme.font.size.sm};
-  border-radius: ${(p) => p.theme.radii.sm};
-  /* Prevent stretching inside grid containers like Page */
-  place-self: start;
-  width: max-content;
-  display: inline-flex;
-  align-items: center;
+const Btn = styled(GhostButtonSmall)<{ $size: BackButtonSize; $fullWidth: boolean }>`
   gap: 6px;
+
+  ${(p) =>
+    p.$size === "sm" &&
+    css`
+      height: 32px;
+      padding: 0 12px;
+      font-size: ${p.theme.font.size.sm};
+      border-radius: ${p.theme.radii.sm};
+    `}
+
+  ${(p) =>
+    p.$size === "lg" &&
+    css`
+      height: 48px;
+      padding: 0 20px;
+    `}
+
+  ${(p) =>
+    p.$fullWidth
+      ? css`
+          width: 100%;
+          place-self: stretch;
+        `
+      : css`
+          /* Prevent stretching inside grid containers like Page */
+          place-self: start;
+          width: max-content;
+        `}
 `;
 
 const Icon = styled.span`

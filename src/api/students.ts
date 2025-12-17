@@ -139,11 +139,15 @@ export async function deleteStudent(id: number): Promise<void> {
 
 export type StudentPaymentInfo = {
   invoice: PaymentDetail | null;
-  history: PaymentHistoryRow[];
+  history: PageResult<PaymentHistoryRow>;
 };
 
-export async function getStudentPaymentInfo(id: number): Promise<StudentPaymentInfo> {
-  return await fetchJSON<StudentPaymentInfo>(`/api/students/${id}/payments`);
+export async function getStudentPaymentInfo(id: number, params?: { page?: number; size?: number }): Promise<StudentPaymentInfo> {
+  const sp = new URLSearchParams();
+  if (typeof params?.page === "number") sp.set("page", String(params.page));
+  if (typeof params?.size === "number") sp.set("size", String(params.size));
+  const q = Array.from(sp.keys()).length ? `?${sp.toString()}` : "";
+  return await fetchJSON<StudentPaymentInfo>(`/api/students/${id}/payments${q}`);
 }
 
 export type StudentReport = {

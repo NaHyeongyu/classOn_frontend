@@ -28,6 +28,7 @@ export const routes = {
   attendance: '/attendance',
   materials: '/materials',
   reports: '/reports',
+  reportsKakaoConfirm: '/reports/kakao-confirm',
 
   payments: '/payments',
   paymentsCreate: '/payments/create',
@@ -84,6 +85,20 @@ export const paths = {
       if (params?.template && params.template.trim()) sp.set("template", params.template.trim());
       const qs = sp.toString();
       return qs ? `/payments/kakao-schedule?${qs}` : `/payments/kakao-schedule`;
+    },
+  },
+  reports: {
+    kakaoConfirm: (params: { selection: Array<{ studentId: number; reportId: number }>; courseName?: string }) => {
+      const sp = new URLSearchParams();
+      if (params.selection.length) {
+        const selectionParam = params.selection.map(({ studentId, reportId }) => `${studentId}:${reportId}`).join(",");
+        sp.set("selection", selectionParam);
+      }
+      if (params.courseName && params.courseName.trim()) {
+        sp.set("courseName", params.courseName.trim());
+      }
+      const qs = sp.toString();
+      return qs ? `/reports/kakao-confirm?${qs}` : `/reports/kakao-confirm`;
     },
   },
   classes: {

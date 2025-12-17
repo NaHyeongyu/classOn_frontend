@@ -122,8 +122,8 @@ const statusLabelMap: Record<string, string> = {
 };
 
 const statusColor: Record<string, string> = {
-  UNPAID: "#4b5563",
-  PENDING: "#2563EB",
+  UNPAID: "#2563EB",
+  PENDING: "#f97316",
   COMPLETED: "#059669",
   FAILED: "#dc2626",
   CANCELED: "#dc2626",
@@ -447,7 +447,6 @@ function KakaoSendPage({ mode }: { mode: SendMode }) {
               <PreviewList>
                 {previewMessages.map((preview: PreviewMessage) => (
                   <li key={preview.id}>
-                    <strong>{preview.student}</strong>
                     <span>{preview.text}</span>
                   </li>
                 ))}
@@ -531,12 +530,8 @@ export function PaymentsKakaoSchedulePage() {
 
 function buildDefaultScheduleParts(): ScheduleParts {
   const base = new Date();
-  base.setMinutes(base.getMinutes() + 10);
-  base.setSeconds(0, 0);
-  const remainder = base.getMinutes() % 5;
-  if (remainder !== 0) {
-    base.setMinutes(base.getMinutes() + (5 - remainder));
-  }
+  base.setDate(base.getDate() + 1);
+  base.setHours(10, 0, 0, 0);
   return {
     date: formatDateInput(base),
     hour: String(base.getHours()).padStart(2, "0"),

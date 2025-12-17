@@ -29,6 +29,8 @@ export type LoginFormState = {
   setUsername: (value: string) => void;
   password: string;
   setPassword: (value: string) => void;
+  rememberId: boolean;
+  setRememberId: (value: boolean) => void;
   submitted: boolean;
   loading: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void> | void;
@@ -120,6 +122,28 @@ function resolveRedirectPath(user: AuthUser, fallback: string): string {
   return next || defaultDestination;
 }
 
+const SAVED_USERNAME_KEY = "classon.login.saved-username";
+
+function getSavedUsername(): string | null {
+  try {
+    return window.localStorage.getItem(SAVED_USERNAME_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function setSavedUsername(value: string | null) {
+  try {
+    if (value && value.trim()) {
+      window.localStorage.setItem(SAVED_USERNAME_KEY, value.trim());
+    } else {
+      window.localStorage.removeItem(SAVED_USERNAME_KEY);
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
 export function useLoginPage(): UseLoginPageResult {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -129,6 +153,8 @@ export function useLoginPage(): UseLoginPageResult {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [rememberId, setRememberId] = useState(false);
+  const [rememberHydrated, setRememberHydrated] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -168,6 +194,20 @@ export function useLoginPage(): UseLoginPageResult {
   const resetDigits = useMemo(() => extractDigits(resetPhone), [resetPhone]);
 
   useEffect(() => {
+    const saved = getSavedUsername();
+    if (saved && saved.trim()) {
+      setUsername(saved);
+      setRememberId(true);
+    }
+    setRememberHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!rememberHydrated) return;
+    setSavedUsername(rememberId ? username.trim() : null);
+  }, [rememberHydrated, rememberId, username]);
+
+  useEffect(() => {
     if (!findIdOpen || findCooldown <= 0) return;
     const timer = window.setTimeout(() => {
       setFindCooldown((prev) => (prev > 0 ? prev - 1 : 0));
@@ -195,6 +235,7 @@ export function useLoginPage(): UseLoginPageResult {
       setLoading(true);
       try {
         const authUser = await login(username.trim(), password);
+        setSavedUsername(rememberId ? username.trim() : null);
         const nextPath = resolveRedirectPath(authUser, redirectTo);
         navigate(nextPath, { replace: true });
       } catch (error) {
@@ -204,7 +245,7 @@ export function useLoginPage(): UseLoginPageResult {
         setLoading(false);
       }
     },
-    [login, navigate, password, redirectTo, username],
+    [login, navigate, password, redirectTo, rememberId, username],
   );
 
   const openFindModal = useCallback(() => {
@@ -466,6 +507,8 @@ export function useLoginPage(): UseLoginPageResult {
     setUsername,
     password,
     setPassword,
+    rememberId,
+    setRememberId,
     submitted,
     loading,
     onSubmit: handleSubmit,

@@ -7,7 +7,7 @@ import {
   PrimaryButtonSm as UIPrimaryButtonSm,
   GhostButton,
 } from "@/components/common/UI";
-import BackButton from "@/components/common/BackButton";
+import PageTopBar from "@/components/common/PageTopBar";
 import type { Student } from "@/api/students";
 import Modal from "@/components/common/Modal";
 import SelectBox from "@/components/common/SelectBox";
@@ -112,13 +112,7 @@ export function CourseStudentsEditPageView({
           </GhostButton>
         </ModalActions>
       </Modal>
-      <Head>
-        <TopLeft>
-          <BackButton onClick={onBack} label="뒤로" />
-          <h2>수강생 수정</h2>
-        </TopLeft>
-        <Actions />
-      </Head>
+      <PageTopBar align="left" title="수강생 수정" onBack={onBack} backLabel="뒤로" />
       {(studentError || enrolledError) && (
         <AlertError>{studentError || enrolledError}</AlertError>
       )}
@@ -257,33 +251,6 @@ export function CourseStudentsEditPageView({
 const Wrap = styled.div`
   display: grid;
   gap: 12px;
-`;
-
-const Head = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: nowrap; /* keep on one line */
-`;
-
-const TopLeft = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  /* Prevent title from breaking to next line */
-  h2 {
-    margin: 0;
-    font-size: 20px;
-    font-weight: 800;
-    line-height: 1.2;
-    white-space: nowrap;
-  }
-`;
-
-const Actions = styled.div`
-  display: inline-flex;
-  gap: 8px;
 `;
 
 const Grid = styled.div`

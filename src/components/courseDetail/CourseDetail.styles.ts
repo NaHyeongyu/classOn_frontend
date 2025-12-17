@@ -1,7 +1,6 @@
 import styled from "styled-components";
 import {
   Page as PageWrap,
-  buttonVariants,
   SectionCard as SectionCardBase,
   TitleH3 as TitleBase,
 } from "@/components/common/UI";
@@ -9,38 +8,6 @@ import {
 export const Wrap = styled.div`
   display: grid;
   gap: ${(p) => p.theme.spacing.pageGap};
-`;
-
-export const Head = styled.div`
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 12px;
-  align-items: center;
-  h2 {
-    margin: 0;
-  }
-  @media (max-width: 720px) {
-    grid-template-columns: 1fr;
-    justify-items: flex-start;
-    gap: 8px;
-  }
-`;
-
-export const Actions = styled.div`
-  display: inline-flex;
-  gap: 12px;
-  flex-wrap: wrap;
-`;
-
-export const BackButton = styled.button`
-  ${buttonVariants.outline};
-  height: 40px;
-  padding: 0 16px;
-  font-weight: 600;
-  font-size: 14px;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
 `;
 
 export const KPIGrid = styled.div`

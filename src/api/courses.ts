@@ -108,6 +108,8 @@ export async function updateCourse(id: number, payload: CoursePayload): Promise<
       '/api/courses',
       `/api/courses/${id}`,
       `/api/courses/${id}/records`,
+      '/api/students',
+      '/api/payments/templates',
       '/api/calendar/classes',
       '/api/calendar/classes-range',
       '/api/dashboard/summary',
@@ -134,6 +136,8 @@ export async function updateCourseInstructor(id: number, instructorId: number | 
       '/api/courses',
       `/api/courses/${id}`,
       `/api/courses/${id}/records`,
+      '/api/students',
+      '/api/payments/templates',
       '/api/calendar/classes',
       '/api/calendar/classes-range',
       '/api/dashboard/summary',
@@ -154,8 +158,12 @@ export async function listCourseStudents(id: number): Promise<Student[]> {
   return await fetchJSON<Student[]>(`/api/courses/${id}/students`);
 }
 
-export async function listCourseRecords(id: number, params?: { from?: string; to?: string; page?: number; size?: number; }): Promise<CourseRecord[]> {
+export async function listCourseRecords(
+  id: number,
+  params?: { ym?: string; from?: string; to?: string; page?: number; size?: number },
+): Promise<CourseRecord[]> {
   const sp = new URLSearchParams();
+  if (params?.ym) sp.set("ym", params.ym);
   if (params?.from) sp.set("from", params.from);
   if (params?.to) sp.set("to", params.to);
   if (typeof params?.page === 'number') sp.set('page', String(params.page));

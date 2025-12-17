@@ -75,7 +75,7 @@ export function StudentFormSidebar({ flow }: StudentFormSidebarProps) {
         </PreviewSection>
 
         <PreviewSection>
-          <PreviewSectionTitle>부모님 정보</PreviewSectionTitle>
+          <PreviewSectionTitle>보호자 정보</PreviewSectionTitle>
           <PreviewFields>
             <PreviewField>
               <PreviewLabel>보호자 이름</PreviewLabel>

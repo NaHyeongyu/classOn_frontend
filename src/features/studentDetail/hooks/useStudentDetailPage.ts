@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { deleteStudent, getStudentPaymentInfo, type StudentPaymentInfo } from "@/api/students";
+import { deleteStudent } from "@/api/students";
 import { useToast } from "@/components/common/Toast";
 import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 import { readableError } from "@/lib/errors";
@@ -12,8 +12,16 @@ import { useStudentAttendance } from "@/features/studentDetail/useStudentAttenda
 import { useStudentGrades } from "@/features/studentDetail/useStudentGrades";
 import { useStudentReports } from "@/features/studentDetail/useStudentReports";
 import { useStudentCounsels } from "@/features/studentDetail/useStudentCounsels";
+import { apiGetPlanUsage } from "@/api/account";
 
-export type TabKey = "courses" | "attendance" | "counsels" | "grades" | "invoice" | "paymentHistory" | "reports";
+export type TabKey =
+  | "courses"
+  | "attendance"
+  | "counsels"
+  | "grades"
+  | "payments"
+  | "templates"
+  | "reports";
 
 type ConfirmDialogResult = {
   dialog: ReactNode;
@@ -49,13 +57,11 @@ export type StudentDetailPageState = {
     tabError: string | null;
     handleProtectedCloseAddModal: () => void;
   };
-  payments: {
-    data: StudentPaymentInfo | null;
-    loading: boolean;
-    error: string | null;
-    refresh: () => void;
-  };
   reports: ReturnType<typeof useStudentReports>;
+  payments: {
+    enabled: boolean;
+    error: string | null;
+  };
   deleteConfirmDialog: ReactNode;
 };
 
@@ -89,10 +95,15 @@ export function useStudentDetailPage(): StudentDetailPageState {
       case "attendance":
       case "counsels":
       case "grades":
+      case "payments":
+      case "reports":
+        return tabParam as TabKey;
+      case "templates":
+        return "templates";
+      // Legacy tabs: support old invoice/history paths.
       case "invoice":
       case "paymentHistory":
-      case "reports":
-        return tabParam;
+        return "payments";
       default:
         return "courses";
     }
@@ -109,9 +120,18 @@ export function useStudentDetailPage(): StudentDetailPageState {
     enabled: activeTab === "grades",
   });
 
+  const planUsageQuery = useQuery({
+    queryKey: ["account", "plan-usage"],
+    queryFn: apiGetPlanUsage,
+    enabled: true,
+    staleTime: 60_000,
+  });
+  const planId = (planUsageQuery.data?.planId ?? "").toLowerCase();
+  const paymentEnabled = planId === "enterprise" || planId.endsWith("-pay");
+
   const reports = useStudentReports({
     studentId: numericId,
-    enabled: activeTab === "reports",
+    enabled: activeTab === "reports" && paymentEnabled,
   });
 
   const counsels = useStudentCounsels({
@@ -119,16 +139,6 @@ export function useStudentDetailPage(): StudentDetailPageState {
     studentName: student?.name,
     enabled: activeTab === "counsels",
     onToastError: showError,
-  });
-
-  const paymentsQuery = useQuery({
-    queryKey: ["students", numericId, "payments"],
-    enabled: Boolean(numericId),
-    queryFn: () => {
-      if (!numericId) throw new Error("학생 ID가 필요합니다.");
-      return getStudentPaymentInfo(numericId);
-    },
-    staleTime: 30_000,
   });
 
   const [deleting, setDeleting] = useState(false);
@@ -171,15 +181,6 @@ export function useStudentDetailPage(): StudentDetailPageState {
   const counselTabError =
     counsels.listError || counsels.editState.formError || null;
 
-  const paymentError =
-    paymentsQuery.error && numericId
-      ? paymentsQuery.error instanceof Error
-        ? paymentsQuery.error.message
-        : "결제 정보를 불러오지 못했습니다."
-      : null;
-
-  const paymentsLoading = paymentsQuery.status === "pending" && Boolean(numericId);
-
   return {
     numericId,
     loading,
@@ -201,15 +202,22 @@ export function useStudentDetailPage(): StudentDetailPageState {
       tabError: counselTabError,
       handleProtectedCloseAddModal,
     },
+    reports: paymentEnabled
+      ? reports
+      : {
+          ...reports,
+          error:
+            activeTab === "reports"
+              ? "보고서 기능은 결제 기능이 포함된 요금제(Plus)에서 이용할 수 있습니다."
+              : null,
+        },
     payments: {
-      data: paymentsQuery.data ?? null,
-      loading: paymentsLoading,
-      error: paymentError,
-      refresh: () => {
-        void paymentsQuery.refetch();
-      },
+      enabled: paymentEnabled,
+      error:
+        !paymentEnabled && activeTab === "payments"
+          ? "결제 기능은 결제 기능이 포함된 요금제(Plus)에서 이용할 수 있습니다."
+          : null,
     },
-    reports,
     deleteConfirmDialog,
   };
 }

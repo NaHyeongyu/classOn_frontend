@@ -23,6 +23,7 @@ import {
   PlanDescription,
   PlanPriceWrapper,
   PlanPrice,
+  PlanTrialBadge,
   PlanButton,
   Hint as RegisterHint,
   ChoiceList,
@@ -40,6 +41,8 @@ import { loadTossPayments } from "@/lib/tossPayments";
 import { PrimaryButton, GhostButton } from "@/components/common/UI";
 import { MyAcademySellerModal } from "@/components/myAcademy/MyAcademySellerModal";
 import type { SellerModalState } from "@/features/myAcademy/hooks/useMyAcademyPage";
+import { PgFeeGuideModal } from "@/components/payments/PgFeeGuideModal";
+import { PaymentRefundPolicyModal } from "@/components/billing/PaymentRefundPolicyModal";
 
 type BillingPlanConfig = {
   id: string;
@@ -55,6 +58,19 @@ type BillingPlanConfig = {
     icon?: "check" | "x";
   }>;
 };
+
+const TRIAL_BADGE_BY_PLAN_ID: Record<string, string> = {
+  "plan-100-basic": "2월 20일까지 무료",
+  "plan-100-pay": "2월 20일까지 무료",
+  "plan-300-basic": "무료 1개월",
+  "plan-300-pay": "무료 1개월",
+  "plan-500-basic": "무료 2주",
+  "plan-500-pay": "무료 2주",
+};
+
+function getTrialBadge(planId: string) {
+  return TRIAL_BADGE_BY_PLAN_ID[planId] ?? null;
+}
 
 const PLANS: BillingPlanConfig[] = [
   {
@@ -253,6 +269,8 @@ export default function MyAcademyPlanPage() {
   const locationState = (location.state as PlanPageLocationState) ?? null;
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pgFeeGuideOpen, setPgFeeGuideOpen] = useState(false);
+  const [policyOpen, setPolicyOpen] = useState(false);
   const [subscription, setSubscription] = useState<SubscriptionDto | null>(null);
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [studentScale, setStudentScale] = useState<StudentScaleOption>("UNDER_50");
@@ -469,6 +487,37 @@ export default function MyAcademyPlanPage() {
       setSellerModalSubmitting(true);
       setSellerModalError(null);
       try {
+        const bankOk = sellerModalForm.accountBankCode.trim().length > 0;
+        const accountNumberDigits = digitsOnly(sellerModalForm.accountNumber);
+        const accountOk = accountNumberDigits.length > 0;
+        const holderOk = sellerModalForm.accountHolderName.trim().length > 0;
+        if (!bankOk || !accountOk || !holderOk) {
+          setSellerModalError("정산 계좌(은행/계좌번호/예금주명)를 모두 입력해 주세요.");
+          return;
+        }
+
+        const businessType = sellerModalForm.businessType;
+        if (businessType === "INDIVIDUAL") {
+          const nameOk = sellerModalForm.individualName.trim().length > 0;
+          const emailOk = sellerModalForm.individualEmail.trim().length > 0;
+          const phoneOk = digitsOnly(sellerModalForm.individualPhone).length > 0;
+          if (!nameOk || !emailOk || !phoneOk) {
+            setSellerModalError("개인 정산 정보(이름/이메일/연락처)를 모두 입력해 주세요.");
+            return;
+          }
+        } else {
+          const companyOk = sellerModalForm.companyName.trim().length > 0;
+          const repOk = sellerModalForm.representativeName.trim().length > 0;
+          const emailOk = sellerModalForm.companyEmail.trim().length > 0;
+          const phoneOk = digitsOnly(sellerModalForm.companyPhone).length > 0;
+          const bizDigits = digitsOnly(sellerModalForm.businessRegistrationNumber);
+          const bizOk = bizDigits.length === 10;
+          if (!companyOk || !repOk || !emailOk || !phoneOk || !bizOk) {
+            setSellerModalError("사업자 정산 정보(사업자명/대표자명/사업자등록번호 10자리/이메일/연락처)를 모두 입력해 주세요.");
+            return;
+          }
+        }
+
         const payload = {
           refSellerId: sellerModalForm.refSellerId,
           businessType: sellerModalForm.businessType,
@@ -490,7 +539,7 @@ export default function MyAcademyPlanPage() {
               ? digitsOnly(sellerModalForm.individualPhone) || undefined
               : undefined,
           bankCode: sellerModalForm.accountBankCode,
-          accountNumber: digitsOnly(sellerModalForm.accountNumber),
+          accountNumber: accountNumberDigits,
           accountHolderName: sellerModalForm.accountHolderName.trim(),
           metadataJson: sellerModalForm.metadataJson,
         };
@@ -601,11 +650,13 @@ export default function MyAcademyPlanPage() {
         currency: "KRW",
       });
       queryClient.invalidateQueries({ queryKey: ["dashboard", "summary"] }).catch(() => {});
+      queryClient.invalidateQueries({ queryKey: ["account", "plan-usage"] }).catch(() => {});
       try {
         const { invalidateCache } = await import("@/lib/fetcher");
         invalidateCache([
           "/api/payments/toss/subscription",
           "/api/dashboard/summary",
+          "/api/account/plan-usage",
         ]);
       } catch {
         /* ignore cache invalidation failures */
@@ -631,20 +682,36 @@ export default function MyAcademyPlanPage() {
   return (
     <PageWrapper>
       <PlanCardShell>
-        <PlanHeaderBar>
-          <div>
-            <h1>요금제 선택 / 변경</h1>
-            <p>원생 규모에 맞는 요금제를 선택하고 필요 시 결제수단을 등록하세요.</p>
-          </div>
-          {billingBlocked && (
-            <HeaderRight>
-              <BillingBadge>결제가 필요합니다</BillingBadge>
-              <LogoutButton type="button" onClick={handleLogout}>
-                로그아웃
-              </LogoutButton>
-            </HeaderRight>
-          )}
-        </PlanHeaderBar>
+	        <PlanHeaderBar>
+	          <div>
+	            <h1>요금제 선택 / 변경</h1>
+	            <p>원생 규모에 맞는 요금제를 선택하고 필요 시 결제수단을 등록하세요.</p>
+	          </div>
+	          <HeaderRight>
+	            <FeePolicyBox aria-label="수수료 안내">
+	              <div className="top">
+	                <FeeZeroBadge>결제 수수료 0%</FeeZeroBadge>
+	                <span className="note">서비스 수수료 0% · PG 수수료 별도</span>
+	              </div>
+	              <div className="actions">
+	                <GhostButton type="button" onClick={() => setPgFeeGuideOpen(true)}>
+	                  수수료 규정 보기
+	                </GhostButton>
+	                <GhostButton type="button" onClick={() => setPolicyOpen(true)}>
+	                  결제/환불 정책
+	                </GhostButton>
+	              </div>
+	            </FeePolicyBox>
+	            {billingBlocked ? (
+	              <>
+	                <BillingBadge>결제가 필요합니다</BillingBadge>
+	                <LogoutButton type="button" onClick={handleLogout}>
+	                  로그아웃
+	                </LogoutButton>
+	              </>
+	            ) : null}
+	          </HeaderRight>
+	        </PlanHeaderBar>
         {planUsage ? (
           <UsageBar>
             <UsageHeader>
@@ -719,6 +786,7 @@ export default function MyAcademyPlanPage() {
                     const active = selectedPlanId === plan.id;
                     const badgeVariant = plan.paymentIncluded ? "muted" : "warning";
                     const badgeLabel = plan.paymentIncluded ? "결제 기능 포함" : "결제 기능 미포함";
+                    const trialBadge = getTrialBadge(plan.id);
                     const availableFeatures = plan.features.filter((feat) => feat.icon !== "x");
                     const unavailableFeatures = plan.features.filter((feat) => feat.icon === "x");
                     
@@ -729,17 +797,18 @@ export default function MyAcademyPlanPage() {
                         data-active={active}
                         onClick={() => setSelectedPlanId(plan.id)}
                       >
-                        <PlanHeader>
-                          <ChoiceBadge data-variant={badgeVariant}>{badgeLabel}</ChoiceBadge>
-                          <PlanTitle>{plan.name}</PlanTitle>
-                          <PlanDescription>{plan.desc}</PlanDescription>
-                          <PlanPriceWrapper>
-                            <PlanPrice>
-                              {plan.id === "free" ? "무료" : plan.priceKrw.toLocaleString("ko-KR") + "원"}
-                              {plan.id === "free" ? null : <span>/월</span>}
-                            </PlanPrice>
-                          </PlanPriceWrapper>
-                        </PlanHeader>
+	                        <PlanHeader>
+	                          <ChoiceBadge data-variant={badgeVariant}>{badgeLabel}</ChoiceBadge>
+	                          <PlanTitle>{plan.name}</PlanTitle>
+	                          <PlanDescription>{plan.desc}</PlanDescription>
+	                          <PlanPriceWrapper>
+	                            <PlanPrice>
+	                              {plan.id === "free" ? "무료" : plan.priceKrw.toLocaleString("ko-KR") + "원"}
+	                              {plan.id === "free" ? null : <span>/월</span>}
+	                            </PlanPrice>
+	                          </PlanPriceWrapper>
+                            {trialBadge ? <PlanTrialBadge>{trialBadge}</PlanTrialBadge> : null}
+	                        </PlanHeader>
                         
                         <PlanButton>{active ? "선택됨" : "이 요금제 선택"}</PlanButton>
                         
@@ -858,12 +927,14 @@ export default function MyAcademyPlanPage() {
               </Actions>
             </>
           )}
-        </PageContainer>
-      </PlanCardShell>
-      <MyAcademySellerModal modal={sellerModal} />
-    </PageWrapper>
-  );
-}
+	        </PageContainer>
+	      </PlanCardShell>
+	      <PgFeeGuideModal open={pgFeeGuideOpen} onClose={() => setPgFeeGuideOpen(false)} />
+	      <PaymentRefundPolicyModal open={policyOpen} onClose={() => setPolicyOpen(false)} />
+	      <MyAcademySellerModal modal={sellerModal} />
+	    </PageWrapper>
+	  );
+	}
 
 const PageWrapper = styled.div`
   min-height: 100vh;
@@ -976,6 +1047,49 @@ const HeaderRight = styled.div`
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+`;
+
+const FeePolicyBox = styled.div`
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .note {
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+    white-space: nowrap;
+  }
+  button {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 999px;
+  }
+  .actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+`;
+
+const FeeZeroBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  white-space: nowrap;
 `;
 
 const BillingBadge = styled.span`

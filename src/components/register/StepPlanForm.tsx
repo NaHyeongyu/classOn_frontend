@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEventHandler } from "react";
+import styled from "styled-components";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
 import { PrimaryButtonLg as UIPrimaryBtn } from "@/components/common/UI";
 import type { PlanSelection, StudentScaleOption, UseRegisterFlowResult } from "@/features/register/useRegisterFlow";
@@ -22,6 +23,7 @@ import {
   PlanDescription,
   PlanPriceWrapper,
   PlanPrice,
+  PlanTrialBadge,
   PlanButton,
   PlanFeatures,
   PlanFeatureItem,
@@ -32,8 +34,8 @@ import {
   PlanFeatureSectionTitle,
 } from "./RegisterForm.styles";
 import { TERMS_TEXT, PRIVACY_TEXT } from "./registerTermsContent";
-
-const cleanPolicyText = (value: string) => value.replace(/\t+/g, "").replace(/ {2,}/g, " ").trim();
+import { PgFeeGuideModal } from "@/components/payments/PgFeeGuideModal";
+import { cleanPolicyText, PAYMENT_REFUND_POLICY_TEXT } from "@/lib/policyText";
 
 type StepPlanFormProps = {
   flow: UseRegisterFlowResult;
@@ -60,45 +62,7 @@ const PLAN_MAPPING: Record<StudentScaleOption, PlanId[]> = {
   "": [],
 };
 
-const PAYMENT_POLICY_TEXT = `제1조 (결제 방식)
-1. 본 플랫폼(이하 "제공자")이 제공하는 SaaS 서비스(이하 "서비스")는 월정액 방식의 자동결제로만 제공됩니다.
-2. 가입기관이 결제를 완료한 시점부터 해당 월의 서비스 이용이 시작됩니다.
-3. 결제 완료 시 제공자는 가입기관에게 청구서 또는 결제내역을 발행하며, 그 내역에는 요금제 명칭, 결제금액, 결제일, 이용기간 등이 포함됩니다.
-
-제2조 (자동 연장 및 해지)
-1. 이용기간이 만료되기 전에 가입기관이 별도의 해지 요청을 하지 않을 경우, 본 계약은 동일 요금 및 조건으로 자동 연장됩니다.
-2. 자동 연장 적용 이전에 요금 또는 약관의 주요 변경이 있을 경우, 제공자는 적어도 30일 전에 서면(전자문서 포함) 또는 플랫폼 알림으로 가입기관에 안내해야 합니다.
-3. 가입기관이 다음 월 결제를 원치 않을 경우, 현재 이용기간 만료일 3영업일 전까지 제공자에게 서면 또는 전자문서로 해지 의사를 통보해야 하며, 통보가 없으면 자동으로 다음 월 결제가 진행됩니다.
-
-제3조 (환불 정책)
-1. 가입기관이 월정액 결제를 완료한 후 서비스 이용이 시작된 경우, 원칙적으로 환불이 불가능합니다.
-2. 다만 다음과 같은 예외 사유가 확인된 경우에는 제공자가 잔여기간에 대해 일할 산정 환불 또는 크레딧 형태 환불을 제공할 수 있습니다:
-- 제공자의 귀책사유로 인해 서비스 제공이 불가능하거나, 약정된 주요 기능이 현저히 미제공된 경우
-- 결제 오류, 이중결제 등 명백한 과실이 확인된 경우
-3. 가입기관 사유(내부 사정, 이용의지 부족 등)로 인한 해지 요청 시에는 제1항의 환불 불가 원칙이 적용됨을 명확히 고지합니다.
-
-제4조 (환불 요청 및 처리 절차)
-1. 환불을 요청하고자 하는 가입기관은 요청일로부터 영업일 기준 5일 이내에 제공자에게 서면 또는 전자문서로 요청해야 하며, 제공자는 요청 접수 후 3영업일 이내에 환불 가능 여부 및 산정내역을 통지합니다.
-2. 환불이 승인된 경우, 제공자는 통지 후 최대 7영업일 이내에 결제에 사용된 동일한 수단으로 환급을 완료하도록 노력합니다. 동일 수단이 불가능할 경우, 그 사유 및 대체방법을 사전에 안내해야 합니다.
-3. 환불이 불가한 사유(본 약관 제3조 해당, 약관 미고지 등)는 환불 요청 이전에 가입기관에게 명확히 고지되어야 합니다.
-
-제5조 (요금 및 약관 변경)
-1. 제공자는 요금 또는 서비스 조건을 변경할 경우 그 사유, 적용일자, 변경내용을 가입기관에게 최소 30일 이상 전에 고지해야 합니다.
-2. 가입기관이 고지된 변경 적용일 이전에 별도 해지 의사를 통보하지 않는 경우, 자동으로 변경된 요금 및 조건이 적용됩니다.
-3. 가입기관이 변경된 조건을 수용할 수 없고 변경 적용일 이전 해지 의사를 통보한 경우, 다음 월 결제는 진행되지 않으며 환불 대상이 아닙니다.
-
-제6조 (서비스 중단 및 환불)
-1. 제공자가 예외적으로 서비스 전체 또는 일부를 중단(폐지 포함)하는 경우, 제공자는 가능한 한 사전 고지하며, 이용이 불가능한 잔여기간에 해당하는 금액을 일할 산정하여 환불 또는 동등한 대체서비스 크레딧을 제공할 수 있습니다.
-2. 가입기관이 이 사유로 인해 이용을 중단할 경우, 해지일 이후 잔여기간에 대해서만 제1항 기준에 따라 환불 적용됩니다.
-
-제7조 (고지 및 동의)
-1. 본 결제/환불 정책은 가입기관이 결제하기 전에 약관 및 결제화면에서 확인할 수 있어야 하며, 가입기관이 결제 버튼을 클릭함으로써 본 정책에 동의한 것으로 간주됩니다.
-2. 본 정책이 변경될 경우, 제공자는 변경 내용 및 적용일을 가입기관에게 서면 또는 전자문서로 최소 30일 전에 고지해야 하며, 변경 적용일 이전 해지 통보가 없는 가입기관에 대해서는 변경된 정책이 적용됩니다.
-
-제8조 (준거법 및 분쟁해결)
-1. 본 약관에 명시되지 않은 사항은 대한민국 법령(전자상거래 등에서의 소비자보호에 관한 법률, 약관의 규제에 관한 법률, 민법 등) 및 기타 관련 법령을 준수합니다.
-2. 제공자와 가입기관은 본 약관과 관련해 분쟁이 발생한 경우 상호 협의하여 해결하며, 합의가 이루어지지 않을 경우 제공자 본사의 소재지를 관할하는 법원을 제1심 관할 법원으로 합니다.
-3. 본 약관은 가입기관이 결제를 완료하는 시점에 효력이 발생합니다.`;
+const PAYMENT_POLICY_TEXT = PAYMENT_REFUND_POLICY_TEXT;
 
 type PlanFeature = {
   title: string;
@@ -268,6 +232,19 @@ const PLANS: Record<
   },
 };
 
+const TRIAL_BADGE_BY_PLAN: Partial<Record<PlanId, string>> = {
+  "plan-100-basic": "2월 20일까지 무료",
+  "plan-100-pay": "2월 20일까지 무료",
+  "plan-300-basic": "무료 1개월",
+  "plan-300-pay": "무료 1개월",
+  "plan-500-basic": "무료 2주",
+  "plan-500-pay": "무료 2주",
+};
+
+function getTrialBadge(planId: PlanId): string | null {
+  return TRIAL_BADGE_BY_PLAN[planId] ?? null;
+}
+
 const Icons = {
   sparkle: (
     <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -309,6 +286,7 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
     error,
   } = flow;
   const [showPolicy, setShowPolicy] = useState(false);
+  const [pgFeeGuideOpen, setPgFeeGuideOpen] = useState(false);
 
   const availablePlans = useMemo(() => PLAN_MAPPING[studentScale] ?? [], [studentScale]);
   const requiresSettlementAccount = useMemo(() => {
@@ -347,9 +325,18 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
           ))}
         </ChoiceList>
 
-        <PlanLabel>
-          추천 요금제<span>*</span>
-        </PlanLabel>
+        <PlanLabelRow>
+          <PlanLabel>
+            추천 요금제<span>*</span>
+          </PlanLabel>
+          <FeePolicyBox aria-label="수수료 안내">
+            <FeeZeroBadge>결제 수수료 0%</FeeZeroBadge>
+            <span className="note">서비스 수수료 0% · PG 수수료 별도</span>
+            <PolicyButton type="button" onClick={() => setPgFeeGuideOpen(true)}>
+              수수료 규정
+            </PolicyButton>
+          </FeePolicyBox>
+        </PlanLabelRow>
         {availablePlans.length === 0 ? (
           <Hint>원생 규모를 선택하면 추천 요금제가 나타납니다.</Hint>
         ) : (
@@ -359,6 +346,7 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
               const active = selectedPlan === planId;
               const badgeVariant = plan.paymentIncluded ? "muted" : "warning";
               const badgeLabel = plan.paymentIncluded ? "결제 기능 포함" : "결제 기능 미포함";
+              const trialBadge = getTrialBadge(planId);
               const availableFeatures = plan.features.filter((feat) => feat.icon !== "x");
               const unavailableFeatures = plan.features.filter((feat) => feat.icon === "x");
               return (
@@ -369,18 +357,19 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
                   data-highlight={plan.highlight ? "true" : "false"}
                   onClick={() => setSelectedPlan(planId)}
                 >
-                  <PlanHeader>
-                    <ChoiceBadge data-variant={badgeVariant}>{badgeLabel}</ChoiceBadge>
-                    <PlanTitle>{plan.name}</PlanTitle>
-                    <PlanDescription>{plan.desc}</PlanDescription>
-                    <PlanPriceWrapper>
-                      {plan.originalPrice && <PlanOriginalPrice>{plan.originalPrice}</PlanOriginalPrice>}
-                      <PlanPrice>
-                        {plan.price}
-                        {plan.period && <span>{plan.period}</span>}
-                      </PlanPrice>
-                    </PlanPriceWrapper>
-                  </PlanHeader>
+	                  <PlanHeader>
+	                    <ChoiceBadge data-variant={badgeVariant}>{badgeLabel}</ChoiceBadge>
+	                    <PlanTitle>{plan.name}</PlanTitle>
+	                    <PlanDescription>{plan.desc}</PlanDescription>
+	                    <PlanPriceWrapper>
+	                      {plan.originalPrice && <PlanOriginalPrice>{plan.originalPrice}</PlanOriginalPrice>}
+	                      <PlanPrice>
+	                        {plan.price}
+	                        {plan.period && <span>{plan.period}</span>}
+	                      </PlanPrice>
+	                    </PlanPriceWrapper>
+                      {trialBadge ? <PlanTrialBadge>{trialBadge}</PlanTrialBadge> : null}
+	                  </PlanHeader>
                   
                   <PlanButton>{plan.btnLabel}</PlanButton>
                   
@@ -461,9 +450,7 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
         </AgreeRow>
 
         <ActionRow>
-          <BackButton type="button" onClick={onBack}>
-            이전
-          </BackButton>
+          <BackButton label="뒤로" onClick={onBack} />
           <UIPrimaryBtn type="submit" disabled={!canSubmitStep3}>
             {loading ? "완료 중..." : submitLabel}
           </UIPrimaryBtn>
@@ -498,10 +485,10 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
         onConfirm={() => setShowPrivacy(false)}
         onCancel={() => setShowPrivacy(false)}
       />
-      <ConfirmDialog
-        open={showPolicy}
-        title="결제/환불 정책"
-        message={
+	      <ConfirmDialog
+	        open={showPolicy}
+	        title="결제/환불 정책"
+	        message={
           <ScrollArea>
             <TermsBody>{cleanPolicyText(PAYMENT_POLICY_TEXT)}</TermsBody>
           </ScrollArea>
@@ -509,9 +496,60 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
         hideCancel
         confirmLabel="닫기"
         maxWidth={720}
-        onConfirm={() => setShowPolicy(false)}
-        onCancel={() => setShowPolicy(false)}
-      />
-    </>
-  );
-}
+	        onConfirm={() => setShowPolicy(false)}
+	        onCancel={() => setShowPolicy(false)}
+	      />
+	      <PgFeeGuideModal open={pgFeeGuideOpen} onClose={() => setPgFeeGuideOpen(false)} />
+	    </>
+	  );
+	}
+
+const PlanLabelRow = styled.div`
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+`;
+
+const FeePolicyBox = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  .note {
+    font-size: 12px;
+    color: ${(p) => p.theme.colors.textMuted};
+    white-space: nowrap;
+  }
+`;
+
+const FeeZeroBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+  white-space: nowrap;
+`;
+
+const PolicyButton = styled.button`
+  height: 30px;
+  border: 1px solid ${(p) => p.theme.colors.border};
+  background: ${(p) => p.theme.colors.surface};
+  border-radius: 999px;
+  padding: 0 12px;
+  font-size: 12px;
+  font-weight: 700;
+  color: ${(p) => p.theme.colors.text};
+  cursor: pointer;
+  &:hover {
+    background: ${(p) => p.theme.colors.surfaceMuted};
+  }
+`;

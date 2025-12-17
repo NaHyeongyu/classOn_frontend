@@ -45,9 +45,13 @@ export function useCourseRecordData({
       setLoading(true);
       setError(null);
       try {
+        const ym = (ymd && ymd.length >= 7 ? ymd.slice(0, 7) : null) ?? (() => {
+          const now = new Date();
+          return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        })();
         const [courseData, recordsData, studentsData] = await Promise.all([
           getCourse(courseId),
-          listCourseRecords(courseId),
+          listCourseRecords(courseId, { ym }),
           listCourseStudents(courseId),
         ]);
         if (cancelled) return;

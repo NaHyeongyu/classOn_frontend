@@ -307,27 +307,29 @@ export function StudentPaymentTemplatesPanel({ studentId }: Props) {
         <div>
           <h3>청구서 템플릿</h3>
           <p>결제일에 결제건이 자동 생성됩니다.</p>
-        </div>
-        <HeaderActions>
-          <GhostButton
-            type="button"
-            onClick={() => {
-              if (!primaryTemplate) return;
-              setDeletePrompt({ open: true, id: primaryTemplate.templateId });
-            }}
-            disabled={!primaryTemplate || templatesQuery.isLoading}
-          >
-            삭제
-          </GhostButton>
-          <GhostButton
-            type="button"
-            onClick={() => (primaryTemplate ? openEdit(primaryTemplate) : undefined)}
-            disabled={!primaryTemplate || templatesQuery.isLoading}
-          >
-            수정
-          </GhostButton>
-        </HeaderActions>
-      </HeaderRow>
+	        </div>
+	        <HeaderActions>
+	          <GhostButton
+	            type="button"
+	            data-variant="edit"
+	            onClick={() => (primaryTemplate ? openEdit(primaryTemplate) : undefined)}
+	            disabled={!primaryTemplate || templatesQuery.isLoading}
+	          >
+	            수정
+	          </GhostButton>
+	          <GhostButton
+	            type="button"
+	            data-variant="danger"
+	            onClick={() => {
+	              if (!primaryTemplate) return;
+	              setDeletePrompt({ open: true, id: primaryTemplate.templateId });
+	            }}
+	            disabled={!primaryTemplate || templatesQuery.isLoading}
+	          >
+	            삭제
+	          </GhostButton>
+	        </HeaderActions>
+	      </HeaderRow>
 
       {templatesQuery.isLoading ? (
         <Skeleton h={120} />

@@ -182,7 +182,6 @@ export function DetailModal({
   const scheduledAtText = pendingScheduleAlert?.scheduledAt
     ? formatKoreanDateTimeKST(pendingScheduleAlert.scheduledAt, {
         includeWeekday: true,
-        showSeconds: true,
       })
     : "예약 시각 정보가 없습니다.";
   const canCancelPayment = !isInvoiceVariant && detail?.info.status === "COMPLETED";
@@ -215,7 +214,6 @@ export function DetailModal({
   const sentAtText = detail?.info.invoiceRequestedAt
     ? formatKoreanDateTimeKST(detail.info.invoiceRequestedAt, {
         includeWeekday: true,
-        showSeconds: true,
       })
     : null;
   const handleRequestClose = () => {

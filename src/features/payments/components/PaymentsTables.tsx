@@ -2,7 +2,7 @@ import type { PaymentHistoryRow } from "@classon/shared-types";
 import styled from "styled-components";
 import { EmptyState, PrimaryButton, Skeleton, TableBase } from "@/components/common/UI";
 import Pagination from "@/components/common/Pagination";
-import { formatKoreanDate, formatMoney } from "@/lib/format";
+import { formatKoreanDate, formatKoreanDateTimeKST, formatMoney } from "@/lib/format";
 import { formatPhoneKR, PAYMENT_STATUS_COLOR, PAYMENT_STATUS_LABEL } from "@/lib/paymentUiLabels";
 import { buildCourseDisplay, getPaymentMethodDisplay } from "@/features/payments/utils/paymentsUtils";
 
@@ -192,7 +192,7 @@ export function HistoryTable(props: {
   const resolvePendingSentDate = (row: PaymentHistoryRow) => {
     if (!row.invoiceRequestedAt) return "-";
     const prefix = row.status === "SCHEDULED" ? "예약" : "발송";
-    return `${prefix} ${formatKoreanDate(row.invoiceRequestedAt, { includeWeekday: false })}`;
+    return `${prefix} ${formatKoreanDateTimeKST(row.invoiceRequestedAt, { includeWeekday: false })}`;
   };
   const parseTimestamp = (value?: string | null) => {
     if (!value) return Number.MAX_SAFE_INTEGER;

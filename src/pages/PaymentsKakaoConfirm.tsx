@@ -447,7 +447,6 @@ function KakaoSendPage({ mode }: { mode: SendMode }) {
               <PreviewList>
                 {previewMessages.map((preview: PreviewMessage) => (
                   <li key={preview.id}>
-                    <strong>{preview.student}</strong>
                     <span>{preview.text}</span>
                   </li>
                 ))}

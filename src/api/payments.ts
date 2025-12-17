@@ -59,6 +59,9 @@ export type PaymentInvoiceUpdatePayload = {
   amount?: number;
   discountType?: DiscountType;
   discountValue?: number;
+  discountEnabled?: boolean;
+  discountStartDate?: string;
+  discountEndDate?: string;
   memo?: string;
   managerMemo?: string;
   courseId?: number;

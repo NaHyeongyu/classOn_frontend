@@ -60,6 +60,7 @@ const PaymentRequest = lazy(() => import("@/pages/PaymentRequest"));
 const PaymentReceipt = lazy(() => import("@/pages/PaymentReceipt"));
 const PaymentTossSuccess = lazy(() => import("@/pages/PaymentTossSuccess"));
 const PaymentTossFail = lazy(() => import("@/pages/PaymentTossFail"));
+const PublicReportDownload = lazy(() => import("@/pages/PublicReportDownload"));
 import { PageLoading, LoadingSpinner } from "@/components/common/Loading";
 import { RouteTransition, TopProgressBar } from "@/components/common/RouteTransition";
 import { routes } from "@/routes";
@@ -182,6 +183,7 @@ export default function App() {
       {/* Public (no auth) routes */}
       {/* Bare layout for standalone public pages (no inner containers) */}
       <Route element={<BareLayout />}>
+        <Route path="/reports/:token" element={<PublicReportDownload />} />
         <Route path={routes.payRequestBlank} element={<PaymentRequest />} />
         <Route path={routes.payRequest} element={<PaymentRequest />} />
         <Route path={routes.invoiceViewerBlank} element={<PaymentRequest />} />

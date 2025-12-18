@@ -181,6 +181,7 @@ export function DetailModal({
   const scheduledAlertId = pendingScheduleAlert?.id ?? undefined;
   const scheduledAtText = pendingScheduleAlert?.scheduledAt
     ? formatKoreanDateTimeKST(pendingScheduleAlert.scheduledAt, {
+        includeYear: false,
         includeWeekday: true,
       })
     : "예약 시각 정보가 없습니다.";
@@ -213,6 +214,7 @@ export function DetailModal({
 	    (Boolean(detail?.info.invoiceRequestedAt) || (detail?.info.status ?? "UNPAID") !== "UNPAID");
   const sentAtText = detail?.info.invoiceRequestedAt
     ? formatKoreanDateTimeKST(detail.info.invoiceRequestedAt, {
+        includeYear: false,
         includeWeekday: true,
       })
     : null;
@@ -1365,7 +1367,7 @@ export function OnsiteCandidateModal({
                       </td>
                       <td>{formatMoney(row.finalAmount ?? row.originalAmount ?? 0)}</td>
                       <td>
-                        {row.dueDate ? formatKoreanDate(row.dueDate, { includeWeekday: false }) : "-"}
+                        {row.dueDate ? formatKoreanDate(row.dueDate, { includeYear: false, includeWeekday: false }) : "-"}
                       </td>
                       <td>
                         <StatusBadge status={row.status}>

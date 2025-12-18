@@ -38,7 +38,7 @@ export function InvoicesTable(props: InvoicesTableProps) {
   const colSpan = selectable ? 8 : 7;
   const renderDueDate = (value?: string | null) => {
     if (!value) return "-";
-    const formatted = formatKoreanDate(value, { includeWeekday: false });
+    const formatted = formatKoreanDate(value, { includeYear: false, includeWeekday: false });
     return <span className="due-date-text">{formatted}</span>;
   };
   const resolveRecipientPhone = (row: PaymentHistoryRow) => {
@@ -187,12 +187,12 @@ export function HistoryTable(props: {
   };
   const renderDueDate = (value?: string | null) => {
     if (!value) return "-";
-    return formatKoreanDate(value, { includeWeekday: false });
+    return formatKoreanDate(value, { includeYear: false, includeWeekday: false });
   };
   const resolvePendingSentDate = (row: PaymentHistoryRow) => {
     if (!row.invoiceRequestedAt) return "-";
     const prefix = row.status === "SCHEDULED" ? "예약" : "발송";
-    return `${prefix} ${formatKoreanDateTimeKST(row.invoiceRequestedAt, { includeWeekday: false })}`;
+    return `${prefix} ${formatKoreanDateTimeKST(row.invoiceRequestedAt, { includeYear: false, includeWeekday: false })}`;
   };
   const parseTimestamp = (value?: string | null) => {
     if (!value) return Number.MAX_SAFE_INTEGER;

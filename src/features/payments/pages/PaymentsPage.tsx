@@ -1079,7 +1079,7 @@ export default function Payments() {
                             ? `${row.cycleValue}주`
                             : `${row.cycleValue}개월`;
                       const dueDateLabel = row.nextDueDate
-                        ? formatKoreanDate(row.nextDueDate, { includeWeekday: false })
+                        ? formatKoreanDate(row.nextDueDate, { includeYear: false, includeWeekday: false })
                         : "-";
                       return (
                         <tr

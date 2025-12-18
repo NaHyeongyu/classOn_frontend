@@ -282,9 +282,8 @@ export const StyledTable = styled(TableBase)`
     text-align: right;
     font-feature-settings: "tnum";
   }
-  tbody td.actions {
-    text-align: right;
-    width: 120px;
+  tbody tr[data-clickable="true"] td {
+    cursor: pointer;
   }
   tbody tr:hover td {
     background: #f9fafb;
@@ -295,27 +294,16 @@ export const TitleCell = styled.div`
   display: flex;
   flex-direction: column;
   gap: 6px;
-  button {
-    all: unset;
-    cursor: pointer;
+  .title {
+    display: inline-block;
     color: #1f2937;
     font-weight: 700;
     line-height: 1.2;
-  }
-  button:hover {
-    text-decoration: underline;
   }
   small {
     color: #6b7280;
     font-size: 12px;
   }
-`;
-
-export const ViewButton = styled.button`
-  ${buttonVariants.subtle};
-  height: 32px;
-  padding: 0 14px;
-  font-size: 13px;
 `;
 
 export const NoClassText = styled.div`

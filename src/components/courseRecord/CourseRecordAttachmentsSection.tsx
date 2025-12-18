@@ -13,7 +13,24 @@ type Props = CourseRecordAttachmentsPanelProps;
 
 export function CourseRecordAttachmentsSection(props: Props) {
   return (
-    <Section>
+    <Section
+      onDragOver={(event) => {
+        event.preventDefault();
+        try {
+          event.dataTransfer.dropEffect = "copy";
+        } catch {
+          // noop
+        }
+      }}
+      onDrop={(event) => {
+        // If a nested drop target already handled it, avoid double uploads.
+        if (event.defaultPrevented) return;
+        const files = event.dataTransfer?.files;
+        if (!files || files.length === 0) return;
+        event.preventDefault();
+        void props.onUpload(files);
+      }}
+    >
       <SectionHeader>
         <Title>수업 파일</Title>
         <label>

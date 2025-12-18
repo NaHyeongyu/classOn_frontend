@@ -75,7 +75,7 @@ const currentMonthRange = getMonthRangeFor(today);
 
 const createMonthRange = () => ({ ...currentMonthRange });
 
-const invoiceStatusParam = "UNPAID,SCHEDULED";
+const invoiceStatusParam = "UNPAID";
 const createDefaultHistoryFilters = (): HistoryFilters => ({
   from: "",
   to: "",
@@ -1429,8 +1429,8 @@ function extractSummary(summary?: PaymentSummary | null): SummaryStat[] {
       { label: "결제 금액", value: "—", icon: paidIcon, tone: "primary" },
     ];
   }
-  const overdueAmount = summary.overdueAmount ?? 0;
-  const overdueCount = summary.overdueCount ?? 0;
+  const unpaidAmount = summary.unpaidAmount ?? 0;
+  const unpaidCount = summary.unpaidCount ?? 0;
   return [
     {
       label: "미발송인원",
@@ -1446,13 +1446,13 @@ function extractSummary(summary?: PaymentSummary | null): SummaryStat[] {
     },
     {
       label: "미납 인원",
-      value: `${overdueCount}명`,
+      value: `${unpaidCount}명`,
       icon: warningIcon,
       tone: "primary",
     },
     {
       label: "미납 금액",
-      value: formatMoney(overdueAmount),
+      value: formatMoney(unpaidAmount),
       icon: overdueIcon,
       tone: "primary",
     },

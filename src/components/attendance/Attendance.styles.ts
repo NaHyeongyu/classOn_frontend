@@ -270,6 +270,9 @@ export const StyledTable = styled(TableBase)`
     color: #6b7280;
     background: #fafafa;
   }
+  thead th.num {
+    text-align: center;
+  }
   tbody td {
     padding: 14px 20px;
     border-bottom: 1px solid #edf2f7;
@@ -279,11 +282,15 @@ export const StyledTable = styled(TableBase)`
     border-bottom: none;
   }
   tbody td.num {
-    text-align: right;
+    text-align: center;
     font-feature-settings: "tnum";
   }
   tbody tr[data-clickable="true"] td {
     cursor: pointer;
+  }
+  tbody tr[data-clickable="true"]:focus-visible td {
+    outline: 2px solid ${({ theme }) => theme.colors.primarySurface};
+    outline-offset: -2px;
   }
   tbody tr:hover td {
     background: #f9fafb;
@@ -294,8 +301,7 @@ export const TitleCell = styled.div`
   display: flex;
   flex-direction: column;
   gap: 6px;
-  .title {
-    display: inline-block;
+  strong {
     color: #1f2937;
     font-weight: 700;
     line-height: 1.2;

@@ -23,7 +23,7 @@ export function CourseDetailHeader({
 }: CourseDetailHeaderProps) {
   return (
     <PageTopBar
-      align="center"
+      align="left"
       title={title || "수업 상세"}
       onBack={onBack}
       backLabel="뒤로"

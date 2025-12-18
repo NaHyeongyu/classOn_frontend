@@ -96,6 +96,7 @@ export function AttendanceDayCard({
                     data-clickable="true"
                     role="button"
                     tabIndex={0}
+                    aria-label={`${cls.courseTitle || "제목 없음"} 상세 보기`}
                     onClick={() => onOpenRecord(cls)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
@@ -106,7 +107,7 @@ export function AttendanceDayCard({
                   >
                     <td>
                       <TitleCell>
-                        <span className="title">{cls.courseTitle || "제목 없음"}</span>
+                        <strong>{cls.courseTitle || "제목 없음"}</strong>
                         {cls.topic ? <small>{cls.topic}</small> : null}
                       </TitleCell>
                     </td>

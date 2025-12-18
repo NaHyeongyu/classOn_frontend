@@ -563,7 +563,15 @@ export function CourseFormDetailsStep({
         <GuideCard>
           <StepLead>수강생 관리</StepLead>
           <Hint>학생 관리는 상세 페이지의 ‘수강생 관리’에서 변경하세요.</Hint>
-          <UIGhostBtn onClick={onNavigateEditStudents}>수강생 관리 바로가기</UIGhostBtn>
+          <UIGhostBtn
+            type="button"
+            onClick={(event) => {
+              event.preventDefault();
+              onNavigateEditStudents();
+            }}
+          >
+            수강생 관리 바로가기
+          </UIGhostBtn>
         </GuideCard>
       ) : null}
     </StepSection>

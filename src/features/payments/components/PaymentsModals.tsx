@@ -38,6 +38,22 @@ type AdditionalFieldState = {
   endDate?: string;
 };
 
+function calculateDiscountAmount(
+  subtotal: number,
+  type: DiscountType | undefined,
+  value: number,
+): number {
+  if (subtotal <= 0) return 0;
+  const safeValue = Number.isFinite(value) ? value : 0;
+  if (type === "AMOUNT") {
+    const amount = Math.round(safeValue);
+    if (amount <= 0) return 0;
+    return Math.min(subtotal, amount);
+  }
+  const percent = Math.min(100, Math.max(0, safeValue));
+  return Math.round((subtotal * percent) / 100);
+}
+
 function computePeriodEnd(
   periodStart: string,
   cycleValue: number | null | undefined,
@@ -181,6 +197,7 @@ export function DetailModal({
   const scheduledAlertId = pendingScheduleAlert?.id ?? undefined;
   const scheduledAtText = pendingScheduleAlert?.scheduledAt
     ? formatKoreanDateTimeKST(pendingScheduleAlert.scheduledAt, {
+        includeYear: false,
         includeWeekday: true,
       })
     : "예약 시각 정보가 없습니다.";
@@ -202,17 +219,25 @@ export function DetailModal({
 	          fee: detail?.info.originalAmount ?? 0,
 	        },
 	      ];
-	  const additionalAppliedAmount = additionalFields.enabled ? additionalTotalAmount : 0;
-	  const discountAmountValue = Math.max(
-	    0,
-	    (detail?.info.originalAmount ?? 0) + additionalAppliedAmount - (detail?.info.finalAmount ?? 0),
-	  );
-	  const hasDiscountDetails = Boolean(detail?.info.discountType) || discountAmountValue > 0;
+  const baseAmount = detail?.info.originalAmount ?? 0;
+  const additionalAppliedAmount = additionalFields.enabled ? additionalTotalAmount : 0;
+  const subtotalAmount = baseAmount + additionalAppliedAmount;
+  const discountInputValue = typeof form.discountValue === "number" ? form.discountValue : 0;
+  const editingDiscountAmount = discountEnabled
+    ? calculateDiscountAmount(subtotalAmount, form.discountType ?? "PERCENT", discountInputValue)
+    : 0;
+  const storedFinalAmount = detail?.info.finalAmount ?? null;
+  const storedDiscountAmount =
+    storedFinalAmount != null ? Math.max(0, subtotalAmount - storedFinalAmount) : 0;
+  const shouldRecalculateTotals = isEditing || storedFinalAmount == null;
+  const discountAmountValue = shouldRecalculateTotals ? editingDiscountAmount : storedDiscountAmount;
+  const hasDiscountDetails = Boolean(detail?.info.discountType) || discountAmountValue > 0;
 	  const isSentInvoice =
 	    isInvoiceVariant &&
 	    (Boolean(detail?.info.invoiceRequestedAt) || (detail?.info.status ?? "UNPAID") !== "UNPAID");
   const sentAtText = detail?.info.invoiceRequestedAt
     ? formatKoreanDateTimeKST(detail.info.invoiceRequestedAt, {
+        includeYear: false,
         includeWeekday: true,
       })
     : null;
@@ -419,8 +444,17 @@ const ReceiptHeader = styled.div`
   background: ${(p) => p.theme.colors.surfaceAlt};
   padding: 20px 24px;
   border-bottom: 1px dashed ${(p) => p.theme.colors.border};
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  .header-text {
+    display: grid;
+    gap: 4px;
+  }
   h3 {
-    margin: 0 0 4px;
+    margin: 0;
     font-size: 18px;
     font-weight: 700;
   }
@@ -543,16 +577,20 @@ function InvoiceDetailColumn({
         ? form.memo
         : ""
       : combineMemoValues(detail.info.memo, detail.info.managerMemo) || "메모가 없습니다.";
-  const finalAmount =
-    detail.info.finalAmount ??
-    Math.max(0, (detail.info.originalAmount ?? 0) + appliedAdditional - discountAmountValue);
+  const baseAmount = detail.info.originalAmount ?? 0;
+  const subtotalAmount = baseAmount + appliedAdditional;
+  const shouldRecalculateTotals = isEditing || detail.info.finalAmount == null;
+  const recalculatedTotal = Math.max(0, subtotalAmount - discountAmountValue);
+  const finalAmount = shouldRecalculateTotals ? recalculatedTotal : detail.info.finalAmount ?? recalculatedTotal;
   const headerTitle = isEditing ? "청구서 수정" : "청구서 상세";
   return (
     <form onSubmit={onSubmit}>
       <ReceiptCard>
         <ReceiptHeader>
-          <h3>{headerTitle}</h3>
-          <p>{subtitleParts.filter(Boolean).join(" · ")}</p>
+          <div className="header-text">
+            <h3>{headerTitle}</h3>
+            <p>{subtitleParts.filter(Boolean).join(" · ")}</p>
+          </div>
         </ReceiptHeader>
 
         <StudentInfoSection
@@ -1156,11 +1194,11 @@ function HistoryDetailColumn({
 }) {
   const courseTitle = courseRows.map((c) => c.title).filter(Boolean).join(", ") || "-";
   const dueDate = detail.info.dueDate ?? "";
-  const statusText = PAYMENT_STATUS_LABEL[detail.info.status] ?? detail.info.status;
+  const statusCode = detail.info.status;
+  const statusText = PAYMENT_STATUS_LABEL[statusCode] ?? statusCode;
   const subtitleParts = [
     courseTitle,
     dueDate ? `결제 예정일 ${dueDate}` : "결제 예정일 -",
-    `상태 ${statusText}`,
   ];
   const methodDisplay = getPaymentMethodDisplay(
     (detail.info.paymentMethod ?? (detail.info as unknown as { method?: unknown }).method) as never,
@@ -1189,15 +1227,20 @@ function HistoryDetailColumn({
   return (
     <ReceiptCard>
       <ReceiptHeader>
-        <h3>결제 상세</h3>
-        <p>{subtitleParts.filter(Boolean).join(" · ")}</p>
+        <div className="header-text">
+          <h3>결제 상세</h3>
+          <p>{subtitleParts.filter(Boolean).join(" · ")}</p>
+        </div>
+        {statusCode ? (
+          <StatusBadge status={statusCode}>{statusText}</StatusBadge>
+        ) : null}
       </ReceiptHeader>
 
       <StudentInfoSection detail={detail} courseRows={courseRows} />
 
       <ReceiptSection>
         <SectionTitle>결제 정보</SectionTitle>
-        <FormGrid>
+        <StackedInfoList>
           <label>
             결제 수단
             <Input type="text" value={methodDisplay} disabled />
@@ -1212,7 +1255,7 @@ function HistoryDetailColumn({
               <Input type="text" value={canceledText} disabled />
             </label>
           ) : null}
-        </FormGrid>
+        </StackedInfoList>
 
         {isScheduledPayment ? (
           <>
@@ -1365,7 +1408,7 @@ export function OnsiteCandidateModal({
                       </td>
                       <td>{formatMoney(row.finalAmount ?? row.originalAmount ?? 0)}</td>
                       <td>
-                        {row.dueDate ? formatKoreanDate(row.dueDate, { includeWeekday: false }) : "-"}
+                        {row.dueDate ? formatKoreanDate(row.dueDate, { includeYear: false, includeWeekday: false }) : "-"}
                       </td>
                       <td>
                         <StatusBadge status={row.status}>
@@ -1910,6 +1953,20 @@ const StudentInfoCard = styled.div`
 const FormGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 12px;
+  label {
+    display: grid;
+    gap: 6px;
+    font-size: 13px;
+    color: ${(p) => p.theme.colors.textMuted};
+    text-align: left;
+  }
+`;
+
+const StackedInfoList = styled.div`
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   margin-bottom: 12px;
   label {

@@ -1079,7 +1079,7 @@ export default function Payments() {
                             ? `${row.cycleValue}주`
                             : `${row.cycleValue}개월`;
                       const dueDateLabel = row.nextDueDate
-                        ? formatKoreanDate(row.nextDueDate, { includeWeekday: false })
+                        ? formatKoreanDate(row.nextDueDate, { includeYear: false, includeWeekday: false })
                         : "-";
                       return (
                         <tr
@@ -1472,10 +1472,9 @@ function extractSummary(summary?: PaymentSummary | null): SummaryStat[] {
 }
 
 const StatsRow = styled.div`
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 14px;
-  overflow-x: auto;
-  padding-bottom: 4px;
   margin-bottom: 16px;
 `;
 
@@ -1487,7 +1486,8 @@ const StatCard = styled.article`
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex: 0 0 220px;
+  width: 100%;
+  min-width: 0;
   box-shadow: ${(p) => p.theme.shadow?.low ?? "0 4px 12px rgba(15, 23, 42, 0.06)"};
 `;
 

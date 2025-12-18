@@ -33,7 +33,6 @@ import {
   StudentList,
   TableWrapper,
   TitleCell,
-  ViewButton,
   StyledTable,
   DayWrapper,
 } from "./Attendance.styles";
@@ -86,7 +85,6 @@ export function AttendanceDayCard({
                   <th className="num">출석</th>
                   <th className="num">결석</th>
                   <th className="num">미처리</th>
-                  <th>상세</th>
                 </tr>
               </thead>
               <tbody>
@@ -95,12 +93,21 @@ export function AttendanceDayCard({
                     key={`${day.date}-${
                       cls.recordId ?? `${cls.courseId ?? "course"}-${idx}`
                     }`}
+                    data-clickable="true"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${cls.courseTitle || "제목 없음"} 상세 보기`}
+                    onClick={() => onOpenRecord(cls)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onOpenRecord(cls);
+                      }
+                    }}
                   >
                     <td>
                       <TitleCell>
-                        <button type="button" onClick={() => onOpenRecord(cls)}>
-                          {cls.courseTitle || "제목 없음"}
-                        </button>
+                        <strong>{cls.courseTitle || "제목 없음"}</strong>
                         {cls.topic ? <small>{cls.topic}</small> : null}
                       </TitleCell>
                     </td>
@@ -108,14 +115,6 @@ export function AttendanceDayCard({
                     <td className="num">{cls.presentCount}</td>
                     <td className="num">{cls.absentCount}</td>
                     <td className="num">{cls.unprocessedCount}</td>
-                    <td className="actions">
-                      <ViewButton
-                        type="button"
-                        onClick={() => onOpenRecord(cls)}
-                      >
-                        상세보기
-                      </ViewButton>
-                    </td>
                   </tr>
                 ))}
               </tbody>

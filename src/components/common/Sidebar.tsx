@@ -65,9 +65,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       const teacherItems: NavItem[] = [
         { key: "dashboard", label: "대시보드", sub: "Dashboard", to: routes.home, menuKey: "DASHBOARD" },
         { key: "calendar", label: "일정", sub: "Calendar", to: routes.calendar, menuKey: "CALENDAR" },
+        { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
         { key: "students", label: "원생관리", sub: "Student Management", to: routes.students, menuKey: "STUDENTS" },
         { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
-        { key: "attendance", label: "출결관리", sub: "Attendance", to: routes.attendance, menuKey: "ATTENDANCE" },
         { key: "materials", label: "자료실", sub: "Materials", to: routes.materials, menuKey: "MATERIALS" },
         { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
       ];
@@ -119,9 +119,9 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       } else {
         base.unshift(reportsEntry);
       }
-      const feedbackIndex = base.findIndex((i) => i.key === "feedback");
-      if (feedbackIndex >= 0) {
-        base.splice(feedbackIndex, 0, teachersEntry);
+      const materialsIndex = base.findIndex((i) => i.key === "materials");
+      if (materialsIndex >= 0) {
+        base.splice(materialsIndex + 1, 0, teachersEntry);
       } else {
         base.push(teachersEntry);
       }

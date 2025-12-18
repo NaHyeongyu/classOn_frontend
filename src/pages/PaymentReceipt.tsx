@@ -323,6 +323,13 @@ function ReceiptLayout({ data }: { data: PublicPaymentReceipt }) {
       : "결제 대기";
   const nextDueText = computeNextDueDateLabel(data);
   const memo = info.memo?.trim() || info.managerMemo?.trim() || "";
+  const courseList =
+    Array.isArray(data.courses) && data.courses.length > 0
+      ? data.courses
+      : (() => {
+          const fallback = data.course ?? info.course ?? null;
+          return fallback ? [fallback] : [];
+        })();
 
   return (
     <Layout>
@@ -349,12 +356,9 @@ function ReceiptLayout({ data }: { data: PublicPaymentReceipt }) {
 
         <SectionTitle>수강 과목</SectionTitle>
         <CourseList>
-          {data.courses && data.courses.length > 0 ? (
-            data.courses.map(
-              (
-                course: PaymentCourseBrief | null | undefined,
-                index: number
-              ) => (
+          {courseList.length > 0 ? (
+            courseList.map(
+              (course: PaymentCourseBrief | null | undefined, index: number) => (
                 <li key={`${course?.id ?? "course"}-${index}`}>
                   <div className="info">
                     <strong>{course?.title ?? "-"}</strong>
@@ -366,7 +370,7 @@ function ReceiptLayout({ data }: { data: PublicPaymentReceipt }) {
                     {formatMoney(Number(course?.fee ?? 0))}
                   </span>
                 </li>
-              )
+              ),
             )
           ) : (
             <Empty>등록된 수강 과목이 없습니다.</Empty>

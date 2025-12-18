@@ -45,7 +45,7 @@ export function CourseRecordHeader({
   return (
     <>
       <PageTopBar
-        align="center"
+        align="left"
         onBack={onBack}
         backLabel="뒤로"
         backSize="md"

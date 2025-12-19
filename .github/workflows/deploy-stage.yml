@@ -24,6 +24,9 @@ jobs:
 
       - run: npm ci
       - run: npm run build:staging
+        env:
+          # Billing(자동결제)만 별도 clientKey를 쓰고 싶을 때 사용 (Vite build-time env)
+          VITE_TOSS_BILLING_CLIENT_KEY: ${{ secrets.VITE_TOSS_BILLING_CLIENT_KEY }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

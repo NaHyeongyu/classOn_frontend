@@ -47,8 +47,8 @@ type PlanId = Exclude<PlanSelection, "">;
 
 const STUDENT_SCALE_OPTIONS: Array<{ id: StudentScaleOption; label: string; helper: string }> = [
   { id: "UNDER_50", label: "50명 이하", helper: "신규·소규모 학원" },
-  { id: "RANGE_50_100", label: "50~100명", helper: "원생 100명까지 관리" },
-  { id: "RANGE_100_300", label: "100~300명", helper: "중형 학원 추천" },
+  { id: "RANGE_50_100", label: "50~120명", helper: "원생 120명까지 관리" },
+  { id: "RANGE_100_300", label: "120~300명", helper: "중형 학원 추천" },
   { id: "RANGE_300_500", label: "300~500명", helper: "대형 학원·지점" },
   { id: "OVER_500", label: "500명 이상", helper: "맞춤 상담 연결" },
 ];

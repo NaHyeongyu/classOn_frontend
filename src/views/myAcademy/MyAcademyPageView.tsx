@@ -1129,11 +1129,11 @@ type BillingPlan = { id: string; name: string; priceKrw: number };
 
 const BILLING_PLANS: BillingPlan[] = [
   { id: "plan-100-basic", name: "Small Basic", priceKrw: 9000 },
-  { id: "plan-100-pay", name: "Small Plus", priceKrw: 18000 },
+  { id: "plan-100-pay", name: "Small Plus", priceKrw: 19900 },
   { id: "plan-300-basic", name: "Midium Basic", priceKrw: 18000 },
-  { id: "plan-300-pay", name: "Midium Plus", priceKrw: 34000 },
+  { id: "plan-300-pay", name: "Midium Plus", priceKrw: 36900 },
   { id: "plan-500-basic", name: "Large Basic", priceKrw: 27000 },
-  { id: "plan-500-pay", name: "Large Plus", priceKrw: 52000 },
+  { id: "plan-500-pay", name: "Large Plus", priceKrw: 54900 },
 ];
 
 function getPlanById(id?: string | null): BillingPlan {

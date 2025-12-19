@@ -201,8 +201,8 @@ type StudentScaleOption = "UNDER_50" | "RANGE_50_100" | "RANGE_100_300" | "RANGE
 
 const STUDENT_SCALE_OPTIONS: Array<{ id: StudentScaleOption; label: string }> = [
   { id: "UNDER_50", label: "50명 이하" },
-  { id: "RANGE_50_100", label: "50~100명" },
-  { id: "RANGE_100_300", label: "100~300명" },
+  { id: "RANGE_50_100", label: "50~120명" },
+  { id: "RANGE_100_300", label: "120~300명" },
   { id: "RANGE_300_500", label: "300~500명" },
   { id: "OVER_500", label: "500명 이상" },
 ];

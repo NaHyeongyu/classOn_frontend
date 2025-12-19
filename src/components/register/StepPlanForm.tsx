@@ -325,18 +325,16 @@ export function StepPlanForm({ flow, onSubmit, onBack }: StepPlanFormProps) {
           ))}
         </ChoiceList>
 
-        <PlanLabelRow>
-          <PlanLabel>
-            추천 요금제<span>*</span>
-          </PlanLabel>
-          <FeePolicyBox aria-label="수수료 안내">
-            <FeeZeroBadge>결제 수수료 0%</FeeZeroBadge>
-            <span className="note">서비스 수수료 0% · PG 수수료 별도</span>
-            <PolicyButton type="button" onClick={() => setPgFeeGuideOpen(true)}>
-              수수료 규정
-            </PolicyButton>
-          </FeePolicyBox>
-        </PlanLabelRow>
+	        <PlanLabelRow>
+	          <PlanLabel>
+	            추천 요금제<span>*</span>
+	          </PlanLabel>
+	          <FeePolicyBox aria-label="수수료 안내">
+	            <PolicyButton type="button" onClick={() => setPgFeeGuideOpen(true)}>
+	              수수료 규정
+	            </PolicyButton>
+	          </FeePolicyBox>
+	        </PlanLabelRow>
         {availablePlans.length === 0 ? (
           <Hint>원생 규모를 선택하면 추천 요금제가 나타납니다.</Hint>
         ) : (
@@ -523,20 +521,6 @@ const FeePolicyBox = styled.div`
     color: ${(p) => p.theme.colors.textMuted};
     white-space: nowrap;
   }
-`;
-
-const FeeZeroBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-  background: #ecfdf5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
-  white-space: nowrap;
 `;
 
 const PolicyButton = styled.button`

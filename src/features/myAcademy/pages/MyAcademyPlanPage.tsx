@@ -337,7 +337,13 @@ export default function MyAcademyPlanPage() {
           ),
         ]);
         if (!alive) return;
-        setClientKey(ck?.clientKey || null);
+        const envClientKey = (
+          import.meta.env.VITE_TOSS_BILLING_CLIENT_KEY ??
+          import.meta.env.VITE_TOSS_CLIENT_KEY ??
+          ""
+        ).trim();
+        const apiClientKey = (ck?.clientKey ?? "").trim();
+        setClientKey(envClientKey || apiClientKey || null);
         setRequireSeller(Boolean(ck?.requireSeller));
         if (academy) {
           setAcademy(academy);
@@ -687,23 +693,19 @@ export default function MyAcademyPlanPage() {
 	            <h1>요금제 선택 / 변경</h1>
 	            <p>원생 규모에 맞는 요금제를 선택하고 필요 시 결제수단을 등록하세요.</p>
 	          </div>
-	          <HeaderRight>
-	            <FeePolicyBox aria-label="수수료 안내">
-	              <div className="top">
-	                <FeeZeroBadge>결제 수수료 0%</FeeZeroBadge>
-	                <span className="note">서비스 수수료 0% · PG 수수료 별도</span>
-	              </div>
-	              <div className="actions">
-	                <GhostButton type="button" onClick={() => setPgFeeGuideOpen(true)}>
-	                  수수료 규정 보기
-	                </GhostButton>
+		          <HeaderRight>
+		            <FeePolicyBox aria-label="수수료 안내">
+		              <div className="actions">
+		                <GhostButton type="button" onClick={() => setPgFeeGuideOpen(true)}>
+		                  수수료 규정 보기
+		                </GhostButton>
 	                <GhostButton type="button" onClick={() => setPolicyOpen(true)}>
 	                  결제/환불 정책
 	                </GhostButton>
-	              </div>
-	            </FeePolicyBox>
-	            {billingBlocked ? (
-	              <>
+		              </div>
+		            </FeePolicyBox>
+		            {billingBlocked ? (
+		              <>
 	                <BillingBadge>결제가 필요합니다</BillingBadge>
 	                <LogoutButton type="button" onClick={handleLogout}>
 	                  로그아웃
@@ -1076,20 +1078,6 @@ const FeePolicyBox = styled.div`
     flex-wrap: wrap;
     justify-content: flex-end;
   }
-`;
-
-const FeeZeroBadge = styled.span`
-  display: inline-flex;
-  align-items: center;
-  height: 26px;
-  padding: 0 10px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 800;
-  background: #ecfdf5;
-  color: #047857;
-  border: 1px solid #a7f3d0;
-  white-space: nowrap;
 `;
 
 const BillingBadge = styled.span`

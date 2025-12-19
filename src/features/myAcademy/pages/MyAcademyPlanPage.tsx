@@ -38,6 +38,7 @@ import {
 import styled from "styled-components";
 import { useAuth } from "@/hooks/useAuth";
 import { loadTossPayments } from "@/lib/tossPayments";
+import { getErrorMessage } from "@/lib/errors";
 import { PrimaryButton, GhostButton } from "@/components/common/UI";
 import { MyAcademySellerModal } from "@/components/myAcademy/MyAcademySellerModal";
 import type { SellerModalState } from "@/features/myAcademy/hooks/useMyAcademyPage";
@@ -337,13 +338,10 @@ export default function MyAcademyPlanPage() {
           ),
         ]);
         if (!alive) return;
-        const envClientKey = (
-          import.meta.env.VITE_TOSS_BILLING_CLIENT_KEY ??
-          import.meta.env.VITE_TOSS_CLIENT_KEY ??
-          ""
-        ).trim();
+        const envBillingClientKey = (import.meta.env.VITE_TOSS_BILLING_CLIENT_KEY ?? "").trim();
         const apiClientKey = (ck?.clientKey ?? "").trim();
-        setClientKey(envClientKey || apiClientKey || null);
+        const envLegacyClientKey = (import.meta.env.VITE_TOSS_CLIENT_KEY ?? "").trim();
+        setClientKey(envBillingClientKey || apiClientKey || envLegacyClientKey || null);
         setRequireSeller(Boolean(ck?.requireSeller));
         if (academy) {
           setAcademy(academy);
@@ -631,7 +629,7 @@ export default function MyAcademyPlanPage() {
         failUrl,
       });
     } catch (err) {
-      error(err instanceof Error ? err.message : "카드 등록 창을 열지 못했습니다.");
+      error(getErrorMessage(err, "카드 등록 창을 열지 못했습니다."));
     }
   };
 

@@ -7,6 +7,7 @@ import { BANK_OPTIONS } from "@/features/myAcademy/banks";
 import type { SubscriptionDto } from "@/api/billing";
 import { apiIssueBillingKey, apiGetTossClientKey } from "@/api/billing";
 import { formatMoney } from "@/lib/format";
+import { getErrorMessage } from "@/lib/errors";
 import { loadTossPayments } from "@/lib/tossPayments";
 import { useToast } from "@/components/common/Toast";
 import ConfirmDialog from "@/components/common/ConfirmDialog";
@@ -190,13 +191,10 @@ export function MyAcademyPageView({
       try {
         const res = await apiGetTossClientKey();
         if (!alive) return;
-        const envClientKey = (
-          import.meta.env.VITE_TOSS_BILLING_CLIENT_KEY ??
-          import.meta.env.VITE_TOSS_CLIENT_KEY ??
-          ""
-        ).trim();
+        const envBillingClientKey = (import.meta.env.VITE_TOSS_BILLING_CLIENT_KEY ?? "").trim();
         const apiClientKey = (res?.clientKey ?? "").trim();
-        setClientKey(envClientKey || apiClientKey || null);
+        const envLegacyClientKey = (import.meta.env.VITE_TOSS_CLIENT_KEY ?? "").trim();
+        setClientKey(envBillingClientKey || apiClientKey || envLegacyClientKey || null);
       } catch {
         if (!alive) return;
         setClientKey(null);
@@ -238,7 +236,7 @@ export function MyAcademyPageView({
         failUrl,
       });
     } catch (err) {
-      showError(err instanceof Error ? err.message : "카드 등록 창을 열지 못했습니다.");
+      showError(getErrorMessage(err, "카드 등록 창을 열지 못했습니다."));
     }
   };
 
@@ -267,7 +265,7 @@ export function MyAcademyPageView({
       }
       setCancelDialogOpen(false);
     } catch (err) {
-      showError(err instanceof Error ? err.message : "서비스 해지에 실패했습니다.");
+      showError(getErrorMessage(err, "서비스 해지에 실패했습니다."));
     } finally {
       setCanceling(false);
     }
@@ -345,7 +343,7 @@ export function MyAcademyPageView({
         }
         success("카드가 등록되고 요금제가 설정되었습니다.");
       } catch (err) {
-        showError(err instanceof Error ? err.message : "카드 등록에 실패했습니다.");
+        showError(getErrorMessage(err, "카드 등록에 실패했습니다."));
       } finally {
         clean();
       }

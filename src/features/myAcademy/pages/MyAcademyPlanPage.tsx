@@ -337,7 +337,13 @@ export default function MyAcademyPlanPage() {
           ),
         ]);
         if (!alive) return;
-        setClientKey(ck?.clientKey || null);
+        const envClientKey = (
+          import.meta.env.VITE_TOSS_BILLING_CLIENT_KEY ??
+          import.meta.env.VITE_TOSS_CLIENT_KEY ??
+          ""
+        ).trim();
+        const apiClientKey = (ck?.clientKey ?? "").trim();
+        setClientKey(envClientKey || apiClientKey || null);
         setRequireSeller(Boolean(ck?.requireSeller));
         if (academy) {
           setAcademy(academy);

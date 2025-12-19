@@ -190,7 +190,13 @@ export function MyAcademyPageView({
       try {
         const res = await apiGetTossClientKey();
         if (!alive) return;
-        setClientKey(res?.clientKey || null);
+        const envClientKey = (
+          import.meta.env.VITE_TOSS_BILLING_CLIENT_KEY ??
+          import.meta.env.VITE_TOSS_CLIENT_KEY ??
+          ""
+        ).trim();
+        const apiClientKey = (res?.clientKey ?? "").trim();
+        setClientKey(envClientKey || apiClientKey || null);
       } catch {
         if (!alive) return;
         setClientKey(null);

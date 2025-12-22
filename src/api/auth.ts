@@ -115,6 +115,19 @@ export async function apiCheckUsername(
   return { available: res.success };
 }
 
+// EN: Phone number availability check
+// KO: 휴대폰 번호 중복 확인
+export async function apiCheckPhone(phone: string): Promise<{ available: boolean }> {
+  if (import.meta.env.VITE_USE_MOCK === "1") {
+    await delay(150);
+    return { available: !phone.replace(/[^0-9]/g, "").endsWith("0000") };
+  }
+  const res = await fetchJSON<{ success: boolean }>(
+    `/api/auth/check-phone?phone=${encodeURIComponent(phone)}`
+  );
+  return { available: res.success };
+}
+
 // EN: Request phone verification code
 // KO: 휴대폰 인증코드 요청
 export async function apiRequestPhoneCode(

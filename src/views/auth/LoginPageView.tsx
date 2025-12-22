@@ -75,6 +75,11 @@ export function LoginPageView({ form, dialog, findIdModal, resetModal }: UseLogi
             </button>
           </FooterActions>
         </Footer>
+        {/*
+          <DesktopDownloadRow>
+            <Link to="/desktop?auto=1">데스크탑 앱 다운로드</Link>
+          </DesktopDownloadRow>
+        */}
       </LoginCard>
 
       <ConfirmDialog
@@ -235,3 +240,18 @@ const LinkDivider = styled.span`
   background: ${(p) => p.theme.colors.border};
   display: inline-block;
 `;
+
+// const DesktopDownloadRow = styled.div`
+//   margin-top: 18px;
+//   text-align: center;
+//   a {
+//     color: ${(p) => p.theme.colors.textMuted};
+//     font-size: ${(p) => p.theme.font.size.sm};
+//     text-decoration: none;
+//     font-weight: 600;
+//     &:hover {
+//       color: ${(p) => p.theme.colors.text};
+//       text-decoration: underline;
+//     }
+//   }
+// `;

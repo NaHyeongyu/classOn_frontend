@@ -4,6 +4,8 @@ export const routes = {
   home: '/',
   login: '/login',
   register: '/register',
+  // desktopDownload: '/desktop',
+  guide: '/guide',
   myAcademy: '/my-academy',
   myAcademyPlan: '/my-academy/plan',
 

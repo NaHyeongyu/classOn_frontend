@@ -595,8 +595,6 @@ export default function PaymentsCreate() {
                         value={`${form.cycleUnit === "DAYS" ? "D" : form.cycleUnit === "WEEKS" ? "W" : "M"}:${form.cycleValue ?? 1}`}
                         onChange={(event) => handleCycleOptionChange(event.target.value)}
                       >
-                        <option value="D:1">테스트(1일)</option>
-                        <option value="D:2">테스트(2일)</option>
                         <option value="M:1">1개월</option>
                         <option value="M:2">2개월</option>
                         <option value="M:3">3개월</option>

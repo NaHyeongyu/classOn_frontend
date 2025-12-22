@@ -705,6 +705,28 @@ export default function Payments() {
     [onsiteDetail?.info.id, toastError],
   );
 
+  const openOnsiteModalFromDetail = useCallback((detail: PaymentDetail) => {
+    if (!detail?.info?.id) return;
+    const target: PaymentHistoryRow = {
+      id: detail.info.id,
+      status: detail.info.status,
+      originalAmount: detail.info.originalAmount,
+      finalAmount: detail.info.finalAmount,
+      dueDate: detail.info.dueDate,
+      completedAt: detail.info.completedAt,
+      canceledAt: detail.info.canceledAt,
+      paymentMethod: detail.info.paymentMethod,
+      paymentType: detail.info.paymentType,
+      invoiceRequestedAt: detail.info.invoiceRequestedAt,
+      student: detail.student,
+      course: detail.course ?? detail.info.course ?? null,
+    };
+    setOnsiteTarget(target);
+    setOnsiteDetail(detail);
+    setOnsiteDetailLoading(false);
+    setOnsiteModalOpen(true);
+  }, []);
+
   const handleOnsiteButtonClick = (context: "invoice" | "history") => {
     setOnsiteContext(context);
     setOnsiteTarget(null);
@@ -716,6 +738,25 @@ export default function Payments() {
   const handleSelectOnsiteCandidate = (row: PaymentHistoryRow) => {
     setOnsiteSelectorOpen(false);
     openOnsiteModalForRow(row);
+  };
+
+  const handleResendFromDetail = (detail: PaymentDetail) => {
+    if (!detail?.info?.id) return;
+    const row: PaymentHistoryRow = {
+      id: detail.info.id,
+      status: detail.info.status,
+      originalAmount: detail.info.originalAmount,
+      finalAmount: detail.info.finalAmount,
+      dueDate: detail.info.dueDate,
+      completedAt: detail.info.completedAt,
+      canceledAt: detail.info.canceledAt,
+      paymentMethod: detail.info.paymentMethod,
+      paymentType: detail.info.paymentType,
+      invoiceRequestedAt: detail.info.invoiceRequestedAt,
+      student: detail.student,
+      course: detail.course ?? detail.info.course ?? null,
+    };
+    handleHistoryResend(row);
   };
 
   const sectionTitle =
@@ -1254,11 +1295,15 @@ export default function Payments() {
         onSendScheduleNow={handleSendScheduleNow}
         scheduleCancelling={cancelScheduleMutation.isPending}
         scheduleSending={sendScheduleNowMutation.isPending}
+        onOnsitePayment={openOnsiteModalFromDetail}
+        onsiteSubmitting={onsiteMutation.isPending}
+        onResendPayment={handleResendFromDetail}
+        resendSubmitting={resendPrompt.loading}
       />
       <ConfirmModal
         open={deletePrompt.open}
         title="청구서 삭제"
-        description="미발송(대기) 청구서를 삭제할까요? 삭제 후 복구할 수 없습니다."
+        description="미발송 또는 미납 청구서를 삭제할까요? 삭제 후 복구할 수 없습니다."
         confirmText="삭제"
         loading={deleteInvoiceMutation.isPending}
         onClose={() => {

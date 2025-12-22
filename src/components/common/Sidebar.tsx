@@ -21,6 +21,8 @@ type NavItem = {
   lockTitle?: string;
 };
 
+const GUIDE_URL = "https://www.naruinc.net/guide";
+
 export default function Sidebar({ onNavigate }: SidebarProps) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -176,45 +178,60 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
         <ul>
           {items.map((item) => (
             <li key={item.key}>
-              <NavLinkStyled
-                to={item.to}
-                end={item.to === "/"}
-                onClick={() => onNavigate?.()}
-                data-locked={item.locked ? "true" : undefined}
-              >
-                <Icon aria-hidden>{renderIcon(item.key)}</Icon>
-                <Labels>
-                  <span>{item.label}</span>
-                  <em>{item.sub}</em>
-                </Labels>
-                {item.locked ? (
-                  <LockPill title={item.lockTitle ?? "현재 요금제로 이용할 수 없습니다."} aria-label="잠김">
-                    <LockIcon aria-hidden viewBox="0 0 24 24">
-                      <path
-                        d="M7 11V8a5 5 0 0 1 10 0v3"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <rect
-                        x="6"
-                        y="11"
-                        width="12"
-                        height="10"
-                        rx="2"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </LockIcon>
-                    잠김
-                  </LockPill>
-                ) : null}
-              </NavLinkStyled>
+              {item.key === "guide" ? (
+                <ExternalLinkStyled
+                  href={GUIDE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => onNavigate?.()}
+                >
+                  <Icon aria-hidden>{renderIcon(item.key)}</Icon>
+                  <Labels>
+                    <span>{item.label}</span>
+                    <em>{item.sub}</em>
+                  </Labels>
+                </ExternalLinkStyled>
+              ) : (
+                <NavLinkStyled
+                  to={item.to}
+                  end={item.to === "/"}
+                  onClick={() => onNavigate?.()}
+                  data-locked={item.locked ? "true" : undefined}
+                >
+                  <Icon aria-hidden>{renderIcon(item.key)}</Icon>
+                  <Labels>
+                    <span>{item.label}</span>
+                    <em>{item.sub}</em>
+                  </Labels>
+                  {item.locked ? (
+                    <LockPill title={item.lockTitle ?? "현재 요금제로 이용할 수 없습니다."} aria-label="잠김">
+                      <LockIcon aria-hidden viewBox="0 0 24 24">
+                        <path
+                          d="M7 11V8a5 5 0 0 1 10 0v3"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                        <rect
+                          x="6"
+                          y="11"
+                          width="12"
+                          height="10"
+                          rx="2"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </LockIcon>
+                      잠김
+                    </LockPill>
+                  ) : null}
+                </NavLinkStyled>
+              )}
             </li>
           ))}
         </ul>
@@ -581,6 +598,46 @@ const NavLinkStyled = styled(NavLink)`
   }
   &:hover::before { background: rgba(79,70,229,0.35); }
   &[aria-current="page"]::before { background: #4f46e5; }
+`;
+
+const ExternalLinkStyled = styled.a`
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+  border-radius: 10px;
+  padding: 0 10px;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease,
+    border-color 0.15s ease;
+  border: 1px solid transparent;
+  color: #6b7280;
+  background: transparent;
+  outline: none;
+  user-select: none;
+  position: relative;
+
+  &:hover {
+    background: #f5f5f5;
+    color: #111827;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px #e5e7eb inset;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    left: -12px;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 2px;
+    background: transparent;
+    transition: background 0.15s ease;
+  }
+  &:hover::before { background: rgba(79,70,229,0.35); }
 `;
 
 const Icon = styled.span`

@@ -182,6 +182,48 @@ export function StudentPaymentsSection({ studentId, enabled = true, error }: Pro
   const [deletePrompt, setDeletePrompt] = useState<{ open: boolean; id: number | null }>({ open: false, id: null });
   const [cancelPrompt, setCancelPrompt] = useState<{ open: boolean; id: number | null }>({ open: false, id: null });
 
+  const handleResend = (row: PaymentHistoryRow) => {
+    if (row.status === "FAILED") {
+      setResendPrompt({ open: true, row, reason: null, loading: true });
+      getPaymentDetail(row.id)
+        .then((detail) => {
+          const reason =
+            detail.latestAlert?.errorMessage ||
+            detail.alerts?.find((alert) => alert.status === "FAILED")?.errorMessage ||
+            "실패 사유를 확인할 수 없습니다.";
+          setResendPrompt((prev) => ({ ...prev, loading: false, reason }));
+        })
+        .catch(() => {
+          setResendPrompt((prev) => ({
+            ...prev,
+            loading: false,
+            reason: "실패 사유를 불러오지 못했습니다.",
+          }));
+        });
+      return;
+    }
+    navigate(paths.payments.kakaoConfirm({ ids: String(row.id), template: "PAYMENT_RETRY" }));
+  };
+
+  const handleResendFromDetail = (detail: PaymentDetail) => {
+    if (!detail?.info?.id) return;
+    const row: PaymentHistoryRow = {
+      id: detail.info.id,
+      status: detail.info.status,
+      originalAmount: detail.info.originalAmount,
+      finalAmount: detail.info.finalAmount,
+      dueDate: detail.info.dueDate,
+      completedAt: detail.info.completedAt,
+      canceledAt: detail.info.canceledAt,
+      paymentMethod: detail.info.paymentMethod,
+      paymentType: detail.info.paymentType,
+      invoiceRequestedAt: detail.info.invoiceRequestedAt,
+      student: detail.student,
+      course: detail.course ?? detail.info.course ?? null,
+    };
+    handleResend(row);
+  };
+
   const canShowList = Boolean(studentId);
   const invoiceRows = invoiceQuery.data?.content ?? [];
   const invoiceTotalPages = invoiceQuery.data?.totalPages ?? 1;
@@ -236,28 +278,7 @@ export function StudentPaymentsSection({ studentId, enabled = true, error }: Pro
           activeId={activeId}
           variant="pending"
           emptyMessage="미납 내역이 없습니다."
-          onResendClick={(row) => {
-            if (row.status === "FAILED") {
-              setResendPrompt({ open: true, row, reason: null, loading: true });
-              getPaymentDetail(row.id)
-                .then((detail) => {
-                  const reason =
-                    detail.latestAlert?.errorMessage ||
-                    detail.alerts?.find((alert) => alert.status === "FAILED")?.errorMessage ||
-                    "실패 사유를 확인할 수 없습니다.";
-                  setResendPrompt((prev) => ({ ...prev, loading: false, reason }));
-                })
-                .catch(() => {
-                  setResendPrompt((prev) => ({
-                    ...prev,
-                    loading: false,
-                    reason: "실패 사유를 불러오지 못했습니다.",
-                  }));
-                });
-              return;
-            }
-            navigate(paths.payments.kakaoConfirm({ ids: String(row.id), template: "PAYMENT_RETRY" }));
-          }}
+          onResendClick={handleResend}
         />
       </SectionCard>
 
@@ -305,6 +326,8 @@ export function StudentPaymentsSection({ studentId, enabled = true, error }: Pro
         }}
         scheduleCancelling={cancelScheduleMutation.isPending}
         scheduleSending={sendScheduleNowMutation.isPending}
+        onResendPayment={handleResendFromDetail}
+        resendSubmitting={resendPrompt.loading}
       />
 
       <ConfirmModal

@@ -51,11 +51,12 @@ export default function BackButton({
 
 const Btn = styled(GhostButtonSmall)<{ $size: BackButtonSize; $fullWidth: boolean }>`
   gap: 6px;
+  height: 40px;
+  padding: 0 16px;
 
   ${(p) =>
     p.$size === "sm" &&
     css`
-      height: 32px;
       padding: 0 12px;
       font-size: ${p.theme.font.size.sm};
       border-radius: ${p.theme.radii.sm};
@@ -64,7 +65,6 @@ const Btn = styled(GhostButtonSmall)<{ $size: BackButtonSize; $fullWidth: boolea
   ${(p) =>
     p.$size === "lg" &&
     css`
-      height: 48px;
       padding: 0 20px;
     `}
 

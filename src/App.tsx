@@ -24,6 +24,8 @@ const ReportsKakaoConfirm = lazy(() => import("@/pages/ReportsKakaoConfirm"));
 // Payments/Banking routes removed for MVP
 const Login = lazy(() => import("@/pages/Login"));
 const Register = lazy(() => import("@/pages/Register"));
+// const DesktopDownload = lazy(() => import("@/pages/DesktopDownload"));
+const Guide = lazy(() => import("@/pages/Guide"));
 const TeacherHome = lazy(() => import("@/pages/TeacherHome"));
 const TeacherProfile = lazy(() => import("@/pages/TeacherProfile"));
 const TeacherDetail = lazy(() => import("@/pages/TeacherDetail"));
@@ -136,6 +138,7 @@ export default function App() {
       <Route element={<ProtectedLayout />}>
         <Route element={<MainLayout />}>
           <Route path={routes.home} element={<HomeLanding />} />
+          <Route path={routes.guide} element={<Guide />} />
           <Route path={routes.teacherHome} element={<TeacherHome />} />
           <Route path={routes.teacherProfile} element={<TeacherProfile />} />
           <Route path={routes.teacherDetail} element={<TeacherDetail />} />
@@ -194,6 +197,7 @@ export default function App() {
       </Route>
 
       <Route element={<PublicLayout />}>
+        {/* <Route path={routes.desktopDownload} element={<DesktopDownload />} /> */}
         <Route element={<AdminProtectedLayout />}>
           <Route path={routes.admin} element={<Admin />} />
           <Route path={routes.admin + '/logins'} element={<AdminLogins />} />

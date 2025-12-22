@@ -61,12 +61,12 @@ type BillingPlanConfig = {
 };
 
 const TRIAL_BADGE_BY_PLAN_ID: Record<string, string> = {
-  "plan-100-basic": "2월 20일까지 무료",
-  "plan-100-pay": "2월 20일까지 무료",
-  "plan-300-basic": "무료 1개월",
-  "plan-300-pay": "무료 1개월",
-  "plan-500-basic": "무료 2주",
-  "plan-500-pay": "무료 2주",
+  "plan-100-basic": "2월 15일까지 무료",
+  "plan-100-pay": "2월 15일까지 무료",
+  "plan-300-basic": "1월 20일까지 무료",
+  "plan-300-pay": "1월 20일까지 무료",
+  "plan-500-basic": "1월 10일까지 무료",
+  "plan-500-pay": "1월 10일까지 무료",
 };
 
 function getTrialBadge(planId: string) {
@@ -129,7 +129,7 @@ const PLANS: BillingPlanConfig[] = [
   },
   {
     id: "plan-300-basic",
-    name: "Midium Basic",
+    name: "Medium Basic",
     label: "300명 · 결제 기능 없음",
     desc: "중형 학원(최대 300명)을 위한 기본 플랜",
     priceKrw: 18000,
@@ -146,7 +146,7 @@ const PLANS: BillingPlanConfig[] = [
   },
   {
     id: "plan-300-pay",
-    name: "Midium Plus",
+    name: "Medium Plus",
     label: "300명 · 결제 기능 포함",
     desc: "중형 학원의 결제·보고서까지 포함한 플랜",
     priceKrw: 36900,

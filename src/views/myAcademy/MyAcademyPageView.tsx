@@ -132,12 +132,12 @@ export function MyAcademyPageView({
   }, [academy.data]);
 
   const serviceUsableUntil = useMemo(() => {
-    const lastCharge = billing.data?.lastChargeAt ? new Date(billing.data.lastChargeAt) : null;
-    if (!lastCharge || Number.isNaN(lastCharge.getTime())) return null;
-    const until = new Date(lastCharge.getTime());
-    until.setDate(until.getDate() + 30);
+    const endRaw = academy.data?.billingCurrentPeriodEnd;
+    if (!endRaw) return null;
+    const until = new Date(endRaw);
+    if (Number.isNaN(until.getTime())) return null;
     return until;
-  }, [billing.data?.lastChargeAt]);
+  }, [academy.data?.billingCurrentPeriodEnd]);
 
   const serviceUsableUntilLabel = useMemo(() => {
     if (!serviceUsableUntil) return null;
@@ -528,10 +528,10 @@ export function MyAcademyPageView({
                   </ValueRow>
                   {serviceUsableUntilLabel ? (
                     <Hint>
-                      해지 후 <b>{serviceUsableUntilLabel}</b>까지 이용할 수 있어요. (마지막 결제 + 30일)
+                      해지 후 <b>{serviceUsableUntilLabel}</b>까지 이용할 수 있어요. (현재 결제 주기 종료일 기준)
                     </Hint>
                   ) : (
-                    <Hint>해지 후 마지막 결제일 + 30일까지 이용할 수 있어요.</Hint>
+                    <Hint>해지 후 결제 주기 종료일까지 이용할 수 있어요.</Hint>
                   )}
                 </Value>
               </InfoRow>
@@ -654,8 +654,8 @@ export function MyAcademyPageView({
             자동결제가 중단되며, 이후 결제는 진행되지 않습니다.
             {"\n"}
             {serviceUsableUntilLabel
-              ? `마지막 이용 가능일: ${serviceUsableUntilLabel} (마지막 결제 + 30일)`
-              : "마지막 이용 가능일: 마지막 결제일 + 30일"}
+              ? `마지막 이용 가능일: ${serviceUsableUntilLabel} (현재 결제 주기 종료일 기준)`
+              : "마지막 이용 가능일: 결제 주기 종료일까지"}
           </div>
         }
       />
@@ -1130,8 +1130,8 @@ type BillingPlan = { id: string; name: string; priceKrw: number };
 const BILLING_PLANS: BillingPlan[] = [
   { id: "plan-100-basic", name: "Small Basic", priceKrw: 9000 },
   { id: "plan-100-pay", name: "Small Plus", priceKrw: 19900 },
-  { id: "plan-300-basic", name: "Midium Basic", priceKrw: 18000 },
-  { id: "plan-300-pay", name: "Midium Plus", priceKrw: 36900 },
+  { id: "plan-300-basic", name: "Medium Basic", priceKrw: 18000 },
+  { id: "plan-300-pay", name: "Medium Plus", priceKrw: 36900 },
   { id: "plan-500-basic", name: "Large Basic", priceKrw: 27000 },
   { id: "plan-500-pay", name: "Large Plus", priceKrw: 54900 },
 ];

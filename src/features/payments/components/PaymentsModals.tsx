@@ -87,6 +87,10 @@ export type DetailModalProps = {
   onSendScheduleNow?: (detail: PaymentDetail, alertId: number) => void;
   scheduleCancelling?: boolean;
   scheduleSending?: boolean;
+  onOnsitePayment?: (detail: PaymentDetail) => void;
+  onsiteSubmitting?: boolean;
+  onResendPayment?: (detail: PaymentDetail) => void;
+  resendSubmitting?: boolean;
 };
 
 export function DetailModal({
@@ -102,6 +106,10 @@ export function DetailModal({
   onSendScheduleNow,
   scheduleCancelling,
   scheduleSending,
+  onOnsitePayment,
+  onsiteSubmitting,
+  onResendPayment,
+  resendSubmitting,
 }: DetailModalProps) {
   const isOpen = state.open;
   const detail = state.open ? state.data : null;
@@ -374,6 +382,12 @@ export function DetailModal({
               onClose={handleRequestClose}
               onCancelPayment={onCancelPayment}
               canceling={canceling}
+              onDeleteInvoice={onDeleteInvoice}
+              deleting={deleting}
+              onOnsitePayment={onOnsitePayment}
+              onsiteSubmitting={onsiteSubmitting}
+              onResendPayment={onResendPayment}
+              resendSubmitting={resendSubmitting}
               onCancelSchedule={onCancelSchedule}
               onSendScheduleNow={onSendScheduleNow}
             />
@@ -1171,6 +1185,12 @@ function HistoryDetailColumn({
   onClose,
   onCancelPayment,
   canceling,
+  onDeleteInvoice,
+  deleting,
+  onOnsitePayment,
+  onsiteSubmitting,
+  onResendPayment,
+  resendSubmitting,
   onCancelSchedule,
   onSendScheduleNow,
 }: {
@@ -1189,6 +1209,12 @@ function HistoryDetailColumn({
   onClose: () => void;
   onCancelPayment?: (detail: PaymentDetail) => void;
   canceling?: boolean;
+  onDeleteInvoice?: (detail: PaymentDetail) => void;
+  deleting?: boolean;
+  onOnsitePayment?: (detail: PaymentDetail) => void;
+  onsiteSubmitting?: boolean;
+  onResendPayment?: (detail: PaymentDetail) => void;
+  resendSubmitting?: boolean;
   onCancelSchedule?: (detail: PaymentDetail, alertId: number) => void;
   onSendScheduleNow?: (detail: PaymentDetail, alertId: number) => void;
 }) {
@@ -1196,6 +1222,31 @@ function HistoryDetailColumn({
   const dueDate = detail.info.dueDate ?? "";
   const statusCode = detail.info.status;
   const statusText = PAYMENT_STATUS_LABEL[statusCode] ?? statusCode;
+  const canDeleteHistory = Boolean(
+    onDeleteInvoice && (detail.info.status === "PENDING" || detail.info.status === "FAILED"),
+  );
+  const canOnsitePayment = Boolean(onOnsitePayment && detail.info.status === "PENDING");
+  const resendEligible = Boolean(onResendPayment && detail.info.status === "FAILED");
+  const canResendAfter = (requestedAt?: string | null) => {
+    if (!requestedAt) return true;
+    const sent = Date.parse(requestedAt);
+    if (Number.isNaN(sent)) return true;
+    const threeDaysMs = 3 * 24 * 60 * 60 * 1000;
+    return Date.now() - sent >= threeDaysMs;
+  };
+  const resendTooltip = (requestedAt?: string | null) => {
+    if (!requestedAt) return undefined;
+    if (canResendAfter(requestedAt)) return "발송 후 3일이 지나 재발송할 수 있습니다.";
+    const nextTs = Date.parse(requestedAt) + 3 * 24 * 60 * 60 * 1000;
+    if (Number.isNaN(nextTs)) return "발송 후 3일 뒤 재발송 가능합니다.";
+    const nextDate = new Date(nextTs);
+    const y = nextDate.getFullYear();
+    const m = String(nextDate.getMonth() + 1).padStart(2, "0");
+    const d = String(nextDate.getDate()).padStart(2, "0");
+    return `발송 후 3일 뒤(${y}-${m}-${d})부터 재발송 가능합니다.`;
+  };
+  const canResend = resendEligible && canResendAfter(detail.info.invoiceRequestedAt);
+  const resendTitle = resendEligible && !canResend ? resendTooltip(detail.info.invoiceRequestedAt) : undefined;
   const subtitleParts = [
     courseTitle,
     dueDate ? `결제 예정일 ${dueDate}` : "결제 예정일 -",
@@ -1335,6 +1386,36 @@ function HistoryDetailColumn({
         <GhostButton type="button" onClick={onClose}>
           닫기
         </GhostButton>
+        {canDeleteHistory ? (
+          <DangerButton type="button" onClick={() => onDeleteInvoice?.(detail)} disabled={Boolean(deleting)}>
+            {deleting ? "삭제 중..." : "삭제"}
+          </DangerButton>
+        ) : null}
+        {resendEligible ? (
+          <PrimaryButton
+            type="button"
+            onClick={() => {
+              onResendPayment?.(detail);
+              onClose();
+            }}
+            disabled={!canResend || resendSubmitting}
+            title={resendTitle}
+          >
+            {resendSubmitting ? "재발송 중..." : "재발송"}
+          </PrimaryButton>
+        ) : null}
+        {canOnsitePayment ? (
+          <PrimaryButton
+            type="button"
+            onClick={() => {
+              onOnsitePayment?.(detail);
+              onClose();
+            }}
+            disabled={onsiteSubmitting}
+          >
+            {onsiteSubmitting ? "처리 중..." : "현장 결제 처리"}
+          </PrimaryButton>
+        ) : null}
         {canCancelPayment ? (
           <GhostButton type="button" data-variant="danger" onClick={() => onCancelPayment?.(detail)} disabled={canceling}>
             {canceling ? "취소 중..." : "결제 취소"}

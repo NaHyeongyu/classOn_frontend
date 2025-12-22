@@ -363,8 +363,8 @@ export const PlanCard = styled.button`
   flex: 1 0 0;
   min-width: 280px;
   max-width: 340px;
-  background: ${(p) => p.theme.colors.surfaceMuted};
-  border: 1px solid transparent;
+  background: ${(p) => p.theme.colors.surface};
+  border: 1px solid ${(p) => p.theme.colors.border};
   border-radius: 24px;
   padding: 32px;
   text-align: left;
@@ -373,15 +373,17 @@ export const PlanCard = styled.button`
   position: relative;
   display: flex;
   flex-direction: column;
+  box-shadow: ${(p) => p.theme.shadow.low};
 
   &:hover {
     transform: translateY(-4px);
     box-shadow: ${(p) => p.theme.shadow.high};
-    background: ${(p) => p.theme.colors.surface};
+    background: ${(p) => p.theme.colors.surfaceAlt};
+    border-color: ${(p) => p.theme.colors.borderStrong};
   }
 
   &[data-active="true"] {
-    background: #ffffff;
+    background: ${(p) => p.theme.colors.surface};
     border-color: ${(p) => p.theme.colors.primary};
     box-shadow: 0 14px 32px rgba(15, 23, 42, 0.18);
     transform: translateY(-6px);

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   apiCheckBizNo,
+  apiCheckPhone,
   apiCheckUsername,
   apiGetOnboardSettlementStatus,
   apiOnboardComplete,
+  apiRequestPhoneCode,
+  apiVerifyPhoneCode,
 } from "@/api/auth";
 import {
   maskBizNo,
@@ -395,9 +398,19 @@ export function useRegisterFlow(): UseRegisterFlowResult {
       setPhone(safePhone);
       setCodeValue("");
 
-      // TEMP: SMS 인증 흐름 비활성화(전화번호 중복 가입 허용 목적).
-      // NOTE: revert by restoring apiRequestPhoneCode/apiVerifyPhoneCode flow and step=2.
-      setStep(3);
+      try {
+        const phoneCheck = await apiCheckPhone(safePhone);
+        if (!phoneCheck.available) {
+          setStep1Err({ phone: "이미 등록된 휴대폰 번호입니다." });
+          return;
+        }
+        const res = await apiRequestPhoneCode(safePhone);
+        setDevCodeHint(res.code ?? null);
+        setResendCooldown(60);
+        setStep(2);
+      } catch (err) {
+        setError(toErrorMessage(err, "인증 코드 발급에 실패했습니다."));
+      }
     },
     [phoneValue, setPhone]
   );
@@ -413,19 +426,39 @@ export function useRegisterFlow(): UseRegisterFlowResult {
       }
       setPhone(normalizedPhone);
       setStep2Err({});
-
-      // TEMP: SMS 인증 흐름 비활성화(verify step가 노출되더라도 진행 가능).
-      setStep(3);
+      const trimmedCode = codeValue.trim();
+      if (!trimmedCode) {
+        setStep2Err({ code: "인증번호를 입력해 주세요." });
+        return;
+      }
+      try {
+        await apiVerifyPhoneCode(normalizedPhone, trimmedCode);
+        setStep(3);
+      } catch (err) {
+        setStep2Err({ code: "인증번호가 올바르지 않습니다." });
+        setError(toErrorMessage(err, "인증번호가 올바르지 않습니다."));
+      }
     },
-    [phoneValue, setPhone]
+    [codeValue, phoneValue, setPhone]
   );
 
   const handleResendCode = useCallback(async () => {
     setError(null);
     setStep2Err({});
-    // TEMP: SMS 인증 비활성화.
-    setError("현재 휴대폰 문자인증이 비활성화되어 있습니다.");
-  }, []);
+    if (resendCooldown > 0) return;
+    const normalizedPhone = normalizeMobile(phoneValue);
+    if (!normalizedPhone) {
+      setError("휴대폰 번호 형식을 다시 확인해 주세요.");
+      return;
+    }
+    try {
+      const res = await apiRequestPhoneCode(normalizedPhone);
+      setDevCodeHint(res.code ?? null);
+      setResendCooldown(60);
+    } catch (err) {
+      setError(toErrorMessage(err, "인증 코드 재전송에 실패했습니다."));
+    }
+  }, [phoneValue, resendCooldown]);
 
   const backToStep1 = useCallback(() => {
     setStep(1);

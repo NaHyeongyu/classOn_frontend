@@ -103,10 +103,8 @@ function computeNextDueDateFromDay(dueDay: number, base: Date): string {
   return toLocalISODate(target);
 }
 
-type TemplateCycleKey = "D:1" | "D:2" | "M:1" | "M:2" | "M:3" | "M:6" | "M:12";
+type TemplateCycleKey = "M:1" | "M:2" | "M:3" | "M:6" | "M:12";
 const CYCLE_OPTIONS: { value: TemplateCycleKey; label: string }[] = [
-  { value: "D:1", label: "테스트(1일)" },
-  { value: "D:2", label: "테스트(2일)" },
   { value: "M:1", label: "1개월" },
   { value: "M:2", label: "2개월" },
   { value: "M:3", label: "3개월" },

@@ -70,6 +70,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
         { key: "classes", label: "수업관리", sub: "Class Management", to: routes.classes, menuKey: "COURSES" },
         { key: "materials", label: "자료실", sub: "Materials", to: routes.materials, menuKey: "MATERIALS" },
         { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
+        { key: "guide", label: "가이드", sub: "Guide", to: routes.guide },
       ];
       return teacherItems.filter((item) => {
         if (!allowedMenus || !item.menuKey) return true;
@@ -95,6 +96,7 @@ export default function Sidebar({ onNavigate }: SidebarProps) {
       },
       { key: "marketing", label: "마케팅", sub: "Marketing", to: routes.marketing, menuKey: "MARKETING" },
       { key: "feedback", label: "오류/피드백", sub: "Feedback", to: routes.feedback, menuKey: "FEEDBACK" },
+      { key: "guide", label: "가이드", sub: "Guide", to: routes.guide },
     ];
     if (isOwnerOrAdmin) {
       const reportsEntry: NavItem = {
@@ -458,6 +460,15 @@ function renderIcon(key: string) {
           <path d="M8 8h8" />
           <path d="M8 12h6" />
           <path d="M8 16h5" />
+        </svg>
+      );
+    case "guide":
+      return (
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M4 19a2 2 0 0 0 2 2h14" />
+          <path d="M4 5a2 2 0 0 1 2-2h14v18H6a2 2 0 0 1-2-2Z" />
+          <path d="M8 7h8" />
+          <path d="M8 11h8" />
         </svg>
       );
     default:

@@ -1,3 +1,15 @@
+# ClassOn
+
+학원의 학생·수업·출결 등 운영 업무를 관리하는 서비스입니다.
+
+## 기존 서비스 데모 앱
+
+[ClassOn 데모 앱 열기](https://classon-demo.vercel.app/demo)
+
+기존 ClassOn 서비스의 화면과 주요 업무 흐름을 데모 데이터로 확인할 수 있는 앱입니다. 기존 서비스는 현재 일시 중지 상태입니다.
+
+---
+
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
